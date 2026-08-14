@@ -1,5 +1,4 @@
 import { ResultCache, type StorageSource } from './cache';
-import { createCharacterCombobox, type CharacterCombobox } from './character-combobox';
 import { renderCharacterSettings } from './character-settings';
 import {
   aggregateDeckResults,
@@ -99,6 +98,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const cache = new ResultCache(storage, version, 30);
   const catalogByName = new Map(catalog.map((char) => [char.name, char]));
   const decks = Array.from({ length: 5 }, (_, index) => emptyDeck(index + 1));
+  const characterFilters = Array.from({ length: 5 }, () => Array<string>(5).fill(''));
   decks[0]!.squad = initialSquad(catalog);
   let activeDeckId = 1;
   let fiveDeckMode = false;
@@ -166,15 +166,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const resultPanel = element<HTMLElement>(root, '[data-result-panel]');
   const coreToggle = element<HTMLInputElement>(root, '#has-core');
   const corePxInput = element<HTMLInputElement>(root, '#core-px');
-  let openCombobox: CharacterCombobox | null = null;
-  let comboboxes: CharacterCombobox[] = [];
 
   const activeDeck = () => decks[activeDeckId - 1]!;
-
-  const closeOpenCombobox = () => {
-    openCombobox?.close();
-    openCombobox = null;
-  };
 
   const showErrors = (messages: string[]) => {
     errors.replaceChildren();
@@ -192,7 +185,6 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       const count = deck.squad.filter(Boolean).length;
       button.textContent = `덱 ${deck.id}${count ? ` · ${count}` : ''}`;
       button.addEventListener('click', () => {
-        closeOpenCombobox();
         activeDeckId = deck.id;
         renderDeckTabs();
         renderSquad();
@@ -203,9 +195,6 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
   const renderSquad = () => {
     const deck = activeDeck();
-    for (const combobox of comboboxes) combobox.destroy();
-    comboboxes = [];
-    openCombobox = null;
     squadGrid.replaceChildren();
     for (let index = 0; index < 5; index += 1) {
       const name = deck.squad[index] ?? '';
@@ -230,35 +219,71 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       }
       const identity = document.createElement('div');
       identity.className = 'slot-identity';
+
+      const filterLabel = document.createElement('label');
+      filterLabel.className = 'slot-filter';
+      filterLabel.htmlFor = `squad-filter-${index}`;
+      filterLabel.append(createText('span', '필터'));
+      const filter = document.createElement('input');
+      filter.id = `squad-filter-${index}`;
+      filter.type = 'search';
+      filter.placeholder = '이름 검색';
+      filter.autocomplete = 'off';
+      filter.dataset.characterFilter = '';
+      filter.value = characterFilters[deck.id - 1]![index] ?? '';
+      filterLabel.append(filter);
+
       const taken = new Set(deck.squad.filter((member, slot) => slot !== index && member));
-      const combobox = createCharacterCombobox({
-        idPrefix: `squad-${index}`,
-        slotLabel: `스쿼드 슬롯 ${index + 1}`,
-        catalog,
-        selectedName: name,
-        takenNames: taken,
-        baseUrl: import.meta.env.BASE_URL,
-        onOpen: (opened) => {
-          if (openCombobox && openCombobox !== opened) openCombobox.close();
-          openCombobox = opened;
-          card.classList.add('is-selector-open');
-        },
-        onClose: (closed) => {
-          card.classList.remove('is-selector-open');
-          if (openCombobox === closed) openCombobox = null;
-        },
-        onSelect: (selectedName) => {
-        const previous = deck.squad[index] ?? '';
-          deck.squad[index] = selectedName;
-          if (previous && previous !== selectedName) delete deck.characters[previous];
-          showErrors([]);
-          renderDeckTabs();
-          renderSquad();
-          root.querySelector<HTMLButtonElement>(`#squad-${index}`)?.focus();
-        },
+      const select = document.createElement('select');
+      select.id = `squad-${index}`;
+      select.dataset.squadSlot = '';
+      select.ariaLabel = `스쿼드 슬롯 ${index + 1}`;
+
+      const populateOptions = () => {
+        const query = filter.value.trim().toLocaleLowerCase('ko');
+        select.replaceChildren();
+        const empty = document.createElement('option');
+        empty.value = '';
+        empty.textContent = '— 비움 —';
+        select.append(empty);
+        for (const candidate of catalog) {
+          const searchable = [
+            candidate.name,
+            `B${candidate.burstStage}`,
+            candidate.elementCode,
+            candidate.weaponType,
+            candidate.className,
+            candidate.manufacturer,
+          ].join(' ').toLocaleLowerCase('ko');
+          if (query && !searchable.includes(query) && candidate.name !== name) continue;
+          const option = document.createElement('option');
+          option.value = candidate.name;
+          option.textContent = `${candidate.name} · B${candidate.burstStage}`;
+          option.disabled = taken.has(candidate.name);
+          select.append(option);
+        }
+        select.value = name;
+      };
+
+      populateOptions();
+      filter.addEventListener('input', () => {
+        characterFilters[deck.id - 1]![index] = filter.value;
+        populateOptions();
       });
-      comboboxes.push(combobox);
-      identity.append(combobox.element);
+      select.addEventListener('change', () => {
+        const previous = deck.squad[index] ?? '';
+        deck.squad[index] = select.value;
+        if (previous && previous !== select.value) delete deck.characters[previous];
+        showErrors([]);
+        renderDeckTabs();
+        renderSquad();
+      });
+      const meta = createText(
+        'p',
+        char ? `B${char.burstStage} · ${char.elementCode} · ${char.weaponType}` : '빈 슬롯',
+        'char-meta',
+      );
+      identity.append(filterLabel, select, meta);
       top.append(portrait, identity);
       card.append(top);
       if (char) {
@@ -360,7 +385,6 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   };
 
   element<HTMLInputElement>(root, '#squad-mode').addEventListener('change', (event) => {
-    closeOpenCombobox();
     fiveDeckMode = (event.currentTarget as HTMLInputElement).checked;
     activeDeckId = 1;
     deckTabs.hidden = !fiveDeckMode;
@@ -444,8 +468,5 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     }
   });
 
-  return () => {
-    for (const combobox of comboboxes) combobox.destroy();
-    client.dispose();
-  };
+  return () => client.dispose();
 }

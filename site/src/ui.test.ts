@@ -94,25 +94,24 @@ class FakeClient implements CalculatorClientLike {
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-function openCharacterSlot(root: HTMLElement, index: number): HTMLInputElement {
-  const trigger = root.querySelector<HTMLButtonElement>(`#squad-${index}`)!;
-  if (trigger.getAttribute('aria-expanded') !== 'true') trigger.click();
-  return root.querySelector<HTMLInputElement>(`#squad-${index}-search`)!;
+function filterCharacterSlot(root: HTMLElement, index: number, query: string): void {
+  const filter = root.querySelector<HTMLInputElement>(`#squad-filter-${index}`)!;
+  filter.value = query;
+  filter.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
 function chooseCharacter(root: HTMLElement, index: number, name: string): void {
-  const search = openCharacterSlot(root, index);
-  search.value = name;
-  search.dispatchEvent(new Event('input', { bubbles: true }));
-  const option = [...root.querySelectorAll<HTMLElement>('[data-character-option]')]
-    .find((candidate) => candidate.dataset.characterOption === name && candidate.getAttribute('aria-disabled') !== 'true');
-  expect(option, `${name} 선택 옵션`).toBeTruthy();
-  option!.click();
+  filterCharacterSlot(root, index, name);
+  const select = root.querySelector<HTMLSelectElement>(`#squad-${index}`)!;
+  expect(select.querySelector<HTMLOptionElement>(`option[value="${name}"]`)?.disabled).toBe(false);
+  select.value = name;
+  select.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
 function clearCharacterSlot(root: HTMLElement, index: number): void {
-  openCharacterSlot(root, index);
-  root.querySelector<HTMLElement>(`#squad-${index}-option-clear`)!.click();
+  const select = root.querySelector<HTMLSelectElement>(`#squad-${index}`)!;
+  select.value = '';
+  select.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
 describe('calculator UI', () => {
@@ -128,18 +127,30 @@ describe('calculator UI', () => {
     root.remove();
   });
 
-  it('renders five searchable default squad slots with same-deck duplicates disabled', () => {
+  it('renders a local filter above each native dropdown and disables same-deck duplicates', () => {
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
-    const slots = [...root.querySelectorAll<HTMLButtonElement>('[data-squad-slot]')];
+    const filters = [...root.querySelectorAll<HTMLInputElement>('[data-character-filter]')];
+    const slots = [...root.querySelectorAll<HTMLSelectElement>('[data-squad-slot]')];
 
+    expect(filters).toHaveLength(5);
     expect(slots).toHaveLength(5);
-    expect(slots.every((slot) => slot.tagName === 'BUTTON')).toBe(true);
-    expect(slots.map((slot) => slot.querySelector('strong')?.textContent)).toEqual(names.slice(0, 5));
-    const search = openCharacterSlot(root, 1);
-    expect(document.activeElement).toBe(search);
-    expect(root.querySelector('[data-character-option="리타"]')?.getAttribute('aria-disabled')).toBe('true');
+    expect(slots.every((slot) => slot.tagName === 'SELECT')).toBe(true);
+    expect(slots.map((slot) => slot.value)).toEqual(names.slice(0, 5));
+    expect(slots[1]!.querySelector<HTMLOptionElement>('option[value="리타"]')?.disabled).toBe(true);
+    expect(filters[0]!.compareDocumentPosition(slots[0]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(root.querySelector('#character-search')).toBeNull();
     expect(root.querySelector<HTMLAnchorElement>('footer a')?.href).toBe('https://github.com/Moris-kr/nikke-calc');
+  });
+
+  it('filters only the matching slot while preserving its current selection', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    filterCharacterSlot(root, 0, '앨리스');
+
+    const first = root.querySelector<HTMLSelectElement>('#squad-0')!;
+    const second = root.querySelector<HTMLSelectElement>('#squad-1')!;
+    expect([...first.options].map((option) => option.value)).toEqual(['', '리타', '앨리스']);
+    expect(first.value).toBe('리타');
+    expect([...second.options].map((option) => option.value)).toEqual(['', ...names]);
   });
 
   it('keeps five-deck tabs visually hidden until the mode is enabled', () => {
