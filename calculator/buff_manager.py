@@ -115,6 +115,7 @@ _BUFFS_ZERO: dict[str, Any] = {
 # 매핑에 없는 stat은 damage/instant type이거나 타임라인 처리 대상
 _STAT_TO_BUFF: dict[str, str] = {
     "atk_pct":              "atk_pct",
+    "atk_flat":             "atk_flat",
     "def_ignore_pct":       "def_ignore_pct",
     "crit_rate":            "crit_rate",
     "normal_atk_crit_rate": "crit_rate",
@@ -137,9 +138,11 @@ _STAT_TO_BUFF: dict[str, str] = {
     "split_dmg_pct":        "split_dmg_pct",        # 분배 대미지 ▲ (⑥에 합산)
     "part_dmg_pct":         "part_dmg_pct",         # 파츠 대미지 ▲ (⑤ 선택 합산)
     "received_dmg_pct":     "received_dmg",
+    "personal_received_dmg_pct": "received_dmg",
     "element_bonus_pct":    "element_bonus_pct",
     "element_bonus":        "element_bonus_pct",  # 장비·큐브에서 사용하는 stat명 (동일 버프 키로 합산)
     "def_pct":              "def_pct",
+    "personal_enemy_def_down_pct": "enemy_def_down_pct",
     "charge_speed_pct":     "charge_speed_pct",
     "charge_speed_caster_based_pct": "charge_speed_pct",  # _get_value에서 시전자 charge_time 기준 환산
     "charge_time_fixed":    "charge_time_fixed",
@@ -428,6 +431,9 @@ class BuffManager:
             # 소장품 무기군 스킬
             for eff in self._make_collection_effects(char):
                 self._effects.append((eff, name))
+            # 브라우저 고급 설정: 캐릭터 개인에게만 적용되는 영구 수치.
+            for stat, value in char.get("manual_stats", {}).items():
+                self._effects.append((self._make_manual_effect(stat, float(value)), name))
 
         self._build_notify_index()
 
@@ -535,10 +541,14 @@ class BuffManager:
             vals = entry.get("values", {}).get(str(cube_lv))
             if not vals:
                 continue
+            is_ammo_cube = nm == "탄충"
             effects.append({
-                "type": "buff",
+                "type": "instant" if is_ammo_cube else "buff",
                 "name": f"큐브:{nm}",
-                "trigger": {"timing": ["battle_start"], "condition": []},
+                "trigger": {
+                    "timing": ["hit_count:10"] if is_ammo_cube else ["battle_start"],
+                    "condition": [],
+                },
                 "target": "self",
                 "stat": entry["stat"],
                 "polarity": "beneficial",
@@ -547,6 +557,36 @@ class BuffManager:
                 "_source_tag": "cube",
             })
         return effects
+
+    def _make_manual_effect(self, stat: str, value: float) -> dict:
+        """고급 설정 수치를 기존 효과 파이프라인에 맞춘 개인 효과로 변환."""
+        if stat == "ammo_charge_flat":
+            return {
+                "type": "instant",
+                "name": "고급 설정:10발마다 탄환 충전",
+                "trigger": {"timing": ["hit_count:10"], "condition": []},
+                "target": "self",
+                "stat": stat,
+                "polarity": "beneficial",
+                "fixed_value": value,
+                "duration": None,
+                "_source_tag": "manual",
+            }
+        internal_stat = {
+            "received_dmg_pct": "personal_received_dmg_pct",
+            "enemy_def_down_pct": "personal_enemy_def_down_pct",
+        }.get(stat, stat)
+        return {
+            "type": "buff",
+            "name": f"고급 설정:{stat}",
+            "trigger": {"timing": ["battle_start"], "condition": []},
+            "target": "self",
+            "stat": internal_stat,
+            "polarity": "beneficial" if value >= 0 else "harmful",
+            "fixed_value": value,
+            "duration": None,
+            "_source_tag": "manual",
+        }
 
     def _make_collection_effects(self, char: dict) -> list[dict]:
         stage = char["collection_stage"]
@@ -2270,7 +2310,10 @@ class BuffManager:
 
             # received_dmg 계열: 적(target)에게 부여된 것만 ⑥에 반영
             # split_dmg 계열: 아군(caster)에게 부여된 것만 ⑥에 반영
-            if buff_key == "received_dmg":
+            if stat in ("personal_received_dmg_pct", "personal_enemy_def_down_pct"):
+                if not applies_to_caster:
+                    continue
+            elif buff_key == "received_dmg":
                 if not applies_to_target:
                     continue
             elif buff_key == "split_dmg_pct":
