@@ -90,11 +90,12 @@ describe('request normalization', () => {
     expect(cacheKey(raw, 'v1')).not.toBe(cacheKey(raw, 'v2'));
   });
 
-  it('includes overload, cube, and manual character settings in the cache key', () => {
+  it('includes skill, overload, cube, and manual character settings in the cache key', () => {
     const base = {
       ...valid,
       characters: {
         리타: {
+          skillLevels: { '1': 10, '2': 10, '3': 10 },
           overload: { atk_pct: 22.22 },
           cube: { name: '재장' as const, level: 15 },
           manualStats: { split_dmg_pct: 20 },
@@ -102,6 +103,15 @@ describe('request normalization', () => {
       },
     };
 
+    expect(cacheKey(base, 'v1')).not.toBe(cacheKey({
+      ...base,
+      characters: {
+        리타: {
+          ...base.characters.리타,
+          skillLevels: { '1': 9, '2': 10, '3': 10 },
+        },
+      },
+    }, 'v1'));
     expect(cacheKey(base, 'v1')).not.toBe(cacheKey({
       ...base,
       characters: {
@@ -147,6 +157,18 @@ describe('multi-deck model', () => {
     expect(requestForDeck(deck(1, ['리타']), { ...battle, coreEnabled: true })).toMatchObject({
       corePx: 52,
     });
+  });
+
+  it('preserves independent character skill levels in each deck request', () => {
+    const first = deck(1, ['리타']);
+    first.characters.리타 = { skillLevels: { '1': 4, '2': 6, '3': 8 } };
+    const second = deck(2, ['리타']);
+    second.characters.리타 = { skillLevels: { '1': 7, '2': 9, '3': 10 } };
+
+    expect(requestForDeck(first, battle).characters?.리타?.skillLevels)
+      .toEqual({ '1': 4, '2': 6, '3': 8 });
+    expect(requestForDeck(second, battle).characters?.리타?.skillLevels)
+      .toEqual({ '1': 7, '2': 9, '3': 10 });
   });
 
   it('resets enemy values without changing battle duration or seed', () => {

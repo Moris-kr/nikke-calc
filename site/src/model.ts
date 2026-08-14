@@ -41,9 +41,11 @@ function normalizeCharacters(
   for (const name of squad) {
     const value = raw?.[name];
     if (!value) continue;
+    const skillLevels = value.skillLevels ? { ...value.skillLevels } : undefined;
     const overload = normalizeRecord(value.overload);
     const manualStats = normalizeRecord(value.manualStats);
     const normalized: CharacterOverrides = {
+      ...(skillLevels ? { skillLevels } : {}),
       ...(overload ? { overload } : {}),
       ...(value.cube ? {
         cube: { name: value.cube.name, level: Math.trunc(value.cube.level) },

@@ -27,6 +27,8 @@ const catalog: CharacterMeta[] = [
 const cubeLevels = { '15': { atk: 2780, def: 552, hp: 83400, effect: 10, commonElement: 19.09 } };
 const settings: SettingsCatalog = {
   characters: Object.fromEntries(names.map((name) => [name, {
+    skillLevels: { '1': 10, '2': 10, '3': 10 },
+    skillLevelsLocked: false,
     overload: {
       element_bonus: 88.6,
       atk_pct: 22.22,
@@ -322,22 +324,100 @@ describe('calculator UI', () => {
     const attack = root.querySelector<HTMLInputElement>('[data-slot-card="0"] [data-overload-key="atk_pct"]')!;
     attack.value = '40';
     attack.dispatchEvent(new Event('input'));
+    const skillOne = root.querySelector<HTMLSelectElement>('[data-slot-card="0"] [data-skill-level="1"]')!;
+    skillOne.value = '4';
+    skillOne.dispatchEvent(new Event('change'));
 
     root.querySelector<HTMLFormElement>('form')!.requestSubmit();
     await flush();
 
     expect(client.lastRequest?.characters?.리타?.overload?.atk_pct).toBe(40);
+    expect(client.lastRequest?.characters?.리타?.skillLevels).toEqual({ '1': 4, '2': 10, '3': 10 });
+  });
+
+  it('blocks released skill levels outside the integer 1-to-10 range', async () => {
+    const client = new FakeClient();
+    mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });
+    const toggle = root.querySelector<HTMLInputElement>('[data-slot-card="0"] [data-custom-toggle]')!;
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event('change'));
+    const skillOne = root.querySelector<HTMLSelectElement>('[data-slot-card="0"] [data-skill-level="1"]')!;
+    skillOne.value = '0';
+    skillOne.dispatchEvent(new Event('change'));
+
+    root.querySelector<HTMLFormElement>('form')!.requestSubmit();
+    await flush();
+
+    expect(root.querySelector('[data-errors]')?.textContent)
+      .toContain('덱 1 · 리타: 스킬 레벨은 1~10 정수여야 합니다.');
+    expect(client.simulateCalls).toBe(0);
+  });
+
+  it('blocks forged non-ten levels for a locked preview character', async () => {
+    const client = new FakeClient();
+    const previewName = '아마기 유키코';
+    const previewCatalog: CharacterMeta[] = [...catalog, {
+      name: previewName,
+      burstStage: '3',
+      elementCode: '작열',
+      weaponType: 'MG',
+      className: '화력형',
+      manufacturer: '미상',
+      preview: true,
+      image: null,
+    }];
+    const previewSettings: SettingsCatalog = {
+      ...settings,
+      characters: {
+        ...settings.characters,
+        [previewName]: {
+          ...settings.characters.리타!,
+          skillLevels: { '1': 9, '2': 10, '3': 10 },
+          skillLevelsLocked: true,
+        },
+      },
+    };
+    mountCalculator(root, {
+      catalog: previewCatalog,
+      settings: previewSettings,
+      version: 'v1',
+      client,
+      storage: localStorage,
+    });
+    chooseCharacter(root, 0, previewName);
+    const toggle = root.querySelector<HTMLInputElement>('[data-slot-card="0"] [data-custom-toggle]')!;
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event('change'));
+
+    root.querySelector<HTMLFormElement>('form')!.requestSubmit();
+    await flush();
+
+    expect(root.querySelector('[data-errors]')?.textContent)
+      .toContain(`덱 1 · ${previewName}: 수치 미공개 캐릭터는 스킬 Lv10만 사용할 수 있습니다.`);
+    expect(client.simulateCalls).toBe(0);
   });
 
   it('runs non-empty decks sequentially and allows cross-deck duplicates', async () => {
     const client = new FakeClient();
     mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });
     root.querySelector<HTMLInputElement>('#duration')!.value = '10';
+    let toggle = root.querySelector<HTMLInputElement>('[data-slot-card="0"] [data-custom-toggle]')!;
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event('change'));
+    let skillOne = root.querySelector<HTMLSelectElement>('[data-slot-card="0"] [data-skill-level="1"]')!;
+    skillOne.value = '4';
+    skillOne.dispatchEvent(new Event('change'));
     const mode = root.querySelector<HTMLInputElement>('#squad-mode')!;
     mode.checked = true;
     mode.dispatchEvent(new Event('change'));
     root.querySelector<HTMLButtonElement>('[data-deck-tab="2"]')!.click();
     chooseCharacter(root, 0, '리타');
+    toggle = root.querySelector<HTMLInputElement>('[data-slot-card="0"] [data-custom-toggle]')!;
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event('change'));
+    skillOne = root.querySelector<HTMLSelectElement>('[data-slot-card="0"] [data-skill-level="1"]')!;
+    skillOne.value = '7';
+    skillOne.dispatchEvent(new Event('change'));
 
     root.querySelector<HTMLFormElement>('form')!.requestSubmit();
     await flush();
@@ -346,6 +426,8 @@ describe('calculator UI', () => {
     expect(client.requests).toHaveLength(2);
     expect(client.requests[0]?.squad).toContain('리타');
     expect(client.requests[1]?.squad).toEqual(['리타']);
+    expect(client.requests[0]?.characters?.리타?.skillLevels?.['1']).toBe(4);
+    expect(client.requests[1]?.characters?.리타?.skillLevels?.['1']).toBe(7);
     expect(root.querySelectorAll('[data-deck-result]')).toHaveLength(2);
     expect(root.querySelector('[data-batch-total]')?.textContent).toContain('246,912');
     expect(root.querySelector('[data-status]')?.textContent).toContain('2개 덱 계산 완료');

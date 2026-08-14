@@ -155,7 +155,6 @@ git commit -m "feat: edit character skill levels"
 **Files:**
 - Modify: `site/src/model.test.ts`
 - Modify: `site/src/model.ts`
-- Modify: `site/src/cache.test.ts`
 - Modify: `site/src/ui.test.ts`
 - Modify: `site/src/ui.ts`
 
@@ -163,21 +162,21 @@ git commit -m "feat: edit character skill levels"
 - Preserves `skillLevels` in `requestForDeck()` and its JSON cache key.
 - Rejects non-integer/out-of-range values and any non-10 locked-character state before simulation.
 
-- [ ] **Step 1: Write failing model and UI tests**
+- [x] **Step 1: Write failing model and UI tests**
 
 Assert that request normalization retains exact levels, changing any one level changes the cache key, and the same character in separate decks can carry different values. In UI tests, change a select and confirm the worker request; inject invalid released and locked overrides and confirm simulation is blocked with a character-specific Korean error.
 
-- [ ] **Step 2: Run focused tests and confirm red**
+- [x] **Step 2: Run focused tests and confirm red**
 
 Run: `cd site && npm test -- --run src/model.test.ts src/cache.test.ts src/ui.test.ts`
 
 Expected: FAIL because normalization drops `skillLevels` and UI validation ignores it.
 
-- [ ] **Step 3: Implement immutable normalization and validation**
+- [x] **Step 3: Implement immutable normalization and validation**
 
 Copy all three skill keys without truncating invalid inputs away, so validation can report them. Validate exact keys and integer range 1–10 in the UI; additionally require 10/10/10 when `settings.characters[name].skillLevelsLocked` is true. Keep character objects isolated by deck and let the existing normalized request JSON provide cache separation.
 
-- [ ] **Step 4: Run focused and full frontend tests**
+- [x] **Step 4: Run focused and full frontend tests**
 
 Run: `cd site && npm test -- --run src/model.test.ts src/cache.test.ts src/ui.test.ts`
 
@@ -185,10 +184,10 @@ Run: `cd site && npm test -- --run`
 
 Expected: all frontend tests PASS.
 
-- [ ] **Step 5: Commit browser integration**
+- [x] **Step 5: Commit browser integration**
 
 ```bash
-git add site/src/model.ts site/src/model.test.ts site/src/cache.test.ts site/src/ui.ts site/src/ui.test.ts
+git add site/src/model.ts site/src/model.test.ts site/src/ui.ts site/src/ui.test.ts
 git commit -m "feat: validate skill levels in browser"
 ```
 

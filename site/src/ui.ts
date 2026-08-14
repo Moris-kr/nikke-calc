@@ -323,6 +323,18 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const validateCharacterValues = (deck: DeckState): string[] => {
     const messages: string[] = [];
     for (const [name, custom] of Object.entries(deck.characters)) {
+      if (custom.skillLevels) {
+        const keys = Object.keys(custom.skillLevels);
+        const hasExactKeys = keys.length === 3
+          && keys.every((key) => key === '1' || key === '2' || key === '3');
+        const values = Object.values(custom.skillLevels);
+        if (!hasExactKeys || values.some((value) => !Number.isInteger(value) || value < 1 || value > 10)) {
+          messages.push(`덱 ${deck.id} · ${name}: 스킬 레벨은 1~10 정수여야 합니다.`);
+        } else if (settings.characters[name]?.skillLevelsLocked
+          && values.some((value) => value !== 10)) {
+          messages.push(`덱 ${deck.id} · ${name}: 수치 미공개 캐릭터는 스킬 Lv10만 사용할 수 있습니다.`);
+        }
+      }
       for (const [key, value] of Object.entries(custom.overload ?? {})) {
         const meta = settings.overloadFields[key];
         if (!meta || !Number.isFinite(value) || value < meta.min || value > meta.max) {
