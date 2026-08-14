@@ -229,6 +229,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       filter.type = 'search';
       filter.placeholder = '이름 검색';
       filter.autocomplete = 'off';
+      filter.ariaLabel = `스쿼드 슬롯 ${index + 1} 캐릭터 필터`;
       filter.dataset.characterFilter = '';
       filter.value = characterFilters[deck.id - 1]![index] ?? '';
       filterLabel.append(filter);

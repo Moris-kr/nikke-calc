@@ -15,16 +15,14 @@ import type {
 } from './types';
 
 const names = ['리타', '크라운', '라피 : 레드 후드', '앨리스', '나가', '프리바티'];
-const catalog: CharacterMeta[] = names.map((name, index) => ({
-  name,
-  burstStage: String((index % 3) + 1),
-  elementCode: '철갑',
-  weaponType: 'AR',
-  className: '지원형',
-  manufacturer: '테트라',
-  preview: false,
-  image: `characters/${index + 1}.webp`,
-}));
+const catalog: CharacterMeta[] = [
+  { name: '리타', burstStage: '1', elementCode: '철갑', weaponType: 'SMG', className: '지원형', manufacturer: '미실리스', preview: false, image: 'characters/1.webp' },
+  { name: '크라운', burstStage: '2', elementCode: '철갑', weaponType: 'MG', className: '방어형', manufacturer: '필그림', preview: false, image: 'characters/2.webp' },
+  { name: '라피 : 레드 후드', burstStage: '3', elementCode: '작열', weaponType: 'MG', className: '화력형', manufacturer: '엘리시온', preview: false, image: 'characters/3.webp' },
+  { name: '앨리스', burstStage: '3', elementCode: '수냉', weaponType: 'SR', className: '화력형', manufacturer: '테트라', preview: false, image: 'characters/4.webp' },
+  { name: '나가', burstStage: '2', elementCode: '전격', weaponType: 'SG', className: '지원형', manufacturer: '미실리스', preview: false, image: 'characters/5.webp' },
+  { name: '프리바티', burstStage: '3', elementCode: '수냉', weaponType: 'AR', className: '화력형', manufacturer: '엘리시온', preview: false, image: 'characters/6.webp' },
+];
 
 const cubeLevels = { '15': { atk: 2780, def: 552, hp: 83400, effect: 10, commonElement: 19.09 } };
 const settings: SettingsCatalog = {
@@ -138,6 +136,13 @@ describe('calculator UI', () => {
     expect(slots.map((slot) => slot.value)).toEqual(names.slice(0, 5));
     expect(slots[1]!.querySelector<HTMLOptionElement>('option[value="리타"]')?.disabled).toBe(true);
     expect(filters[0]!.compareDocumentPosition(slots[0]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(filters.map((filter) => filter.getAttribute('aria-label'))).toEqual([
+      '스쿼드 슬롯 1 캐릭터 필터',
+      '스쿼드 슬롯 2 캐릭터 필터',
+      '스쿼드 슬롯 3 캐릭터 필터',
+      '스쿼드 슬롯 4 캐릭터 필터',
+      '스쿼드 슬롯 5 캐릭터 필터',
+    ]);
     expect(root.querySelector('#character-search')).toBeNull();
     expect(root.querySelector<HTMLAnchorElement>('footer a')?.href).toBe('https://github.com/Moris-kr/nikke-calc');
   });
@@ -151,6 +156,43 @@ describe('calculator UI', () => {
     expect([...first.options].map((option) => option.value)).toEqual(['', '리타', '앨리스']);
     expect(first.value).toBe('리타');
     expect([...second.options].map((option) => option.value)).toEqual(['', ...names]);
+  });
+
+  it.each([
+    ['B2', ['', '리타', '크라운', '나가']],
+    ['수냉', ['', '리타', '앨리스', '프리바티']],
+    ['mg', ['', '리타', '크라운', '라피 : 레드 후드']],
+    ['화력형', ['', '리타', '라피 : 레드 후드', '앨리스', '프리바티']],
+    ['엘리시온', ['', '리타', '라피 : 레드 후드', '프리바티']],
+    ['sR', ['', '리타', '앨리스']],
+  ])('filters by character metadata query %s case-insensitively', (query, expected) => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    filterCharacterSlot(root, 0, query);
+
+    const values = [...root.querySelector<HTMLSelectElement>('#squad-0')!.options]
+      .map((option) => option.value);
+    expect(values).toEqual(expected);
+  });
+
+  it('preserves independent filter text across selection rerenders, slots, and decks', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    chooseCharacter(root, 0, '프리바티');
+    filterCharacterSlot(root, 1, '리타');
+
+    const mode = root.querySelector<HTMLInputElement>('#squad-mode')!;
+    mode.checked = true;
+    mode.dispatchEvent(new Event('change'));
+    root.querySelector<HTMLButtonElement>('[data-deck-tab="2"]')!.click();
+    filterCharacterSlot(root, 0, '앨리스');
+
+    root.querySelector<HTMLButtonElement>('[data-deck-tab="1"]')!.click();
+    expect(root.querySelector<HTMLInputElement>('#squad-filter-0')!.value).toBe('프리바티');
+    expect(root.querySelector<HTMLSelectElement>('#squad-0')!.value).toBe('프리바티');
+    expect(root.querySelector<HTMLInputElement>('#squad-filter-1')!.value).toBe('리타');
+
+    root.querySelector<HTMLButtonElement>('[data-deck-tab="2"]')!.click();
+    expect(root.querySelector<HTMLInputElement>('#squad-filter-0')!.value).toBe('앨리스');
+    expect(root.querySelector<HTMLInputElement>('#squad-filter-1')!.value).toBe('');
   });
 
   it('keeps five-deck tabs visually hidden until the mode is enabled', () => {
