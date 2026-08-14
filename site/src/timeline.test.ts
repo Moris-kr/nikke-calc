@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { buildTimelineSvg, createTimelineBlock } from './timeline';
+import { buildSeries, createTimelineBlock, niceMax } from './timeline';
 import type { BattleTimeline, DeckResultEntry } from './types';
 
 const timeline: BattleTimeline = {
@@ -41,36 +41,47 @@ const entry: DeckResultEntry = {
   },
 };
 
-describe('buildTimelineSvg', () => {
-  it('draws a lane label and burst marker for each squad member', () => {
-    const svg = buildTimelineSvg(timeline, ['라피', '크라운'], 4);
-    expect(svg).toContain('<svg');
-    expect(svg).toContain('라피');
-    expect(svg).toContain('크라운');
-    // 풀버스트 밴드 1개
-    expect(svg).toContain('풀버스트 1~3s');
-    // 라피는 대미지가 있어 area path가 그려지고, 버스트 마커 title이 붙는다
-    expect(svg).toContain('1.5s · 1버스트');
-    // 크라운은 전 구간 0이라 area 없이 baseline만
-    expect((svg.match(/<path /g) ?? []).length).toBeGreaterThanOrEqual(2);
+describe('buildSeries', () => {
+  it('collects per-character totals, colors, and the shared peak', () => {
+    const series = buildSeries(timeline, ['라피', '크라운'], 4);
+    expect(series).not.toBeNull();
+    expect(series?.names).toEqual(['라피', '크라운']);
+    expect(series?.totals).toEqual({ 라피: 350, 크라운: 0 });
+    expect(series?.peak).toBe(200);
+    expect(series?.colors['라피']).not.toEqual(series?.colors['크라운']);
   });
 
-  it('returns empty string when there are no buckets', () => {
-    expect(buildTimelineSvg({ ...timeline, buckets: 0 }, ['라피'], 4)).toBe('');
+  it('returns null when there are no buckets or no matching members', () => {
+    expect(buildSeries({ ...timeline, buckets: 0 }, ['라피'], 4)).toBeNull();
+    expect(buildSeries(timeline, ['없는캐릭'], 4)).toBeNull();
   });
+});
 
-  it('ignores squad names without timeline damage data', () => {
-    const svg = buildTimelineSvg(timeline, ['없는캐릭'], 4);
-    expect(svg).toBe('');
+describe('niceMax', () => {
+  it('rounds a peak up to a clean axis maximum', () => {
+    expect(niceMax(0)).toBe(1);
+    expect(niceMax(200)).toBe(200);
+    expect(niceMax(230)).toBe(250);
+    expect(niceMax(1_800_000)).toBe(2_000_000);
   });
 });
 
 describe('createTimelineBlock', () => {
-  it('builds a timeline block element from a deck result', () => {
+  it('builds an interactive block with canvas, zoom controls, and legend', () => {
     const block = createTimelineBlock(entry);
     expect(block).not.toBeNull();
-    expect(block?.querySelector('svg')).not.toBeNull();
+    expect(block?.querySelector('canvas.timeline-canvas')).not.toBeNull();
+    expect(block?.querySelectorAll('.timeline-btn').length).toBe(3);
+    expect(block?.querySelectorAll('.timeline-legend-item').length).toBe(2);
     expect(block?.querySelector('.timeline-heading')?.textContent).toContain('초당 대미지');
+  });
+
+  it('toggles a series off when its legend item is clicked', () => {
+    const block = createTimelineBlock(entry)!;
+    const item = block.querySelector<HTMLButtonElement>('.timeline-legend-item')!;
+    expect(item.classList.contains('is-off')).toBe(false);
+    item.click();
+    expect(item.classList.contains('is-off')).toBe(true);
   });
 
   it('returns null when the result has no timeline', () => {
