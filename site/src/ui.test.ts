@@ -1,9 +1,12 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import type { StorageLike } from './cache';
 import { mountCalculator, type CalculatorClientLike } from './ui';
+import './styles.css';
 import type {
   CharacterMeta,
   SettingsCatalog,
@@ -112,6 +115,15 @@ describe('calculator UI', () => {
     expect(slots.map((slot) => slot.value)).toEqual(names.slice(0, 5));
     expect(slots[1]!.querySelector<HTMLOptionElement>('option[value="리타"]')?.disabled).toBe(true);
     expect(root.querySelector<HTMLAnchorElement>('footer a')?.href).toBe('https://github.com/Moris-kr/nikke-calc');
+  });
+
+  it('keeps five-deck tabs visually hidden until the mode is enabled', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const tabs = root.querySelector<HTMLElement>('[data-deck-tabs]')!;
+    expect(tabs.hidden).toBe(true);
+    expect(getComputedStyle(tabs).display).toBe('none');
+    const css = readFileSync(join(import.meta.dirname, 'styles.css'), 'utf8');
+    expect(css).toMatch(/\[hidden\]\s*\{\s*display:\s*none\s*!important;/);
   });
 
   it('shows validation errors without running the calculator', async () => {
