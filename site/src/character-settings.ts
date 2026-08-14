@@ -15,6 +15,7 @@ const skillLabels: Array<[keyof SkillLevels, string]> = [
 const numberText = (value: number, digits = 2): string => value.toFixed(digits);
 
 const cloneOverrides = (value: CharacterOverrides): CharacterOverrides => ({
+  ...(value.growthStage !== undefined ? { growthStage: value.growthStage } : {}),
   ...(value.skillLevels ? { skillLevels: { ...value.skillLevels } } : {}),
   ...(value.overload ? { overload: { ...value.overload } } : {}),
   ...(value.cube ? { cube: { ...value.cube } } : {}),
@@ -28,6 +29,7 @@ export function defaultCharacterOverrides(
   const defaults = catalog.characters[name];
   if (!defaults) throw new Error(`${name}: 기본 장비 설정을 찾을 수 없습니다.`);
   return {
+    growthStage: defaults.growthStage,
     skillLevels: { ...defaults.skillLevels },
     overload: { ...defaults.overload },
     cube: { ...defaults.cube },
@@ -53,10 +55,14 @@ function summaryText(name: string, catalog: SettingsCatalog, value?: CharacterOv
   const skillLevels = value?.skillLevels ?? defaults.skillLevels;
   const overload = value?.overload ?? defaults.overload;
   const cube = value?.cube ?? defaults.cube;
+  const growthStage = value?.growthStage ?? defaults.growthStage;
+  const growth = defaults.growthOptions.find((option) => option.value === growthStage)
+    ?? { value: growthStage, label: `단계 ${growthStage}`, affinity: 0 };
   const skillSummary = defaults.skillLevelsLocked
     ? '수치 미공개 · Lv10 고정'
     : `스킬 ${skillLevels['1']} / ${skillLevels['2']} / ${skillLevels['3']}`;
-  return `${value ? '개별값' : '기본값'} · ${skillSummary} · 우코 ${numberText(overload.element_bonus ?? 0)} · `
+  return `${value ? '개별값' : '기본값'} · ${growth.label} · 호감도 ${growth.affinity} · ${skillSummary} · `
+    + `우코 ${numberText(overload.element_bonus ?? 0)} · `
     + `공증 ${numberText(overload.atk_pct ?? 0)} · 장탄 ${numberText(overload.max_ammo_pct ?? 0)} · `
     + `${cube.name} Lv${cube.level}`;
 }
@@ -101,6 +107,7 @@ export function renderCharacterSettings(
   let current = cloneOverrides(value);
   const defaults = catalog.characters[name];
   if (!defaults) return;
+  current.growthStage ??= defaults.growthStage;
   current.skillLevels ??= { ...defaults.skillLevels };
   current.overload ??= { ...defaults.overload };
   current.cube ??= { ...defaults.cube };
@@ -114,6 +121,29 @@ export function renderCharacterSettings(
   const body = document.createElement('div');
   body.className = 'character-settings-body';
   body.dataset.characterSettingsBody = '';
+
+  const growthEditor = document.createElement('section');
+  growthEditor.className = 'growth-editor';
+  const growthHeading = document.createElement('h4');
+  growthHeading.textContent = `돌파 · 코어 강화 (${defaults.rarity})`;
+  const growthSelect = document.createElement('select');
+  growthSelect.dataset.growthStage = '';
+  for (const growth of defaults.growthOptions) {
+    const option = document.createElement('option');
+    option.value = String(growth.value);
+    option.textContent = growth.label;
+    growthSelect.append(option);
+  }
+  growthSelect.value = String(current.growthStage);
+  growthSelect.addEventListener('change', () => {
+    const next = cloneOverrides(current);
+    next.growthStage = Number(growthSelect.value);
+    commit(next);
+  });
+  const growthNote = document.createElement('p');
+  growthNote.textContent = '호감도는 돌파별 최대치로 적용합니다.';
+  growthEditor.append(growthHeading, growthSelect, growthNote);
+  body.append(growthEditor);
 
   const skillEditor = document.createElement('section');
   skillEditor.className = 'skill-level-editor';
