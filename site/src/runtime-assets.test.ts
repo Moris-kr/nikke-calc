@@ -56,22 +56,22 @@ describe('generated browser runtime', () => {
     };
 
     expect(Object.keys(settings.cubes)).toEqual(['재장', '탄충', '체력', '차속', '파츠']);
-    expect(settings.cubes['재장'].levels['1']).toMatchObject({
+    expect(settings.cubes['재장']!.levels['1']).toMatchObject({
       atk: 390,
       def: 78,
       hp: 11_800,
       effect: 14.84,
       commonElement: 0,
     });
-    expect(settings.cubes['탄충'].levels['15']).toMatchObject({
+    expect(settings.cubes['탄충']!.levels['15']).toMatchObject({
       atk: 2_780,
       def: 552,
       hp: 83_400,
       effect: 3,
       commonElement: 19.09,
     });
-    expect(settings.characters['미하라 : 본딩 체인'].overload.atk_pct).toBe(23.22);
-    expect(settings.characters['미하라 : 본딩 체인'].cube).toEqual({ name: '재장', level: 15 });
+    expect(settings.characters['미하라 : 본딩 체인']!.overload.atk_pct).toBe(23.22);
+    expect(settings.characters['미하라 : 본딩 체인']!.cube).toEqual({ name: '재장', level: 15 });
     expect(settings.overloadFields.element_bonus).toMatchObject({
       label: '우월 코드 대미지',
       unit: '%',

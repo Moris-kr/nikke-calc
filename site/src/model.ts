@@ -1,11 +1,21 @@
-import type { SimulationRequest } from './types';
+import type {
+  BatchResult,
+  BattleSettings,
+  CharacterOverrides,
+  DeckResultEntry,
+  DeckState,
+  SimulationRequest,
+} from './types';
 
 const integerInRange = (value: number, min: number, max: number): boolean =>
   Number.isInteger(value) && value >= min && value <= max;
 
 export function normalizeRequest(request: SimulationRequest): SimulationRequest {
+  const squad = request.squad.map((name) => name.trim()).filter(Boolean);
+  const characters = normalizeCharacters(request.characters, squad);
   return {
-    squad: request.squad.map((name) => name.trim()).filter(Boolean),
+    squad,
+    ...(Object.keys(characters).length > 0 ? { characters } : {}),
     duration: Math.trunc(request.duration),
     enemyDef: Math.trunc(request.enemyDef),
     enemyCode: request.enemyCode,
@@ -13,6 +23,36 @@ export function normalizeRequest(request: SimulationRequest): SimulationRequest 
     hasParts: Boolean(request.hasParts),
     seed: Math.trunc(request.seed),
   };
+}
+
+function normalizeRecord(values: Record<string, number> | undefined): Record<string, number> | undefined {
+  if (!values) return undefined;
+  const entries = Object.entries(values)
+    .filter(([, value]) => Number.isFinite(value))
+    .sort(([left], [right]) => left.localeCompare(right));
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+}
+
+function normalizeCharacters(
+  raw: Record<string, CharacterOverrides> | undefined,
+  squad: string[],
+): Record<string, CharacterOverrides> {
+  const result: Record<string, CharacterOverrides> = {};
+  for (const name of squad) {
+    const value = raw?.[name];
+    if (!value) continue;
+    const overload = normalizeRecord(value.overload);
+    const manualStats = normalizeRecord(value.manualStats);
+    const normalized: CharacterOverrides = {
+      ...(overload ? { overload } : {}),
+      ...(value.cube ? {
+        cube: { name: value.cube.name, level: Math.trunc(value.cube.level) },
+      } : {}),
+      ...(manualStats ? { manualStats } : {}),
+    };
+    if (Object.keys(normalized).length > 0) result[name] = normalized;
+  }
+  return result;
 }
 
 export function validateRequest(request: SimulationRequest): string[] {
@@ -46,6 +86,56 @@ export function validateRequest(request: SimulationRequest): string[] {
 export function cacheKey(request: SimulationRequest, version: string): string {
   const normalized = normalizeRequest(request);
   return JSON.stringify({ version, ...normalized });
+}
+
+export function validateDecks(decks: DeckState[]): string[] {
+  const errors: string[] = [];
+  const nonEmpty = decks.filter((deck) => deck.squad.some((name) => name.trim()));
+  if (nonEmpty.length === 0) {
+    errors.push('캐릭터가 편성된 덱이 하나 이상 필요합니다.');
+    return errors;
+  }
+  for (const deck of nonEmpty) {
+    const names = deck.squad.map((name) => name.trim()).filter(Boolean);
+    if (names.length > 5) {
+      errors.push(`덱 ${deck.id}: 캐릭터는 최대 5명까지 편성할 수 있습니다.`);
+    }
+    if (new Set(names).size !== names.length) {
+      errors.push(`덱 ${deck.id}: 같은 캐릭터를 두 번 편성할 수 없습니다.`);
+    }
+  }
+  return errors;
+}
+
+export function requestForDeck(deck: DeckState, battle: BattleSettings): SimulationRequest {
+  return normalizeRequest({
+    squad: deck.squad,
+    characters: deck.characters,
+    duration: battle.duration,
+    enemyDef: battle.enemyDef,
+    enemyCode: battle.enemyCode,
+    corePx: battle.coreEnabled ? battle.corePx : 0,
+    hasParts: battle.hasParts,
+    seed: battle.seed,
+  });
+}
+
+export function resetEnemy(battle: BattleSettings): BattleSettings {
+  return {
+    ...battle,
+    enemyDef: 31_784,
+    enemyCode: '',
+    coreEnabled: false,
+    corePx: 52,
+    hasParts: false,
+  };
+}
+
+export function aggregateDeckResults(decks: DeckResultEntry[]): BatchResult {
+  return {
+    total: decks.reduce((sum, entry) => sum + entry.result.squadTotal, 0),
+    decks,
+  };
 }
 
 export function formatDamage(value: number): string {

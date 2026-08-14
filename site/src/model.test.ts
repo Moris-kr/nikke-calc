@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
-import { cacheKey, formatDamage, normalizeRequest, validateRequest } from './model';
-import type { SimulationRequest } from './types';
+import {
+  aggregateDeckResults,
+  cacheKey,
+  formatDamage,
+  normalizeRequest,
+  requestForDeck,
+  resetEnemy,
+  validateDecks,
+  validateRequest,
+} from './model';
+import type { BattleSettings, DeckState, SimulationRequest, SimulationResult } from './types';
 
 const valid: SimulationRequest = {
   squad: ['리타'],
@@ -12,6 +21,22 @@ const valid: SimulationRequest = {
   hasParts: false,
   seed: 42,
 };
+
+const battle: BattleSettings = {
+  duration: 180,
+  enemyDef: 31_784,
+  enemyCode: '',
+  coreEnabled: false,
+  corePx: 52,
+  hasParts: false,
+  seed: 42,
+};
+
+const deck = (id: number, squad: string[]): DeckState => ({
+  id,
+  squad,
+  characters: {},
+});
 
 describe('validateRequest', () => {
   it.each([
@@ -63,6 +88,99 @@ describe('request normalization', () => {
     const raw = { ...valid, squad: [' 리타 '], duration: 180.9 };
     expect(cacheKey(raw, 'v1')).toBe(cacheKey(normalizeRequest(raw), 'v1'));
     expect(cacheKey(raw, 'v1')).not.toBe(cacheKey(raw, 'v2'));
+  });
+
+  it('includes overload, cube, and manual character settings in the cache key', () => {
+    const base = {
+      ...valid,
+      characters: {
+        리타: {
+          overload: { atk_pct: 22.22 },
+          cube: { name: '재장' as const, level: 15 },
+          manualStats: { split_dmg_pct: 20 },
+        },
+      },
+    };
+
+    expect(cacheKey(base, 'v1')).not.toBe(cacheKey({
+      ...base,
+      characters: {
+        리타: {
+          ...base.characters.리타,
+          cube: { name: '탄충', level: 15 },
+        },
+      },
+    }, 'v1'));
+    expect(cacheKey(base, 'v1')).not.toBe(cacheKey({
+      ...base,
+      characters: {
+        리타: {
+          ...base.characters.리타,
+          manualStats: { split_dmg_pct: 21 },
+        },
+      },
+    }, 'v1'));
+  });
+});
+
+describe('multi-deck model', () => {
+  it('allows the same character in separate decks', () => {
+    expect(validateDecks([deck(1, ['리타']), deck(2, ['리타'])])).toEqual([]);
+  });
+
+  it('rejects a duplicate only within its own deck', () => {
+    expect(validateDecks([deck(1, ['리타', '리타']), deck(2, ['리타'])]))
+      .toContain('덱 1: 같은 캐릭터를 두 번 편성할 수 없습니다.');
+  });
+
+  it('skips empty decks but rejects an all-empty batch', () => {
+    expect(validateDecks([deck(1, []), deck(2, ['리타'])])).toEqual([]);
+    expect(validateDecks([deck(1, []), deck(2, [])]))
+      .toContain('캐릭터가 편성된 덱이 하나 이상 필요합니다.');
+  });
+
+  it('keeps a 52px core reference while sending zero when core is disabled', () => {
+    expect(requestForDeck(deck(1, ['리타']), battle)).toMatchObject({
+      squad: ['리타'],
+      corePx: 0,
+    });
+    expect(requestForDeck(deck(1, ['리타']), { ...battle, coreEnabled: true })).toMatchObject({
+      corePx: 52,
+    });
+  });
+
+  it('resets enemy values without changing battle duration or seed', () => {
+    expect(resetEnemy({
+      ...battle,
+      duration: 60,
+      seed: 99,
+      enemyDef: 1,
+      enemyCode: '작열',
+      coreEnabled: true,
+      corePx: 77,
+      hasParts: true,
+    })).toEqual({
+      ...battle,
+      duration: 60,
+      seed: 99,
+    });
+  });
+
+  it('aggregates deck totals without merging duplicate character names', () => {
+    const result = (value: number): SimulationResult => ({
+      squadTotal: value,
+      duration: 10,
+      hitCount: 1,
+      charTotals: { 리타: value },
+      previewNote: '',
+      deviations: '',
+    });
+    const entries = [
+      { deckId: 1, request: { ...valid, squad: ['리타'] }, result: result(10) },
+      { deckId: 2, request: { ...valid, squad: ['리타'] }, result: result(20) },
+    ];
+
+    expect(aggregateDeckResults(entries)).toEqual({ total: 30, decks: entries });
   });
 });
 
