@@ -45,6 +45,7 @@ function normalizeCharacters(
     const overload = normalizeRecord(value.overload);
     const manualStats = normalizeRecord(value.manualStats);
     const normalized: CharacterOverrides = {
+      ...(value.growthStage !== undefined ? { growthStage: value.growthStage } : {}),
       ...(skillLevels ? { skillLevels } : {}),
       ...(overload ? { overload } : {}),
       ...(value.cube ? {

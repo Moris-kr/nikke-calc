@@ -323,6 +323,16 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const validateCharacterValues = (deck: DeckState): string[] => {
     const messages: string[] = [];
     for (const [name, custom] of Object.entries(deck.characters)) {
+      const characterDefaults = settings.characters[name];
+      if (custom.growthStage !== undefined && (
+        !Number.isInteger(custom.growthStage)
+        || custom.growthStage < 0
+        || custom.growthStage > (characterDefaults?.maxGrowthStage ?? -1)
+      )) {
+        messages.push(
+          `덱 ${deck.id} · ${name}: 돌파 단계는 0~${characterDefaults?.maxGrowthStage ?? 0} 정수여야 합니다.`,
+        );
+      }
       if (custom.skillLevels) {
         const keys = Object.keys(custom.skillLevels);
         const hasExactKeys = keys.length === 3
@@ -330,7 +340,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         const values = Object.values(custom.skillLevels);
         if (!hasExactKeys || values.some((value) => !Number.isInteger(value) || value < 1 || value > 10)) {
           messages.push(`덱 ${deck.id} · ${name}: 스킬 레벨은 1~10 정수여야 합니다.`);
-        } else if (settings.characters[name]?.skillLevelsLocked
+        } else if (characterDefaults?.skillLevelsLocked
           && values.some((value) => value !== 10)) {
           messages.push(`덱 ${deck.id} · ${name}: 수치 미공개 캐릭터는 스킬 Lv10만 사용할 수 있습니다.`);
         }
