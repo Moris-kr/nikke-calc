@@ -17,9 +17,13 @@ from context.growth import resolve_character_growth
 OVERLOAD_FIELDS: dict[str, dict[str, Any]] = {
     "element_bonus": {"label": "우월 코드 대미지", "unit": "%", "min": 0.0, "max": 1000.0},
     "atk_pct": {"label": "공격력", "unit": "%", "min": 0.0, "max": 1000.0},
+    "def_pct": {"label": "방어력", "unit": "%", "min": 0.0, "max": 1000.0},
     "max_ammo_pct": {"label": "최대 장탄수", "unit": "%", "min": 0.0, "max": 10000.0},
     "crit_rate": {"label": "크리티컬 확률", "unit": "%", "min": 0.0, "max": 100.0},
     "crit_dmg": {"label": "크리티컬 대미지", "unit": "%", "min": 0.0, "max": 1000.0},
+    "charge_speed_pct": {"label": "차지 속도", "unit": "%", "min": 0.0, "max": 1000.0},
+    "charge_dmg_pct": {"label": "차지 대미지", "unit": "%", "min": 0.0, "max": 1000.0},
+    "accuracy_pct": {"label": "명중률", "unit": "%", "min": 0.0, "max": 1000.0},
 }
 
 CUBE_NAMES = ("재장", "탄충", "체력", "차속", "파츠")
@@ -88,6 +92,88 @@ def _number(value: Any, field: str, meta: dict[str, Any]) -> float:
     return number
 
 
+def _control_number(value: Any, field: str, minimum: float, maximum: float) -> float:
+    return _number(value, field, {"min": minimum, "max": maximum})
+
+
+def _normalize_control(raw: Any) -> dict[str, Any]:
+    if not isinstance(raw, dict):
+        raise ValueError("컨트롤 설정은 객체여야 합니다")
+    unknown = set(raw) - {"tap_fire", "reload", "cover", "hold"}
+    if unknown:
+        raise ValueError(f"지원하지 않는 컨트롤: {sorted(unknown)}")
+    result: dict[str, Any] = {}
+
+    tap = raw.get("tap_fire")
+    if tap is not None:
+        if not isinstance(tap, dict) or set(tap) - {
+            "rate", "release", "full_charge_interval"
+        } or "rate" not in tap:
+            raise ValueError("톡톡이는 rate와 선택 release/full_charge_interval만 지원합니다")
+        normalized_tap = {
+            "rate": _control_number(tap["rate"], "tap_fire.rate", 0.1, 20.0),
+        }
+        if "release" in tap:
+            normalized_tap["release"] = _control_number(
+                tap["release"], "tap_fire.release", 0.0, 1.0
+            )
+        if "full_charge_interval" in tap:
+            normalized_tap["full_charge_interval"] = _control_number(
+                tap["full_charge_interval"], "tap_fire.full_charge_interval", 0.0, 300.0
+            )
+        result["tap_fire"] = normalized_tap
+
+    reload = raw.get("reload")
+    if reload is not None:
+        if not isinstance(reload, dict) or set(reload) - {
+            "policy", "lead", "margin", "if_dry", "duration"
+        }:
+            raise ValueError("지원하지 않는 재장전 컨트롤 설정입니다")
+        policy = reload.get("policy")
+        if policy not in {"before_fb_end", "into_fb"}:
+            raise ValueError("재장전 정책은 before_fb_end 또는 into_fb여야 합니다")
+        normalized_reload: dict[str, Any] = {"policy": policy}
+        for key in ("lead", "margin", "duration"):
+            if key in reload:
+                normalized_reload[key] = _control_number(
+                    reload[key], f"reload.{key}", 0.0, 300.0
+                )
+        if "if_dry" in reload:
+            if not isinstance(reload["if_dry"], bool):
+                raise ValueError("reload.if_dry는 참/거짓이어야 합니다")
+            normalized_reload["if_dry"] = reload["if_dry"]
+        result["reload"] = normalized_reload
+
+    cover = raw.get("cover")
+    if cover is not None:
+        if not isinstance(cover, dict) or set(cover) - {"policy", "extend"}:
+            raise ValueError("지원하지 않는 엄폐 컨트롤 설정입니다")
+        if cover.get("policy") != "own_full_burst":
+            raise ValueError("엄폐 정책은 own_full_burst여야 합니다")
+        normalized_cover: dict[str, Any] = {"policy": "own_full_burst"}
+        if "extend" in cover:
+            normalized_cover["extend"] = _control_number(
+                cover["extend"], "cover.extend", 0.0, 300.0
+            )
+        result["cover"] = normalized_cover
+
+    hold = raw.get("hold")
+    if hold is not None:
+        if not isinstance(hold, dict) or set(hold) - {"policy", "lead"}:
+            raise ValueError("지원하지 않는 홀드 컨트롤 설정입니다")
+        policy = hold.get("policy")
+        if policy not in {"own_full_burst", "charge_hold_after_fb"}:
+            raise ValueError("지원하지 않는 홀드 정책입니다")
+        normalized_hold: dict[str, Any] = {"policy": policy}
+        if "lead" in hold:
+            normalized_hold["lead"] = _control_number(
+                hold["lead"], "hold.lead", 0.0, 300.0
+            )
+        result["hold"] = normalized_hold
+
+    return result
+
+
 def normalize_character_overrides(
     raw: Any, *, character_name: str | None = None
 ) -> dict[str, Any]:
@@ -97,12 +183,14 @@ def normalize_character_overrides(
     if not isinstance(raw, dict):
         raise ValueError("캐릭터 설정은 객체여야 한다")
     unknown_sections = set(raw) - {
-        "growthStage", "overload", "cube", "manualStats", "skillLevels"
+        "growthStage", "overload", "cube", "manualStats", "skillLevels", "control"
     }
     if unknown_sections:
         raise ValueError(f"지원하지 않는 캐릭터 설정: {sorted(unknown_sections)}")
 
     result: dict[str, Any] = {}
+    if "control" in raw:
+        result["control"] = _normalize_control(raw["control"])
     if "growthStage" in raw:
         growth_stage = raw["growthStage"]
         if character_name is None:

@@ -27,6 +27,9 @@ const catalog: CharacterMeta[] = [
 const cubeLevels = { '15': { atk: 2780, def: 552, hp: 83400, effect: 10, commonElement: 19.09 } };
 const settings: SettingsCatalog = {
   characters: Object.fromEntries(names.map((name) => [name, {
+    weaponType: catalog.find((character) => character.name === name)?.weaponType ?? 'AR',
+    recommendedControl: {},
+    hasConditionalControl: false,
     growthStage: 3,
     rarity: 'SSR',
     maxGrowthStage: 10,
@@ -59,6 +62,10 @@ const settings: SettingsCatalog = {
     max_ammo_pct: { label: '최대 장탄수', unit: '%', min: 0, max: 10000 },
     crit_rate: { label: '크리티컬 확률', unit: '%', min: 0, max: 100 },
     crit_dmg: { label: '크리티컬 대미지', unit: '%', min: 0, max: 1000 },
+    def_pct: { label: '방어력', unit: '%', min: 0, max: 1000 },
+    charge_speed_pct: { label: '차지 속도', unit: '%', min: 0, max: 1000 },
+    charge_dmg_pct: { label: '차지 대미지', unit: '%', min: 0, max: 1000 },
+    accuracy_pct: { label: '명중률', unit: '%', min: 0, max: 1000 },
   },
   manualStats: {
     split_dmg_pct: { label: '분배 대미지', unit: '%', min: -1000, max: 10000 },

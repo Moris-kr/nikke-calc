@@ -11,12 +11,13 @@ sys.path.insert(0, str(ROOT))
 
 from calculator.customization import CUBE_NAMES, MANUAL_STATS, OVERLOAD_FIELDS  # noqa: E402
 from context.growth import growth_options, growth_profile  # noqa: E402
-from context.spec import build_squad  # noqa: E402
+from context.spec import CHAR_DEFAULTS, build_squad  # noqa: E402
 
 
 def main() -> None:
     nikke = json.loads((ROOT / "data" / "parsed_nikke.json").read_text(encoding="utf-8"))
     skills = json.loads((ROOT / "data" / "parsed_skills.json").read_text(encoding="utf-8"))
+    raw = json.loads((ROOT / "scraper" / "nikke_scraped.json").read_text(encoding="utf-8"))
     cube_table = json.loads(
         (ROOT / "data" / "base_stat_tables" / "cube.json").read_text(encoding="utf-8")
     )
@@ -30,7 +31,19 @@ def main() -> None:
         profile = growth_profile(name, meta)
         char = build_squad([name])[0]
         equip = char["equip_skills"]
+        favorite = (raw.get(name) or {}).get("애장품")
         characters[name] = {
+            "weaponType": meta["weapon_type"],
+            "recommendedControl": char.get("control") or {},
+            "hasConditionalControl": bool(
+                (CHAR_DEFAULTS.get(name) or {}).get("_control_rules")
+            ),
+            **({
+                "favoriteItem": {
+                    "name": favorite["아이템명"],
+                    "stage": 3,
+                },
+            } if favorite else {}),
             "skillLevels": {
                 key: int(value) for key, value in char["skill_levels"].items()
             },

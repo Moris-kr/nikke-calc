@@ -133,6 +133,14 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .cube-editor h4 { margin: 0 0 8px; font-size: 11px; color: var(--cyan); }
 .cube-controls { display: grid; grid-template-columns: 1fr .75fr; gap: 7px; }
 .cube-controls select { min-height: 36px; font-size: 11px; }
+.favorite-item-note, .control-editor { padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: color-mix(in srgb, var(--panel) 88%, transparent); }
+.favorite-item-note p, .field-note { margin: 5px 0 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
+.control-mode { display: flex; flex-wrap: wrap; gap: 12px; margin: 8px 0; }
+.control-mode label { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; }
+.control-grid { display: grid; gap: 7px; margin-top: 9px; }
+.control-toggle { justify-content: flex-start; }
+.control-toggle select { margin-left: auto; min-height: 32px; font-size: 10px; }
+.field-note.warning { color: var(--accent); }
 .cube-summary { margin: 8px 0 0; color: #849cac; font-size: 9px; line-height: 1.55; }
 .advanced-toggle { padding-top: 2px; }
 .advanced-editor { display: grid; gap: 9px; padding-top: 2px; }

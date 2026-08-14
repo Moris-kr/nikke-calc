@@ -108,9 +108,11 @@ const catalog = names.map((name, index) => {
   };
 });
 
-const settings = execFileSync('python3', [join(scriptDir, 'export-settings.py')], {
+const pythonCommand = process.platform === 'win32' ? 'python' : 'python3';
+const settings = execFileSync(pythonCommand, [join(scriptDir, 'export-settings.py')], {
   cwd: repoRoot,
   encoding: 'utf8',
+  env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
 });
 hash.update('settings.json');
 hash.update(settings);
