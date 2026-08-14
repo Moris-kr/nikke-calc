@@ -6,20 +6,34 @@ export interface StorageLike {
   removeItem(key: string): void;
 }
 
+export type StorageSource = StorageLike | (() => StorageLike) | null;
+
 interface CacheEntry {
   key: string;
   result: SimulationResult;
 }
 
+interface CacheEnvelope {
+  version: string;
+  entries: CacheEntry[];
+}
+
 export class ResultCache {
-  private readonly storageKey: string;
+  private readonly storage: StorageLike | null;
+  private readonly storageKey = 'nikke-calc-results';
+  private memoryEntries: CacheEntry[] = [];
+  private storageEnabled = true;
 
   constructor(
-    private readonly storage: StorageLike,
-    version: string,
+    storage: StorageSource,
+    private readonly version: string,
     private readonly capacity = 12,
   ) {
-    this.storageKey = `nikke-calc-results:${version}`;
+    try {
+      this.storage = typeof storage === 'function' ? storage() : storage;
+    } catch {
+      this.storage = null;
+    }
   }
 
   get(key: string): SimulationResult | null {
@@ -29,24 +43,52 @@ export class ResultCache {
   set(key: string, result: SimulationResult): void {
     const entries = this.load().filter((entry) => entry.key !== key);
     entries.push({ key, result });
-    this.storage.setItem(
-      this.storageKey,
-      JSON.stringify(entries.slice(-Math.max(1, this.capacity))),
-    );
+    this.memoryEntries = entries.slice(-Math.max(1, this.capacity));
+    if (!this.storage || !this.storageEnabled) return;
+    try {
+      const envelope: CacheEnvelope = { version: this.version, entries: this.memoryEntries };
+      this.storage.setItem(this.storageKey, JSON.stringify(envelope));
+    } catch {
+      this.storageEnabled = false;
+    }
   }
 
   clear(): void {
-    this.storage.removeItem(this.storageKey);
+    this.memoryEntries = [];
+    if (!this.storage || !this.storageEnabled) return;
+    try {
+      this.storage.removeItem(this.storageKey);
+    } catch {
+      this.storageEnabled = false;
+    }
   }
 
   private load(): CacheEntry[] {
-    const raw = this.storage.getItem(this.storageKey);
-    if (!raw) return [];
+    if (!this.storage || !this.storageEnabled) return this.memoryEntries;
+    let raw: string | null;
+    try {
+      raw = this.storage.getItem(this.storageKey);
+    } catch {
+      this.storageEnabled = false;
+      return this.memoryEntries;
+    }
+    if (!raw) return this.memoryEntries;
     try {
       const value: unknown = JSON.parse(raw);
-      return Array.isArray(value) ? value as CacheEntry[] : [];
+      const envelope = value as Partial<CacheEnvelope> | null;
+      this.memoryEntries = envelope
+        && envelope.version === this.version
+        && Array.isArray(envelope.entries)
+        ? envelope.entries
+        : [];
+      return this.memoryEntries;
     } catch {
-      this.storage.removeItem(this.storageKey);
+      this.memoryEntries = [];
+      try {
+        this.storage.removeItem(this.storageKey);
+      } catch {
+        this.storageEnabled = false;
+      }
       return [];
     }
   }

@@ -1,4 +1,4 @@
-import { ResultCache, type StorageLike } from './cache';
+import { ResultCache, type StorageSource } from './cache';
 import { cacheKey, formatDamage, formatDps, normalizeRequest, validateRequest } from './model';
 import type { CharacterMeta, SimulationRequest, SimulationResult } from './types';
 
@@ -14,7 +14,7 @@ interface CalculatorDependencies {
   catalog: CharacterMeta[];
   version: string;
   client: CalculatorClientLike;
-  storage: StorageLike;
+  storage: StorageSource;
 }
 
 const element = <T extends Element>(root: ParentNode, selector: string): T => {
@@ -132,6 +132,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     const metaNode = element<HTMLElement>(card, '[data-char-meta]');
     const char = catalogByName.get(squad[index] ?? '');
     wrap.querySelector('img')?.remove();
+    card.classList.toggle('is-preview', Boolean(char?.preview));
     if (!char) {
       metaNode.textContent = '빈 슬롯';
       return;
@@ -144,7 +145,6 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       image.loading = 'lazy';
       wrap.append(image);
     }
-    card.classList.toggle('is-preview', char.preview);
   };
 
   const renderOptions = () => {

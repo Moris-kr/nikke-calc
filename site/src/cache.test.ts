@@ -17,6 +17,24 @@ class MemoryStorage implements StorageLike {
   removeItem(key: string): void {
     this.values.delete(key);
   }
+
+  keys(): string[] {
+    return [...this.values.keys()];
+  }
+}
+
+class ThrowingStorage implements StorageLike {
+  getItem(): string | null {
+    throw new DOMException('blocked', 'SecurityError');
+  }
+
+  setItem(): void {
+    throw new DOMException('full', 'QuotaExceededError');
+  }
+
+  removeItem(): void {
+    throw new DOMException('blocked', 'SecurityError');
+  }
 }
 
 const result = (value: number): SimulationResult => ({
@@ -46,9 +64,18 @@ describe('ResultCache', () => {
     expect(new ResultCache(storage, 'v2').get('same')).toBeNull();
   });
 
+  it('replaces stale persisted versions instead of accumulating namespaces', () => {
+    const storage = new MemoryStorage();
+    new ResultCache(storage, 'v1').set('first', result(1));
+    new ResultCache(storage, 'v2').set('second', result(2));
+
+    expect(storage.keys()).toHaveLength(1);
+    expect(new ResultCache(storage, 'v2').get('second')).toEqual(result(2));
+  });
+
   it('ignores malformed stored JSON and accepts new writes', () => {
     const storage = new MemoryStorage();
-    storage.setItem('nikke-calc-results:v1', '{bad');
+    storage.setItem('nikke-calc-results', '{bad');
     const cache = new ResultCache(storage, 'v1');
 
     expect(cache.get('x')).toBeNull();
@@ -61,5 +88,24 @@ describe('ResultCache', () => {
     cache.set('x', result(7));
     cache.clear();
     expect(cache.get('x')).toBeNull();
+  });
+
+  it('falls back to memory when browser storage operations throw', () => {
+    const cache = new ResultCache(new ThrowingStorage(), 'v1');
+
+    expect(cache.get('x')).toBeNull();
+    cache.set('x', result(7));
+    expect(cache.get('x')).toEqual(result(7));
+    expect(() => cache.clear()).not.toThrow();
+    expect(cache.get('x')).toBeNull();
+  });
+
+  it('falls back to memory when obtaining browser storage throws', () => {
+    const cache = new ResultCache(() => {
+      throw new DOMException('blocked', 'SecurityError');
+    }, 'v1');
+
+    cache.set('x', result(7));
+    expect(cache.get('x')).toEqual(result(7));
   });
 });

@@ -2,6 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import type { StorageLike } from './cache';
 import { mountCalculator, type CalculatorClientLike } from './ui';
 import type { CharacterMeta, SimulationRequest, SimulationResult } from './types';
 
@@ -119,5 +120,40 @@ describe('calculator UI', () => {
 
     expect(secondClient.simulateCalls).toBe(0);
     expect(root.querySelector('[data-status]')?.textContent).toContain('저장된 결과');
+  });
+
+  it('renders a successful result when persistent storage rejects writes', async () => {
+    const client = new FakeClient();
+    const storage: StorageLike = {
+      getItem: () => null,
+      setItem: () => { throw new DOMException('full', 'QuotaExceededError'); },
+      removeItem: () => undefined,
+    };
+    mountCalculator(root, { catalog, version: 'v1', client, storage });
+    root.querySelector<HTMLInputElement>('#duration')!.value = '10';
+
+    root.querySelector<HTMLFormElement>('form')!.requestSubmit();
+    await flush();
+
+    expect(root.querySelector('[data-result-total]')?.textContent).toContain('123,456');
+    expect(root.querySelector('[data-status]')?.textContent).toContain('계산 완료');
+  });
+
+  it('removes the preview badge when a preview slot is cleared', () => {
+    const previewCatalog = catalog.map((char, index) => ({ ...char, preview: index === 0 }));
+    mountCalculator(root, {
+      catalog: previewCatalog,
+      version: 'v1',
+      client: new FakeClient(),
+      storage: localStorage,
+    });
+    const firstCard = root.querySelector<HTMLElement>('[data-slot-card="0"]')!;
+    const firstSlot = root.querySelector<HTMLSelectElement>('#squad-0')!;
+    expect(firstCard.classList.contains('is-preview')).toBe(true);
+
+    firstSlot.value = '';
+    firstSlot.dispatchEvent(new Event('change'));
+
+    expect(firstCard.classList.contains('is-preview')).toBe(false);
   });
 });

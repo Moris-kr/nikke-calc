@@ -25,7 +25,7 @@ async function start(): Promise<void> {
     catalog,
     version: manifest.version,
     client,
-    storage: window.localStorage,
+    storage: () => window.localStorage,
   });
   window.addEventListener('pagehide', cleanup, { once: true });
 }
