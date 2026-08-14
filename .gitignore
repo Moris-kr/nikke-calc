@@ -6,3 +6,4 @@ site/dist/
 site/public/runtime/
 site/public/characters/
 site/public/catalog.json
+site/public/settings.json

@@ -9,6 +9,7 @@ import {
 } from 'node:fs';
 import { dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const siteDir = resolve(scriptDir, '..');
@@ -21,6 +22,7 @@ const runtimeFiles = [
   'calculator/__init__.py',
   'calculator/base_stat.py',
   'calculator/buff_manager.py',
+  'calculator/customization.py',
   'calculator/damage.py',
   'calculator/sim_result.py',
   'calculator/timeline.py',
@@ -112,5 +114,10 @@ const manifest = {
 
 writeFileSync(join(runtimeDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 writeFileSync(join(publicDir, 'catalog.json'), `${JSON.stringify(catalog, null, 2)}\n`);
+const settings = execFileSync('python3', [join(scriptDir, 'export-settings.py')], {
+  cwd: repoRoot,
+  encoding: 'utf8',
+});
+writeFileSync(join(publicDir, 'settings.json'), settings);
 
-console.log(`runtime ${manifest.files.length} files · catalog ${catalog.length} characters · version ${manifest.version}`);
+console.log(`runtime ${manifest.files.length} files · catalog ${catalog.length} characters · settings exported · version ${manifest.version}`);
