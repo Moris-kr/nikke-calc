@@ -75,17 +75,17 @@ git commit -m "feat: accept per-character skill levels"
 - Produces `CharacterSettingsDefaults.skillLevels` with exact keys `"1"`, `"2"`, and `"3"`.
 - Produces `CharacterSettingsDefaults.skillLevelsLocked`, derived from canonical `parsed_nikke.json` preview metadata.
 
-- [ ] **Step 1: Write a failing runtime asset test**
+- [x] **Step 1: Write a failing runtime asset test**
 
 Assert that a released entry exports `{ "1": 10, "2": 10, "3": 10 }` with `skillLevelsLocked: false`, and that both current preview characters export the same levels with `skillLevelsLocked: true`.
 
-- [ ] **Step 2: Run the focused asset test and confirm red**
+- [x] **Step 2: Run the focused asset test and confirm red**
 
 Run: `cd site && npm test -- --run src/runtime-assets.test.ts`
 
 Expected: FAIL because the generated settings entries lack skill metadata.
 
-- [ ] **Step 3: Export and type the metadata**
+- [x] **Step 3: Export and type the metadata**
 
 Add:
 
@@ -99,16 +99,16 @@ export interface SkillLevels {
 
 Extend `CharacterOverrides` and `CharacterSettingsDefaults`. In the Python exporter, copy resolved `char["skill_levels"]` and set the lock flag from `nikke[name]["preview"]` without name-specific frontend logic.
 
-- [ ] **Step 4: Regenerate runtime files and re-run the asset test**
+- [x] **Step 4: Regenerate runtime files and re-run the asset test**
 
 Run: `cd site && npm run sync-runtime && npm test -- --run src/runtime-assets.test.ts`
 
 Expected: PASS and deterministic `settings.json` output.
 
-- [ ] **Step 5: Commit runtime metadata**
+- [x] **Step 5: Commit runtime metadata**
 
 ```bash
-git add site/scripts/export-settings.py site/src/types.ts site/src/runtime-assets.test.ts site/public/runtime/settings.json
+git add site/scripts/export-settings.py site/src/types.ts site/src/runtime-assets.test.ts
 git commit -m "feat: export character skill metadata"
 ```
 

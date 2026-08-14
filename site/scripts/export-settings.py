@@ -28,6 +28,10 @@ def main() -> None:
         char = build_squad([name])[0]
         equip = char["equip_skills"]
         characters[name] = {
+            "skillLevels": {
+                key: int(value) for key, value in char["skill_levels"].items()
+            },
+            "skillLevelsLocked": bool(nikke[name].get("preview")),
             "overload": {key: float(equip.get(key, 0.0)) for key in OVERLOAD_FIELDS},
             "cube": char["cube"],
         }

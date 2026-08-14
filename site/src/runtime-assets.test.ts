@@ -40,6 +40,8 @@ describe('generated browser runtime', () => {
       characters: Record<string, {
         overload: Record<string, number>;
         cube: { name: string; level: number };
+        skillLevels: { '1': number; '2': number; '3': number };
+        skillLevelsLocked: boolean;
       }>;
       cubes: Record<string, {
         label: string;
@@ -72,6 +74,18 @@ describe('generated browser runtime', () => {
     });
     expect(settings.characters['미하라 : 본딩 체인']!.overload.atk_pct).toBe(23.22);
     expect(settings.characters['미하라 : 본딩 체인']!.cube).toEqual({ name: '재장', level: 15 });
+    expect(settings.characters['리타']).toMatchObject({
+      skillLevels: { '1': 10, '2': 10, '3': 10 },
+      skillLevelsLocked: false,
+    });
+    expect(settings.characters['니지마 마코토']).toMatchObject({
+      skillLevels: { '1': 10, '2': 10, '3': 10 },
+      skillLevelsLocked: true,
+    });
+    expect(settings.characters['아마기 유키코']).toMatchObject({
+      skillLevels: { '1': 10, '2': 10, '3': 10 },
+      skillLevelsLocked: true,
+    });
     expect(settings.overloadFields.element_bonus).toMatchObject({
       label: '우월 코드 대미지',
       unit: '%',

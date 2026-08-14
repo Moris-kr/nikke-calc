@@ -6,7 +6,14 @@ export interface CubeSelection {
   level: number;
 }
 
+export interface SkillLevels {
+  '1': number;
+  '2': number;
+  '3': number;
+}
+
 export interface CharacterOverrides {
+  skillLevels?: SkillLevels;
   overload?: Record<string, number>;
   cube?: CubeSelection;
   manualStats?: Record<string, number>;
@@ -87,6 +94,8 @@ export interface CubeMeta {
 }
 
 export interface CharacterSettingsDefaults {
+  skillLevels: SkillLevels;
+  skillLevelsLocked: boolean;
   overload: Record<string, number>;
   cube: CubeSelection;
 }
