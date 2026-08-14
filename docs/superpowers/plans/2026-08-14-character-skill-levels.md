@@ -200,15 +200,15 @@ git commit -m "feat: validate skill levels in browser"
 - Consumes the static browser build from Tasks 1–4.
 - Produces a pushed `master` commit and verified public release at `https://moris-kr.github.io/nikke-calc/`.
 
-- [ ] **Step 1: Run the established repository verification suite**
+- [x] **Step 1: Run the established repository verification suite**
 
 Run the Python customization and bridge tests, damage/BuffManager/Timeline checks, document lint, 25 snapshots, all Vitest tests, runtime consistency, Pages checks, TypeScript validation, and the production Vite build. Every command must exit 0.
 
-- [ ] **Step 2: Review the completed implementation**
+- [x] **Step 2: Review the completed implementation**
 
 Inspect the diff for schema drift, invented preview values, stale fixtures, focus/rerender regressions, and unrelated changes. Apply valid review findings and re-run affected tests.
 
-- [ ] **Step 3: Verify the production build locally in Chrome**
+- [x] **Step 3: Verify the production build locally in Chrome**
 
 Serve `site/dist/`; change a released character to non-default levels, run a calculation, confirm a preview character shows the locked notice and no editable controls, and verify two decks can retain different levels for the same character.
 
