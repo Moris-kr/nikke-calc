@@ -48,6 +48,21 @@ class BrowserBridgeTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "라피: 돌파 단계는 0~2"):
             run_request(json.dumps(payload, ensure_ascii=False))
 
+    def test_rejects_null_growth_stage_in_forged_json(self):
+        payload = {
+            "squad": ["리타"],
+            "characters": {"리타": {"growthStage": None}},
+            "duration": 10,
+            "enemyDef": 31_784,
+            "enemyCode": "",
+            "corePx": 0,
+            "hasParts": False,
+            "seed": 42,
+        }
+
+        with self.assertRaisesRegex(ValueError, "돌파 단계는 정수"):
+            run_request(json.dumps(payload, ensure_ascii=False))
+
     def test_released_skill_levels_change_the_engine_result(self):
         payload = {
             "squad": ["라피 : 레드 후드"],
