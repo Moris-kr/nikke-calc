@@ -190,7 +190,7 @@ def normalize_character_overrides(
 
     result: dict[str, Any] = {}
     if "control" in raw:
-        result["control"] = _normalize_control(raw["control"])
+        result["_control_override"] = _normalize_control(raw["control"])
     if "growthStage" in raw:
         growth_stage = raw["growthStage"]
         if character_name is None:
