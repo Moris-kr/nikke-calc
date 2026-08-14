@@ -6,7 +6,8 @@ from pathlib import Path
 
 from calculator.buff_manager import BuffManager
 from calculator.customization import OVERLOAD_FIELDS, normalize_character_overrides
-from context.spec import build_squad
+from calculator.timeline import simulate
+from context.spec import build_config, build_squad
 
 
 class CharacterCustomizationTest(unittest.TestCase):
@@ -205,6 +206,22 @@ class CharacterCustomizationTest(unittest.TestCase):
         self.assertEqual(char["equip_skills"]["max_ammo_pct"], 4)
         self.assertEqual(char["equip_skills"]["crit_rate"], 5)
         self.assertEqual(char["equip_skills"]["crit_dmg"], 6)
+
+    def test_stacked_max_ammo_reductions_never_drop_magazine_below_one(self):
+        # 프리바티 `EX 매거진 3`은 풀버스트마다 전원 최대 장탄 -50.66%를,
+        # 아니스 : 스파클링 서머 `스파클링 웨이브`는 자기 버스트 사이클에 자신
+        # 최대 장탄 -73.92%를 건다. 둘이 겹치는 아니스의 버스트 사이클에는 합이
+        # -124.58%가 되어 실효 최대 장탄이 `round(5 × -0.2458) = -1`로 음수가 됐고,
+        # 재장전이 채우는 장탄이 음수라 `_tick_auto`가 발사 없이 재장전만 반복해
+        # 아니스가 자기 버스트 내내 한 발도 못 쐈다. 게임에선 최대 장탄이 최소 1발로
+        # 유지되므로, 어떤 캐릭터의 실효 장탄도 음수가 되면 안 된다.
+        members = ["아니스 : 스파클링 서머", "프리바티", "네온 : 비전 아이", "목단", "민트"]
+        squad = build_squad(members)
+        config = build_config(squad, {"first_burst_time": 3.0})
+        result = simulate(squad, config=config, verbose=True, seed=1)
+
+        min_ammo = min(entry.ammo for entry in result.log.ammo_log)
+        self.assertGreaterEqual(min_ammo, 0, "실효 최대 장탄이 음수로 내려갔다 (스톨)")
 
     def test_manual_damage_stat_applies_only_to_its_character(self):
         squad = build_squad(["리타", "라피"], {

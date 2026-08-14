@@ -152,6 +152,37 @@ class BrowserBridgeTest(unittest.TestCase):
 
         self.assertGreater(customized["squadTotal"], baseline["squadTotal"])
 
+    def test_timeline_is_bucketed_and_matches_char_totals(self):
+        payload = {
+            "squad": [
+                "목단",
+                "에이드 : 에이전트 바니",
+                "아니스 : 스파클링 서머",
+                "메이든 : 아이스 로즈",
+                "프리바티",
+            ],
+            "duration": 30,
+            "enemyDef": 31_784,
+            "enemyCode": "",
+            "corePx": 0,
+            "hasParts": False,
+            "seed": 42,
+        }
+
+        result = json.loads(run_request(json.dumps(payload, ensure_ascii=False)))
+        timeline = result["timeline"]
+
+        self.assertEqual(timeline["bucket"], 1)
+        self.assertEqual(timeline["buckets"], 30)
+        for name in payload["squad"]:
+            row = timeline["damage"][name]
+            self.assertEqual(len(row), 30)
+            # 버킷 합은 전 구간 대미지와 일치해야 한다 (전투 30초 = 버킷 30개).
+            self.assertEqual(sum(row), result["charTotals"][name])
+        # 풀버스트 구간과 버스트 사용 시점이 로그에서 채워진다.
+        self.assertTrue(timeline["fullBurst"])
+        self.assertTrue(any(timeline["bursts"][name] for name in payload["squad"]))
+
     def test_rejects_character_settings_outside_the_squad(self):
         payload = {
             "squad": ["리타"],
