@@ -94,6 +94,27 @@ class FakeClient implements CalculatorClientLike {
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
+function openCharacterSlot(root: HTMLElement, index: number): HTMLInputElement {
+  const trigger = root.querySelector<HTMLButtonElement>(`#squad-${index}`)!;
+  if (trigger.getAttribute('aria-expanded') !== 'true') trigger.click();
+  return root.querySelector<HTMLInputElement>(`#squad-${index}-search`)!;
+}
+
+function chooseCharacter(root: HTMLElement, index: number, name: string): void {
+  const search = openCharacterSlot(root, index);
+  search.value = name;
+  search.dispatchEvent(new Event('input', { bubbles: true }));
+  const option = [...root.querySelectorAll<HTMLElement>('[data-character-option]')]
+    .find((candidate) => candidate.dataset.characterOption === name && candidate.getAttribute('aria-disabled') !== 'true');
+  expect(option, `${name} 선택 옵션`).toBeTruthy();
+  option!.click();
+}
+
+function clearCharacterSlot(root: HTMLElement, index: number): void {
+  openCharacterSlot(root, index);
+  root.querySelector<HTMLElement>(`#squad-${index}-option-clear`)!.click();
+}
+
 describe('calculator UI', () => {
   let root: HTMLElement;
 
@@ -107,13 +128,17 @@ describe('calculator UI', () => {
     root.remove();
   });
 
-  it('renders five unique default squad slots', () => {
+  it('renders five searchable default squad slots with same-deck duplicates disabled', () => {
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
-    const slots = [...root.querySelectorAll<HTMLSelectElement>('[data-squad-slot]')];
+    const slots = [...root.querySelectorAll<HTMLButtonElement>('[data-squad-slot]')];
 
     expect(slots).toHaveLength(5);
-    expect(slots.map((slot) => slot.value)).toEqual(names.slice(0, 5));
-    expect(slots[1]!.querySelector<HTMLOptionElement>('option[value="리타"]')?.disabled).toBe(true);
+    expect(slots.every((slot) => slot.tagName === 'BUTTON')).toBe(true);
+    expect(slots.map((slot) => slot.querySelector('strong')?.textContent)).toEqual(names.slice(0, 5));
+    const search = openCharacterSlot(root, 1);
+    expect(document.activeElement).toBe(search);
+    expect(root.querySelector('[data-character-option="리타"]')?.getAttribute('aria-disabled')).toBe('true');
+    expect(root.querySelector('#character-search')).toBeNull();
     expect(root.querySelector<HTMLAnchorElement>('footer a')?.href).toBe('https://github.com/Moris-kr/nikke-calc');
   });
 
@@ -199,11 +224,9 @@ describe('calculator UI', () => {
       storage: localStorage,
     });
     const firstCard = root.querySelector<HTMLElement>('[data-slot-card="0"]')!;
-    const firstSlot = root.querySelector<HTMLSelectElement>('#squad-0')!;
     expect(firstCard.classList.contains('is-preview')).toBe(true);
 
-    firstSlot.value = '';
-    firstSlot.dispatchEvent(new Event('change'));
+    clearCharacterSlot(root, 0);
 
     expect(root.querySelector<HTMLElement>('[data-slot-card="0"]')!
       .classList.contains('is-preview')).toBe(false);
@@ -261,14 +284,7 @@ describe('calculator UI', () => {
     mode.checked = true;
     mode.dispatchEvent(new Event('change'));
     root.querySelector<HTMLButtonElement>('[data-deck-tab="2"]')!.click();
-    const secondDeckFirst = root.querySelector<HTMLSelectElement>('#squad-0')!;
-    secondDeckFirst.value = '리타';
-    secondDeckFirst.dispatchEvent(new Event('change'));
-    for (let index = 1; index < 5; index += 1) {
-      const slot = root.querySelector<HTMLSelectElement>(`#squad-${index}`)!;
-      slot.value = '';
-      slot.dispatchEvent(new Event('change'));
-    }
+    chooseCharacter(root, 0, '리타');
 
     root.querySelector<HTMLFormElement>('form')!.requestSubmit();
     await flush();
