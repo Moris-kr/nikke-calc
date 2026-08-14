@@ -8,6 +8,20 @@ import type { CharacterOverrides, SettingsCatalog } from './types';
 const settings: SettingsCatalog = {
   characters: {
     리타: {
+      skillLevels: { '1': 10, '2': 10, '3': 10 },
+      skillLevelsLocked: false,
+      overload: {
+        element_bonus: 88.6,
+        atk_pct: 22.22,
+        max_ammo_pct: 129.64,
+        crit_rate: 0,
+        crit_dmg: 0,
+      },
+      cube: { name: '재장', level: 15 },
+    },
+    '아마기 유키코': {
+      skillLevels: { '1': 10, '2': 10, '3': 10 },
+      skillLevelsLocked: true,
       overload: {
         element_bonus: 88.6,
         atk_pct: 22.22,
@@ -41,8 +55,9 @@ const settings: SettingsCatalog = {
 describe('character settings editor', () => {
   let root: HTMLElement;
   let value: CharacterOverrides | undefined;
+  let characterName: '리타' | '아마기 유키코';
 
-  const render = () => renderCharacterSettings(root, '리타', settings, value, (next) => {
+  const render = () => renderCharacterSettings(root, characterName, settings, value, (next) => {
     value = next;
   });
 
@@ -56,12 +71,14 @@ describe('character settings editor', () => {
     root = document.createElement('div');
     document.body.append(root);
     value = undefined;
+    characterName = '리타';
     render();
   });
 
   afterEach(() => root.remove());
 
   it('shows resolved defaults and opens final-value inputs on demand', () => {
+    expect(root.textContent).toContain('스킬 10 / 10 / 10');
     expect(root.textContent).toContain('우코 88.60');
     expect(root.textContent).toContain('공증 22.22');
     expect(root.textContent).toContain('장탄 129.64');
@@ -69,8 +86,40 @@ describe('character settings editor', () => {
 
     setToggle('[data-custom-toggle]', true);
 
+    expect(value?.skillLevels).toEqual({ '1': 10, '2': 10, '3': 10 });
     expect(value?.overload).toEqual(settings.characters.리타!.overload);
     expect(root.querySelector<HTMLInputElement>('[data-overload-key="atk_pct"]')?.value).toBe('22.22');
+  });
+
+  it('changes skill 1, skill 2, and burst levels independently', () => {
+    setToggle('[data-custom-toggle]', true);
+
+    const skillOne = root.querySelector<HTMLSelectElement>('[data-skill-level="1"]')!;
+    skillOne.value = '4';
+    skillOne.dispatchEvent(new Event('change'));
+    const skillTwo = root.querySelector<HTMLSelectElement>('[data-skill-level="2"]')!;
+    skillTwo.value = '6';
+    skillTwo.dispatchEvent(new Event('change'));
+    const burst = root.querySelector<HTMLSelectElement>('[data-skill-level="3"]')!;
+    burst.value = '8';
+    burst.dispatchEvent(new Event('change'));
+
+    expect(value?.skillLevels).toEqual({ '1': 4, '2': 6, '3': 8 });
+    expect(root.textContent).toContain('스킬 4 / 6 / 8');
+  });
+
+  it('shows preview characters as level-ten-only without editable selects', () => {
+    characterName = '아마기 유키코';
+    render();
+
+    expect(root.textContent).toContain('수치 미공개 · Lv10 고정');
+    setToggle('[data-custom-toggle]', true);
+
+    expect(value?.skillLevels).toEqual({ '1': 10, '2': 10, '3': 10 });
+    expect(root.querySelectorAll('[data-skill-level]')).toHaveLength(0);
+    expect(root.querySelector('[data-skill-levels-locked]')?.textContent)
+      .toContain('수치 미공개 · Lv10 고정');
+    expect(root.textContent).toContain('1~9레벨 계수가 공개되지 않아');
   });
 
   it('updates cube type and renders its selected-level stats and effects', () => {

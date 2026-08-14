@@ -115,6 +115,13 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .inline-check { display: flex; align-items: center; gap: 7px; color: #b9c8d4; font-size: 11px; font-weight: 750; cursor: pointer; }
 .inline-check input { width: 15px; min-height: 15px; height: 15px; accent-color: var(--amber); }
 .character-settings-body { display: grid; gap: 12px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed rgba(146,176,201,.16); }
+.skill-level-editor { padding: 10px; border: 1px solid rgba(255,191,60,.17); background: rgba(255,191,60,.035); }
+.skill-level-editor h4 { margin: 0 0 8px; color: var(--amber); font-size: 11px; }
+.skill-level-controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.skill-level-controls label { display: grid; gap: 5px; color: var(--muted); font-size: 9px; font-weight: 700; }
+.skill-level-controls select { min-width: 0; min-height: 36px; padding-inline: 7px; font-size: 11px; }
+.skill-level-editor.is-locked strong { display: block; color: #ffd180; font-size: 11px; }
+.skill-level-editor.is-locked p { margin: 5px 0 0; color: var(--muted); font-size: 9px; line-height: 1.5; }
 .overload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .overload-grid label, .manual-row { display: grid; gap: 5px; color: var(--muted); font-size: 9px; font-weight: 700; }
 .overload-grid input, .manual-row input { min-height: 36px; padding-inline: 9px 30px; font-size: 11px; }

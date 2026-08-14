@@ -123,27 +123,27 @@ git commit -m "feat: export character skill metadata"
 - Produces three selects with `data-skill-level="1|2|3"` for released characters.
 - Produces a non-editable `data-skill-levels-locked` notice for preview characters.
 
-- [ ] **Step 1: Write failing DOM interaction tests**
+- [x] **Step 1: Write failing DOM interaction tests**
 
 Test default 10/10/10 creation, always-visible compact summary text, independent Skill 1/Skill 2/Burst changes, and reset when `개별 설정` is disabled. Add a preview fixture and assert it shows `수치 미공개 · Lv10 고정`, renders no selects, and keeps 10/10/10.
 
-- [ ] **Step 2: Run the focused editor test and confirm red**
+- [x] **Step 2: Run the focused editor test and confirm red**
 
 Run: `cd site && npm test -- --run src/character-settings.test.ts`
 
 Expected: FAIL because no skill-level editor exists.
 
-- [ ] **Step 3: Implement editor state and controls**
+- [x] **Step 3: Implement editor state and controls**
 
 Deep-clone `skillLevels`, include canonical levels in `defaultCharacterOverrides()`, and put skill copy in `summaryText()`. Render a `스킬 레벨` section before overload controls. Released characters receive three labeled Lv1–Lv10 native selects; locked characters receive only the canonical lock notice and explanation.
 
-- [ ] **Step 4: Add responsive styles and run editor tests**
+- [x] **Step 4: Add responsive styles and run editor tests**
 
 Run: `cd site && npm test -- --run src/character-settings.test.ts`
 
 Expected: PASS on desktop and narrow-grid DOM behavior.
 
-- [ ] **Step 5: Commit the editor**
+- [x] **Step 5: Commit the editor**
 
 ```bash
 git add site/src/character-settings.ts site/src/character-settings.test.ts site/src/styles.css
