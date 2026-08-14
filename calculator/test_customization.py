@@ -8,6 +8,51 @@ from context.spec import build_squad
 
 
 class CharacterCustomizationTest(unittest.TestCase):
+    def test_skill_levels_are_normalized_for_the_engine(self):
+        self.assertEqual(
+            normalize_character_overrides({
+                "skillLevels": {"1": 1, "2": 5, "3": 10},
+            }),
+            {"skill_levels": {"1": 1, "2": 5, "3": 10}},
+        )
+
+    def test_skill_levels_reject_unknown_keys_and_invalid_values(self):
+        invalid = (
+            {"4": 10},
+            {"1": True},
+            {"1": 1.5},
+            {"1": 0},
+            {"1": 11},
+        )
+        for skill_levels in invalid:
+            with self.subTest(skill_levels=skill_levels):
+                with self.assertRaises(ValueError):
+                    normalize_character_overrides({"skillLevels": skill_levels})
+
+    def test_released_skill_level_selects_the_parsed_effect_value(self):
+        values = []
+        for level in (1, 10):
+            squad = build_squad(["리타"], {
+                "리타": {"skill_levels": {"1": level, "2": 10, "3": 10}},
+            })
+            manager = BuffManager(squad, {"enemy": {}})
+            manager.notify("burst_cast", 0, "리타")
+            values.append(manager.get_buffs("리타", "__enemy__", 0)["max_ammo_pct"])
+
+        self.assertEqual(values, [7.05, 45.17])
+
+    def test_preview_skill_levels_are_fixed_at_ten(self):
+        preview = "아마기 유키코"
+        allowed = build_squad([preview], {
+            preview: {"skill_levels": {"1": 10, "2": 10, "3": 10}},
+        })[0]
+        self.assertEqual(allowed["skill_levels"], {"1": 10, "2": 10, "3": 10})
+
+        with self.assertRaisesRegex(ValueError, "프리뷰 캐릭터는 스킬 레벨 10"):
+            build_squad([preview], {
+                preview: {"skill_levels": {"1": 9, "2": 10, "3": 10}},
+            })
+
     def test_overload_values_replace_resolved_defaults(self):
         over = normalize_character_overrides({
             "overload": {

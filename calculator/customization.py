@@ -21,6 +21,7 @@ OVERLOAD_FIELDS: dict[str, dict[str, Any]] = {
 }
 
 CUBE_NAMES = ("재장", "탄충", "체력", "차속", "파츠")
+SKILL_LEVEL_KEYS = {"1", "2", "3"}
 
 
 def _stat(label: str, unit: str = "%", minimum: float = -1000.0,
@@ -91,11 +92,25 @@ def normalize_character_overrides(raw: Any) -> dict[str, Any]:
         return {}
     if not isinstance(raw, dict):
         raise ValueError("캐릭터 설정은 객체여야 한다")
-    unknown_sections = set(raw) - {"overload", "cube", "manualStats"}
+    unknown_sections = set(raw) - {"overload", "cube", "manualStats", "skillLevels"}
     if unknown_sections:
         raise ValueError(f"지원하지 않는 캐릭터 설정: {sorted(unknown_sections)}")
 
     result: dict[str, Any] = {}
+    skill_levels = raw.get("skillLevels")
+    if skill_levels is not None:
+        if not isinstance(skill_levels, dict):
+            raise ValueError("스킬 레벨 설정은 객체여야 한다")
+        unknown = set(skill_levels) - SKILL_LEVEL_KEYS
+        if unknown:
+            raise ValueError(f"지원하지 않는 스킬 키: {sorted(unknown)}")
+        normalized_levels = {}
+        for key, value in skill_levels.items():
+            if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 10:
+                raise ValueError(f"스킬 {key} 레벨은 1~10 정수여야 한다")
+            normalized_levels[key] = value
+        result["skill_levels"] = normalized_levels
+
     overload = raw.get("overload")
     if overload is not None:
         if not isinstance(overload, dict):
@@ -137,10 +152,12 @@ def normalize_character_overrides(raw: Any) -> dict[str, Any]:
 
 def _self_test() -> None:
     assert normalize_character_overrides({
+        "skillLevels": {"1": 8, "2": 9, "3": 10},
         "overload": {"atk_pct": 22.22},
         "cube": {"name": "탄충", "level": 15},
         "manualStats": {"split_dmg_pct": 20},
     }) == {
+        "skill_levels": {"1": 8, "2": 9, "3": 10},
         "equip_skills": {"atk_pct": 22.22},
         "cube": {"name": "탄충", "level": 15},
         "manual_stats": {"split_dmg_pct": 20.0},

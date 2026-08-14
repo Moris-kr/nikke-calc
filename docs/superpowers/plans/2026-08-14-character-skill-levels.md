@@ -29,7 +29,7 @@
 - Consumes browser payload `skillLevels: {"1": number, "2": number, "3": number}`.
 - Produces engine override `skill_levels: {"1": int, "2": int, "3": int}`.
 
-- [ ] **Step 1: Write failing normalization and engine tests**
+- [x] **Step 1: Write failing normalization and engine tests**
 
 Add tests that expect:
 
@@ -41,23 +41,23 @@ normalize_character_overrides({
 
 Reject unknown keys, booleans, fractions, zero, and 11. Build a released character at two levels and assert the engine resolves a known parsed effect to distinct level-1 and level-10 values. Assert preview characters accept 10/10/10 and reject any forged non-10 request through `build_squad()`.
 
-- [ ] **Step 2: Run the focused Python tests and confirm red**
+- [x] **Step 2: Run the focused Python tests and confirm red**
 
 Run: `python -m unittest calculator.test_customization -v && python site/scripts/test-bridge.py`
 
 Expected: FAIL because `skillLevels` is currently an unsupported browser section.
 
-- [ ] **Step 3: Implement strict browser normalization**
+- [x] **Step 3: Implement strict browser normalization**
 
 Allow `skillLevels` in `normalize_character_overrides()`, require an object, permit only keys `"1"`, `"2"`, and `"3"`, and require every supplied value to be a non-boolean integer in the inclusive range 1–10. Copy valid values to `result["skill_levels"]`; leave preview enforcement to the existing `context.spec.build_char()` check.
 
-- [ ] **Step 4: Re-run the focused Python tests**
+- [x] **Step 4: Re-run the focused Python tests**
 
 Run: `python -m unittest calculator.test_customization -v && python site/scripts/test-bridge.py`
 
 Expected: all focused tests PASS.
 
-- [ ] **Step 5: Commit the Python boundary**
+- [x] **Step 5: Commit the Python boundary**
 
 ```bash
 git add calculator/customization.py calculator/test_customization.py site/scripts/test-bridge.py

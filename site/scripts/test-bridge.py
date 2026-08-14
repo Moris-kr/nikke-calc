@@ -12,6 +12,52 @@ from pybridge.bridge import run_request
 
 
 class BrowserBridgeTest(unittest.TestCase):
+    def test_released_skill_levels_change_the_engine_result(self):
+        payload = {
+            "squad": ["라피 : 레드 후드"],
+            "characters": {
+                "라피 : 레드 후드": {
+                    "skillLevels": {"1": 10, "2": 1, "3": 10},
+                },
+            },
+            "duration": 10,
+            "enemyDef": 31_784,
+            "enemyCode": "",
+            "corePx": 0,
+            "hasParts": False,
+            "seed": 42,
+        }
+        level_ten = json.loads(run_request(json.dumps({
+            **payload,
+            "characters": {
+                "라피 : 레드 후드": {
+                    "skillLevels": {"1": 10, "2": 10, "3": 10},
+                },
+            },
+        }, ensure_ascii=False)))
+        level_one = json.loads(run_request(json.dumps(payload, ensure_ascii=False)))
+
+        self.assertGreater(level_ten["squadTotal"], level_one["squadTotal"])
+
+    def test_preview_skill_levels_cannot_be_forged_below_ten(self):
+        payload = {
+            "squad": ["아마기 유키코"],
+            "characters": {
+                "아마기 유키코": {
+                    "skillLevels": {"1": 9, "2": 10, "3": 10},
+                },
+            },
+            "duration": 10,
+            "enemyDef": 31_784,
+            "enemyCode": "",
+            "corePx": 0,
+            "hasParts": False,
+            "seed": 42,
+        }
+
+        with self.assertRaisesRegex(ValueError, "프리뷰 캐릭터는 스킬 레벨 10"):
+            run_request(json.dumps(payload, ensure_ascii=False))
+
     def test_seeded_request_returns_compact_positive_result(self):
         payload = {
             "squad": ["리타"],
