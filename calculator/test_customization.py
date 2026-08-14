@@ -25,6 +25,7 @@ class CharacterCustomizationTest(unittest.TestCase):
     def test_growth_stage_requires_character_context_and_legal_rarity_range(self):
         invalid = (
             (None, 3),
+            ("리타", None),
             ("리타", True),
             ("리타", 1.5),
             ("리타", -1),

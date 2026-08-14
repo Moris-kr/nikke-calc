@@ -103,8 +103,8 @@ def normalize_character_overrides(
         raise ValueError(f"지원하지 않는 캐릭터 설정: {sorted(unknown_sections)}")
 
     result: dict[str, Any] = {}
-    growth_stage = raw.get("growthStage")
-    if growth_stage is not None:
+    if "growthStage" in raw:
+        growth_stage = raw["growthStage"]
         if character_name is None:
             raise ValueError("돌파 단계 설정에는 캐릭터 이름이 필요하다")
         result.update(resolve_character_growth(character_name, growth_stage))
