@@ -8,6 +8,14 @@ import type { CharacterOverrides, SettingsCatalog } from './types';
 const settings: SettingsCatalog = {
   characters: {
     리타: {
+      growthStage: 3,
+      rarity: 'SSR',
+      maxGrowthStage: 10,
+      growthOptions: Array.from({ length: 11 }, (_, value) => ({
+        value,
+        label: value === 0 ? '명함' : value <= 3 ? `${value}돌` : `코강 ${value - 3}`,
+        affinity: value === 0 ? 10 : value === 1 ? 20 : 30,
+      })),
       skillLevels: { '1': 10, '2': 10, '3': 10 },
       skillLevelsLocked: false,
       overload: {
@@ -20,6 +28,14 @@ const settings: SettingsCatalog = {
       cube: { name: '재장', level: 15 },
     },
     '아마기 유키코': {
+      growthStage: 3,
+      rarity: 'SSR',
+      maxGrowthStage: 10,
+      growthOptions: Array.from({ length: 11 }, (_, value) => ({
+        value,
+        label: value === 0 ? '명함' : value <= 3 ? `${value}돌` : `코강 ${value - 3}`,
+        affinity: value === 0 ? 10 : value === 1 ? 20 : 30,
+      })),
       skillLevels: { '1': 10, '2': 10, '3': 10 },
       skillLevelsLocked: true,
       overload: {
@@ -79,6 +95,7 @@ describe('character settings editor', () => {
 
   it('shows resolved defaults and opens final-value inputs on demand', () => {
     expect(root.textContent).toContain('스킬 10 / 10 / 10');
+    expect(root.textContent).toContain('3돌 · 호감도 30');
     expect(root.textContent).toContain('우코 88.60');
     expect(root.textContent).toContain('공증 22.22');
     expect(root.textContent).toContain('장탄 129.64');
@@ -87,8 +104,26 @@ describe('character settings editor', () => {
     setToggle('[data-custom-toggle]', true);
 
     expect(value?.skillLevels).toEqual({ '1': 10, '2': 10, '3': 10 });
+    expect(value?.growthStage).toBe(3);
     expect(value?.overload).toEqual(settings.characters.리타!.overload);
     expect(root.querySelector<HTMLInputElement>('[data-overload-key="atk_pct"]')?.value).toBe('22.22');
+  });
+
+  it('selects a legal growth stage and applies its maximum bond rank', () => {
+    setToggle('[data-custom-toggle]', true);
+
+    const growth = root.querySelector<HTMLSelectElement>('[data-growth-stage]')!;
+    expect([...growth.options].map((option) => option.text)).toEqual([
+      '명함', '1돌', '2돌', '3돌', '코강 1', '코강 2', '코강 3', '코강 4',
+      '코강 5', '코강 6', '코강 7',
+    ]);
+    expect(root.textContent).toContain('호감도는 돌파별 최대치로 적용합니다.');
+
+    growth.value = '0';
+    growth.dispatchEvent(new Event('change'));
+
+    expect(value?.growthStage).toBe(0);
+    expect(root.textContent).toContain('명함 · 호감도 10');
   });
 
   it('changes skill 1, skill 2, and burst levels independently', () => {
