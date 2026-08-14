@@ -6,6 +6,7 @@
   "scripts": {
     "predev": "npm run sync-runtime",
     "dev": "vite",
+    "pretest": "npm run sync-runtime",
     "test": "vitest",
     "sync-runtime": "node scripts/sync-runtime.mjs",
     "check-runtime": "node scripts/check-runtime.mjs",
