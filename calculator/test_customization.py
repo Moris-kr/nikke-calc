@@ -8,6 +8,37 @@ from context.spec import build_squad
 
 
 class CharacterCustomizationTest(unittest.TestCase):
+    def test_growth_stage_is_normalized_for_the_engine(self):
+        self.assertEqual(
+            normalize_character_overrides(
+                {"growthStage": 6}, character_name="리타"
+            ),
+            {"breakthrough": 3, "core_enhancement": 3, "affinity": 30},
+        )
+        self.assertEqual(
+            normalize_character_overrides(
+                {"growthStage": 3}, character_name="크라운"
+            )["affinity"],
+            40,
+        )
+
+    def test_growth_stage_requires_character_context_and_legal_rarity_range(self):
+        invalid = (
+            (None, 3),
+            ("리타", True),
+            ("리타", 1.5),
+            ("리타", -1),
+            ("리타", 11),
+            ("라피", 3),
+            ("iDoll 플라워", 1),
+        )
+        for name, stage in invalid:
+            with self.subTest(name=name, stage=stage):
+                with self.assertRaises(ValueError):
+                    normalize_character_overrides(
+                        {"growthStage": stage}, character_name=name
+                    )
+
     def test_skill_levels_are_normalized_for_the_engine(self):
         self.assertEqual(
             normalize_character_overrides({

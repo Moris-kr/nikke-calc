@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 
@@ -12,6 +14,8 @@ OVER_SPEC_NAMES = frozenset({
 })
 MAX_STAGE_BY_RARITY = {"R": 0, "SR": 2, "SSR": 10}
 ENGINE_GROWTH_FIELDS = frozenset({"breakthrough", "core_enhancement", "affinity"})
+_ROOT = Path(__file__).resolve().parent.parent
+_NIKKE = json.loads((_ROOT / "data" / "parsed_nikke.json").read_text(encoding="utf-8"))
 
 
 def growth_profile(name: str, meta: dict[str, Any]) -> dict[str, Any]:
@@ -58,3 +62,11 @@ def resolve_growth(name: str, meta: dict[str, Any], stage: int) -> dict[str, int
         "core_enhancement": core_enhancement,
         "affinity": affinity,
     }
+
+
+def resolve_character_growth(name: str, stage: int) -> dict[str, int]:
+    """Resolve a named character through canonical parsed metadata."""
+    meta = _NIKKE.get(name)
+    if meta is None:
+        raise ValueError(f"{name}: 캐릭터 메타데이터를 찾을 수 없다")
+    return resolve_growth(name, meta, stage)

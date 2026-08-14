@@ -1,12 +1,23 @@
 from __future__ import annotations
 
+import json
 import unittest
+from pathlib import Path
 
 from context.growth import growth_profile, resolve_growth
 from context.spec import build_char
 
 
 class CharacterGrowthTest(unittest.TestCase):
+    def test_bond_rank_ten_has_canonical_stats_for_each_class(self):
+        table = json.loads(
+            (Path(__file__).parent.parent / "data" / "base_stat_tables" / "affinity.json")
+            .read_text(encoding="utf-8")
+        )
+        self.assertEqual(table["화력형"]["10"], {"hp": 9062, "atk": 403, "def": 60})
+        self.assertEqual(table["방어형"]["10"], {"hp": 11076, "atk": 269, "def": 74})
+        self.assertEqual(table["지원형"]["10"], {"hp": 10069, "atk": 336, "def": 67})
+
     def test_resolves_rarity_stage_table(self):
         cases = (
             ("R", 0, 0, 0, 1),

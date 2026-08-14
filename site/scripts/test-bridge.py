@@ -12,6 +12,42 @@ from pybridge.bridge import run_request
 
 
 class BrowserBridgeTest(unittest.TestCase):
+    def test_growth_stage_changes_the_engine_result(self):
+        payload = {
+            "squad": ["리타"],
+            "duration": 10,
+            "enemyDef": 31_784,
+            "enemyCode": "",
+            "corePx": 0,
+            "hasParts": False,
+            "seed": 42,
+        }
+        card = json.loads(run_request(json.dumps({
+            **payload,
+            "characters": {"리타": {"growthStage": 0}},
+        }, ensure_ascii=False)))
+        core_seven = json.loads(run_request(json.dumps({
+            **payload,
+            "characters": {"리타": {"growthStage": 10}},
+        }, ensure_ascii=False)))
+
+        self.assertGreater(core_seven["squadTotal"], card["squadTotal"])
+
+    def test_rejects_forged_growth_stage_for_character_rarity(self):
+        payload = {
+            "squad": ["라피"],
+            "characters": {"라피": {"growthStage": 3}},
+            "duration": 10,
+            "enemyDef": 31_784,
+            "enemyCode": "",
+            "corePx": 0,
+            "hasParts": False,
+            "seed": 42,
+        }
+
+        with self.assertRaisesRegex(ValueError, "라피: 돌파 단계는 0~2"):
+            run_request(json.dumps(payload, ensure_ascii=False))
+
     def test_released_skill_levels_change_the_engine_result(self):
         payload = {
             "squad": ["라피 : 레드 후드"],

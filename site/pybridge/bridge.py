@@ -19,7 +19,9 @@ def run_request(raw: str) -> str:
     if outside:
         raise ValueError(f"스쿼드에 없는 캐릭터 설정: {outside}")
     characters = {
-        name: normalize_character_overrides(raw_characters.get(name))
+        name: normalize_character_overrides(
+            raw_characters.get(name), character_name=name
+        )
         for name in names
         if name in raw_characters
     }
