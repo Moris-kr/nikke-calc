@@ -20,6 +20,8 @@ import copy
 import json
 from pathlib import Path
 
+from context.growth import ENGINE_GROWTH_FIELDS, growth_profile, resolve_growth
+
 _ROOT = Path(__file__).resolve().parent.parent
 
 # ── 오버로드 장비 옵션 ─────────────────────────────────────────────────────
@@ -126,6 +128,14 @@ def build_char(name: str, over: dict | None = None, base: dict | None = None,
                주지 않으면 조건부 레이어는 붙지 않는다.
     """
     c = copy.deepcopy(base or DEFAULT_CHAR)
+    direct_growth = any(key in (over or {}) for key in ENGINE_GROWTH_FIELDS)
+    custom_base_growth = base is not None and any(key in base for key in ENGINE_GROWTH_FIELDS)
+    if not direct_growth and not custom_base_growth:
+        meta = _nikke().get(name)
+        if meta is None:
+            raise ValueError(f"{name}: 캐릭터 메타데이터를 찾을 수 없다")
+        profile = growth_profile(name, meta)
+        c = deep_merge(c, resolve_growth(name, meta, profile["default_stage"]))
     if not no_layer:
         c = deep_merge(c, char_layer(name, members))
     c = deep_merge(c, over)

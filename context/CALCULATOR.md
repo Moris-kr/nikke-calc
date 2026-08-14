@@ -14,8 +14,9 @@ context/snapshot.py                (회귀 하네스)
        └─ simulate(squad, config, enemy, seed)   ← timeline.py
 ```
 
-`squad`은 캐릭터 인스턴스 dict 목록. 각 캐릭터는 `name`, `level`, `equipment`, `equip_skills`,
-`cube`, `console`, `collection_stage`, `control` 등을 포함한다. 이 dict를 만드는 건 러너 쪽
+`squad`은 캐릭터 인스턴스 dict 목록. 각 캐릭터는 `name`, `level`, `breakthrough`,
+`core_enhancement`, `affinity`, `equipment`, `equip_skills`, `cube`, `console`,
+`collection_stage`, `control` 등을 포함한다. 이 dict를 만드는 건 러너 쪽
 `context/spec.py`이고(정본: `HARNESS.md §기본 스펙`), `timeline.DEFAULT_CHAR`는 호출자가
 키를 빠뜨렸을 때의 **최소 폴백**일 뿐이다 — 장비 옵션·컨트롤 기본값은 거기 없다.
 
@@ -48,6 +49,10 @@ collection.json   ──┘
 ```
 
 공식: `(레벨스탯 + 돌파보정 + 친밀도스탯 + 콘솔스탯) × (1 + 0.02×코강수) + 장비스탯 + 큐브스탯 + 소장품스탯`
+
+기본 돌파·코강·친밀도는 `context/growth.py`가 레어도와 필그림·오버스펙 분류로 결정한다.
+브라우저의 단일 `growthStage`도 같은 정본을 통해 이 세 엔진 필드로 변환된다. 직접 Python
+오버라이드를 준 연구 케이스는 자동 변환보다 우선한다.
 
 ---
 
