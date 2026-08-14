@@ -291,7 +291,7 @@ python calculator/damage.py
 | `projectile_attachment_dmg_pct` | `projectile_attachment_dmg` | ⑤ | ✅ | `is_projectile_attachment=True` 히트에만 가산 |
 | `projectile_explosion_dmg_pct` | `projectile_explosion_dmg` | ⑤ | ✅ | `is_projectile_explosion=True` 히트에만 가산 |
 | `burst_stage_override:N` / `burst_stage_override:reenterN` | — | — | ✅ | 타임라인 `_rebuild_burst_order()` / `_check_reenter()`에서 처리 |
-| `element_code_override` | — | — | ❌ | 특정 코드 적에게 우월 코드 적용. 미구현 |
+| `element_code_override` | `is_element_match` | ⑦ | ✅ | 활성 효과의 구조화된 `target_code`가 적 코드와 같으면 기본 코드 우월 판정과 OR 결합. 기본 `element_code`는 바꾸지 않아 아군 코드 대상 선정에는 영향 없음. 라피 : 레드 후드, 슈가(애장품) |
 | `trigger_count_reduce` | — | — | ✅ | `_dispatch_instant`에서 처리 |
 | `shield_dmg_pct` | — | — | ❌ | 보호막 대미지 ▲. 미구현 |
 | `cover_def_pct` | — | — | 🚫 | 엄폐물 방어력 ▲. 엄폐 모델 없음 |
