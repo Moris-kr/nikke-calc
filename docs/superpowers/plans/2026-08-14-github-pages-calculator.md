@@ -157,14 +157,15 @@ git commit -m "feat: scaffold browser calculator runtime"
 - Create: `site/public/calculator.worker.js`
 - Create: `site/src/worker-client.ts`
 - Create: `site/src/worker-client.test.ts`
-- Create: `site/scripts/smoke-runtime.py`
+- Create: `site/pybridge/bridge.py`
+- Create: `site/scripts/test-bridge.py`
 
 **Interfaces:**
 - Consumes: `SimulationRequest`, `SimulationResult`, and `runtime/manifest.json` from Task 1.
 - Produces: `CalculatorWorkerClient` with `prepare(): Promise<void>`, `simulate(request): Promise<SimulationResult>`, and `dispose(): void`.
 - Worker messages: `{ id, type: 'prepare' | 'simulate', payload? }` and `{ id, type: 'ready' | 'progress' | 'result' | 'error', payload? }`.
 
-- [ ] **Step 1: Write failing worker-client tests with a fake Worker**
+- [x] **Step 1: Write failing worker-client tests with a fake Worker**
 
 ```ts
 it('matches an out-of-order response to the request id', async () => {
@@ -182,13 +183,13 @@ it('rejects a worker error and remains usable', async () => {
 });
 ```
 
-- [ ] **Step 2: Run the focused test and confirm failure**
+- [x] **Step 2: Run the focused test and confirm failure**
 
 Run: `cd site && npm test -- --run src/worker-client.test.ts`
 
 Expected: FAIL because `CalculatorWorkerClient` is missing.
 
-- [ ] **Step 3: Implement the client and classic worker**
+- [x] **Step 3: Implement the client and classic worker**
 
 The worker must pin:
 
@@ -199,20 +200,20 @@ const PYODIDE_BASE = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/
 
 It loads all manifest files under `/app`, inserts `/app` into `sys.path`, and defines one Python `run_request(raw: str) -> str` bridge. The bridge uses `build_squad`, `build_config`, and `simulate`, returning only totals, duration, hit count, preview note, and deviation text. All messages are handled serially by the worker event loop.
 
-- [ ] **Step 4: Add a native-Python smoke runner for the same payload**
+- [x] **Step 4: Add a native-Python smoke runner for the same payload**
 
-`smoke-runtime.py` must add `site/public/runtime` to `sys.path`, run a 10-second one-character request with seed 42, and assert positive total damage, positive hit count, and the requested duration.
+`test-bridge.py` must add the repository and `site/` to `sys.path`, call the same `run_request` bridge used by Pyodide, run a 10-second one-character request with seed 42, and assert positive total damage, positive hit count, and the requested duration.
 
-- [ ] **Step 5: Run client tests and native bridge smoke**
+- [x] **Step 5: Run client tests and native bridge smoke**
 
-Run: `cd site && npm test -- --run src/worker-client.test.ts && python3 scripts/smoke-runtime.py`
+Run: `cd site && npm test -- --run src/worker-client.test.ts && python3 scripts/test-bridge.py`
 
 Expected: both commands exit 0 and the smoke runner prints a positive result summary.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
-git add site/public/calculator.worker.js site/src/worker-client.ts site/src/worker-client.test.ts site/scripts/smoke-runtime.py
+git add site/public/calculator.worker.js site/src/worker-client.ts site/src/worker-client.test.ts site/pybridge site/scripts/test-bridge.py
 git commit -m "feat: run calculator in a browser worker"
 ```
 

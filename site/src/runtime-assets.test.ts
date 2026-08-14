@@ -27,7 +27,7 @@ describe('generated browser runtime', () => {
     ) as RuntimeManifest;
 
     expect(manifest.version).toMatch(/^[a-f0-9]{16}$/);
-    expect(manifest.files).toHaveLength(19);
+    expect(manifest.files).toHaveLength(20);
     for (const file of manifest.files) {
       expect(readFileSync(join(publicDir, 'runtime', file)).byteLength).toBeGreaterThan(0);
     }

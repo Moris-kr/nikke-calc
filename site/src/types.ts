@@ -34,3 +34,15 @@ export interface RuntimeManifest {
   version: string;
   files: string[];
 }
+
+export interface WorkerRequest {
+  id: number;
+  type: 'prepare' | 'simulate';
+  payload?: SimulationRequest;
+}
+
+export interface WorkerResponse {
+  id: number;
+  type: 'ready' | 'progress' | 'result' | 'error';
+  payload?: SimulationResult | string;
+}

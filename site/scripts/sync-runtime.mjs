@@ -39,6 +39,8 @@ const runtimeFiles = [
   'data/base_stat_tables/level_stats.json',
 ];
 
+const bridgeTarget = 'bridge.py';
+
 const readJson = (path) => JSON.parse(readFileSync(path, 'utf8'));
 const normalizeImageName = (value) => value
   .replaceAll(' ', '')
@@ -61,6 +63,12 @@ for (const relativePath of runtimeFiles) {
   hash.update(relativePath);
   hash.update(content);
 }
+
+const bridgeSource = join(siteDir, 'pybridge', 'bridge.py');
+const bridgeContent = readFileSync(bridgeSource);
+copyFileSync(bridgeSource, join(runtimeDir, bridgeTarget));
+hash.update(bridgeTarget);
+hash.update(bridgeContent);
 
 const nikke = readJson(join(repoRoot, 'data', 'parsed_nikke.json'));
 const skills = readJson(join(repoRoot, 'data', 'parsed_skills.json'));
@@ -99,10 +107,10 @@ const catalog = names.map((name, index) => {
 
 const manifest = {
   version: hash.digest('hex').slice(0, 16),
-  files: runtimeFiles,
+  files: [...runtimeFiles, bridgeTarget],
 };
 
 writeFileSync(join(runtimeDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 writeFileSync(join(publicDir, 'catalog.json'), `${JSON.stringify(catalog, null, 2)}\n`);
 
-console.log(`runtime ${runtimeFiles.length} files · catalog ${catalog.length} characters · version ${manifest.version}`);
+console.log(`runtime ${manifest.files.length} files · catalog ${catalog.length} characters · version ${manifest.version}`);
