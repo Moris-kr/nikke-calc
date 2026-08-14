@@ -27,6 +27,14 @@ const catalog: CharacterMeta[] = [
 const cubeLevels = { '15': { atk: 2780, def: 552, hp: 83400, effect: 10, commonElement: 19.09 } };
 const settings: SettingsCatalog = {
   characters: Object.fromEntries(names.map((name) => [name, {
+    growthStage: 3,
+    rarity: 'SSR',
+    maxGrowthStage: 10,
+    growthOptions: Array.from({ length: 11 }, (_, value) => ({
+      value,
+      label: value === 0 ? '명함' : value <= 3 ? `${value}돌` : `코강 ${value - 3}`,
+      affinity: value === 0 ? 10 : value === 1 ? 20 : 30,
+    })),
     skillLevels: { '1': 10, '2': 10, '3': 10 },
     skillLevelsLocked: false,
     overload: {
@@ -332,7 +340,30 @@ describe('calculator UI', () => {
     await flush();
 
     expect(client.lastRequest?.characters?.리타?.overload?.atk_pct).toBe(40);
+    expect(client.lastRequest?.characters?.리타?.growthStage).toBe(3);
     expect(client.lastRequest?.characters?.리타?.skillLevels).toEqual({ '1': 4, '2': 10, '3': 10 });
+  });
+
+  it('blocks a forged growth stage outside the character rarity range', async () => {
+    const client = new FakeClient();
+    const invalidSettings: SettingsCatalog = {
+      ...settings,
+      characters: {
+        ...settings.characters,
+        리타: { ...settings.characters.리타!, growthStage: 11 },
+      },
+    };
+    mountCalculator(root, { catalog, settings: invalidSettings, version: 'v1', client, storage: localStorage });
+    const toggle = root.querySelector<HTMLInputElement>('[data-slot-card="0"] [data-custom-toggle]')!;
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event('change'));
+
+    root.querySelector<HTMLFormElement>('form')!.requestSubmit();
+    await flush();
+
+    expect(root.querySelector('[data-errors]')?.textContent)
+      .toContain('덱 1 · 리타: 돌파 단계는 0~10 정수여야 합니다.');
+    expect(client.simulateCalls).toBe(0);
   });
 
   it('blocks released skill levels outside the integer 1-to-10 range', async () => {

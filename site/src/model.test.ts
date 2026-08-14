@@ -90,11 +90,12 @@ describe('request normalization', () => {
     expect(cacheKey(raw, 'v1')).not.toBe(cacheKey(raw, 'v2'));
   });
 
-  it('includes skill, overload, cube, and manual character settings in the cache key', () => {
+  it('includes growth, skill, overload, cube, and manual character settings in the cache key', () => {
     const base = {
       ...valid,
       characters: {
         리타: {
+          growthStage: 3,
           skillLevels: { '1': 10, '2': 10, '3': 10 },
           overload: { atk_pct: 22.22 },
           cube: { name: '재장' as const, level: 15 },
@@ -102,6 +103,15 @@ describe('request normalization', () => {
         },
       },
     };
+
+    const growthChanged = {
+      ...base,
+      characters: {
+        리타: { ...base.characters.리타, growthStage: 10 },
+      },
+    };
+    expect(normalizeRequest(growthChanged).characters?.리타?.growthStage).toBe(10);
+    expect(cacheKey(base, 'v1')).not.toBe(cacheKey(growthChanged, 'v1'));
 
     expect(cacheKey(base, 'v1')).not.toBe(cacheKey({
       ...base,
