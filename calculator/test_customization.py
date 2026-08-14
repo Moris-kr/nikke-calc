@@ -30,7 +30,9 @@ class CharacterCustomizationTest(unittest.TestCase):
                 "cover": {"policy": "own_full_burst"},
             },
         }
-        self.assertEqual(normalize_character_overrides(raw)["control"], raw["control"])
+        self.assertEqual(
+            normalize_character_overrides(raw)["_control_override"], raw["control"]
+        )
         with self.assertRaises(ValueError):
             normalize_character_overrides({
                 "control": {"reload": {"policy": "impossible"}},

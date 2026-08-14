@@ -124,9 +124,9 @@ cs.tick(t)
 - 캐릭터별 기본 컨트롤(`data/char_defaults.json`)은 **`calculator/`가 읽지 않는다.**
   레이어를 얹는 건 러너 쪽(`context/spec.py`)이고, `simulate()`는 넘겨받은
   `char["control"]`만 보므로 기본값이 시뮬 결과를 소리 없이 바꾸지 않는다.
-- 브라우저 요청이 `control`을 명시하면 `context/spec.py`가 레이어 적용 뒤 그 객체로 완전히
-  교체한다. 키 미지정은 추천 자동, 빈 객체는 컨트롤 없음이다. 다른 캐릭터 설정은 기존처럼
-  재귀 병합한다.
+- 브라우저 요청이 `control`을 명시하면 검증기가 내부 `_control_override`로 변환하고,
+  `context/spec.py`가 레이어 적용 뒤 그 객체로 완전히 교체한다. 키 미지정은 추천 자동, 빈
+  객체는 컨트롤 없음이다. Python 연구용 `control`과 다른 캐릭터 설정은 기존처럼 재귀 병합한다.
 - 장전컨은 `BurstController`가 `state`에 공개하는 `full_burst_end_t`(진입 시 확정)와
   `next_fb_start_pred`(직전 사이클 주기로 예측)를 앵커로 쓴다. 앵커 값을 기억해 사이클당 1회만 건다.
   버스트 엄폐컨도 `full_burst_end_t`를 앵커로 쓰되, 그 값까지의 **길이**를 구간으로 삼는다.

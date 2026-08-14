@@ -128,8 +128,8 @@ def build_char(name: str, over: dict | None = None, base: dict | None = None,
                주지 않으면 조건부 레이어는 붙지 않는다.
     """
     c = copy.deepcopy(base or DEFAULT_CHAR)
-    explicit_control = "control" in (over or {})
-    control_override = copy.deepcopy((over or {}).get("control"))
+    explicit_control = "_control_override" in (over or {})
+    control_override = copy.deepcopy((over or {}).get("_control_override"))
     direct_growth = any(key in (over or {}) for key in ENGINE_GROWTH_FIELDS)
     custom_base_growth = base is not None and any(key in base for key in ENGINE_GROWTH_FIELDS)
     if not direct_growth and not custom_base_growth:
