@@ -68,7 +68,7 @@ a:focus-visible {
 .hero-orbit strong { text-align: center; font: 800 18px/1.15 ui-monospace, monospace; letter-spacing: .12em; }
 
 .calculator-layout { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(310px, .75fr); gap: 16px; align-items: start; }
-.panel { border: 1px solid var(--line); background: linear-gradient(145deg, rgba(15,30,46,.94), rgba(8,17,28,.94)); box-shadow: 0 28px 80px rgba(0,0,0,.26); }
+.panel { min-width: 0; border: 1px solid var(--line); background: linear-gradient(145deg, rgba(15,30,46,.94), rgba(8,17,28,.94)); box-shadow: 0 28px 80px rgba(0,0,0,.26); }
 .squad-panel { grid-column: 1 / -1; padding: 28px; }
 .settings-panel { padding: 28px; position: sticky; top: 16px; }
 .result-panel { min-height: 520px; padding: 28px; overflow: hidden; }
@@ -107,10 +107,11 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .input-unit { position: relative; }
 .input-unit input { padding-right: 42px; }
 .input-unit em { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); font-style: normal; font-size: 11px; }
-.toggle-field { grid-column: 1 / -1; grid-template-columns: auto auto 1fr !important; display: flex !important; align-items: center; min-height: 42px; cursor: pointer; }
-.toggle-field input { position: absolute; opacity: 0; pointer-events: none; }
+.toggle-field { position: relative; grid-column: 1 / -1; grid-template-columns: auto auto 1fr !important; display: flex !important; align-items: center; min-height: 42px; cursor: pointer; }
+.toggle-field input { position: absolute; width: 1px; min-height: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; opacity: 0; }
 .toggle { width: 34px; height: 18px; border: 1px solid var(--line); background: #07121f; position: relative; }
 .toggle::after { content: ""; position: absolute; width: 10px; height: 10px; left: 3px; top: 3px; background: var(--muted); transition: .15s ease; }
+.toggle-field input:focus-visible + .toggle { outline: 3px solid rgba(69, 214, 208, 0.65); outline-offset: 3px; }
 .toggle-field input:checked + .toggle { border-color: var(--amber); }
 .toggle-field input:checked + .toggle::after { transform: translateX(16px); background: var(--amber); }
 .error-box { margin-top: 16px; padding: 10px 12px; border-left: 3px solid var(--danger); background: rgba(255,89,112,.09); color: #ffc2ca; font-size: 12px; line-height: 1.5; }
