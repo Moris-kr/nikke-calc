@@ -8,6 +8,9 @@ import type { CharacterOverrides, SettingsCatalog } from './types';
 const settings: SettingsCatalog = {
   characters: {
     리타: {
+      weaponType: 'SMG',
+      recommendedControl: {},
+      hasConditionalControl: false,
       growthStage: 3,
       rarity: 'SSR',
       maxGrowthStage: 10,
@@ -28,6 +31,10 @@ const settings: SettingsCatalog = {
       cube: { name: '재장', level: 15 },
     },
     라피: {
+      weaponType: 'RL',
+      recommendedControl: { tap_fire: { rate: 3.6, release: 0.03 } },
+      hasConditionalControl: true,
+      favoriteItem: { name: '기념 열쇠고리', stage: 3 },
       growthStage: 2,
       rarity: 'SR',
       maxGrowthStage: 2,
@@ -48,6 +55,9 @@ const settings: SettingsCatalog = {
       cube: { name: '재장', level: 15 },
     },
     '아마기 유키코': {
+      weaponType: 'AR',
+      recommendedControl: {},
+      hasConditionalControl: false,
       growthStage: 3,
       rarity: 'SSR',
       maxGrowthStage: 10,
@@ -81,6 +91,10 @@ const settings: SettingsCatalog = {
     max_ammo_pct: { label: '최대 장탄수', unit: '%', min: 0, max: 10000 },
     crit_rate: { label: '크리티컬 확률', unit: '%', min: 0, max: 100 },
     crit_dmg: { label: '크리티컬 대미지', unit: '%', min: 0, max: 1000 },
+    def_pct: { label: '방어력', unit: '%', min: 0, max: 1000 },
+    charge_speed_pct: { label: '차지 속도', unit: '%', min: 0, max: 1000 },
+    charge_dmg_pct: { label: '차지 대미지', unit: '%', min: 0, max: 1000 },
+    accuracy_pct: { label: '명중률', unit: '%', min: 0, max: 1000 },
   },
   manualStats: {
     split_dmg_pct: { label: '분배 대미지', unit: '%', min: -1000, max: 10000 },
@@ -171,6 +185,45 @@ describe('character settings editor', () => {
 
     expect(value?.skillLevels).toEqual({ '1': 4, '2': 6, '3': 8 });
     expect(root.textContent).toContain('스킬 4 / 6 / 8');
+  });
+
+  it('shows favorite item stage three and all nine overload options', () => {
+    characterName = '라피';
+    render();
+    setToggle('[data-custom-toggle]', true);
+
+    expect(root.textContent).toContain('기념 열쇠고리');
+    expect(root.textContent).toContain('애장품 보유 캐릭터는 반드시 애장품 3단계로 적용합니다.');
+    expect(root.querySelectorAll('[data-overload-key]')).toHaveLength(9);
+    expect(root.textContent).toContain('차지형 무기가 아니면 차지 옵션은 효과가 없습니다.');
+  });
+
+  it('switches from recommended controls to exact per-character controls', () => {
+    characterName = '라피';
+    render();
+    setToggle('[data-custom-toggle]', true);
+
+    expect(root.querySelector<HTMLInputElement>('[data-control-mode="auto"]')?.checked).toBe(true);
+    expect(root.querySelector('[data-control="tap_fire"]')).not.toBeNull();
+    expect(root.querySelector('[data-control="hold"]')).not.toBeNull();
+    expect(root.querySelector('[data-control="reload"]')).not.toBeNull();
+    expect(root.querySelector('[data-control="cover"]')).not.toBeNull();
+
+    setToggle('[data-control-mode="manual"]', true);
+    expect(value?.control).toEqual({});
+    setToggle('[data-control="tap_fire"]', true);
+    expect(value?.control?.tap_fire).toEqual({ rate: 3.6, release: 0.03 });
+
+    setToggle('[data-control-mode="auto"]', true);
+    expect(value).not.toHaveProperty('control');
+  });
+
+  it('does not show charge-only controls for a non-charge weapon', () => {
+    setToggle('[data-custom-toggle]', true);
+    expect(root.querySelector('[data-control="tap_fire"]')).toBeNull();
+    expect(root.querySelector('[data-control="hold"]')).toBeNull();
+    expect(root.querySelector('[data-control="reload"]')).not.toBeNull();
+    expect(root.querySelector('[data-control="cover"]')).not.toBeNull();
   });
 
   it('shows preview characters as level-ten-only without editable selects', () => {

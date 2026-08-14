@@ -1,4 +1,5 @@
 import type {
+  CharacterControl,
   CharacterOverrides,
   CubeName,
   SettingsCatalog,
@@ -19,6 +20,11 @@ const cloneOverrides = (value: CharacterOverrides): CharacterOverrides => ({
   ...(value.skillLevels ? { skillLevels: { ...value.skillLevels } } : {}),
   ...(value.overload ? { overload: { ...value.overload } } : {}),
   ...(value.cube ? { cube: { ...value.cube } } : {}),
+  ...(value.control !== undefined ? {
+    control: Object.fromEntries(
+      Object.entries(value.control).map(([key, entry]) => [key, { ...entry }]),
+    ) as CharacterControl,
+  } : {}),
   ...(value.manualStats ? { manualStats: { ...value.manualStats } } : {}),
 });
 
@@ -56,6 +62,9 @@ function summaryText(name: string, catalog: SettingsCatalog, value?: CharacterOv
   const overload = value?.overload ?? defaults.overload;
   const cube = value?.cube ?? defaults.cube;
   const growthStage = value?.growthStage ?? defaults.growthStage;
+  const controlSummary = value?.control === undefined
+    ? '컨트롤 추천 자동'
+    : `컨트롤 직접 ${Object.keys(value.control).length}개`;
   const growth = defaults.growthOptions.find((option) => option.value === growthStage)
     ?? { value: growthStage, label: `단계 ${growthStage}`, affinity: 0 };
   const skillSummary = defaults.skillLevelsLocked
@@ -64,7 +73,7 @@ function summaryText(name: string, catalog: SettingsCatalog, value?: CharacterOv
   return `${value ? '개별값' : '기본값'} · ${growth.label} · 호감도 ${growth.affinity} · ${skillSummary} · `
     + `우코 ${numberText(overload.element_bonus ?? 0)} · `
     + `공증 ${numberText(overload.atk_pct ?? 0)} · 장탄 ${numberText(overload.max_ammo_pct ?? 0)} · `
-    + `${cube.name} Lv${cube.level}`;
+    + `${cube.name} Lv${cube.level} · ${controlSummary}`;
 }
 
 export function renderCharacterSettings(
@@ -186,6 +195,17 @@ export function renderCharacterSettings(
   }
   body.append(skillEditor);
 
+  if (defaults.favoriteItem) {
+    const favorite = document.createElement('section');
+    favorite.className = 'favorite-item-note';
+    const favoriteTitle = document.createElement('strong');
+    favoriteTitle.textContent = `${defaults.favoriteItem.name} · 애장품 ${defaults.favoriteItem.stage}단계`;
+    const favoriteText = document.createElement('p');
+    favoriteText.textContent = '애장품 보유 캐릭터는 반드시 애장품 3단계로 적용합니다.';
+    favorite.append(favoriteTitle, favoriteText);
+    body.append(favorite);
+  }
+
   const overloadGrid = document.createElement('div');
   overloadGrid.className = 'overload-grid';
   for (const [key, meta] of Object.entries(catalog.overloadFields)) {
@@ -208,6 +228,10 @@ export function renderCharacterSettings(
     overloadGrid.append(label);
   }
   body.append(overloadGrid);
+  const chargeOptionNote = document.createElement('p');
+  chargeOptionNote.className = 'field-note';
+  chargeOptionNote.textContent = '차지형 무기가 아니면 차지 옵션은 효과가 없습니다.';
+  body.append(chargeOptionNote);
 
   const cubeBox = document.createElement('section');
   cubeBox.className = 'cube-editor';
@@ -259,6 +283,131 @@ export function renderCharacterSettings(
   }
   cubeBox.append(cubeHeading, cubeControls, cubeSummary);
   body.append(cubeBox);
+
+  const controlEditor = document.createElement('section');
+  controlEditor.className = 'control-editor';
+  const controlHeading = document.createElement('h4');
+  controlHeading.textContent = '컨트롤';
+  const controlMode = document.createElement('div');
+  controlMode.className = 'control-mode';
+  const isAutomatic = current.control === undefined;
+  for (const [mode, labelText] of [
+    ['auto', '추천 자동 적용'],
+    ['manual', '직접 설정'],
+  ] as const) {
+    const label = document.createElement('label');
+    const radio = document.createElement('input');
+    radio.type = 'radio';
+    radio.name = `control-mode-${name}`;
+    radio.dataset.controlMode = mode;
+    radio.checked = mode === 'auto' ? isAutomatic : !isAutomatic;
+    radio.addEventListener('change', () => {
+      if (!radio.checked) return;
+      const next = cloneOverrides(current);
+      if (mode === 'auto') delete next.control;
+      else next.control = {};
+      commit(next);
+    });
+    label.append(radio, document.createTextNode(labelText));
+    controlMode.append(label);
+  }
+  const recommendation = document.createElement('p');
+  recommendation.className = 'field-note';
+  const recommendedNames = Object.keys(defaults.recommendedControl);
+  recommendation.textContent = recommendedNames.length
+    ? `현재 기본 추천: ${recommendedNames.join(', ')}`
+    : '현재 기본 추천: 자동 사격';
+  if (defaults.hasConditionalControl) {
+    recommendation.textContent += ' · 스쿼드 조합에 따라 추천 컨트롤이 추가됩니다.';
+  }
+
+  const controlGrid = document.createElement('div');
+  controlGrid.className = 'control-grid';
+  const displayedControl = isAutomatic ? defaults.recommendedControl : current.control!;
+  const updateControl = (key: keyof CharacterControl, entry: CharacterControl[typeof key] | undefined) => {
+    const next = cloneOverrides(current);
+    const nextControl: CharacterControl = { ...(next.control ?? {}) };
+    if (entry === undefined) delete nextControl[key];
+    else Object.assign(nextControl, { [key]: entry });
+    next.control = nextControl;
+    commit(next);
+  };
+  const addControlToggle = (
+    key: keyof CharacterControl,
+    labelText: string,
+    enabledValue: CharacterControl[typeof key],
+  ): HTMLLabelElement => {
+    const label = document.createElement('label');
+    label.className = 'inline-check control-toggle';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.dataset.control = key;
+    checkbox.checked = displayedControl[key] !== undefined;
+    checkbox.disabled = isAutomatic;
+    checkbox.addEventListener('change', () => {
+      updateControl(key, checkbox.checked ? enabledValue : undefined);
+    });
+    label.append(checkbox, document.createTextNode(labelText));
+    controlGrid.append(label);
+    return label;
+  };
+
+  if (defaults.weaponType === 'SR' || defaults.weaponType === 'RL') {
+    addControlToggle('tap_fire', '톡톡이 (3.6발/초)', { rate: 3.6, release: 0.03 });
+    const holdLabel = addControlToggle('hold', '홀드 컨트롤', {
+      policy: 'own_full_burst', lead: 0.5,
+    });
+    const holdPolicy = document.createElement('select');
+    holdPolicy.dataset.controlPolicy = 'hold';
+    for (const [policy, text] of [
+      ['own_full_burst', '본인 풀버스트 홀드'],
+      ['charge_hold_after_fb', '풀버스트 후 홀드'],
+    ] as const) {
+      const option = document.createElement('option');
+      option.value = policy;
+      option.textContent = text;
+      holdPolicy.append(option);
+    }
+    holdPolicy.value = displayedControl.hold?.policy ?? 'own_full_burst';
+    holdPolicy.disabled = isAutomatic || displayedControl.hold === undefined;
+    holdPolicy.addEventListener('change', () => {
+      updateControl('hold', {
+        policy: holdPolicy.value as 'own_full_burst' | 'charge_hold_after_fb',
+        lead: holdPolicy.value === 'own_full_burst' ? 0.5 : 0.1,
+      });
+    });
+    holdLabel.append(holdPolicy);
+  }
+
+  const reloadLabel = addControlToggle('reload', '재장전 컨트롤', {
+    policy: 'before_fb_end', lead: 0.3,
+  });
+  const reloadPolicy = document.createElement('select');
+  reloadPolicy.dataset.controlPolicy = 'reload';
+  for (const [policy, text] of [
+    ['before_fb_end', '풀버스트 종료 전'],
+    ['into_fb', '풀버스트 진입 맞춤'],
+  ] as const) {
+    const option = document.createElement('option');
+    option.value = policy;
+    option.textContent = text;
+    reloadPolicy.append(option);
+  }
+  reloadPolicy.value = displayedControl.reload?.policy ?? 'before_fb_end';
+  reloadPolicy.disabled = isAutomatic || displayedControl.reload === undefined;
+  reloadPolicy.addEventListener('change', () => {
+    updateControl('reload', reloadPolicy.value === 'before_fb_end'
+      ? { policy: 'before_fb_end', lead: 0.3 }
+      : { policy: 'into_fb', margin: 0.1 });
+  });
+  reloadLabel.append(reloadPolicy);
+  addControlToggle('cover', '버스트 엄폐 컨트롤', { policy: 'own_full_burst' });
+
+  const controlWarning = document.createElement('p');
+  controlWarning.className = 'field-note warning';
+  controlWarning.textContent = '여러 캐릭터 동시 컨트롤은 실제 한 명 조작보다 유리한 상한일 수 있습니다.';
+  controlEditor.append(controlHeading, controlMode, recommendation, controlGrid, controlWarning);
+  body.append(controlEditor);
 
   const advancedLabel = document.createElement('label');
   advancedLabel.className = 'inline-check advanced-toggle';

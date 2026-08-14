@@ -12,11 +12,28 @@ export interface SkillLevels {
   '3': number;
 }
 
+export interface CharacterControl {
+  tap_fire?: { rate: number; release?: number; full_charge_interval?: number };
+  reload?: {
+    policy: 'before_fb_end' | 'into_fb';
+    lead?: number;
+    margin?: number;
+    if_dry?: boolean;
+    duration?: number;
+  };
+  cover?: { policy: 'own_full_burst'; extend?: number };
+  hold?: {
+    policy: 'own_full_burst' | 'charge_hold_after_fb';
+    lead?: number;
+  };
+}
+
 export interface CharacterOverrides {
   growthStage?: number;
   skillLevels?: SkillLevels;
   overload?: Record<string, number>;
   cube?: CubeSelection;
+  control?: CharacterControl;
   manualStats?: Record<string, number>;
 }
 
@@ -101,6 +118,10 @@ export interface CubeMeta {
 }
 
 export interface CharacterSettingsDefaults {
+  weaponType: string;
+  recommendedControl: CharacterControl;
+  hasConditionalControl: boolean;
+  favoriteItem?: { name: string; stage: 3 };
   growthStage: number;
   rarity: string;
   maxGrowthStage: number;

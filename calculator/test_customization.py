@@ -5,11 +5,37 @@ import unittest
 from pathlib import Path
 
 from calculator.buff_manager import BuffManager
-from calculator.customization import normalize_character_overrides
+from calculator.customization import OVERLOAD_FIELDS, normalize_character_overrides
 from context.spec import build_squad
 
 
 class CharacterCustomizationTest(unittest.TestCase):
+    def test_all_nine_overload_options_are_browser_safe(self):
+        self.assertEqual(set(OVERLOAD_FIELDS), {
+            "atk_pct", "def_pct", "element_bonus", "max_ammo_pct",
+            "crit_rate", "crit_dmg", "charge_speed_pct",
+            "charge_dmg_pct", "accuracy_pct",
+        })
+        normalized = normalize_character_overrides({
+            "overload": {key: 1 for key in OVERLOAD_FIELDS},
+        })
+        self.assertEqual(set(normalized["equip_skills"]), set(OVERLOAD_FIELDS))
+
+    def test_supported_controls_are_normalized_and_unknown_policies_rejected(self):
+        raw = {
+            "control": {
+                "tap_fire": {"rate": 3.6, "release": 0.03},
+                "reload": {"policy": "before_fb_end", "lead": 0.3},
+                "hold": {"policy": "own_full_burst", "lead": 0.5},
+                "cover": {"policy": "own_full_burst"},
+            },
+        }
+        self.assertEqual(normalize_character_overrides(raw)["control"], raw["control"])
+        with self.assertRaises(ValueError):
+            normalize_character_overrides({
+                "control": {"reload": {"policy": "impossible"}},
+            })
+
     def test_every_raw_extra_advantage_has_structured_target_code(self):
         root = Path(__file__).resolve().parents[1]
         raw = json.loads(
