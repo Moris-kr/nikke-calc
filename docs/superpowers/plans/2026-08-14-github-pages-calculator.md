@@ -6,7 +6,7 @@
 
 **Architecture:** A Vite/TypeScript single-page UI sends validated requests to one classic Web Worker. The worker loads pinned Pyodide, copies the repository's Python engine and JSON tables into Pyodide's virtual filesystem, runs `context.spec` and `calculator.timeline.simulate`, then returns a compact JSON result. GitHub Actions builds `site/dist` and deploys it to Pages.
 
-**Tech Stack:** TypeScript 5, Vite 7, Vitest 3, vanilla DOM/CSS, Pyodide 0.27.7, GitHub Pages Actions
+**Tech Stack:** TypeScript 7, Vite 8, Vitest 4, vanilla DOM/CSS, Pyodide 0.27.7, GitHub Pages Actions
 
 ## Global Constraints
 
@@ -64,7 +64,7 @@
 - Produces: `site/public/catalog.json` as `CharacterMeta[]`
 - Produces: `site/public/runtime/manifest.json` as `{ version: string; files: string[] }`
 
-- [ ] **Step 1: Write failing model tests**
+- [x] **Step 1: Write failing model tests**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -89,13 +89,13 @@ it('formats large damage in Korean units', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests and confirm the missing-module failure**
+- [x] **Step 2: Run tests and confirm the missing-module failure**
 
 Run: `cd site && npm install && npm test -- --run`
 
 Expected: FAIL because `src/model.ts` does not exist.
 
-- [ ] **Step 3: Implement the minimal typed model**
+- [x] **Step 3: Implement the minimal typed model**
 
 Implement exact interfaces in `types.ts`:
 
@@ -117,7 +117,7 @@ export interface SimulationResult {
 
 Implement strict numeric bounds, duplicate detection, sorted-object JSON cache keys, and Korean damage formatting in `model.ts`.
 
-- [ ] **Step 4: Implement runtime sync and verification**
+- [x] **Step 4: Implement runtime sync and verification**
 
 `sync-runtime.mjs` must copy these exact source sets:
 
@@ -136,13 +136,13 @@ const runtimeFiles = [
 
 Generate the catalog from the intersection of parsed character metadata and parsed skill keys, excluding names beginning with `test_`. Resolve images using the repository filename rule that replaces `\\/:*?\"<>|` with `_`. Hash copied runtime content for `manifest.version`.
 
-- [ ] **Step 5: Run unit and runtime checks**
+- [x] **Step 5: Run unit and runtime checks**
 
 Run: `cd site && npm run sync-runtime && npm test -- --run && npm run check-runtime`
 
 Expected: unit tests pass; catalog contains 77 real characters; every manifest file exists.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add .gitignore site/package.json site/package-lock.json site/tsconfig.json site/vite.config.ts site/index.html site/src/types.ts site/src/model.ts site/src/model.test.ts site/scripts

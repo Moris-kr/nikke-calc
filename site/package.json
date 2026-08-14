@@ -1,0 +1,21 @@
+{
+  "name": "nikke-calc-site",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "predev": "npm run sync-runtime",
+    "dev": "vite",
+    "test": "vitest",
+    "sync-runtime": "node scripts/sync-runtime.mjs",
+    "check-runtime": "node scripts/check-runtime.mjs",
+    "prebuild": "npm run sync-runtime && npm run check-runtime",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2",
+    "vite": "8.2.1",
+    "vitest": "4.1.10"
+  }
+}
