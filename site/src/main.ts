@@ -2,7 +2,7 @@ import './styles.css';
 
 import { CalculatorWorkerClient } from './worker-client';
 import { mountCalculator } from './ui';
-import type { CharacterMeta, RuntimeManifest } from './types';
+import type { CharacterMeta, RuntimeManifest, SettingsCatalog } from './types';
 
 const rootCandidate = document.querySelector<HTMLElement>('#app');
 if (!rootCandidate) throw new Error('앱을 표시할 영역이 없습니다.');
@@ -11,18 +11,21 @@ const root: HTMLElement = rootCandidate;
 root.innerHTML = '<div class="boot-screen"><span></span><p>계산기 데이터를 불러오는 중…</p></div>';
 
 async function start(): Promise<void> {
-  const [catalogResponse, manifestResponse] = await Promise.all([
+  const [catalogResponse, manifestResponse, settingsResponse] = await Promise.all([
     fetch(`${import.meta.env.BASE_URL}catalog.json`),
     fetch(`${import.meta.env.BASE_URL}runtime/manifest.json`),
+    fetch(`${import.meta.env.BASE_URL}settings.json`),
   ]);
-  if (!catalogResponse.ok || !manifestResponse.ok) {
+  if (!catalogResponse.ok || !manifestResponse.ok || !settingsResponse.ok) {
     throw new Error('캐릭터 데이터를 불러오지 못했습니다.');
   }
   const catalog = await catalogResponse.json() as CharacterMeta[];
   const manifest = await manifestResponse.json() as RuntimeManifest;
+  const settings = await settingsResponse.json() as SettingsCatalog;
   const client = new CalculatorWorkerClient();
   const cleanup = mountCalculator(root, {
     catalog,
+    settings,
     version: manifest.version,
     client,
     storage: () => window.localStorage,

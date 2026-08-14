@@ -6,6 +6,7 @@ const siteDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const publicDir = join(siteDir, 'public');
 const manifest = JSON.parse(readFileSync(join(publicDir, 'runtime', 'manifest.json'), 'utf8'));
 const catalog = JSON.parse(readFileSync(join(publicDir, 'catalog.json'), 'utf8'));
+const settings = JSON.parse(readFileSync(join(publicDir, 'settings.json'), 'utf8'));
 
 const problems = [];
 if (!/^[a-f0-9]{16}$/.test(manifest.version)) {
@@ -22,6 +23,12 @@ for (const char of catalog) {
   if (char.image && !existsSync(join(publicDir, char.image))) {
     problems.push(`missing portrait: ${char.name} -> ${char.image}`);
   }
+}
+if (Object.keys(settings.characters ?? {}).length !== catalog.length) {
+  problems.push('settings character count must match catalog');
+}
+if (Object.keys(settings.cubes ?? {}).join(',') !== '재장,탄충,체력,차속,파츠') {
+  problems.push('settings must contain exactly the five supported cubes');
 }
 
 if (problems.length > 0) {

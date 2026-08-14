@@ -107,6 +107,12 @@ const catalog = names.map((name, index) => {
   };
 });
 
+const settings = execFileSync('python3', [join(scriptDir, 'export-settings.py')], {
+  cwd: repoRoot,
+  encoding: 'utf8',
+});
+hash.update('settings.json');
+hash.update(settings);
 const manifest = {
   version: hash.digest('hex').slice(0, 16),
   files: [...runtimeFiles, bridgeTarget],
@@ -114,10 +120,6 @@ const manifest = {
 
 writeFileSync(join(runtimeDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 writeFileSync(join(publicDir, 'catalog.json'), `${JSON.stringify(catalog, null, 2)}\n`);
-const settings = execFileSync('python3', [join(scriptDir, 'export-settings.py')], {
-  cwd: repoRoot,
-  encoding: 'utf8',
-});
 writeFileSync(join(publicDir, 'settings.json'), settings);
 
 console.log(`runtime ${manifest.files.length} files · catalog ${catalog.length} characters · settings exported · version ${manifest.version}`);
