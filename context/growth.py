@@ -70,3 +70,25 @@ def resolve_character_growth(name: str, stage: int) -> dict[str, int]:
     if meta is None:
         raise ValueError(f"{name}: 캐릭터 메타데이터를 찾을 수 없다")
     return resolve_growth(name, meta, stage)
+
+
+def growth_stage_label(stage: int) -> str:
+    """Return the compact Korean label shown by the browser selector."""
+    if stage == 0:
+        return "명함"
+    if stage <= 3:
+        return f"{stage}돌"
+    return f"코강 {stage - 3}"
+
+
+def growth_options(name: str, meta: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return every legal selector option with its effective max bond rank."""
+    profile = growth_profile(name, meta)
+    return [
+        {
+            "value": stage,
+            "label": growth_stage_label(stage),
+            "affinity": resolve_growth(name, meta, stage)["affinity"],
+        }
+        for stage in range(profile["max_stage"] + 1)
+    ]

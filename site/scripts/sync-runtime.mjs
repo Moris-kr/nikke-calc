@@ -27,6 +27,7 @@ const runtimeFiles = [
   'calculator/sim_result.py',
   'calculator/timeline.py',
   'context/spec.py',
+  'context/growth.py',
   'data/parsed_nikke.json',
   'data/parsed_skills.json',
   'data/char_defaults.json',
