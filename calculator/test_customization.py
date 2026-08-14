@@ -54,9 +54,21 @@ class CharacterCustomizationTest(unittest.TestCase):
         rita = manager.get_buffs("리타", "__enemy__", 0)
         rapi = manager.get_buffs("라피", "__enemy__", 0)
         self.assertEqual(rita["received_dmg"], 12)
-        self.assertEqual(rita["enemy_def_down_pct"], 7)
+        self.assertEqual(rita["enemy_def_down_pct"], -7)
         self.assertEqual(rapi["received_dmg"], 0)
         self.assertEqual(rapi["enemy_def_down_pct"], 0)
+
+    def test_part_cube_routes_its_value_to_part_damage(self):
+        squad = build_squad(["리타"], {
+            "리타": {"cube": {"name": "파츠", "level": 15}},
+        })
+        manager = BuffManager(squad, {"enemy": {}})
+        manager.notify("battle_start", 0, "리타")
+
+        self.assertEqual(
+            manager.get_buffs("리타", "__enemy__", 0)["part_dmg_pct"],
+            31.9,
+        )
 
     def test_ammo_cube_triggers_every_tenth_hit_not_at_battle_start(self):
         squad = build_squad(["리타"], {

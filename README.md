@@ -15,7 +15,7 @@
 - `site/scripts/sync-runtime.mjs`: 엔진, 데이터, 캐릭터 목록과 이미지를 웹 런타임으로 동기화
 - `.github/workflows/pages.yml`: 테스트, 빌드, GitHub Pages 배포 자동화
 
-웹에서는 고정 버전 Pyodide로 Python 엔진을 Web Worker 안에서 실행합니다. 계산 요청과 결과는 사용자의 브라우저를 벗어나지 않으며 AI API, 별도 서버, 데이터베이스, 로그인, 분석 도구를 사용하지 않습니다. 결과 캐시는 해당 브라우저의 `localStorage`에 최대 12개까지 저장됩니다.
+웹에서는 고정 버전 Pyodide로 Python 엔진을 Web Worker 안에서 실행합니다. 계산 요청과 결과는 사용자의 브라우저를 벗어나지 않으며 AI API, 별도 서버, 데이터베이스, 로그인, 분석 도구를 사용하지 않습니다. 결과 캐시는 해당 브라우저의 `localStorage`에 최대 30개까지 저장됩니다.
 
 현재 선택 목록은 `data/parsed_nikke.json`과 `data/parsed_skills.json` 양쪽에 존재하는 실제 캐릭터만 포함합니다. `test_` 데이터는 제외하며, 미리보기 캐릭터는 검증되지 않은 데이터라는 경고를 표시합니다. 현재 동기화 기준 지원 캐릭터는 77명입니다.
 

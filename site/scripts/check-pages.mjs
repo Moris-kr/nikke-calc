@@ -40,6 +40,7 @@ const engineStep = buildSteps.find((step) => step.name === 'Run Python engine re
 assert.ok(engineStep, 'Python engine regression step is required');
 assert.equal(engineStep['working-directory'], '.', 'engine regressions must run from the repository root');
 for (const command of [
+  'python3 -m unittest calculator.test_customization -v',
   'python3 calculator/damage.py',
   'python3 -m context.doclint',
   'python3 -m context.snapshot',

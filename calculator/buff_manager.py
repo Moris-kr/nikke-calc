@@ -137,6 +137,7 @@ _STAT_TO_BUFF: dict[str, str] = {
     "charge_dmg_mag_pct":   "charge_dmg_mag_pct",  # 차지 대미지 배율 ▲ (④ 승수)
     "split_dmg_pct":        "split_dmg_pct",        # 분배 대미지 ▲ (⑥에 합산)
     "part_dmg_pct":         "part_dmg_pct",         # 파츠 대미지 ▲ (⑤ 선택 합산)
+    "part_dmg":             "part_dmg_pct",         # 파츠 큐브 테이블 stat명
     "received_dmg_pct":     "received_dmg",
     "personal_received_dmg_pct": "received_dmg",
     "element_bonus_pct":    "element_bonus_pct",
@@ -572,6 +573,7 @@ class BuffManager:
                 "duration": None,
                 "_source_tag": "manual",
             }
+        is_enemy_reduction = stat == "enemy_def_down_pct"
         internal_stat = {
             "received_dmg_pct": "personal_received_dmg_pct",
             "enemy_def_down_pct": "personal_enemy_def_down_pct",
@@ -583,7 +585,9 @@ class BuffManager:
             "target": "self",
             "stat": internal_stat,
             "polarity": "beneficial" if value >= 0 else "harmful",
-            "fixed_value": value,
+            # 엔진의 enemy_def_down_pct는 방어력 배율 변화량이라 감소가 음수다.
+            # UI는 자연스러운 "감소 +N%" 단위를 쓰므로 경계에서 부호를 뒤집는다.
+            "fixed_value": -value if is_enemy_reduction else value,
             "duration": None,
             "_source_tag": "manual",
         }
