@@ -28,7 +28,6 @@
 - Create: `context/growth.py`
 - Create: `context/test_growth.py`
 - Modify: `context/spec.py`
-- Modify: `context/test.py`
 - Modify: `context/HARNESS.md`
 - Modify: `context/CALCULATOR.md`
 - Regenerate: `data/parsed_nikke.json`
@@ -54,14 +53,14 @@ cases = [
 ]
 ```
 
-Assert stage overflow, booleans, fractions, and unknown rarity fail. Assert `크라운` and all three Over-Spec names resolve stage 3 to affinity 40, while `리타` resolves to 30. In `context/test.py`, assert default characters use the profile maximum and direct legacy fields remain unchanged.
+Assert stage overflow, booleans, fractions, and unknown rarity fail. Assert `크라운` and all three Over-Spec names resolve stage 3 to affinity 40, while `리타` resolves to 30. In `context/test_growth.py`, assert default characters use the profile maximum and direct legacy fields remain unchanged.
 
 - [ ] **Step 2: Run focused tests and verify RED**
 
 Run:
 
 ```powershell
-python -m unittest scraper.test_parse_nikke context.test_growth context.test -v
+python -m unittest scraper.test_parse_nikke context.test_growth -v
 ```
 
 Expected: FAIL because rarity is not exported and `context.growth` does not exist.
@@ -91,7 +90,7 @@ Run:
 ```powershell
 $env:PYTHONUTF8='1'
 python scraper/parse_nikke.py
-python -m unittest scraper.test_parse_nikke context.test_growth context.test -v
+python -m unittest scraper.test_parse_nikke context.test_growth -v
 ```
 
 Expected: all focused tests PASS; released and preview entries include rarity; normal SSR defaults remain bond 30 and Pilgrim/Over-Spec defaults become bond 40.
@@ -101,7 +100,7 @@ Expected: all focused tests PASS; released and preview entries include rarity; n
 Document the profile-derived default, stage table, and direct-override escape hatch without duplicating raw character metadata.
 
 ```powershell
-git add scraper/parse_nikke.py scraper/test_parse_nikke.py context/growth.py context/test_growth.py context/spec.py context/test.py context/HARNESS.md context/CALCULATOR.md data/parsed_nikke.json
+git add scraper/parse_nikke.py scraper/test_parse_nikke.py context/growth.py context/test_growth.py context/spec.py context/HARNESS.md context/CALCULATOR.md data/parsed_nikke.json docs/superpowers/plans/2026-08-14-character-limit-breaks.md
 git commit -m "feat: model character growth stages"
 ```
 

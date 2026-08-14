@@ -148,6 +148,7 @@ def run(skills_data: dict | None = None) -> None:
             squad_name = squad
 
         entry = {
+            "rarity":       char.get("레어도", ""),
             "element_code":  char.get("속성", ""),
             "class":         char.get("클래스", ""),
             "manufacturer":  char.get("기업", ""),
@@ -166,6 +167,7 @@ def run(skills_data: dict | None = None) -> None:
         parsed[name] = entry
 
     _dummy_base = {
+        "rarity": "SSR",
         "element_code": "철갑",
         "class": "화력형",
         "manufacturer": "어브노말",
