@@ -344,13 +344,13 @@ describe('calculator UI', () => {
     expect(client.lastRequest?.characters?.리타?.skillLevels).toEqual({ '1': 4, '2': 10, '3': 10 });
   });
 
-  it('blocks a forged growth stage outside the character rarity range', async () => {
+  it.each([-1, 1.5, 11])('blocks a forged growth stage %s outside the character rarity range', async (growthStage) => {
     const client = new FakeClient();
     const invalidSettings: SettingsCatalog = {
       ...settings,
       characters: {
         ...settings.characters,
-        리타: { ...settings.characters.리타!, growthStage: 11 },
+        리타: { ...settings.characters.리타!, growthStage },
       },
     };
     mountCalculator(root, { catalog, settings: invalidSettings, version: 'v1', client, storage: localStorage });
@@ -438,6 +438,9 @@ describe('calculator UI', () => {
     let skillOne = root.querySelector<HTMLSelectElement>('[data-slot-card="0"] [data-skill-level="1"]')!;
     skillOne.value = '4';
     skillOne.dispatchEvent(new Event('change'));
+    let growth = root.querySelector<HTMLSelectElement>('[data-slot-card="0"] [data-growth-stage]')!;
+    growth.value = '1';
+    growth.dispatchEvent(new Event('change'));
     const mode = root.querySelector<HTMLInputElement>('#squad-mode')!;
     mode.checked = true;
     mode.dispatchEvent(new Event('change'));
@@ -449,6 +452,9 @@ describe('calculator UI', () => {
     skillOne = root.querySelector<HTMLSelectElement>('[data-slot-card="0"] [data-skill-level="1"]')!;
     skillOne.value = '7';
     skillOne.dispatchEvent(new Event('change'));
+    growth = root.querySelector<HTMLSelectElement>('[data-slot-card="0"] [data-growth-stage]')!;
+    growth.value = '7';
+    growth.dispatchEvent(new Event('change'));
 
     root.querySelector<HTMLFormElement>('form')!.requestSubmit();
     await flush();
@@ -459,6 +465,8 @@ describe('calculator UI', () => {
     expect(client.requests[1]?.squad).toEqual(['리타']);
     expect(client.requests[0]?.characters?.리타?.skillLevels?.['1']).toBe(4);
     expect(client.requests[1]?.characters?.리타?.skillLevels?.['1']).toBe(7);
+    expect(client.requests[0]?.characters?.리타?.growthStage).toBe(1);
+    expect(client.requests[1]?.characters?.리타?.growthStage).toBe(7);
     expect(root.querySelectorAll('[data-deck-result]')).toHaveLength(2);
     expect(root.querySelector('[data-batch-total]')?.textContent).toContain('246,912');
     expect(root.querySelector('[data-status]')?.textContent).toContain('2개 덱 계산 완료');

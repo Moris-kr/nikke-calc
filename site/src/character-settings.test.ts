@@ -27,6 +27,26 @@ const settings: SettingsCatalog = {
       },
       cube: { name: '재장', level: 15 },
     },
+    라피: {
+      growthStage: 2,
+      rarity: 'SR',
+      maxGrowthStage: 2,
+      growthOptions: [
+        { value: 0, label: '명함', affinity: 10 },
+        { value: 1, label: '1돌', affinity: 20 },
+        { value: 2, label: '2돌', affinity: 30 },
+      ],
+      skillLevels: { '1': 10, '2': 10, '3': 10 },
+      skillLevelsLocked: false,
+      overload: {
+        element_bonus: 88.6,
+        atk_pct: 22.22,
+        max_ammo_pct: 129.64,
+        crit_rate: 0,
+        crit_dmg: 0,
+      },
+      cube: { name: '재장', level: 15 },
+    },
     '아마기 유키코': {
       growthStage: 3,
       rarity: 'SSR',
@@ -71,7 +91,7 @@ const settings: SettingsCatalog = {
 describe('character settings editor', () => {
   let root: HTMLElement;
   let value: CharacterOverrides | undefined;
-  let characterName: '리타' | '아마기 유키코';
+  let characterName: '리타' | '라피' | '아마기 유키코';
 
   const render = () => renderCharacterSettings(root, characterName, settings, value, (next) => {
     value = next;
@@ -124,6 +144,16 @@ describe('character settings editor', () => {
 
     expect(value?.growthStage).toBe(0);
     expect(root.textContent).toContain('명함 · 호감도 10');
+  });
+
+  it('constrains an SR character to card through limit break two', () => {
+    characterName = '라피';
+    render();
+    setToggle('[data-custom-toggle]', true);
+
+    const growth = root.querySelector<HTMLSelectElement>('[data-growth-stage]')!;
+    expect([...growth.options].map((option) => option.text)).toEqual(['명함', '1돌', '2돌']);
+    expect(value?.growthStage).toBe(2);
   });
 
   it('changes skill 1, skill 2, and burst levels independently', () => {
