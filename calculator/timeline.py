@@ -488,7 +488,7 @@ class CharState:
             self._sim_log.ammo_log.append(AmmoLogEntry(t=t, caster=self.name, ammo=self.ammo))
         bm.notify("squad_ammo_consume", t, self.name)
         buffs = bm.get_buffs(self.name, "__enemy__", t)
-        buffs["is_element_match"] = self.is_element_match
+        buffs["is_element_match"] = self.is_element_match or buffs["is_element_match"]
         is_optimal = self.weapon_type in enemy.get("optimal_range_weapons", [])
 
         # 코어히트 확률: core_px>0이면 명중률·탄착군·코어 크기로 계산, 0이면 코어 없음
@@ -682,7 +682,7 @@ class CharState:
             self._force_full_charge = False
             bm.notify("full_charge", t, self.name)
         buffs = bm.get_buffs(self.name, "__enemy__", t)
-        buffs["is_element_match"] = self.is_element_match
+        buffs["is_element_match"] = self.is_element_match or buffs["is_element_match"]
         if enemy.get("core_px", 0) > 0:
             P_core = _core_hit_prob(
                 self.weapon_type,
@@ -1617,7 +1617,7 @@ class BurstController:
                 name, "__enemy__", t,
                 exclude_names=eff.get("_exclude_buffs", frozenset()),
             )
-            buffs["is_element_match"] = cs.is_element_match
+            buffs["is_element_match"] = cs.is_element_match or buffs["is_element_match"]
 
             coeff = eff["_coeff"]
             # scaling: "stack_count" → 참조 게이지/버프의 현재 수치만큼 계수 곱산
@@ -2027,7 +2027,7 @@ def simulate(
         # damage_formula: "normal_attack" → is_normal_atk=True で일반 공격 버프 적용
         is_normal = eff.get("damage_formula") == "normal_attack"
         buffs = bm.get_buffs(caster, "__enemy__", t)
-        buffs["is_element_match"] = cs.is_element_match
+        buffs["is_element_match"] = cs.is_element_match or buffs["is_element_match"]
         is_full_burst = bm.state.get("full_burst", False)
         stat = eff.get("stat", "damage")
         stat_parts = stat.split(":")

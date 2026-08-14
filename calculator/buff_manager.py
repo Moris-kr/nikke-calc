@@ -2293,6 +2293,14 @@ class BuffManager:
             if exclude_names and ab.caster == caster and eff.get("name") in exclude_names:
                 continue
             stat = eff.get("stat", "")
+            if stat == "element_code_override":
+                target_chars = (
+                    ab.target_chars if ab.target_chars is not None else self._resolve_lazy(ab)
+                )
+                enemy_code = (self.state.get("enemy") or {}).get("code", "")
+                if caster in target_chars and eff.get("target_code") == enemy_code:
+                    buffs["is_element_match"] = True
+                continue
             buff_key = _STAT_TO_BUFF.get(stat)
             if not buff_key:
                 continue

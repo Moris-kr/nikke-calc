@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import unittest
+from pathlib import Path
 
 from calculator.buff_manager import BuffManager
 from calculator.customization import normalize_character_overrides
@@ -8,6 +10,76 @@ from context.spec import build_squad
 
 
 class CharacterCustomizationTest(unittest.TestCase):
+    def test_every_raw_extra_advantage_has_structured_target_code(self):
+        root = Path(__file__).resolve().parents[1]
+        raw = json.loads(
+            (root / "scraper" / "nikke_scraped.json").read_text(encoding="utf-8")
+        )
+        parsed = json.loads(
+            (root / "data" / "parsed_skills.json").read_text(encoding="utf-8")
+        )
+        expected = {}
+        for name, character in raw.items():
+            sources = list((character.get("스킬") or {}).values())
+            sources += list((character.get("애장품") or {}).get("단계별") or [])
+            for source in sources:
+                template = source.get("template", "")
+                for code in ("작열", "수냉", "풍압", "전격", "철갑"):
+                    if f"{code} 코드 적에게 우월 코드 대미지 적용" in template:
+                        expected[name] = code
+        actual = {
+            name: effect["target_code"]
+            for name, effects in parsed.items()
+            for effect in effects
+            if effect.get("stat") == "element_code_override"
+        }
+        self.assertEqual(actual, expected)
+
+    def test_sugar_uses_favorite_item_stage_three_effects(self):
+        sugar = build_squad(["슈가"], {
+            "슈가": {"equip_skills": {
+                "atk_pct": 0,
+                "element_bonus": 0,
+                "max_ammo_pct": 0,
+            }},
+        })[0]
+        manager = BuffManager([sugar], {"enemy": {"code": "작열"}})
+        manager.notify("battle_start", 0, "슈가")
+        start = manager.get_buffs("슈가", "__enemy__", 0)
+        self.assertTrue(start["is_element_match"])
+        self.assertEqual(start["atk_dmg_pct"], 19.98)
+
+        manager.notify("full_burst_start", 1, "슈가")
+        full_burst = manager.get_buffs("슈가", "__enemy__", 1)
+        self.assertEqual(full_burst["atk_pct"], 25.01)
+        self.assertEqual(full_burst["max_ammo_pct"], 83.8)
+        self.assertEqual(full_burst["element_bonus_pct"], 59.11)
+
+        manager.notify("burst_cast", 2, "슈가")
+        burst = manager.get_buffs("슈가", "__enemy__", 2)
+        self.assertEqual(burst["attack_speed_pct"], 66)
+        self.assertAlmostEqual(burst["atk_pct"], 45.01)
+        self.assertAlmostEqual(burst["element_bonus_pct"], 119.12)
+
+    def test_extra_element_advantage_is_structured_and_enemy_specific(self):
+        rapi = build_squad(["라피 : 레드 후드"])[0]
+
+        electric = BuffManager([rapi], {"enemy": {"code": "전격"}})
+        electric.notify("battle_start", 0, "라피 : 레드 후드")
+        self.assertTrue(
+            electric.get_buffs("라피 : 레드 후드", "__enemy__", 0)[
+                "is_element_match"
+            ]
+        )
+
+        water = BuffManager([rapi], {"enemy": {"code": "수냉"}})
+        water.notify("battle_start", 0, "라피 : 레드 후드")
+        self.assertFalse(
+            water.get_buffs("라피 : 레드 후드", "__enemy__", 0)[
+                "is_element_match"
+            ]
+        )
+
     def test_growth_stage_is_normalized_for_the_engine(self):
         self.assertEqual(
             normalize_character_overrides(
