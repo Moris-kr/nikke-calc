@@ -294,31 +294,31 @@ git commit -m "feat: add interactive squad calculator UI"
 - Consumes: `site/dist` from Tasks 1–3.
 - Produces: a Pages artifact deployed by `actions/deploy-pages` from `master`.
 
-- [ ] **Step 1: Add a deployment configuration check**
+- [x] **Step 1: Add a deployment configuration check**
 
-Add `site/scripts/check-pages.mjs` that parses `.github/workflows/pages.yml` as text and asserts it contains `actions/configure-pages`, `actions/upload-pages-artifact`, `actions/deploy-pages`, `working-directory: site`, and `npm ci`.
+Add `site/scripts/check-pages.mjs` that parses `.github/workflows/pages.yml` as YAML and semantically asserts the Pages actions, permissions, build working directory, commands, dependency, and artifact path.
 
-- [ ] **Step 2: Run the check and confirm failure**
+- [x] **Step 2: Run the check and confirm failure**
 
 Run: `cd site && node scripts/check-pages.mjs`
 
 Expected: FAIL because `.github/workflows/pages.yml` is missing.
 
-- [ ] **Step 3: Add the official GitHub Pages workflow**
+- [x] **Step 3: Add the official GitHub Pages workflow**
 
 Use `permissions: { contents: read, pages: write, id-token: write }`, one concurrency group named `pages`, Node 22, `npm ci`, `npm test -- --run`, `npm run build`, artifact path `site/dist`, and the official Pages deployment action.
 
-- [ ] **Step 4: Document ownership and operation**
+- [x] **Step 4: Document ownership and operation**
 
 README must explain the browser-only architecture, supported-roster rule, local start, full verification commands, runtime sync, deployment URL, and unofficial-fan-tool disclaimer. It must not claim affiliation with SHIFT UP or Level Infinite.
 
-- [ ] **Step 5: Run deployment check and all fast verification**
+- [x] **Step 5: Run deployment check and all fast verification**
 
 Run: `cd site && node scripts/check-pages.mjs && npm test -- --run && npm run check-runtime && npm run build`
 
 Expected: every command exits 0.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add .github/workflows/pages.yml README.md site/package.json site/scripts/check-pages.mjs

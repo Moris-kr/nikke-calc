@@ -9,6 +9,7 @@
     "test": "vitest",
     "sync-runtime": "node scripts/sync-runtime.mjs",
     "check-runtime": "node scripts/check-runtime.mjs",
+    "check-pages": "node scripts/check-pages.mjs",
     "prebuild": "npm run sync-runtime && npm run check-runtime",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview"
@@ -18,6 +19,7 @@
     "jsdom": "^29.1.1",
     "typescript": "7.0.2",
     "vite": "8.2.1",
-    "vitest": "4.1.10"
+    "vitest": "4.1.10",
+    "yaml": "^2.9.0"
   }
 }
