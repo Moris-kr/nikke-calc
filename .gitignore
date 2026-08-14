@@ -5,3 +5,4 @@ site/node_modules/
 site/dist/
 site/public/runtime/
 site/public/characters/
+site/public/catalog.json

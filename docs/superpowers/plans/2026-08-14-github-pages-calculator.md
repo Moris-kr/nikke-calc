@@ -233,7 +233,7 @@ git commit -m "feat: run calculator in a browser worker"
 - Produces: `ResultCache.get(key): SimulationResult | null`, `set(key, result): void`, and `clear(): void`.
 - Produces: a single-page DOM application mounted at `#app`.
 
-- [ ] **Step 1: Write failing bounded-cache tests**
+- [x] **Step 1: Write failing bounded-cache tests**
 
 ```ts
 it('evicts the oldest result after 12 entries', () => {
@@ -250,31 +250,31 @@ it('ignores malformed stored JSON', () => {
 });
 ```
 
-- [ ] **Step 2: Run the focused cache test and confirm failure**
+- [x] **Step 2: Run the focused cache test and confirm failure**
 
 Run: `cd site && npm test -- --run src/cache.test.ts`
 
 Expected: FAIL because `ResultCache` is missing.
 
-- [ ] **Step 3: Implement the cache and full application state**
+- [x] **Step 3: Implement the cache and full application state**
 
 The page must render five selectable squad slots, a searchable character picker, duration/defense/code/core/parts/seed controls, accessible validation text, a progress status region with `aria-live="polite"`, and a disabled calculate button while running. Cache only successful results and include the manifest version in each key.
 
-- [ ] **Step 4: Implement the result and error views**
+- [x] **Step 4: Implement the result and error views**
 
 Render total damage, squad DPS, per-character damage/DPS/share bars, hit count, preview warning, deviation text, and retryable initialization errors. Use `textContent` for all dynamic strings.
 
-- [ ] **Step 5: Implement responsive visual styling**
+- [x] **Step 5: Implement responsive visual styling**
 
 Use a dark navy surface, warm amber primary action, cyan data accents, large numeric results, portrait-led squad slots, visible focus rings, reduced-motion support, and one-column layout below 760px. Do not add model-generated SVG or decorative remote imagery.
 
-- [ ] **Step 6: Run tests and production build**
+- [x] **Step 6: Run tests and production build**
 
 Run: `cd site && npm test -- --run && npm run build`
 
 Expected: all tests pass and `dist/index.html` references `/nikke-calc/` assets.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add site/src/main.ts site/src/styles.css site/src/cache.ts site/src/cache.test.ts site/index.html
