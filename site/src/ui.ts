@@ -1,5 +1,6 @@
 import { ResultCache, type StorageSource } from './cache';
 import { renderCharacterSettings } from './character-settings';
+import { createTimelineBlock } from './timeline';
 import {
   aggregateDeckResults,
   cacheKey,
@@ -395,6 +396,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       section.append(deckHeader);
       if (entry.result.previewNote) section.append(createText('p', entry.result.previewNote, 'preview-warning'));
       renderCharacterRows(section, entry);
+      const timelineBlock = createTimelineBlock(entry);
+      if (timelineBlock) section.append(timelineBlock);
       const facts = document.createElement('div');
       facts.className = 'result-facts';
       facts.append(

@@ -81,6 +81,19 @@ export interface CharacterMeta {
   image: string | null;
 }
 
+export interface BurstCast {
+  t: number;
+  stage: string;
+}
+
+export interface BattleTimeline {
+  bucket: number;
+  buckets: number;
+  damage: Record<string, number[]>;
+  bursts: Record<string, BurstCast[]>;
+  fullBurst: [number, number][];
+}
+
 export interface SimulationResult {
   squadTotal: number;
   duration: number;
@@ -88,6 +101,7 @@ export interface SimulationResult {
   charTotals: Record<string, number>;
   previewNote: string;
   deviations: string;
+  timeline?: BattleTimeline;
 }
 
 export interface RuntimeManifest {

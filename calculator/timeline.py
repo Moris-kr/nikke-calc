@@ -1250,7 +1250,11 @@ class CharState:
         buffs = bm.get_buffs(self.name, "__enemy__", t)
         ammo_pct = buffs.get("max_ammo_pct", 0.0) / 100.0
         ammo_flat = int(round(buffs.get("max_ammo_flat", 0.0)))
-        return round(self.weapon["max_ammo"] * (1.0 + ammo_pct)) + ammo_flat
+        # 최대 장탄 감소가 겹치면(예: 프리바티 `EX 매거진 3` 전원 -50.66% +
+        # 아니스 : 스파클링 서머 `스파클링 웨이브` 자신 -73.92%) 합이 -100%를 넘어
+        # 실효 장탄이 0 이하로 떨어질 수 있다. 게임에선 탄창이 최소 1발로 유지되며,
+        # 0 이하면 재장전이 채우는 장탄이 없어 발사 루프가 재장전만 반복해 스톨한다.
+        return max(1, round(self.weapon["max_ammo"] * (1.0 + ammo_pct)) + ammo_flat)
 
     def _finish_reload(self, t: float, bm: BuffManager):
         self.ammo = self._full_ammo(bm, t)
