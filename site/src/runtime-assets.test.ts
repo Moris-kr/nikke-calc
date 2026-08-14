@@ -27,7 +27,8 @@ describe('generated browser runtime', () => {
     ) as RuntimeManifest;
 
     expect(manifest.version).toMatch(/^[a-f0-9]{16}$/);
-    expect(manifest.files).toHaveLength(21);
+    expect(manifest.files).toHaveLength(22);
+    expect(manifest.files).toContain('context/growth.py');
     for (const file of manifest.files) {
       expect(readFileSync(join(publicDir, 'runtime', file)).byteLength).toBeGreaterThan(0);
     }
@@ -42,6 +43,10 @@ describe('generated browser runtime', () => {
         cube: { name: string; level: number };
         skillLevels: { '1': number; '2': number; '3': number };
         skillLevelsLocked: boolean;
+        growthStage: number;
+        rarity: string;
+        maxGrowthStage: number;
+        growthOptions: Array<{ value: number; label: string; affinity: number }>;
       }>;
       cubes: Record<string, {
         label: string;
@@ -77,7 +82,30 @@ describe('generated browser runtime', () => {
     expect(settings.characters['리타']).toMatchObject({
       skillLevels: { '1': 10, '2': 10, '3': 10 },
       skillLevelsLocked: false,
+      growthStage: 3,
+      rarity: 'SSR',
+      maxGrowthStage: 10,
     });
+    expect(settings.characters['리타']!.growthOptions).toHaveLength(11);
+    expect(settings.characters['리타']!.growthOptions[0]).toEqual({
+      value: 0,
+      label: '명함',
+      affinity: 10,
+    });
+    expect(settings.characters['리타']!.growthOptions[3]).toEqual({
+      value: 3,
+      label: '3돌',
+      affinity: 30,
+    });
+    expect(settings.characters['리타']!.growthOptions[10]).toEqual({
+      value: 10,
+      label: '코강 7',
+      affinity: 30,
+    });
+    expect(settings.characters['크라운']!.growthOptions[3]!.affinity).toBe(40);
+    for (const name of ['라피 : 레드 후드', '아니스 : 스타', '네온 : 비전 아이']) {
+      expect(settings.characters[name]!.growthOptions[3]!.affinity).toBe(40);
+    }
     expect(settings.characters['니지마 마코토']).toMatchObject({
       skillLevels: { '1': 10, '2': 10, '3': 10 },
       skillLevelsLocked: true,

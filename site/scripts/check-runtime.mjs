@@ -27,6 +27,22 @@ for (const char of catalog) {
 if (Object.keys(settings.characters ?? {}).length !== catalog.length) {
   problems.push('settings character count must match catalog');
 }
+if (!manifest.files.includes('context/growth.py')) {
+  problems.push('runtime must include canonical character growth rules');
+}
+for (const char of catalog) {
+  const growth = settings.characters?.[char.name];
+  if (!Number.isInteger(growth?.growthStage) || !Number.isInteger(growth?.maxGrowthStage)) {
+    problems.push(`invalid growth range: ${char.name}`);
+    continue;
+  }
+  if (growth.growthOptions?.length !== growth.maxGrowthStage + 1) {
+    problems.push(`growth options do not cover every stage: ${char.name}`);
+  }
+  if (growth.growthOptions?.[growth.growthStage]?.value !== growth.growthStage) {
+    problems.push(`growth default is not a legal option: ${char.name}`);
+  }
+}
 if (Object.keys(settings.cubes ?? {}).join(',') !== '재장,탄충,체력,차속,파츠') {
   problems.push('settings must contain exactly the five supported cubes');
 }

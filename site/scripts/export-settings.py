@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from calculator.customization import CUBE_NAMES, MANUAL_STATS, OVERLOAD_FIELDS  # noqa: E402
+from context.growth import growth_options, growth_profile  # noqa: E402
 from context.spec import build_squad  # noqa: E402
 
 
@@ -25,6 +26,8 @@ def main() -> None:
         (n for n in skills if not n.startswith("test_") and n in nikke),
         key=str.casefold,
     ):
+        meta = nikke[name]
+        profile = growth_profile(name, meta)
         char = build_squad([name])[0]
         equip = char["equip_skills"]
         characters[name] = {
@@ -32,6 +35,10 @@ def main() -> None:
                 key: int(value) for key, value in char["skill_levels"].items()
             },
             "skillLevelsLocked": bool(nikke[name].get("preview")),
+            "growthStage": profile["default_stage"],
+            "rarity": profile["rarity"],
+            "maxGrowthStage": profile["max_stage"],
+            "growthOptions": growth_options(name, meta),
             "overload": {key: float(equip.get(key, 0.0)) for key in OVERLOAD_FIELDS},
             "cube": char["cube"],
         }

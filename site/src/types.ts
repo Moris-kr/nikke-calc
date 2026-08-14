@@ -13,10 +13,17 @@ export interface SkillLevels {
 }
 
 export interface CharacterOverrides {
+  growthStage?: number;
   skillLevels?: SkillLevels;
   overload?: Record<string, number>;
   cube?: CubeSelection;
   manualStats?: Record<string, number>;
+}
+
+export interface GrowthOption {
+  value: number;
+  label: string;
+  affinity: number;
 }
 
 export interface SimulationRequest {
@@ -94,6 +101,10 @@ export interface CubeMeta {
 }
 
 export interface CharacterSettingsDefaults {
+  growthStage: number;
+  rarity: string;
+  maxGrowthStage: number;
+  growthOptions: GrowthOption[];
   skillLevels: SkillLevels;
   skillLevelsLocked: boolean;
   overload: Record<string, number>;
