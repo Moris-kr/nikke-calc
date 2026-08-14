@@ -11,6 +11,8 @@ from __future__ import annotations
 import math
 from typing import Any
 
+from context.growth import resolve_character_growth
+
 
 OVERLOAD_FIELDS: dict[str, dict[str, Any]] = {
     "element_bonus": {"label": "우월 코드 대미지", "unit": "%", "min": 0.0, "max": 1000.0},
@@ -86,17 +88,27 @@ def _number(value: Any, field: str, meta: dict[str, Any]) -> float:
     return number
 
 
-def normalize_character_overrides(raw: Any) -> dict[str, Any]:
+def normalize_character_overrides(
+    raw: Any, *, character_name: str | None = None
+) -> dict[str, Any]:
     """Validate one browser character payload and convert it to spec overrides."""
     if raw is None:
         return {}
     if not isinstance(raw, dict):
         raise ValueError("캐릭터 설정은 객체여야 한다")
-    unknown_sections = set(raw) - {"overload", "cube", "manualStats", "skillLevels"}
+    unknown_sections = set(raw) - {
+        "growthStage", "overload", "cube", "manualStats", "skillLevels"
+    }
     if unknown_sections:
         raise ValueError(f"지원하지 않는 캐릭터 설정: {sorted(unknown_sections)}")
 
     result: dict[str, Any] = {}
+    growth_stage = raw.get("growthStage")
+    if growth_stage is not None:
+        if character_name is None:
+            raise ValueError("돌파 단계 설정에는 캐릭터 이름이 필요하다")
+        result.update(resolve_character_growth(character_name, growth_stage))
+
     skill_levels = raw.get("skillLevels")
     if skill_levels is not None:
         if not isinstance(skill_levels, dict):
