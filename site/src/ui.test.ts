@@ -72,6 +72,7 @@ describe('calculator UI', () => {
     expect(slots).toHaveLength(5);
     expect(slots.map((slot) => slot.value)).toEqual(names.slice(0, 5));
     expect(slots[1]!.querySelector<HTMLOptionElement>('option[value="리타"]')?.disabled).toBe(true);
+    expect(root.querySelector<HTMLAnchorElement>('footer a')?.href).toBe('https://github.com/Moris-kr/nikke-calc');
   });
 
   it('shows validation errors without running the calculator', async () => {

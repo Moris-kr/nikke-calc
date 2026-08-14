@@ -98,7 +98,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
       <footer>
         <p>비공식 팬 제작 도구 · 실제 전투 환경과 차이가 있을 수 있습니다.</p>
-        <a href="https://github.com/Jgaram/nikke-calc" target="_blank" rel="noreferrer">SOURCE / GITHUB ↗</a>
+        <a href="https://github.com/Moris-kr/nikke-calc" target="_blank" rel="noreferrer">SOURCE / GITHUB ↗</a>
       </footer>
     </div>
   `;

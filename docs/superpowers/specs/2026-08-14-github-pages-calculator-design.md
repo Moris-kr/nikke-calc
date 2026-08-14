@@ -117,7 +117,7 @@ site/public/runtime
 
 - `master` 브랜치의 변경을 푸시한다.
 - GitHub Actions 공식 Pages 액션으로 `site/dist`를 배포한다.
-- 공개 URL은 `https://jgaram.github.io/nikke-calc/`이다.
+- 공개 URL은 `https://moris-kr.github.io/nikke-calc/`이다.
 - Actions 완료 후 공개 URL의 HTTP 응답과 실제 계산 동작을 확인한다.
 
 ## 제외 범위

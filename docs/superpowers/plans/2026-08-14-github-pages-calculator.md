@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build and publish an AI-free, browser-only NIKKE squad calculator at `https://jgaram.github.io/nikke-calc/` using the existing Python simulation engine.
+**Goal:** Build and publish an AI-free, browser-only NIKKE squad calculator at `https://moris-kr.github.io/nikke-calc/` using the existing Python simulation engine.
 
 **Architecture:** A Vite/TypeScript single-page UI sends validated requests to one classic Web Worker. The worker loads pinned Pyodide, copies the repository's Python engine and JSON tables into Pyodide's virtual filesystem, runs `context.spec` and `calculator.timeline.simulate`, then returns a compact JSON result. GitHub Actions builds `site/dist` and deploys it to Pages.
 
@@ -334,7 +334,7 @@ git commit -m "ci: deploy calculator to GitHub Pages"
 
 **Interfaces:**
 - Consumes: the complete site and GitHub repository authentication.
-- Produces: verified public URL `https://jgaram.github.io/nikke-calc/`.
+- Produces: verified public URL `https://moris-kr.github.io/nikke-calc/`.
 
 - [ ] **Step 1: Run existing engine verification**
 
@@ -360,7 +360,7 @@ Push `master` to `origin`. If command-line authentication is unavailable, use th
 
 - [ ] **Step 5: Wait for deployment and verify production**
 
-Wait for the Pages workflow to succeed, open `https://jgaram.github.io/nikke-calc/`, repeat the 10-second seeded calculation, and verify all worker/runtime asset requests return 200 under `/nikke-calc/`.
+Wait for the Pages workflow to succeed, open `https://moris-kr.github.io/nikke-calc/`, repeat the 10-second seeded calculation, and verify all worker/runtime asset requests return 200 under `/nikke-calc/`.
 
 - [ ] **Step 6: Report handoff**
 
