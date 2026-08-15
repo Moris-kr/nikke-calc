@@ -20,8 +20,10 @@ interface PendingRequest<T> {
 
 type ProgressListener = (message: string) => void;
 
+declare const __BUILD_ID__: string;
+
 const defaultWorkerFactory = (): WorkerLike =>
-  new Worker(`${import.meta.env.BASE_URL}calculator.worker.js`);
+  new Worker(`${import.meta.env.BASE_URL}calculator.worker.js?v=${__BUILD_ID__}`);
 
 export class CalculatorWorkerClient {
   private readonly worker: WorkerLike;

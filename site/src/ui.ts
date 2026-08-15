@@ -53,6 +53,13 @@ const createText = (tag: keyof HTMLElementTagNameMap, value: string, className?:
   return node;
 };
 
+// Pyodide 오류는 긴 파이썬 트레이스백으로 온다. 마지막 줄(실제 오류 메시지)만 보여준다.
+const cleanEngineError = (raw: string): string => {
+  const lines = raw.split('\n').map((line) => line.trim()).filter(Boolean);
+  const last = lines[lines.length - 1] ?? raw;
+  return last.length <= 300 ? last : `${last.slice(0, 300)}…`;
+};
+
 function initialSquad(catalog: CharacterMeta[]): string[] {
   const available = new Set(catalog.map((char) => char.name));
   const defaults = DEFAULT_SQUAD.filter((name) => available.has(name));
@@ -579,8 +586,17 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         : `${requests.length}개 덱 계산 완료 · 같은 조건은 이 기기에 저장됩니다.`;
     } catch (error) {
       if (completed.length > 0) renderBatchResult(aggregateDeckResults(completed));
-      const failed = requests[completed.length]?.deck.id;
-      showErrors([`덱 ${failed ?? '?'} 계산 실패: ${error instanceof Error ? error.message : String(error)}`]);
+      const failedEntry = requests[completed.length];
+      const failed = failedEntry?.deck.id;
+      const detail = cleanEngineError(error instanceof Error ? error.message : String(error));
+      const messages = [`덱 ${failed ?? '?'} 계산 실패: ${detail}`];
+      const hasBurstOverride = failedEntry
+        ? Object.values(failedEntry.deck.characters).some((custom) => custom.burst)
+        : false;
+      if (hasBurstOverride) {
+        messages.push('이 조합은 버스트 운용 지정을 지원하지 않을 수 있습니다. 해당 캐릭터의 버스트 운용을 \'자동\'으로 바꿔 다시 실행해 주세요.');
+      }
+      showErrors(messages);
       activity = 'error';
       status.textContent = '계산에 실패했습니다. 입력값을 확인하고 다시 실행해 주세요.';
     } finally {

@@ -26,18 +26,24 @@ async function initialize(id) {
   pyodide = await loadPyodide({ indexURL: PYODIDE_BASE });
 
   post(id, 'progress', '계산 공식과 캐릭터 데이터를 불러오고 있습니다…');
-  const manifestResponse = await fetch(new URL('runtime/manifest.json', siteBase));
+  // manifest는 항상 네트워크에서 새로 받아 최신 버전을 얻는다. 런타임 파일은
+  // 그 버전을 쿼리로 붙여 받으므로, 새 배포 때 브라우저 HTTP 캐시(max-age)에
+  // 걸린 옛 .py를 재사용하지 않는다 (신 JS + 구 런타임 불일치 방지).
+  const manifestResponse = await fetch(
+    new URL('runtime/manifest.json', siteBase), { cache: 'reload' },
+  );
   if (!manifestResponse.ok) {
     throw new Error(`런타임 목록을 불러오지 못했습니다. (${manifestResponse.status})`);
   }
   const manifest = await manifestResponse.json();
+  const version = encodeURIComponent(manifest.version || '');
   pyodide.FS.mkdirTree(APP_ROOT);
 
   for (const file of manifest.files) {
     const target = `${APP_ROOT}/${file}`;
     const parent = target.slice(0, target.lastIndexOf('/'));
     pyodide.FS.mkdirTree(parent);
-    pyodide.FS.writeFile(target, await fetchAsset(`runtime/${file}`));
+    pyodide.FS.writeFile(target, await fetchAsset(`runtime/${file}?v=${version}`));
   }
 
   await pyodide.runPythonAsync(`
