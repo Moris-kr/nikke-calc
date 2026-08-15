@@ -143,6 +143,23 @@ describe('character settings editor', () => {
     expect(root.querySelector<HTMLInputElement>('[data-overload-key="atk_pct"]')?.value).toBe('22.22');
   });
 
+  it('assigns and clears a burst-usage preference', () => {
+    setToggle('[data-custom-toggle]', true);
+
+    const burst = root.querySelector<HTMLSelectElement>('[data-burst-assignment]')!;
+    expect([...burst.options].map((option) => option.value)).toEqual(['auto', 'solo', 'skip']);
+    expect(burst.value).toBe('auto');
+
+    burst.value = 'solo';
+    burst.dispatchEvent(new Event('change'));
+    expect(value?.burst).toBe('solo');
+
+    const burstAgain = root.querySelector<HTMLSelectElement>('[data-burst-assignment]')!;
+    burstAgain.value = 'auto';
+    burstAgain.dispatchEvent(new Event('change'));
+    expect(value?.burst).toBeUndefined();
+  });
+
   it('selects a legal growth stage and applies its maximum bond rank', () => {
     setToggle('[data-custom-toggle]', true);
 

@@ -223,6 +223,20 @@ class CharacterCustomizationTest(unittest.TestCase):
         min_ammo = min(entry.ammo for entry in result.log.ammo_log)
         self.assertGreaterEqual(min_ammo, 0, "실효 최대 장탄이 음수로 내려갔다 (스톨)")
 
+    def test_burst_assignment_is_normalized_and_validated(self):
+        self.assertEqual(
+            normalize_character_overrides({"burst": "solo"}),
+            {"_burst_assignment": "solo"},
+        )
+        self.assertEqual(
+            normalize_character_overrides({"burst": "skip"}),
+            {"_burst_assignment": "skip"},
+        )
+        # auto = 기본값, override를 남기지 않는다
+        self.assertEqual(normalize_character_overrides({"burst": "auto"}), {})
+        with self.assertRaisesRegex(ValueError, "버스트 운용"):
+            normalize_character_overrides({"burst": "always"})
+
     def test_manual_damage_stat_applies_only_to_its_character(self):
         squad = build_squad(["리타", "라피"], {
             "리타": {"manual_stats": {"split_dmg_pct": 20}},

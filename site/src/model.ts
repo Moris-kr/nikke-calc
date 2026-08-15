@@ -52,6 +52,7 @@ function normalizeCharacters(
         cube: { name: value.cube.name, level: Math.trunc(value.cube.level) },
       } : {}),
       ...(manualStats ? { manualStats } : {}),
+      ...(value.burst && value.burst !== 'auto' ? { burst: value.burst } : {}),
     };
     if (Object.keys(normalized).length > 0) result[name] = normalized;
   }
