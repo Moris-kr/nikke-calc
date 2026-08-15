@@ -51,13 +51,15 @@ export function buildAddPrompt(): string {
   // 레벨 무관 고정값이면 "values" 대신 "fixed_value": 숫자
   "duration": 지속초(즉발/영구는 생략 또는 -1)
 
-**엔진은 아래 목록에 없는 stat·timing·target·condition은 무시한다(효과 없음).**
-확실하지 않으면 가장 가까운 표준값을 쓰고, 못 맞추겠으면 그 효과는 빼라.
+**엔진은 아래 목록에 없는 stat·timing·target은 무시한다(효과 없음). 반드시 아래 값만 써라.**
+확실하지 않으면 가장 가까운 값으로 매핑하고, 도저히 못 맞추는 효과(게이지·모드 전환·복잡한
+스택 조건 등 특수 메커니즘)는 **그 효과 자체를 빼라**(억지로 넣지 마라).
 
-timing: full_burst_start, burst_cast, last_bullet, last_bullet_fire, full_charge_hit, battle_start, passive, hit_count:N
-target: self, all_allies, target, same_target, all_enemies, allies_code:<속성>, allies_weapon:<무기>, enemies_top_atk:N
-buff stat: atk_pct, atk_flat, atk_dmg_pct, crit_rate, crit_dmg, core_dmg_pct, element_bonus_pct, max_ammo_pct, max_ammo_flat, reload_speed_pct, charge_speed_pct, charge_dmg_pct, received_dmg_pct, def_ignore_pct, accuracy_pct, normal_atk_dmg_pct
-damage stat: bonus_damage, burst_damage, damage (type이 "damage"일 때, values는 대미지 계수)
+timing(발동 시점): battle_start, full_burst_start, full_burst_start_count:N, full_burst_start_exact:N, full_burst_end, burst_cast, burst_cast_count:N, last_bullet, last_bullet_fire, hit_count:N, full_charge_hit, passive
+target(대상): self, all_allies, all_allies_excl_self, all_enemies, target, same_target, allies:N, allies_top_atk:N, allies_weapon:<무기>, allies_class:공격|방어|지원, allies_code:<속성>, allies_code_weapon:<속성>:<무기>, enemies_top_atk:N
+buff stat(type "buff"): atk_pct, atk_flat, atk_dmg_pct, normal_atk_dmg_pct, crit_rate, crit_dmg, core_dmg_pct, element_bonus_pct, burst_dmg_pct, pierce_dmg_pct, charge_dmg_pct, charge_dmg_mag_pct, charge_speed_pct, max_ammo_pct, max_ammo_flat, reload_speed_pct, attack_speed_pct, accuracy_pct, def_pct, def_ignore_pct, enemy_def_down_pct, received_dmg(적이 받는 대미지 증가 %), burst_cooldown(초, 감소는 음수)
+damage stat(type "damage", values는 대미지 계수 %): bonus_damage, burst_damage, damage
+주의: '받는 대미지 증가'는 received_dmg다(received_dmg_pct 아님). 무기명 대응 — 소총=AR, 스나이퍼=SR, 머신건=MG, 기관단총=SMG, 샷건=SG, 로켓=RL.
 
 ## 참고 예시
 연사형(프리바티, AR):
@@ -77,6 +79,52 @@ damage stat: bonus_damage, burst_damage, damage (type이 "damage"일 때, values
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
+
+// 엔진이 인식하는 어휘(접두사 기준). 여기 없는 stat·timing·target은 시뮬에서 무시된다.
+const BUFF_STATS = new Set([
+  'atk_pct', 'atk_flat', 'atk_dmg_pct', 'normal_atk_dmg_pct', 'crit_rate', 'crit_dmg',
+  'core_dmg_pct', 'element_bonus_pct', 'burst_dmg_pct', 'burst_dmg_aoe_pct', 'pierce_dmg_pct',
+  'dot_dmg_pct', 'armor_break_dmg_pct', 'sequential_dmg_pct', 'split_dmg_pct', 'part_dmg_pct',
+  'charge_dmg_pct', 'charge_dmg_mag_pct', 'charge_speed_pct', 'max_ammo_pct', 'max_ammo_flat',
+  'reload_speed_pct', 'attack_speed_pct', 'accuracy_pct', 'def_pct', 'def_ignore_pct',
+  'enemy_def_down_pct', 'received_dmg', 'burst_cooldown', 'max_hp_pct', 'lifesteal_pct',
+  'pellet_count', 'fullburst_duration', 'skill_cooldown_pct', 'mg_warmup_speed_pct',
+]);
+const DAMAGE_STATS = new Set(['bonus_damage', 'burst_damage', 'damage']);
+const KNOWN_TIMINGS = new Set([
+  'battle_start', 'full_burst_start', 'full_burst_start_count', 'full_burst_start_exact',
+  'full_burst_end', 'full_burst_end_count', 'burst_cast', 'burst_cast_count', 'last_bullet',
+  'last_bullet_fire', 'hit_count', 'full_charge_hit', 'passive', 'every',
+]);
+const KNOWN_TARGETS = new Set([
+  'self', 'all_allies', 'all_allies_excl_self', 'all_enemies', 'target', 'same_target',
+  'allies', 'allies_top_atk', 'allies_top_atk_excl', 'allies_top_def', 'allies_lowest_hp',
+  'allies_adjacent', 'allies_random', 'allies_weapon', 'allies_weapon_excl_self',
+  'allies_class', 'allies_code', 'allies_code_weapon', 'allies_code_weapon_leftmost',
+  'enemies_top_atk', 'enemies_top_def', 'enemies_code', 'enemies_lowest_hp_code',
+]);
+
+const prefix = (value: string): string => value.split(':')[0] ?? value;
+
+/** 스킬 중 엔진이 인식하지 못하는(=시뮬에 반영 안 되는) 효과 이름 목록. */
+export function unsupportedEffects(skills: unknown[]): string[] {
+  const bad: string[] = [];
+  for (const skill of skills) {
+    if (!isRecord(skill)) continue;
+    const stat = String(skill.stat ?? '');
+    const target = String(skill.target ?? '');
+    const trigger = isRecord(skill.trigger) ? skill.trigger : {};
+    const timings = Array.isArray(trigger.timing) ? trigger.timing.map(String) : [];
+    const name = String(skill.name ?? '(이름 없음)');
+    const statOk = skill.type === 'damage'
+      ? DAMAGE_STATS.has(prefix(stat))
+      : BUFF_STATS.has(stat);
+    const timingOk = timings.length === 0 || timings.every((t) => KNOWN_TIMINGS.has(prefix(t)));
+    const targetOk = target === '' || KNOWN_TARGETS.has(prefix(target));
+    if (!statOk || !timingOk || !targetOk) bad.push(name);
+  }
+  return [...new Set(bad)];
+}
 
 /** 붙여넣은 JSON을 검증해 CustomCharacter로. 실패하면 사람이 읽을 오류를 던진다. */
 export function parseCustomInput(text: string): CustomCharacter {

@@ -5,6 +5,7 @@ import {
   customToMeta,
   customToSettings,
   parseCustomInput,
+  unsupportedEffects,
 } from './custom-nikke';
 
 const validJson = JSON.stringify({
@@ -75,6 +76,20 @@ describe('customToMeta / customToSettings', () => {
     const sr = JSON.parse(validJson);
     sr.nikke.rarity = 'SR';
     expect(customToSettings(parseCustomInput(JSON.stringify(sr))).maxGrowthStage).toBe(2);
+  });
+});
+
+describe('unsupportedEffects', () => {
+  it('flags effects with stat/timing/target the engine does not recognize', () => {
+    const flagged = unsupportedEffects([
+      { name: 'ok', type: 'buff', stat: 'atk_pct', trigger: { timing: ['full_burst_start'] }, target: 'self' },
+      { name: 'ok-suffix', type: 'buff', stat: 'atk_pct', trigger: { timing: ['hit_count:5'] }, target: 'allies_code:전격' },
+      { name: 'bad-stat', type: 'buff', stat: 'received_dmg_pct', trigger: { timing: ['burst_cast'] }, target: 'self' },
+      { name: 'bad-timing', type: 'buff', stat: 'atk_pct', trigger: { timing: ['full_charge_attack'] }, target: 'self' },
+      { name: 'bad-target', type: 'buff', stat: 'atk_pct', trigger: { timing: ['burst_cast'] }, target: 'all_enemies_in_range' },
+      { name: 'ok-dmg', type: 'damage', stat: 'burst_damage', trigger: { timing: ['burst_cast'] }, target: 'all_enemies' },
+    ]);
+    expect(flagged).toEqual(['bad-stat', 'bad-timing', 'bad-target']);
   });
 });
 
