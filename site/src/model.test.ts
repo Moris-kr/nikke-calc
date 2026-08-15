@@ -141,6 +141,29 @@ describe('request normalization', () => {
       },
     }, 'v1'));
   });
+
+  it('includes control, burst, and equip-level settings in the cache key', () => {
+    const base = { ...valid, characters: { 리타: { growthStage: 3 } } };
+    // 컨트롤을 바꾸면 캐시 키가 달라져야 한다 (전에는 누락돼 stale 결과를 불러왔다)
+    const withControl = {
+      ...base,
+      characters: { 리타: { growthStage: 3, control: { tap_fire: { rate: 3.6 } } } },
+    };
+    expect(cacheKey(base, 'v1')).not.toBe(cacheKey(withControl, 'v1'));
+    expect(normalizeRequest(withControl).characters?.리타?.control).toBeDefined();
+
+    const burstChanged = {
+      ...base,
+      characters: { 리타: { growthStage: 3, burst: { mode: 'priority' as const, every: 2 } } },
+    };
+    expect(cacheKey(base, 'v1')).not.toBe(cacheKey(burstChanged, 'v1'));
+
+    const equipChanged = {
+      ...base,
+      characters: { 리타: { growthStage: 3, equipLevels: { 머리: 3 } } },
+    };
+    expect(cacheKey(base, 'v1')).not.toBe(cacheKey(equipChanged, 'v1'));
+  });
 });
 
 describe('multi-deck model', () => {
