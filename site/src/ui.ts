@@ -235,10 +235,32 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           <p class="custom-desc">미출시·미등록 니케를 직접 추가합니다. 서버로 전송되지 않고 이 브라우저에만 저장됩니다.</p>
           <ol class="custom-steps">
             <li>아래 <b>프롬프트 복사</b>를 눌러 다른 LLM(챗봇)에 붙여넣고, 그 아래에 니케 이름·스킬 설명을 붙여 결과 JSON을 받으세요.</li>
-            <li>받은 JSON을 아래 칸에 붙여넣고 <b>추가</b>를 누르세요.</li>
+            <li>받은 JSON을 아래 칸에 붙여넣고 <b>추가</b>를 누르세요. 또는 <b>직접 입력 도움말</b>을 보고 손으로 작성해도 됩니다.</li>
           </ol>
+          <div class="custom-caution">
+            <b>참고하세요</b>
+            <ul>
+              <li>특이하거나 복잡한 스킬(조건부 발동·게이지·모드 전환 등)은 계산에 <b>반영되지 않을 수 있습니다.</b> 기본 사격·버프·버스트 위주로 근사됩니다.</li>
+              <li>LLM 성능에 따라 <b>정확한 변환이 어려울 수 있으니 참고용</b>으로 쓰고, 값을 직접 확인·보정하시길 권합니다.</li>
+              <li>가능하면 아래 <b>직접 입력 도움말</b>을 보고 사람이 직접 값을 넣는 편이 정확합니다.</li>
+            </ul>
+          </div>
+          <details class="custom-help">
+            <summary>직접 입력 도움말 (스키마 · 사람이 작성할 때)</summary>
+            <div class="custom-help-body">
+              <p><b>최상위</b>: <code>{ "name": "정식 명칭", "nikke": {…스탯}, "skills": [ …효과 ] }</code></p>
+              <p><b>nikke 공통</b>: rarity(SSR/SR/R) · element_code(전격/작열/수냉/풍압/철갑) · class(화력형/방어형/지원형) · manufacturer(엘리시온/미실리스/테트라/필그림/어브노멀) · weapon_type(AR/SMG/MG/SR/RL/SG) · burst_stage(1~3) · burst_cooldown(초) · max_ammo · reload_time(초) · fire_rate(초당 발사) · pellets(SG만 2↑) · muzzles(대개 1) · damage_coeff(1발 계수 %)</p>
+              <p><b>무기별 추가</b>: 연사형(AR·SMG·MG·SG)은 <code>core_dmg_mult</code>(코어 %, 예 200). 차지형(SR·RL)은 <code>charge_time</code>(풀차지 초, 예 1.0~1.5)과 <code>full_charge_mult</code>(풀차지 %, 예 250·350). 차지형에 안 넣으면 각각 1.0·250으로 기본 적용됩니다.</p>
+              <p><b>skills 각 원소</b>: source(스킬1/스킬2/버스트스킬) · type(buff 또는 damage) · name · trigger:{ timing:[…], condition:[…] } · target · stat · polarity(beneficial/harmful) · max_stack(대개 1) · values:{ "1":값, "10":값 } 또는 fixed_value:값 · duration(지속 초, 즉발/영구는 생략 또는 -1)</p>
+              <p><b>인식되는 timing</b>: full_burst_start · burst_cast · last_bullet · last_bullet_fire · full_charge_hit · battle_start · passive · hit_count:N</p>
+              <p><b>인식되는 target</b>: self · all_allies · target · same_target · all_enemies · allies_code:&lt;속성&gt; · allies_weapon:&lt;무기&gt; · enemies_top_atk:N</p>
+              <p><b>인식되는 buff stat</b>: atk_pct · atk_flat · atk_dmg_pct · crit_rate · crit_dmg · core_dmg_pct · element_bonus_pct · max_ammo_pct · reload_speed_pct · charge_speed_pct · charge_dmg_pct · received_dmg_pct · def_ignore_pct · accuracy_pct · normal_atk_dmg_pct</p>
+              <p><b>damage stat</b>(type이 damage): bonus_damage · burst_damage · damage (values가 대미지 계수)</p>
+              <p class="custom-help-note">목록에 없는 stat·timing·target은 계산에서 무시됩니다. 애매하면 가장 가까운 표준값을 쓰세요.</p>
+            </div>
+          </details>
           <button type="button" class="custom-btn" data-copy-prompt>① 프롬프트 복사</button>
-          <textarea class="custom-json" data-custom-json placeholder="② 여기에 결과 JSON을 붙여넣으세요" rows="8"></textarea>
+          <textarea class="custom-json" data-custom-json placeholder="② 여기에 결과 JSON을 붙여넣거나, 도움말을 보고 직접 작성하세요" rows="8"></textarea>
           <div class="custom-actions"><button type="button" class="custom-btn primary" data-custom-submit>추가</button></div>
           <p class="custom-msg" data-custom-msg hidden></p>
           <div class="custom-list" data-custom-list></div>

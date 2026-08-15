@@ -91,6 +91,16 @@ h2 { margin: 0; font-size: 24px; letter-spacing: -.035em; }
 .custom-desc { margin: 8px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
 .custom-steps { margin: 12px 0; padding-left: 18px; color: #b8c6d4; font-size: 12px; line-height: 1.7; }
 .custom-steps b { color: var(--cyan); }
+.custom-caution { margin: 0 0 12px; padding: 10px 12px; background: rgba(255,191,60,.08); border: 1px solid rgba(255,191,60,.22); border-radius: 8px; }
+.custom-caution > b { color: var(--amber); font-size: 12px; }
+.custom-caution ul { margin: 6px 0 0; padding-left: 16px; color: #cdd7e0; font-size: 11px; line-height: 1.65; }
+.custom-caution b { color: #ffd78a; }
+.custom-help { margin: 0 0 12px; border: 1px solid var(--line); border-radius: 8px; background: rgba(2,9,16,.4); }
+.custom-help > summary { padding: 9px 12px; cursor: pointer; color: var(--cyan); font-size: 12px; font-weight: 700; }
+.custom-help-body { padding: 4px 12px 12px; color: #b8c6d4; font-size: 11px; line-height: 1.7; }
+.custom-help-body p { margin: 6px 0; }
+.custom-help-body code { padding: 1px 5px; background: rgba(69,214,208,.1); border-radius: 4px; color: #a9e6e2; font: 11px ui-monospace, monospace; }
+.custom-help-note { color: var(--muted); }
 .custom-btn { min-height: 38px; padding: 0 14px; border: 1px solid rgba(69,214,208,.3); background: rgba(69,214,208,.08); color: #cfeceb; font-size: 13px; font-weight: 700; border-radius: 8px; cursor: pointer; }
 .custom-btn:hover { background: rgba(69,214,208,.16); }
 .custom-btn.primary { background: var(--amber); border-color: var(--amber); color: #1b1200; }

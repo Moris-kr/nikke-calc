@@ -29,6 +29,19 @@ describe('parseCustomInput', () => {
     expect(custom.skills).toHaveLength(1);
   });
 
+  it('fills charge_time and full_charge_mult for SR/RL weapons', () => {
+    const rl = JSON.parse(validJson);
+    rl.nikke.weapon_type = 'RL';
+    delete rl.nikke.charge_time;
+    delete rl.nikke.full_charge_mult;
+    const custom = parseCustomInput(JSON.stringify(rl));
+    expect(custom.nikke.charge_time).toBe(1.0);
+    expect(custom.nikke.full_charge_mult).toBe(250.0);
+    // 연사형에는 차지 필드를 넣지 않는다
+    const ar = parseCustomInput(validJson);
+    expect(ar.nikke.charge_time).toBeUndefined();
+  });
+
   it('rejects malformed or incomplete input with readable errors', () => {
     expect(() => parseCustomInput('not json')).toThrow(/JSON/);
     expect(() => parseCustomInput('{}')).toThrow(/name/);
