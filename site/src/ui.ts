@@ -8,6 +8,7 @@ import {
   customToSettings,
   loadCustom,
   parseCustomInput,
+  unsupportedEffects,
 } from './custom-nikke';
 import { createTimelineBlock } from './timeline';
 import {
@@ -273,9 +274,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
               <p><b>nikke 공통</b>: rarity(SSR/SR/R) · element_code(전격/작열/수냉/풍압/철갑) · class(화력형/방어형/지원형) · manufacturer(엘리시온/미실리스/테트라/필그림/어브노멀) · weapon_type(AR/SMG/MG/SR/RL/SG) · burst_stage(1~3) · burst_cooldown(초) · max_ammo · reload_time(초) · fire_rate(초당 발사) · pellets(SG만 2↑) · muzzles(대개 1) · damage_coeff(1발 계수 %)</p>
               <p><b>무기별 추가</b>: 연사형(AR·SMG·MG·SG)은 <code>core_dmg_mult</code>(코어 %, 예 200). 차지형(SR·RL)은 <code>charge_time</code>(풀차지 초, 예 1.0~1.5)과 <code>full_charge_mult</code>(풀차지 %, 예 250·350). 차지형에 안 넣으면 각각 1.0·250으로 기본 적용됩니다.</p>
               <p><b>skills 각 원소</b>: source(스킬1/스킬2/버스트스킬) · type(buff 또는 damage) · name · trigger:{ timing:[…], condition:[…] } · target · stat · polarity(beneficial/harmful) · max_stack(대개 1) · values:{ "1":값, "10":값 } 또는 fixed_value:값 · duration(지속 초, 즉발/영구는 생략 또는 -1)</p>
-              <p><b>인식되는 timing</b>: full_burst_start · burst_cast · last_bullet · last_bullet_fire · full_charge_hit · battle_start · passive · hit_count:N</p>
-              <p><b>인식되는 target</b>: self · all_allies · target · same_target · all_enemies · allies_code:&lt;속성&gt; · allies_weapon:&lt;무기&gt; · enemies_top_atk:N</p>
-              <p><b>인식되는 buff stat</b>: atk_pct · atk_flat · atk_dmg_pct · crit_rate · crit_dmg · core_dmg_pct · element_bonus_pct · max_ammo_pct · reload_speed_pct · charge_speed_pct · charge_dmg_pct · received_dmg_pct · def_ignore_pct · accuracy_pct · normal_atk_dmg_pct</p>
+              <p><b>인식되는 timing</b>: battle_start · full_burst_start · full_burst_start_count:N · full_burst_end · burst_cast · burst_cast_count:N · last_bullet · last_bullet_fire · hit_count:N · full_charge_hit · passive</p>
+              <p><b>인식되는 target</b>: self · all_allies · all_allies_excl_self · all_enemies · target · same_target · allies:N · allies_top_atk:N · allies_weapon:&lt;무기&gt; · allies_class:공격|방어|지원 · allies_code:&lt;속성&gt; · allies_code_weapon:&lt;속성&gt;:&lt;무기&gt; · enemies_top_atk:N</p>
+              <p><b>인식되는 buff stat</b>: atk_pct · atk_flat · atk_dmg_pct · normal_atk_dmg_pct · crit_rate · crit_dmg · core_dmg_pct · element_bonus_pct · burst_dmg_pct · pierce_dmg_pct · charge_dmg_pct · charge_speed_pct · max_ammo_pct · max_ammo_flat · reload_speed_pct · attack_speed_pct · accuracy_pct · def_pct · def_ignore_pct · enemy_def_down_pct · received_dmg(적이 받는 대미지 증가) · burst_cooldown(초)</p>
               <p><b>damage stat</b>(type이 damage): bonus_damage · burst_damage · damage (values가 대미지 계수)</p>
               <p class="custom-help-note">목록에 없는 stat·timing·target은 계산에서 무시됩니다. 애매하면 가장 가까운 표준값을 쓰세요.</p>
             </div>
@@ -704,7 +705,15 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       renderDeckTabs();
       renderSquad();
       customJson.value = '';
-      showCustomMsg(`'${custom.name}' 추가됨 · 스쿼드 슬롯에서 선택할 수 있습니다.`, true);
+      const ignored = unsupportedEffects(custom.skills);
+      if (ignored.length > 0) {
+        showCustomMsg(
+          `'${custom.name}' 추가됨. 다만 인식되지 않는 효과가 있어 반영되지 않습니다: `
+          + `${ignored.join(', ')}. 도움말의 어휘와 대조해 stat·timing·target을 고치면 반영됩니다.`,
+        );
+      } else {
+        showCustomMsg(`'${custom.name}' 추가됨 · 스쿼드 슬롯에서 선택할 수 있습니다.`, true);
+      }
     } catch (error) {
       showCustomMsg(error instanceof Error ? error.message : String(error));
     }
