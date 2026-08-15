@@ -143,16 +143,23 @@ describe('character settings editor', () => {
     expect(root.querySelector<HTMLInputElement>('[data-overload-key="atk_pct"]')?.value).toBe('22.22');
   });
 
-  it('assigns and clears a burst-usage preference', () => {
+  it('assigns priority-every-n burst usage and reveals the n input', () => {
     setToggle('[data-custom-toggle]', true);
 
     const burst = root.querySelector<HTMLSelectElement>('[data-burst-assignment]')!;
-    expect([...burst.options].map((option) => option.value)).toEqual(['auto', 'solo', 'skip']);
+    expect([...burst.options].map((option) => option.value)).toEqual(['auto', 'priority', 'skip']);
     expect(burst.value).toBe('auto');
+    expect(root.querySelector<HTMLElement>('.burst-every')?.hidden).toBe(true);
 
-    burst.value = 'solo';
+    burst.value = 'priority';
     burst.dispatchEvent(new Event('change'));
-    expect(value?.burst).toBe('solo');
+    expect(value?.burst).toEqual({ mode: 'priority', every: 1 });
+    expect(root.querySelector<HTMLElement>('.burst-every')?.hidden).toBe(false);
+
+    const every = root.querySelector<HTMLInputElement>('[data-burst-every]')!;
+    every.value = '3';
+    every.dispatchEvent(new Event('input'));
+    expect(value?.burst).toEqual({ mode: 'priority', every: 3 });
 
     const burstAgain = root.querySelector<HTMLSelectElement>('[data-burst-assignment]')!;
     burstAgain.value = 'auto';
@@ -160,16 +167,18 @@ describe('character settings editor', () => {
     expect(value?.burst).toBeUndefined();
   });
 
-  it('sets equipment level across all four parts', () => {
+  it('sets equipment level per part (head, body, arm, leg)', () => {
     setToggle('[data-custom-toggle]', true);
 
-    const equip = root.querySelector<HTMLSelectElement>('[data-equip-level]')!;
-    expect([...equip.options].map((option) => option.value)).toEqual(['5', '4', '3', '2', '1', '0']);
-    expect(equip.value).toBe('5');
+    const head = root.querySelector<HTMLSelectElement>('[data-equip-level="머리"]')!;
+    const arm = root.querySelector<HTMLSelectElement>('[data-equip-level="팔"]')!;
+    expect([...head.options].map((option) => option.value)).toEqual(['5', '4', '3', '2', '1', '0']);
+    expect(head.value).toBe('5');
+    expect(root.querySelectorAll('[data-equip-level]').length).toBe(4);
 
-    equip.value = '3';
-    equip.dispatchEvent(new Event('change'));
-    expect(value?.equipLevels).toEqual({ 머리: 3, 몸통: 3, 팔: 3, 다리: 3 });
+    arm.value = '2';
+    arm.dispatchEvent(new Event('change'));
+    expect(value?.equipLevels).toEqual({ 머리: 5, 몸통: 5, 팔: 2, 다리: 5 });
   });
 
   it('selects a legal growth stage and applies its maximum bond rank', () => {

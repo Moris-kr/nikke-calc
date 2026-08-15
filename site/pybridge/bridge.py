@@ -73,9 +73,11 @@ def run_request(raw: str) -> str:
     burst_pattern: dict = {}
     for name, overrides in characters.items():
         assignment = overrides.get("_burst_assignment")
-        if assignment == "solo":
-            burst_pattern[name] = "every:1"
-        elif assignment == "skip":
+        if not isinstance(assignment, dict):
+            continue
+        if assignment.get("mode") == "priority":
+            burst_pattern[name] = f"every:{int(assignment.get('every', 1))}"
+        elif assignment.get("mode") == "skip":
             burst_pattern[name] = []
     if burst_pattern:
         config_in["burst_pattern"] = burst_pattern

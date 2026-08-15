@@ -28,7 +28,11 @@ export interface CharacterControl {
   };
 }
 
-export type BurstAssignment = 'auto' | 'solo' | 'skip';
+// 버스트 운용 배정. auto는 이 필드 자체를 두지 않는다(엔진 기본 순서).
+// priority = n의 배수 사이클마다 우선 사용(every=n), skip = 가급적 안 씀.
+export type BurstAssignment =
+  | { mode: 'priority'; every: number }
+  | { mode: 'skip' };
 export type EquipPart = '머리' | '몸통' | '팔' | '다리';
 
 export interface CharacterOverrides {

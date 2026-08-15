@@ -198,13 +198,19 @@ class BrowserBridgeTest(unittest.TestCase):
             result = json.loads(run_request(json.dumps(payload, ensure_ascii=False)))
             return len(result["timeline"]["bursts"]["마스트 : 로망틱 메이드"])
 
-        auto = mast_bursts(base)
-        solo = mast_bursts({**base, "characters": {"마스트 : 로망틱 메이드": {"burst": "solo"}}})
-        skip = mast_bursts({**base, "characters": {"마스트 : 로망틱 메이드": {"burst": "skip"}}})
+        every1 = mast_bursts({**base, "characters": {
+            "마스트 : 로망틱 메이드": {"burst": {"mode": "priority", "every": 1}},
+        }})
+        every3 = mast_bursts({**base, "characters": {
+            "마스트 : 로망틱 메이드": {"burst": {"mode": "priority", "every": 3}},
+        }})
+        skip = mast_bursts({**base, "characters": {
+            "마스트 : 로망틱 메이드": {"burst": {"mode": "skip"}},
+        }})
 
-        # solo는 우선 사용이라 auto보다 많거나 같고, skip은 가급적 안 써서 0이 된다.
-        self.assertGreater(solo, skip)
-        self.assertGreaterEqual(solo, auto)
+        # 매 사이클 우선(every=1)은 3의 배수 우선보다 많거나 같고, skip은 0이 된다.
+        self.assertGreaterEqual(every1, every3)
+        self.assertGreater(every1, skip)
         self.assertEqual(skip, 0)
 
     def test_rejects_character_settings_outside_the_squad(self):

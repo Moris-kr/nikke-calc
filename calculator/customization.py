@@ -195,13 +195,22 @@ def normalize_character_overrides(
     if "control" in raw:
         result["_control_override"] = _normalize_control(raw["control"])
     burst = raw.get("burst")
-    if burst is not None and burst != "auto":
+    if burst is not None:
         # 버스트 운용 배정: 같은 단계 후보가 여럿일 때 누가 그 단계 버스트를 쓰는지.
-        # solo = 그 캐릭터가 자기 단계를 전담(매 사이클 우선), skip = 가급적 안 씀.
+        # priority = n의 배수 사이클마다 우선 사용, skip = 가급적 안 씀.
         # 러너(pybridge.bridge)가 config["burst_pattern"]으로 옮긴다.
-        if burst not in {"solo", "skip"}:
-            raise ValueError("버스트 운용은 auto, solo, skip 중 하나여야 합니다")
-        result["_burst_assignment"] = burst
+        if not isinstance(burst, dict):
+            raise ValueError("버스트 운용 설정은 객체여야 합니다")
+        mode = burst.get("mode")
+        if mode == "skip":
+            result["_burst_assignment"] = {"mode": "skip"}
+        elif mode == "priority":
+            every = burst.get("every", 1)
+            if isinstance(every, bool) or not isinstance(every, int) or every < 1:
+                raise ValueError("버스트 우선 사용 주기(n)는 1 이상 정수여야 합니다")
+            result["_burst_assignment"] = {"mode": "priority", "every": every}
+        else:
+            raise ValueError("버스트 운용 mode는 priority 또는 skip이어야 합니다")
     if "growthStage" in raw:
         growth_stage = raw["growthStage"]
         if character_name is None:

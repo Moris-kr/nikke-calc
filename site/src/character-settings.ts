@@ -1,5 +1,4 @@
 import type {
-  BurstAssignment,
   CharacterControl,
   CharacterOverrides,
   CubeName,
@@ -9,6 +8,10 @@ import type {
 } from './types';
 
 const EQUIP_PARTS: EquipPart[] = ['머리', '몸통', '팔', '다리'];
+// 내부 부위 키는 '팔'이지만 UI·CSV 표기는 '장갑'이다.
+const EQUIP_PART_LABELS: Record<EquipPart, string> = {
+  머리: '머리', 몸통: '몸통', 팔: '장갑', 다리: '다리',
+};
 
 const cubeNames: CubeName[] = ['재장', '탄충', '체력', '차속', '파츠'];
 const skillLabels: Array<[keyof SkillLevels, string]> = [
@@ -205,61 +208,97 @@ export function renderCharacterSettings(
   burstEditor.className = 'burst-editor';
   const burstHeading = document.createElement('h4');
   burstHeading.textContent = '버스트 운용';
+  const burstMode = current.burst?.mode ?? 'auto';
+  const burstEvery = current.burst?.mode === 'priority' ? current.burst.every : 1;
+
+  const burstRow = document.createElement('div');
+  burstRow.className = 'burst-row';
   const burstSelect = document.createElement('select');
   burstSelect.dataset.burstAssignment = '';
-  const burstOptions: Array<[BurstAssignment, string]> = [
-    ['auto', '자동'],
-    ['solo', '우선 사용'],
-    ['skip', '가급적 안 씀'],
-  ];
-  for (const [optionValue, optionLabel] of burstOptions) {
+  for (const [optionValue, optionLabel] of [
+    ['auto', '자동'], ['priority', 'n의 배수 우선 사용'], ['skip', '가급적 안 씀'],
+  ] as Array<[string, string]>) {
     const option = document.createElement('option');
     option.value = optionValue;
     option.textContent = optionLabel;
     burstSelect.append(option);
   }
-  burstSelect.value = current.burst ?? 'auto';
-  burstSelect.addEventListener('change', () => {
+  burstSelect.value = burstMode;
+
+  const everyWrap = document.createElement('label');
+  everyWrap.className = 'burst-every';
+  everyWrap.hidden = burstMode !== 'priority';
+  const everyInput = document.createElement('input');
+  everyInput.type = 'number';
+  everyInput.min = '1';
+  everyInput.step = '1';
+  everyInput.value = String(burstEvery);
+  everyInput.dataset.burstEvery = '';
+  const everyText = document.createElement('span');
+  everyText.textContent = '의 배수 사이클마다';
+  everyWrap.append(everyInput, everyText);
+  burstRow.append(burstSelect, everyWrap);
+
+  const applyBurst = () => {
     const next = cloneOverrides(current);
-    const chosen = burstSelect.value as BurstAssignment;
-    if (chosen === 'auto') delete next.burst;
-    else next.burst = chosen;
+    const mode = burstSelect.value;
+    if (mode === 'priority') {
+      const n = Math.max(1, Math.trunc(Number(everyInput.value) || 1));
+      next.burst = { mode: 'priority', every: n };
+    } else if (mode === 'skip') {
+      next.burst = { mode: 'skip' };
+    } else {
+      delete next.burst;
+    }
     emitNumericChange(next);
+  };
+  burstSelect.addEventListener('change', () => {
+    everyWrap.hidden = burstSelect.value !== 'priority';
+    applyBurst();
   });
+  everyInput.addEventListener('input', applyBurst);
+
   const burstNote = document.createElement('p');
   burstNote.className = 'field-note';
   burstNote.textContent =
-    '같은 버스트 단계 후보가 여럿일 때 우선/비우선을 지정합니다. 우선이라도 쿨타임 안에서만 나갑니다.';
-  burstEditor.append(burstHeading, burstSelect, burstNote);
+    '같은 버스트 단계 후보가 여럿일 때, n의 배수 사이클마다 이 캐릭터를 우선 사용합니다(쿨타임 한도 내). n=1이면 매 사이클.';
+  burstEditor.append(burstHeading, burstRow, burstNote);
   body.append(burstEditor);
 
   const equipEditor = document.createElement('section');
   equipEditor.className = 'equip-editor';
   const equipHeading = document.createElement('h4');
   equipHeading.textContent = '장비 레벨';
-  const equipSelect = document.createElement('select');
-  equipSelect.dataset.equipLevel = '';
-  for (let lv = 5; lv >= 0; lv -= 1) {
-    const option = document.createElement('option');
-    option.value = String(lv);
-    option.textContent = `Lv ${lv}`;
-    equipSelect.append(option);
+  const equipGrid = document.createElement('div');
+  equipGrid.className = 'equip-grid';
+  for (const part of EQUIP_PARTS) {
+    const partLabel = document.createElement('label');
+    const partText = document.createElement('span');
+    partText.textContent = EQUIP_PART_LABELS[part];
+    const partSelect = document.createElement('select');
+    partSelect.dataset.equipLevel = part;
+    for (let lv = 5; lv >= 0; lv -= 1) {
+      const option = document.createElement('option');
+      option.value = String(lv);
+      option.textContent = `Lv ${lv}`;
+      partSelect.append(option);
+    }
+    partSelect.value = String(current.equipLevels?.[part] ?? 5);
+    partSelect.addEventListener('change', () => {
+      const next = cloneOverrides(current);
+      const levels = { ...(next.equipLevels ?? {}) };
+      for (const p of EQUIP_PARTS) levels[p] ??= current.equipLevels?.[p] ?? 5;
+      levels[part] = Number(partSelect.value);
+      next.equipLevels = levels;
+      emitNumericChange(next);
+    });
+    partLabel.append(partText, partSelect);
+    equipGrid.append(partLabel);
   }
-  const currentLevels = EQUIP_PARTS.map((part) => current.equipLevels?.[part])
-    .filter((level): level is number => level !== undefined);
-  const allSame = currentLevels.length === EQUIP_PARTS.length
-    && currentLevels.every((level) => level === currentLevels[0]);
-  equipSelect.value = String(allSame ? currentLevels[0] : 5);
-  equipSelect.addEventListener('change', () => {
-    const next = cloneOverrides(current);
-    const level = Number(equipSelect.value);
-    next.equipLevels = Object.fromEntries(EQUIP_PARTS.map((part) => [part, level]));
-    emitNumericChange(next);
-  });
   const equipNote = document.createElement('p');
   equipNote.className = 'field-note';
-  equipNote.textContent = '장비 강화 레벨(0~5) · 오버로드 옵션과 별개인 장비 기본 스탯입니다.';
-  equipEditor.append(equipHeading, equipSelect, equipNote);
+  equipNote.textContent = '부위별 장비 강화 레벨(0~5) · 오버로드 옵션과 별개인 장비 기본 스탯입니다.';
+  equipEditor.append(equipHeading, equipGrid, equipNote);
   body.append(equipEditor);
 
   if (defaults.favoriteItem) {
