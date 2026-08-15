@@ -223,6 +223,21 @@ class CharacterCustomizationTest(unittest.TestCase):
         min_ammo = min(entry.ammo for entry in result.log.ammo_log)
         self.assertGreaterEqual(min_ammo, 0, "실효 최대 장탄이 음수로 내려갔다 (스톨)")
 
+    def test_equip_levels_map_to_per_part_equipment(self):
+        self.assertEqual(
+            normalize_character_overrides({
+                "equipLevels": {"머리": 5, "몸통": 3, "팔": 0, "다리": 5},
+            }),
+            {"equipment": {
+                "머리": {"level": 5}, "몸통": {"level": 3},
+                "팔": {"level": 0}, "다리": {"level": 5},
+            }},
+        )
+        for bad in ({"머리": 6}, {"머리": -1}, {"머리": 1.5}, {"머리": True}, {"등": 5}):
+            with self.subTest(bad=bad):
+                with self.assertRaises(ValueError):
+                    normalize_character_overrides({"equipLevels": bad})
+
     def test_burst_assignment_is_normalized_and_validated(self):
         self.assertEqual(
             normalize_character_overrides({"burst": "solo"}),

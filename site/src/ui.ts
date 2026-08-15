@@ -1,5 +1,6 @@
-import { ResultCache, type StorageSource } from './cache';
+import { ResultCache, type StorageLike, type StorageSource } from './cache';
 import { renderCharacterSettings } from './character-settings';
+import { parseRosterCsv } from './csv-import';
 import { createTimelineBlock } from './timeline';
 import {
   aggregateDeckResults,
@@ -15,6 +16,7 @@ import type {
   BatchResult,
   BattleSettings,
   CharacterMeta,
+  CharacterOverrides,
   DeckResultEntry,
   DeckState,
   SettingsCatalog,
@@ -105,6 +107,30 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   let fiveDeckMode = false;
   let activity: 'preparing' | 'ready' | 'running' | 'complete' | 'cached' | 'error' = 'preparing';
 
+  const ROSTER_KEY = 'nikke-roster-v1';
+  const resolveStorage = (): StorageLike | null => {
+    const source = typeof storage === 'function' ? storage() : storage;
+    return source ?? null;
+  };
+  const cloneOverride = (value: object): CharacterOverrides =>
+    JSON.parse(JSON.stringify(value)) as CharacterOverrides;
+  const loadRoster = (): Record<string, CharacterOverrides> => {
+    try {
+      const raw = resolveStorage()?.getItem(ROSTER_KEY);
+      return raw ? (JSON.parse(raw) as Record<string, CharacterOverrides>) : {};
+    } catch {
+      return {};
+    }
+  };
+  const saveRoster = () => {
+    try {
+      resolveStorage()?.setItem(ROSTER_KEY, JSON.stringify(roster));
+    } catch {
+      /* 저장 실패는 무시 (용량·프라이빗 모드 등) */
+    }
+  };
+  let roster = loadRoster();
+
   root.innerHTML = `
     <div class="site-shell">
       <header class="hero">
@@ -122,8 +148,13 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           <div class="section-heading">
             <div><p class="step">01 / SQUAD</p><h2 id="squad-heading">편성 및 캐릭터 설정</h2></div>
             <div class="squad-tools">
+              <label class="roster-import" title="렛츠도로 니케정보 CSV를 불러와 모든 니케 설정에 적용">
+                <input id="roster-csv" type="file" accept=".csv,text/csv" hidden />
+                <span>CSV 불러오기</span>
+              </label>
               <label class="toggle-field mode-toggle"><input id="squad-mode" type="checkbox" /><span class="toggle"></span><span>5덱 모드</span></label>
             </div>
+            <p class="roster-note" data-roster-note hidden></p>
           </div>
           <div class="deck-tabs" data-deck-tabs hidden></div>
           <p class="deck-note" data-deck-note hidden>덱 사이에는 같은 캐릭터를 다시 편성할 수 있습니다.</p>
@@ -174,6 +205,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const timelineBody = element<HTMLElement>(root, '[data-timeline-body]');
   const coreToggle = element<HTMLInputElement>(root, '#has-core');
   const corePxInput = element<HTMLInputElement>(root, '#core-px');
+  const rosterInput = element<HTMLInputElement>(root, '#roster-csv');
+  const rosterNote = element<HTMLElement>(root, '[data-roster-note]');
 
   const activeDeck = () => decks[activeDeckId - 1]!;
 
@@ -283,6 +316,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         const previous = deck.squad[index] ?? '';
         deck.squad[index] = select.value;
         if (previous && previous !== select.value) delete deck.characters[previous];
+        if (select.value && roster[select.value] && !deck.characters[select.value]) {
+          deck.characters[select.value] = cloneOverride(roster[select.value]!);
+        }
         showErrors([]);
         renderDeckTabs();
         renderSquad();
@@ -444,6 +480,47 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     writeBattle(resetEnemy(readBattle()));
     showErrors([]);
   });
+  const applyRosterToDecks = () => {
+    for (const deck of decks) {
+      for (const member of deck.squad) {
+        if (member && roster[member] && !deck.characters[member]) {
+          deck.characters[member] = cloneOverride(roster[member]!);
+        }
+      }
+    }
+  };
+  const updateRosterNote = (message?: string) => {
+    const count = Object.keys(roster).length;
+    if (message) rosterNote.textContent = message;
+    else if (count > 0) rosterNote.textContent = `CSV 로스터 ${count}명 적용 중`;
+    rosterNote.hidden = !message && count === 0;
+  };
+  rosterInput.addEventListener('change', async () => {
+    const file = rosterInput.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const { overrides, matched, unmatched } = parseRosterCsv(text, settings);
+      if (matched.length === 0) {
+        updateRosterNote('CSV에서 지원 캐릭터를 찾지 못했습니다. 정식 명칭이 일치하는지 확인해 주세요.');
+        return;
+      }
+      roster = overrides;
+      saveRoster();
+      applyRosterToDecks();
+      renderDeckTabs();
+      renderSquad();
+      const skipped = unmatched.length > 0 ? ` · 미지원 ${unmatched.length}명 제외` : '';
+      updateRosterNote(`CSV 로스터 ${matched.length}명 적용${skipped}`);
+    } catch (error) {
+      updateRosterNote(`CSV 불러오기 실패: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      rosterInput.value = '';
+    }
+  });
+
+  applyRosterToDecks();
+  updateRosterNote();
   renderDeckTabs();
   renderSquad();
 

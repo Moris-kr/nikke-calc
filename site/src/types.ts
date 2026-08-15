@@ -29,6 +29,7 @@ export interface CharacterControl {
 }
 
 export type BurstAssignment = 'auto' | 'solo' | 'skip';
+export type EquipPart = '머리' | '몸통' | '팔' | '다리';
 
 export interface CharacterOverrides {
   growthStage?: number;
@@ -38,6 +39,7 @@ export interface CharacterOverrides {
   control?: CharacterControl;
   manualStats?: Record<string, number>;
   burst?: BurstAssignment;
+  equipLevels?: Partial<Record<EquipPart, number>>;
 }
 
 export interface GrowthOption {

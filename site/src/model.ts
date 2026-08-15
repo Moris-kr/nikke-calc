@@ -53,6 +53,8 @@ function normalizeCharacters(
       } : {}),
       ...(manualStats ? { manualStats } : {}),
       ...(value.burst && value.burst !== 'auto' ? { burst: value.burst } : {}),
+      ...(value.equipLevels && Object.keys(value.equipLevels).length > 0
+        ? { equipLevels: { ...value.equipLevels } } : {}),
     };
     if (Object.keys(normalized).length > 0) result[name] = normalized;
   }

@@ -76,8 +76,11 @@ a:focus-visible {
 .section-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
 .section-heading.compact { margin-bottom: 20px; }
 h2 { margin: 0; font-size: 24px; letter-spacing: -.035em; }
-.squad-tools { display: flex; align-items: end; gap: 18px; }
+.squad-tools { display: flex; align-items: center; gap: 14px; }
 .mode-toggle { grid-column: auto; white-space: nowrap; padding-bottom: 2px; }
+.roster-import { display: inline-flex; align-items: center; padding: 8px 12px; border: 1px solid rgba(69,214,208,.3); background: rgba(69,214,208,.08); color: #cfeceb; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; border-radius: 7px; }
+.roster-import:hover { background: rgba(69,214,208,.16); }
+.roster-note { margin: 10px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
 
 input, select {
   width: 100%;
@@ -121,9 +124,9 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .growth-editor p { margin: 6px 0 0; color: var(--muted); font-size: 9px; line-height: 1.5; }
 .skill-level-editor { padding: 10px; border: 1px solid rgba(255,191,60,.17); background: rgba(255,191,60,.035); }
 .skill-level-editor h4 { margin: 0 0 8px; color: var(--amber); font-size: 11px; }
-.burst-editor { padding: 10px; border: 1px solid rgba(255,191,60,.17); background: rgba(255,191,60,.035); }
-.burst-editor h4 { margin: 0 0 8px; color: var(--amber); font-size: 11px; }
-.burst-editor select { width: 100%; min-height: 36px; font-size: 11px; }
+.burst-editor, .equip-editor { padding: 10px; border: 1px solid rgba(255,191,60,.17); background: rgba(255,191,60,.035); }
+.burst-editor h4, .equip-editor h4 { margin: 0 0 8px; color: var(--amber); font-size: 11px; }
+.burst-editor select, .equip-editor select { width: 100%; min-height: 36px; font-size: 11px; }
 .skill-level-controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
 .skill-level-controls label { display: grid; gap: 5px; color: var(--muted); font-size: 9px; font-weight: 700; }
 .skill-level-controls select { min-width: 0; min-height: 36px; padding-inline: 7px; font-size: 11px; }

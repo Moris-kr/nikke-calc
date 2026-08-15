@@ -28,6 +28,8 @@ OVERLOAD_FIELDS: dict[str, dict[str, Any]] = {
 
 CUBE_NAMES = ("재장", "탄충", "체력", "차속", "파츠")
 SKILL_LEVEL_KEYS = {"1", "2", "3"}
+EQUIP_PARTS = ("머리", "몸통", "팔", "다리")
+EQUIP_LEVEL_MAX = 5  # data/base_stat_tables/equipment_stats.json 은 부위별 LV0~5
 
 
 def _stat(label: str, unit: str = "%", minimum: float = -1000.0,
@@ -183,7 +185,8 @@ def normalize_character_overrides(
     if not isinstance(raw, dict):
         raise ValueError("캐릭터 설정은 객체여야 한다")
     unknown_sections = set(raw) - {
-        "growthStage", "overload", "cube", "manualStats", "skillLevels", "control", "burst"
+        "growthStage", "overload", "cube", "manualStats", "skillLevels", "control",
+        "burst", "equipLevels",
     }
     if unknown_sections:
         raise ValueError(f"지원하지 않는 캐릭터 설정: {sorted(unknown_sections)}")
@@ -242,6 +245,22 @@ def normalize_character_overrides(
         if isinstance(level, bool) or not isinstance(level, int) or not 1 <= level <= 15:
             raise ValueError("큐브 레벨은 1~15 정수여야 한다")
         result["cube"] = {"name": name, "level": level}
+
+    equip_levels = raw.get("equipLevels")
+    if equip_levels is not None:
+        if not isinstance(equip_levels, dict):
+            raise ValueError("장비 레벨 설정은 객체여야 한다")
+        unknown = set(equip_levels) - set(EQUIP_PARTS)
+        if unknown:
+            raise ValueError(f"지원하지 않는 장비 부위: {sorted(unknown)}")
+        equipment: dict[str, Any] = {}
+        for part, level in equip_levels.items():
+            if isinstance(level, bool) or not isinstance(level, int) \
+                    or not 0 <= level <= EQUIP_LEVEL_MAX:
+                raise ValueError(f"장비 레벨({part})은 0~{EQUIP_LEVEL_MAX} 정수여야 한다")
+            equipment[part] = {"level": level}
+        if equipment:
+            result["equipment"] = equipment
 
     manual = raw.get("manualStats")
     if manual is not None:
