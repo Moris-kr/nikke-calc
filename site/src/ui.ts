@@ -262,7 +262,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           <div class="custom-caution">
             <b>참고하세요</b>
             <ul>
-              <li>특이하거나 복잡한 스킬(조건부 발동·게이지·모드 전환 등)은 계산에 <b>반영되지 않을 수 있습니다.</b> 기본 사격·버프·버스트 위주로 근사됩니다.</li>
+              <li>특이하거나 복잡한 스킬(조건부 발동·게이지·모드 전환·스택 조건 등)은 계산에 <b>반영되지 않습니다.</b> 기본 사격·버프·버스트 위주로만 근사됩니다. 그런 스킬이 주력 딜인 캐릭터(예: 게이지로 대미지가 커지는 캐릭터)는 <b>결과가 실제보다 훨씬 낮게</b> 나오니 참고만 하세요.</li>
               <li>LLM 성능에 따라 <b>정확한 변환이 어려울 수 있으니 참고용</b>으로 쓰고, 값을 직접 확인·보정하시길 권합니다.</li>
               <li>가능하면 아래 <b>직접 입력 도움말</b>을 보고 사람이 직접 값을 넣는 편이 정확합니다.</li>
             </ul>
@@ -709,7 +709,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       if (ignored.length > 0) {
         showCustomMsg(
           `'${custom.name}' 추가됨. 다만 인식되지 않는 효과가 있어 반영되지 않습니다: `
-          + `${ignored.join(', ')}. 도움말의 어휘와 대조해 stat·timing·target을 고치면 반영됩니다.`,
+          + `${ignored.join(', ')}. 이 효과가 캐릭터의 주력 딜이면 결과가 실제보다 크게 낮게 나옵니다`
+          + `(게이지·모드 전환·조건부 스택형 스킬은 이 방식으로 재현하기 어렵습니다). `
+          + `도움말의 어휘와 대조해 stat·timing·target을 고치면 일부는 반영됩니다.`,
         );
       } else {
         showCustomMsg(`'${custom.name}' 추가됨 · 스쿼드 슬롯에서 선택할 수 있습니다.`, true);
