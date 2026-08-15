@@ -160,6 +160,18 @@ describe('character settings editor', () => {
     expect(value?.burst).toBeUndefined();
   });
 
+  it('sets equipment level across all four parts', () => {
+    setToggle('[data-custom-toggle]', true);
+
+    const equip = root.querySelector<HTMLSelectElement>('[data-equip-level]')!;
+    expect([...equip.options].map((option) => option.value)).toEqual(['5', '4', '3', '2', '1', '0']);
+    expect(equip.value).toBe('5');
+
+    equip.value = '3';
+    equip.dispatchEvent(new Event('change'));
+    expect(value?.equipLevels).toEqual({ 머리: 3, 몸통: 3, 팔: 3, 다리: 3 });
+  });
+
   it('selects a legal growth stage and applies its maximum bond rank', () => {
     setToggle('[data-custom-toggle]', true);
 

@@ -3,9 +3,12 @@ import type {
   CharacterControl,
   CharacterOverrides,
   CubeName,
+  EquipPart,
   SettingsCatalog,
   SkillLevels,
 } from './types';
+
+const EQUIP_PARTS: EquipPart[] = ['머리', '몸통', '팔', '다리'];
 
 const cubeNames: CubeName[] = ['재장', '탄충', '체력', '차속', '파츠'];
 const skillLabels: Array<[keyof SkillLevels, string]> = [
@@ -28,6 +31,7 @@ const cloneOverrides = (value: CharacterOverrides): CharacterOverrides => ({
   } : {}),
   ...(value.manualStats ? { manualStats: { ...value.manualStats } } : {}),
   ...(value.burst ? { burst: value.burst } : {}),
+  ...(value.equipLevels ? { equipLevels: { ...value.equipLevels } } : {}),
 });
 
 export function defaultCharacterOverrides(
@@ -228,6 +232,35 @@ export function renderCharacterSettings(
     '같은 버스트 단계 후보가 여럿일 때 우선/비우선을 지정합니다. 우선이라도 쿨타임 안에서만 나갑니다.';
   burstEditor.append(burstHeading, burstSelect, burstNote);
   body.append(burstEditor);
+
+  const equipEditor = document.createElement('section');
+  equipEditor.className = 'equip-editor';
+  const equipHeading = document.createElement('h4');
+  equipHeading.textContent = '장비 레벨';
+  const equipSelect = document.createElement('select');
+  equipSelect.dataset.equipLevel = '';
+  for (let lv = 5; lv >= 0; lv -= 1) {
+    const option = document.createElement('option');
+    option.value = String(lv);
+    option.textContent = `Lv ${lv}`;
+    equipSelect.append(option);
+  }
+  const currentLevels = EQUIP_PARTS.map((part) => current.equipLevels?.[part])
+    .filter((level): level is number => level !== undefined);
+  const allSame = currentLevels.length === EQUIP_PARTS.length
+    && currentLevels.every((level) => level === currentLevels[0]);
+  equipSelect.value = String(allSame ? currentLevels[0] : 5);
+  equipSelect.addEventListener('change', () => {
+    const next = cloneOverrides(current);
+    const level = Number(equipSelect.value);
+    next.equipLevels = Object.fromEntries(EQUIP_PARTS.map((part) => [part, level]));
+    emitNumericChange(next);
+  });
+  const equipNote = document.createElement('p');
+  equipNote.className = 'field-note';
+  equipNote.textContent = '장비 강화 레벨(0~5) · 오버로드 옵션과 별개인 장비 기본 스탯입니다.';
+  equipEditor.append(equipHeading, equipSelect, equipNote);
+  body.append(equipEditor);
 
   if (defaults.favoriteItem) {
     const favorite = document.createElement('section');
