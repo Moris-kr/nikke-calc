@@ -183,7 +183,7 @@ def normalize_character_overrides(
     if not isinstance(raw, dict):
         raise ValueError("캐릭터 설정은 객체여야 한다")
     unknown_sections = set(raw) - {
-        "growthStage", "overload", "cube", "manualStats", "skillLevels", "control"
+        "growthStage", "overload", "cube", "manualStats", "skillLevels", "control", "burst"
     }
     if unknown_sections:
         raise ValueError(f"지원하지 않는 캐릭터 설정: {sorted(unknown_sections)}")
@@ -191,6 +191,14 @@ def normalize_character_overrides(
     result: dict[str, Any] = {}
     if "control" in raw:
         result["_control_override"] = _normalize_control(raw["control"])
+    burst = raw.get("burst")
+    if burst is not None and burst != "auto":
+        # 버스트 운용 배정: 같은 단계 후보가 여럿일 때 누가 그 단계 버스트를 쓰는지.
+        # solo = 그 캐릭터가 자기 단계를 전담(매 사이클 우선), skip = 가급적 안 씀.
+        # 러너(pybridge.bridge)가 config["burst_pattern"]으로 옮긴다.
+        if burst not in {"solo", "skip"}:
+            raise ValueError("버스트 운용은 auto, solo, skip 중 하나여야 합니다")
+        result["_burst_assignment"] = burst
     if "growthStage" in raw:
         growth_stage = raw["growthStage"]
         if character_name is None:

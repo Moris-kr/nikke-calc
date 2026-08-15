@@ -183,6 +183,30 @@ class BrowserBridgeTest(unittest.TestCase):
         self.assertTrue(timeline["fullBurst"])
         self.assertTrue(any(timeline["bursts"][name] for name in payload["squad"]))
 
+    def test_burst_assignment_shifts_which_member_bursts(self):
+        base = {
+            "squad": ["라피 : 레드 후드", "앨리스", "목단", "크라운", "마스트 : 로망틱 메이드"],
+            "duration": 90,
+            "enemyDef": 31_784,
+            "enemyCode": "",
+            "corePx": 0,
+            "hasParts": False,
+            "seed": 42,
+        }
+
+        def mast_bursts(payload):
+            result = json.loads(run_request(json.dumps(payload, ensure_ascii=False)))
+            return len(result["timeline"]["bursts"]["마스트 : 로망틱 메이드"])
+
+        auto = mast_bursts(base)
+        solo = mast_bursts({**base, "characters": {"마스트 : 로망틱 메이드": {"burst": "solo"}}})
+        skip = mast_bursts({**base, "characters": {"마스트 : 로망틱 메이드": {"burst": "skip"}}})
+
+        # solo는 우선 사용이라 auto보다 많거나 같고, skip은 가급적 안 써서 0이 된다.
+        self.assertGreater(solo, skip)
+        self.assertGreaterEqual(solo, auto)
+        self.assertEqual(skip, 0)
+
     def test_rejects_character_settings_outside_the_squad(self):
         payload = {
             "squad": ["리타"],

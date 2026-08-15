@@ -67,9 +67,19 @@ def run_request(raw: str) -> str:
         if name in raw_characters
     }
     squad = char_spec.build_squad(names, characters)
-    config = char_spec.build_config(squad, {
-        "duration": int(payload["duration"]),
-    })
+    config_in: dict = {"duration": int(payload["duration"])}
+    # 버스트 운용 배정 → config["burst_pattern"]. solo는 매 사이클 우선(전담),
+    # skip은 가급적 안 씀. build_config는 여기서 준 값을 그대로 살린다(caller 우선).
+    burst_pattern: dict = {}
+    for name, overrides in characters.items():
+        assignment = overrides.get("_burst_assignment")
+        if assignment == "solo":
+            burst_pattern[name] = "every:1"
+        elif assignment == "skip":
+            burst_pattern[name] = []
+    if burst_pattern:
+        config_in["burst_pattern"] = burst_pattern
+    config = char_spec.build_config(squad, config_in)
     enemy = {
         "def": int(payload["enemyDef"]),
         "code": str(payload.get("enemyCode") or ""),

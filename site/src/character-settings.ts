@@ -1,4 +1,5 @@
 import type {
+  BurstAssignment,
   CharacterControl,
   CharacterOverrides,
   CubeName,
@@ -26,6 +27,7 @@ const cloneOverrides = (value: CharacterOverrides): CharacterOverrides => ({
     ) as CharacterControl,
   } : {}),
   ...(value.manualStats ? { manualStats: { ...value.manualStats } } : {}),
+  ...(value.burst ? { burst: value.burst } : {}),
 });
 
 export function defaultCharacterOverrides(
@@ -194,6 +196,38 @@ export function renderCharacterSettings(
     skillEditor.append(skillControls);
   }
   body.append(skillEditor);
+
+  const burstEditor = document.createElement('section');
+  burstEditor.className = 'burst-editor';
+  const burstHeading = document.createElement('h4');
+  burstHeading.textContent = '버스트 운용';
+  const burstSelect = document.createElement('select');
+  burstSelect.dataset.burstAssignment = '';
+  const burstOptions: Array<[BurstAssignment, string]> = [
+    ['auto', '자동'],
+    ['solo', '우선 사용'],
+    ['skip', '가급적 안 씀'],
+  ];
+  for (const [optionValue, optionLabel] of burstOptions) {
+    const option = document.createElement('option');
+    option.value = optionValue;
+    option.textContent = optionLabel;
+    burstSelect.append(option);
+  }
+  burstSelect.value = current.burst ?? 'auto';
+  burstSelect.addEventListener('change', () => {
+    const next = cloneOverrides(current);
+    const chosen = burstSelect.value as BurstAssignment;
+    if (chosen === 'auto') delete next.burst;
+    else next.burst = chosen;
+    emitNumericChange(next);
+  });
+  const burstNote = document.createElement('p');
+  burstNote.className = 'field-note';
+  burstNote.textContent =
+    '같은 버스트 단계 후보가 여럿일 때 우선/비우선을 지정합니다. 우선이라도 쿨타임 안에서만 나갑니다.';
+  burstEditor.append(burstHeading, burstSelect, burstNote);
+  body.append(burstEditor);
 
   if (defaults.favoriteItem) {
     const favorite = document.createElement('section');

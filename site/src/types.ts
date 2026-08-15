@@ -28,6 +28,8 @@ export interface CharacterControl {
   };
 }
 
+export type BurstAssignment = 'auto' | 'solo' | 'skip';
+
 export interface CharacterOverrides {
   growthStage?: number;
   skillLevels?: SkillLevels;
@@ -35,6 +37,7 @@ export interface CharacterOverrides {
   cube?: CubeSelection;
   control?: CharacterControl;
   manualStats?: Record<string, number>;
+  burst?: BurstAssignment;
 }
 
 export interface GrowthOption {
