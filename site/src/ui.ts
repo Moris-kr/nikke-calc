@@ -1,6 +1,14 @@
 import { ResultCache, type StorageLike, type StorageSource } from './cache';
 import { renderCharacterSettings } from './character-settings';
 import { parseRosterCsv } from './csv-import';
+import {
+  buildAddPrompt,
+  CUSTOM_KEY,
+  customToMeta,
+  customToSettings,
+  loadCustom,
+  parseCustomInput,
+} from './custom-nikke';
 import { createTimelineBlock } from './timeline';
 import {
   aggregateDeckResults,
@@ -138,6 +146,28 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   };
   let roster = loadRoster();
 
+  // 임의 니케(커스텀). localStorage에만 저장되고 요청마다 엔진에 주입된다.
+  const customChars = loadCustom((key) => resolveStorage()?.getItem(key) ?? null);
+  const saveCustom = () => {
+    try {
+      resolveStorage()?.setItem(CUSTOM_KEY, JSON.stringify(customChars));
+    } catch {
+      /* 무시 */
+    }
+  };
+  const registerCustom = (name: string) => {
+    const custom = customChars[name];
+    if (!custom) return;
+    if (!catalogByName.has(name)) {
+      const meta = customToMeta(custom);
+      catalog.push(meta);
+      catalogByName.set(name, meta);
+    }
+    settings.characters[name] = customToSettings(custom);
+  };
+  const customPayload = (): Record<string, { nikke: Record<string, unknown>; skills: unknown[] }> =>
+    Object.fromEntries(Object.entries(customChars).map(([n, c]) => [n, { nikke: c.nikke, skills: c.skills }]));
+
   root.innerHTML = `
     <div class="site-shell">
       <header class="hero">
@@ -159,6 +189,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
                 <input id="roster-csv" type="file" accept=".csv,text/csv" hidden />
                 <span>CSV 불러오기</span>
               </label>
+              <button type="button" class="roster-import" data-add-nikke title="미출시·미등록 니케를 직접 추가">새 니케 추가</button>
               <label class="toggle-field mode-toggle"><input id="squad-mode" type="checkbox" /><span class="toggle"></span><span>5덱 모드</span></label>
             </div>
             <p class="roster-note" data-roster-note hidden></p>
@@ -197,6 +228,22 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         <div data-timeline-body></div>
       </section>
       <footer><p>비공식 팬 제작 도구 · 실제 전투 환경과 차이가 있을 수 있습니다.</p><a href="https://github.com/Moris-kr/nikke-calc" target="_blank" rel="noreferrer">SOURCE / GITHUB ↗</a></footer>
+
+      <div class="custom-modal" data-custom-modal hidden>
+        <div class="custom-card" role="dialog" aria-label="새 니케 추가">
+          <div class="custom-head"><h2>새 니케 추가</h2><button type="button" class="custom-close" data-custom-close aria-label="닫기">✕</button></div>
+          <p class="custom-desc">미출시·미등록 니케를 직접 추가합니다. 서버로 전송되지 않고 이 브라우저에만 저장됩니다.</p>
+          <ol class="custom-steps">
+            <li>아래 <b>프롬프트 복사</b>를 눌러 다른 LLM(챗봇)에 붙여넣고, 그 아래에 니케 이름·스킬 설명을 붙여 결과 JSON을 받으세요.</li>
+            <li>받은 JSON을 아래 칸에 붙여넣고 <b>추가</b>를 누르세요.</li>
+          </ol>
+          <button type="button" class="custom-btn" data-copy-prompt>① 프롬프트 복사</button>
+          <textarea class="custom-json" data-custom-json placeholder="② 여기에 결과 JSON을 붙여넣으세요" rows="8"></textarea>
+          <div class="custom-actions"><button type="button" class="custom-btn primary" data-custom-submit>추가</button></div>
+          <p class="custom-msg" data-custom-msg hidden></p>
+          <div class="custom-list" data-custom-list></div>
+        </div>
+      </div>
     </div>
   `;
 
@@ -526,6 +573,84 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     }
   });
 
+  const customModal = element<HTMLElement>(root, '[data-custom-modal]');
+  const customJson = element<HTMLTextAreaElement>(root, '[data-custom-json]');
+  const customMsg = element<HTMLElement>(root, '[data-custom-msg]');
+  const customList = element<HTMLElement>(root, '[data-custom-list]');
+  const showCustomMsg = (text: string, ok = false) => {
+    customMsg.textContent = text;
+    customMsg.hidden = !text;
+    customMsg.classList.toggle('is-ok', ok);
+  };
+  const renderCustomList = () => {
+    customList.replaceChildren();
+    const names = Object.keys(customChars);
+    if (names.length === 0) return;
+    customList.append(createText('p', '추가된 니케', 'custom-list-title'));
+    for (const name of names) {
+      const meta = customToMeta(customChars[name]!);
+      const row = document.createElement('div');
+      row.className = 'custom-list-row';
+      row.append(createText('span', `${name} · B${meta.burstStage} · ${meta.elementCode} · ${meta.weaponType}`, 'custom-list-name'));
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'custom-remove';
+      remove.textContent = '삭제';
+      remove.addEventListener('click', () => {
+        delete customChars[name];
+        saveCustom();
+        const index = catalog.findIndex((char) => char.name === name);
+        if (index >= 0) catalog.splice(index, 1);
+        catalogByName.delete(name);
+        delete settings.characters[name];
+        for (const deck of decks) {
+          deck.squad = deck.squad.map((member) => (member === name ? '' : member));
+          delete deck.characters[name];
+        }
+        renderCustomList();
+        renderDeckTabs();
+        renderSquad();
+      });
+      row.append(remove);
+      customList.append(row);
+    }
+  };
+  element<HTMLButtonElement>(root, '[data-add-nikke]').addEventListener('click', () => {
+    customModal.hidden = false;
+    showCustomMsg('');
+    renderCustomList();
+  });
+  element<HTMLButtonElement>(root, '[data-custom-close]').addEventListener('click', () => {
+    customModal.hidden = true;
+  });
+  customModal.addEventListener('click', (event) => {
+    if (event.target === customModal) customModal.hidden = true;
+  });
+  element<HTMLButtonElement>(root, '[data-copy-prompt]').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(buildAddPrompt());
+      showCustomMsg('프롬프트를 복사했습니다. 다른 LLM에 붙여넣고 니케 설명을 이어 붙이세요.', true);
+    } catch {
+      showCustomMsg('자동 복사에 실패했습니다. 브라우저 권한을 확인하거나 직접 복사해 주세요.');
+    }
+  });
+  element<HTMLButtonElement>(root, '[data-custom-submit]').addEventListener('click', () => {
+    try {
+      const custom = parseCustomInput(customJson.value);
+      customChars[custom.name] = custom;
+      saveCustom();
+      registerCustom(custom.name);
+      renderCustomList();
+      renderDeckTabs();
+      renderSquad();
+      customJson.value = '';
+      showCustomMsg(`'${custom.name}' 추가됨 · 스쿼드 슬롯에서 선택할 수 있습니다.`, true);
+    } catch (error) {
+      showCustomMsg(error instanceof Error ? error.message : String(error));
+    }
+  });
+
+  for (const name of Object.keys(customChars)) registerCustom(name);
   applyRosterToDecks();
   updateRosterNote();
   renderDeckTabs();
@@ -552,7 +677,11 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       ...validateDecks(selectedDecks),
       ...selectedDecks.flatMap((deck) => validateCharacterValues(deck)),
     ];
-    const requests = selectedDecks.map((deck) => ({ deck, request: requestForDeck(deck, battle) }));
+    const custom = customPayload();
+    const requests = selectedDecks.map((deck) => ({
+      deck,
+      request: requestForDeck(deck, battle, Object.keys(custom).length > 0 ? custom : undefined),
+    }));
     for (const { deck, request } of requests) {
       validation.push(...validateRequest(request).map((message) => `덱 ${deck.id}: ${message}`));
     }
