@@ -222,6 +222,9 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .calculate-button:hover { filter: brightness(1.08); transform: translateY(-1px); }
 .calculate-button:disabled { cursor: wait; filter: grayscale(.6); transform: none; opacity: .72; }
 .calculate-button.is-running b { animation: pulse-arrow .7s ease-in-out infinite alternate; }
+.result-cache-tools { margin-top: 10px; text-align: right; }
+.clear-cache { padding: 6px 11px; border: 1px solid rgba(146,176,201,.2); background: rgba(4,12,21,.55); color: var(--muted); font-size: 10px; font-weight: 700; border-radius: 7px; cursor: pointer; }
+.clear-cache:hover { border-color: var(--amber); color: var(--amber); }
 .status { min-height: 36px; margin: 12px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
 
 .result-empty { min-height: 460px; display: grid; place-items: center; align-content: center; text-align: center; color: var(--muted); }

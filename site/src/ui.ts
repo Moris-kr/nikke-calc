@@ -215,6 +215,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           </div>
           <div class="error-box" data-errors hidden role="alert"></div>
           <button class="calculate-button" type="submit"><span>시뮬레이션 실행</span><b aria-hidden="true">→</b></button>
+          <div class="result-cache-tools"><button type="button" class="clear-cache" data-clear-cache title="같은 조건에 저장된 결과를 지우고 다음 실행부터 새로 계산합니다">저장된 결과 지우기</button></div>
           <p class="status" data-status aria-live="polite">계산 엔진 준비 중…</p>
         </section>
 
@@ -555,6 +556,11 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   element<HTMLButtonElement>(root, '[data-reset-enemy]').addEventListener('click', () => {
     writeBattle(resetEnemy(readBattle()));
     showErrors([]);
+  });
+  element<HTMLButtonElement>(root, '[data-clear-cache]').addEventListener('click', () => {
+    cache.clear();
+    showErrors([]);
+    status.textContent = '저장된 결과를 지웠습니다. 다시 실행하면 새로 계산합니다.';
   });
   const applyRosterToDecks = () => {
     for (const deck of decks) {
