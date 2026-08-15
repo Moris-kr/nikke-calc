@@ -153,6 +153,11 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           <div class="result-empty"><p class="step">03 / RESULT</p><h2 id="result-heading">전투 결과</h2><div class="radar-mark" aria-hidden="true"><i></i><i></i><i></i></div><p>편성과 조건을 확인한 뒤<br />시뮬레이션을 실행해 주세요.</p></div>
         </section>
       </form>
+
+      <section class="panel timeline-panel" aria-labelledby="timeline-heading" data-timeline-panel hidden>
+        <div class="section-heading compact"><div><p class="step">04 / TIMELINE</p><h2 id="timeline-heading">전투 타임라인</h2></div></div>
+        <div data-timeline-body></div>
+      </section>
       <footer><p>비공식 팬 제작 도구 · 실제 전투 환경과 차이가 있을 수 있습니다.</p><a href="https://github.com/Moris-kr/nikke-calc" target="_blank" rel="noreferrer">SOURCE / GITHUB ↗</a></footer>
     </div>
   `;
@@ -165,6 +170,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const errors = element<HTMLElement>(root, '[data-errors]');
   const submit = element<HTMLButtonElement>(root, 'button[type="submit"]');
   const resultPanel = element<HTMLElement>(root, '[data-result-panel]');
+  const timelinePanel = element<HTMLElement>(root, '[data-timeline-panel]');
+  const timelineBody = element<HTMLElement>(root, '[data-timeline-body]');
   const coreToggle = element<HTMLInputElement>(root, '#has-core');
   const corePxInput = element<HTMLInputElement>(root, '#core-px');
 
@@ -396,8 +403,6 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       section.append(deckHeader);
       if (entry.result.previewNote) section.append(createText('p', entry.result.previewNote, 'preview-warning'));
       renderCharacterRows(section, entry);
-      const timelineBlock = createTimelineBlock(entry);
-      if (timelineBlock) section.append(timelineBlock);
       const facts = document.createElement('div');
       facts.className = 'result-facts';
       facts.append(
@@ -408,6 +413,19 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       section.append(facts, createText('pre', entry.result.deviations, 'deviations'));
       resultPanel.append(section);
     }
+
+    timelineBody.replaceChildren();
+    let timelineCount = 0;
+    for (const entry of batch.decks) {
+      const timelineBlock = createTimelineBlock(entry);
+      if (!timelineBlock) continue;
+      if (batch.decks.length > 1) {
+        timelineBlock.prepend(createText('h3', `덱 ${entry.deckId}`, 'timeline-deck-label'));
+      }
+      timelineBody.append(timelineBlock);
+      timelineCount += 1;
+    }
+    timelinePanel.hidden = timelineCount === 0;
   };
 
   element<HTMLInputElement>(root, '#squad-mode').addEventListener('change', (event) => {
