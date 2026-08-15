@@ -168,6 +168,26 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const customPayload = (): Record<string, { nikke: Record<string, unknown>; skills: unknown[] }> =>
     Object.fromEntries(Object.entries(customChars).map(([n, c]) => [n, { nikke: c.nikke, skills: c.skills }]));
 
+  // 편성·설정·전투 조건을 localStorage에 저장해 새로고침해도 마지막 상태로 복원한다.
+  const STATE_KEY = 'nikke-state-v1';
+  interface SavedState {
+    decks: DeckState[];
+    fiveDeckMode: boolean;
+    activeDeckId: number;
+    battle: BattleSettings;
+  }
+  const loadSavedState = (): Partial<SavedState> | null => {
+    try {
+      const raw = resolveStorage()?.getItem(STATE_KEY);
+      return raw ? (JSON.parse(raw) as Partial<SavedState>) : null;
+    } catch {
+      return null;
+    }
+  };
+  const savedState = loadSavedState();
+  // 실제 구현은 refs·readBattle이 준비된 뒤 할당한다. 그전 호출은 no-op.
+  let saveState: () => void = () => undefined;
+
   root.innerHTML = `
     <div class="site-shell">
       <header class="hero">
@@ -304,6 +324,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       button.textContent = `덱 ${deck.id}${count ? ` · ${count}` : ''}`;
       button.addEventListener('click', () => {
         activeDeckId = deck.id;
+        saveState();
         renderDeckTabs();
         renderSquad();
       });
@@ -397,6 +418,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           deck.characters[select.value] = cloneOverride(roster[select.value]!);
         }
         showErrors([]);
+        saveState();
         renderDeckTabs();
         renderSquad();
       });
@@ -413,6 +435,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         renderCharacterSettings(editor, char.name, settings, deck.characters[char.name], (next) => {
           if (next) deck.characters[char.name] = next;
           else delete deck.characters[char.name];
+          saveState();
         });
         card.append(editor);
       }
@@ -546,6 +569,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     activeDeckId = 1;
     deckTabs.hidden = !fiveDeckMode;
     deckNote.hidden = !fiveDeckMode;
+    saveState();
     renderDeckTabs();
     renderSquad();
     showErrors([]);
@@ -553,8 +577,14 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   coreToggle.addEventListener('change', () => {
     corePxInput.disabled = !coreToggle.checked;
   });
+  // 전투 조건 입력이 바뀌면 저장한다.
+  form.addEventListener('change', (event) => {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('.settings-panel')) saveState();
+  });
   element<HTMLButtonElement>(root, '[data-reset-enemy]').addEventListener('click', () => {
     writeBattle(resetEnemy(readBattle()));
+    saveState();
     showErrors([]);
   });
   element<HTMLButtonElement>(root, '[data-clear-cache]').addEventListener('click', () => {
@@ -590,6 +620,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       roster = overrides;
       saveRoster();
       applyRosterToDecks();
+      saveState();
       renderDeckTabs();
       renderSquad();
       const skipped = unmatched.length > 0 ? ` · 미지원 ${unmatched.length}명 제외` : '';
@@ -635,6 +666,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           deck.squad = deck.squad.map((member) => (member === name ? '' : member));
           delete deck.characters[name];
         }
+        saveState();
         renderCustomList();
         renderDeckTabs();
         renderSquad();
@@ -678,7 +710,44 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     }
   });
 
+  saveState = () => {
+    try {
+      resolveStorage()?.setItem(STATE_KEY, JSON.stringify({
+        decks, fiveDeckMode, activeDeckId, battle: readBattle(),
+      }));
+    } catch {
+      /* 저장 실패 무시 */
+    }
+  };
+  const applySavedState = () => {
+    if (!savedState) return;
+    if (Array.isArray(savedState.decks)) {
+      savedState.decks.forEach((saved, index) => {
+        const deck = decks[index];
+        if (!deck || !saved) return;
+        deck.squad = (saved.squad ?? ['', '', '', '', ''])
+          .map((name) => (name && catalogByName.has(name) ? name : ''));
+        deck.characters = {};
+        for (const [name, override] of Object.entries(saved.characters ?? {})) {
+          if (deck.squad.includes(name)) deck.characters[name] = override;
+        }
+      });
+    }
+    const savedActive = savedState.activeDeckId;
+    if (typeof savedActive === 'number' && savedActive >= 1 && savedActive <= 5) {
+      activeDeckId = savedActive;
+    }
+    if (savedState.fiveDeckMode) {
+      fiveDeckMode = true;
+      element<HTMLInputElement>(root, '#squad-mode').checked = true;
+      deckTabs.hidden = false;
+      deckNote.hidden = false;
+    }
+    if (savedState.battle) writeBattle(savedState.battle);
+  };
+
   for (const name of Object.keys(customChars)) registerCustom(name);
+  applySavedState();
   applyRosterToDecks();
   updateRosterNote();
   renderDeckTabs();
