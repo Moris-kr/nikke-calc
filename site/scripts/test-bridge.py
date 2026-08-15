@@ -213,6 +213,44 @@ class BrowserBridgeTest(unittest.TestCase):
         self.assertGreater(every1, skip)
         self.assertEqual(skip, 0)
 
+    def test_custom_character_injection_simulates_like_the_real_one(self):
+        import json as _json
+        from pathlib import Path as _Path
+        data = _Path(__file__).resolve().parent.parent.parent / "data"
+        nikke = _json.loads((data / "parsed_nikke.json").read_text(encoding="utf-8"))
+        skills = _json.loads((data / "parsed_skills.json").read_text(encoding="utf-8"))
+        # 크라운은 char_defaults 레이어가 없어, 복제 커스텀과 실제가 정확히 같아야 한다.
+        custom = {"커스텀크라운": {"nikke": nikke["크라운"], "skills": skills["크라운"]}}
+        base = {
+            "duration": 40, "enemyDef": 31_784, "enemyCode": "",
+            "corePx": 0, "hasParts": False, "seed": 42,
+        }
+        custom_run = json.loads(run_request(json.dumps({
+            **base,
+            "squad": ["커스텀크라운", "목단", "라피 : 레드 후드", "앨리스", "나가"],
+            "customCharacters": custom,
+        }, ensure_ascii=False)))
+        real_run = json.loads(run_request(json.dumps({
+            **base,
+            "squad": ["크라운", "목단", "라피 : 레드 후드", "앨리스", "나가"],
+        }, ensure_ascii=False)))
+
+        self.assertGreater(custom_run["charTotals"]["커스텀크라운"], 0)
+        self.assertEqual(
+            custom_run["charTotals"]["커스텀크라운"],
+            real_run["charTotals"]["크라운"],
+        )
+
+    def test_custom_character_missing_stats_is_rejected(self):
+        payload = {
+            "squad": ["엉터리"],
+            "customCharacters": {"엉터리": {"nikke": {"class": "화력형"}, "skills": []}},
+            "duration": 10, "enemyDef": 31_784, "enemyCode": "",
+            "corePx": 0, "hasParts": False, "seed": 42,
+        }
+        with self.assertRaisesRegex(ValueError, "누락된 스탯"):
+            run_request(json.dumps(payload, ensure_ascii=False))
+
     def test_rejects_character_settings_outside_the_squad(self):
         payload = {
             "squad": ["리타"],

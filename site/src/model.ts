@@ -13,9 +13,11 @@ const integerInRange = (value: number, min: number, max: number): boolean =>
 export function normalizeRequest(request: SimulationRequest): SimulationRequest {
   const squad = request.squad.map((name) => name.trim()).filter(Boolean);
   const characters = normalizeCharacters(request.characters, squad);
+  const customForSquad = pickCustomForSquad(request.customCharacters, squad);
   return {
     squad,
     ...(Object.keys(characters).length > 0 ? { characters } : {}),
+    ...(customForSquad ? { customCharacters: customForSquad } : {}),
     duration: Math.trunc(request.duration),
     enemyDef: Math.trunc(request.enemyDef),
     enemyCode: request.enemyCode,
@@ -23,6 +25,17 @@ export function normalizeRequest(request: SimulationRequest): SimulationRequest 
     hasParts: Boolean(request.hasParts),
     seed: Math.trunc(request.seed),
   };
+}
+
+// 스쿼드에 실제로 편성된 커스텀 니케만 요청·캐시키에 싣는다.
+function pickCustomForSquad(
+  custom: SimulationRequest['customCharacters'],
+  squad: string[],
+): SimulationRequest['customCharacters'] | undefined {
+  if (!custom) return undefined;
+  const picked: NonNullable<SimulationRequest['customCharacters']> = {};
+  for (const name of squad) if (custom[name]) picked[name] = custom[name]!;
+  return Object.keys(picked).length > 0 ? picked : undefined;
 }
 
 function normalizeRecord(values: Record<string, number> | undefined): Record<string, number> | undefined {
@@ -113,10 +126,15 @@ export function validateDecks(decks: DeckState[]): string[] {
   return errors;
 }
 
-export function requestForDeck(deck: DeckState, battle: BattleSettings): SimulationRequest {
+export function requestForDeck(
+  deck: DeckState,
+  battle: BattleSettings,
+  customCharacters?: SimulationRequest['customCharacters'],
+): SimulationRequest {
   return normalizeRequest({
     squad: deck.squad,
     characters: deck.characters,
+    ...(customCharacters ? { customCharacters } : {}),
     duration: battle.duration,
     enemyDef: battle.enemyDef,
     enemyCode: battle.enemyCode,

@@ -52,9 +52,16 @@ export interface GrowthOption {
   affinity: number;
 }
 
+export interface CustomCharacter {
+  name: string;
+  nikke: Record<string, unknown>;
+  skills: unknown[];
+}
+
 export interface SimulationRequest {
   squad: string[];
   characters?: Record<string, CharacterOverrides>;
+  customCharacters?: Record<string, { nikke: Record<string, unknown>; skills: unknown[] }>;
   duration: number;
   enemyDef: number;
   enemyCode: ElementCode;

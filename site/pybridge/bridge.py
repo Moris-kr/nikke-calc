@@ -50,8 +50,48 @@ def _build_timeline(result, names: list[str]) -> dict:
     }
 
 
+_REQUIRED_NIKKE_FIELDS = (
+    "rarity", "element_code", "class", "weapon_type", "burst_stage",
+    "burst_cooldown", "max_ammo", "reload_time", "fire_rate", "damage_coeff",
+)
+
+
+def _inject_custom_characters(custom: dict) -> None:
+    """브라우저에서 넘어온 커스텀 니케를 엔진 전역에 병합한다.
+
+    서버·정본 데이터는 건드리지 않는다 — Pyodide 워커 프로세스의 인메모리
+    전역(parsed_nikke·parsed_skills 사본)에만 얹으며, 새로고침하면 사라진다.
+    """
+    if not custom:
+        return
+    import calculator.timeline as _tl
+    import calculator.base_stat as _bs
+    import calculator.buff_manager as _bm
+    from context import growth as _growth
+
+    char_spec._nikke()  # spec의 지연 캐시를 먼저 로드
+    # parsed_nikke·parsed_skills 사본은 여러 모듈이 각자 들고 있다. 전부에 얹는다.
+    nikke_stores = (_tl._NIKKE, _bs._NIKKE, _bm._NIKKE, _growth._NIKKE, char_spec._NIKKE_CACHE)
+    skill_stores = (_tl._PARSED_SKILLS, _bm._PARSED_SKILLS)
+    for name, data in custom.items():
+        if not isinstance(data, dict) or "nikke" not in data or "skills" not in data:
+            raise ValueError(f"커스텀 니케 '{name}': nikke와 skills가 필요합니다")
+        nikke = data["nikke"]
+        skills = data["skills"]
+        missing = [f for f in _REQUIRED_NIKKE_FIELDS if f not in nikke]
+        if missing:
+            raise ValueError(f"커스텀 니케 '{name}': 누락된 스탯 {missing}")
+        if not isinstance(skills, list):
+            raise ValueError(f"커스텀 니케 '{name}': skills는 배열이어야 합니다")
+        for store in nikke_stores:
+            store[name] = nikke
+        for store in skill_stores:
+            store[name] = skills
+
+
 def run_request(raw: str) -> str:
     payload = json.loads(raw)
+    _inject_custom_characters(payload.get("customCharacters") or {})
     names = [str(name).strip() for name in payload["squad"]]
     raw_characters = payload.get("characters") or {}
     if not isinstance(raw_characters, dict):
