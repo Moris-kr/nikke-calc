@@ -240,17 +240,27 @@ class CharacterCustomizationTest(unittest.TestCase):
 
     def test_burst_assignment_is_normalized_and_validated(self):
         self.assertEqual(
-            normalize_character_overrides({"burst": "solo"}),
-            {"_burst_assignment": "solo"},
+            normalize_character_overrides({"burst": {"mode": "priority", "every": 3}}),
+            {"_burst_assignment": {"mode": "priority", "every": 3}},
+        )
+        # every 기본값은 1
+        self.assertEqual(
+            normalize_character_overrides({"burst": {"mode": "priority"}}),
+            {"_burst_assignment": {"mode": "priority", "every": 1}},
         )
         self.assertEqual(
-            normalize_character_overrides({"burst": "skip"}),
-            {"_burst_assignment": "skip"},
+            normalize_character_overrides({"burst": {"mode": "skip"}}),
+            {"_burst_assignment": {"mode": "skip"}},
         )
-        # auto = 기본값, override를 남기지 않는다
-        self.assertEqual(normalize_character_overrides({"burst": "auto"}), {})
-        with self.assertRaisesRegex(ValueError, "버스트 운용"):
-            normalize_character_overrides({"burst": "always"})
+        for bad in (
+            {"mode": "always"},
+            {"mode": "priority", "every": 0},
+            {"mode": "priority", "every": 1.5},
+            {"mode": "priority", "every": True},
+        ):
+            with self.subTest(bad=bad):
+                with self.assertRaises(ValueError):
+                    normalize_character_overrides({"burst": bad})
 
     def test_manual_damage_stat_applies_only_to_its_character(self):
         squad = build_squad(["리타", "라피"], {

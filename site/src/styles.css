@@ -126,7 +126,13 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .skill-level-editor h4 { margin: 0 0 8px; color: var(--amber); font-size: 11px; }
 .burst-editor, .equip-editor { padding: 10px; border: 1px solid rgba(255,191,60,.17); background: rgba(255,191,60,.035); }
 .burst-editor h4, .equip-editor h4 { margin: 0 0 8px; color: var(--amber); font-size: 11px; }
-.burst-editor select, .equip-editor select { width: 100%; min-height: 36px; font-size: 11px; }
+.burst-editor select { width: 100%; min-height: 36px; font-size: 11px; }
+.burst-row { display: grid; gap: 7px; }
+.burst-every { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 10px; }
+.burst-every input { width: 64px; min-height: 34px; font-size: 11px; }
+.equip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.equip-grid label { display: grid; gap: 5px; color: var(--muted); font-size: 9px; font-weight: 700; }
+.equip-grid select { width: 100%; min-height: 34px; font-size: 11px; }
 .skill-level-controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
 .skill-level-controls label { display: grid; gap: 5px; color: var(--muted); font-size: 9px; font-weight: 700; }
 .skill-level-controls select { min-width: 0; min-height: 36px; padding-inline: 7px; font-size: 11px; }
