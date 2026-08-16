@@ -43,8 +43,8 @@ for (const char of catalog) {
     problems.push(`growth default is not a legal option: ${char.name}`);
   }
 }
-if (Object.keys(settings.cubes ?? {}).join(',') !== '재장,탄충,체력,차속,파츠') {
-  problems.push('settings must contain exactly the five supported cubes');
+if (Object.keys(settings.cubes ?? {}).join(',') !== '재장,탄충,체력,차속,파츠,분배') {
+  problems.push('settings must contain exactly the six supported cubes');
 }
 
 if (problems.length > 0) {

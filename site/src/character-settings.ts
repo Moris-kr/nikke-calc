@@ -13,7 +13,7 @@ const EQUIP_PART_LABELS: Record<EquipPart, string> = {
   머리: '머리', 몸통: '몸통', 팔: '장갑', 다리: '다리',
 };
 
-const cubeNames: CubeName[] = ['재장', '탄충', '체력', '차속', '파츠'];
+const cubeNames: CubeName[] = ['재장', '탄충', '체력', '차속', '파츠', '분배'];
 const skillLabels: Array<[keyof SkillLevels, string]> = [
   ['1', '스킬 1'],
   ['2', '스킬 2'],

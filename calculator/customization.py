@@ -26,7 +26,7 @@ OVERLOAD_FIELDS: dict[str, dict[str, Any]] = {
     "accuracy_pct": {"label": "명중률", "unit": "%", "min": 0.0, "max": 1000.0},
 }
 
-CUBE_NAMES = ("재장", "탄충", "체력", "차속", "파츠")
+CUBE_NAMES = ("재장", "탄충", "체력", "차속", "파츠", "분배")
 SKILL_LEVEL_KEYS = {"1", "2", "3"}
 EQUIP_PARTS = ("머리", "몸통", "팔", "다리")
 EQUIP_LEVEL_MAX = 5  # data/base_stat_tables/equipment_stats.json 은 부위별 LV0~5
