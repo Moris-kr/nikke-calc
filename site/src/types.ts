@@ -1,5 +1,5 @@
 export type ElementCode = '' | '풍압' | '수냉' | '작열' | '전격' | '철갑';
-export type CubeName = '재장' | '탄충' | '체력' | '차속' | '파츠';
+export type CubeName = '재장' | '탄충' | '체력' | '차속' | '파츠' | '분배';
 
 export interface CubeSelection {
   name: CubeName;

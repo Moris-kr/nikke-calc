@@ -55,6 +55,7 @@ const settings: SettingsCatalog = {
     체력: { label: '체력', stat: 'max_hp_pct', template: '체력 {0}%', levels: cubeLevels },
     차속: { label: '차속', stat: 'charge_speed_pct', template: '차속 {0}%', levels: cubeLevels },
     파츠: { label: '파츠', stat: 'part_dmg_pct', template: '파츠 {0}%', levels: cubeLevels },
+    분배: { label: '분배', stat: 'split_dmg_pct', template: '분배 {0}%', levels: cubeLevels },
   },
   overloadFields: {
     element_bonus: { label: '우월 코드 대미지', unit: '%', min: 0, max: 1000 },

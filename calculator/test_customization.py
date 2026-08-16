@@ -223,6 +223,17 @@ class CharacterCustomizationTest(unittest.TestCase):
         min_ammo = min(entry.ammo for entry in result.log.ammo_log)
         self.assertGreaterEqual(min_ammo, 0, "실효 최대 장탄이 음수로 내려갔다 (스톨)")
 
+    def test_split_cube_is_accepted_and_applies_split_damage(self):
+        self.assertEqual(
+            normalize_character_overrides({"cube": {"name": "분배", "level": 15}}),
+            {"cube": {"name": "분배", "level": 15}},
+        )
+        squad = build_squad(["브래디"], {"브래디": {"cube": {"name": "분배", "level": 15}}})
+        manager = BuffManager(squad, {"enemy": {}})
+        manager.notify("battle_start", 0, "브래디")
+        buffs = manager.get_buffs("브래디", "__enemy__", 0)
+        self.assertAlmostEqual(buffs["split_dmg_pct"], 17.69, places=2)
+
     def test_equip_levels_map_to_per_part_equipment(self):
         self.assertEqual(
             normalize_character_overrides({

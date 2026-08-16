@@ -62,7 +62,7 @@ describe('generated browser runtime', () => {
       manualStats: Record<string, { label: string; unit: string }>;
     };
 
-    expect(Object.keys(settings.cubes)).toEqual(['재장', '탄충', '체력', '차속', '파츠']);
+    expect(Object.keys(settings.cubes)).toEqual(['재장', '탄충', '체력', '차속', '파츠', '분배']);
     expect(settings.cubes['재장']!.levels['1']).toMatchObject({
       atk: 390,
       def: 78,
