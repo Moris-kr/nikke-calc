@@ -76,7 +76,7 @@ DEFAULT_CHAR: dict = {
     "skill_levels": {"1": 10, "2": 10, "3": 10},
     "burst_regen_time": 2.0,
     "equipment": {p: {"level": 5, "skills": []} for p in ["머리", "몸통", "팔", "다리"]},
-    "cube": {"name": "재장", "level": 15},
+    "cube": {"name": "렐릭 베어 큐브", "level": 15},
     "console": {"common_level": 180, "class_level": 100, "company_level": 100},
     "collection_stage": "SR15",
     "control": {},  # 컨트롤(톡톡이·장전컨). 스키마·의미는 context/CONTROL.md
@@ -90,6 +90,11 @@ DEFAULT_CONFIG: dict = {
     "burst_sequence":     None,   # 풀버스트별 단계 사용 순서 list[dict[str, list[str]]] (None = 자동)
     "first_burst_time":    3.0,   # 첫 버스트 최소 시작 시간(초)
     "allow_unparsed":     False,  # True면 스킬 미파싱 캐릭터를 스킬 0개로 돌린다 (파싱 전 신캐 전용)
+    # 난수(크리·코어히트) 처리 방식.
+    #   "random"   — 히트마다 확률 판정(기본, 인게임과 동일한 분산)
+    #   "expected" — 확률 대신 기대값을 태워 결과를 결정론적으로 만든다.
+    #                시드·반복 평균 없이 1회 실행으로 기대딜이 나온다.
+    "rng_mode":           "random",
 }
 
 DEFAULT_ENEMY: dict = {
@@ -130,18 +135,47 @@ def _core_hit_prob(weapon_type: str, accuracy_pct: float, core_px: float) -> flo
     return min(1.0, (r_c / R) ** _MODEL_N)
 
 
+def _notify_frac(bm, key: str, name: str, frac: float, fire) -> None:
+    """확률적으로 일어나는 히트 이벤트를 소수 누적으로 발화한다.
+
+    확률 판정 모드에서는 frac이 0/1이라 그대로 0회 또는 1회 발화한다.
+    기대값 모드에서는 히트마다 확률(0~1)이 쌓이므로 (key, 캐릭터)별로 누적해
+    1.0을 넘길 때마다 발화한다 — 횟수를 세는 트리거
+    (`crit_hit_count:N` 이브, `core_hit_count:N` 루드밀라 : 윈터 오너)가
+    난수 없이 **같은 장기 빈도**로 발동하게 하는 결정론적 대응이다.
+    개별 발동 시점은 확률 판정과 달라지지만 기대 발동 횟수는 같다.
+    """
+    if frac >= 1.0:
+        fire()
+        return
+    if frac <= 0.0:
+        return
+    acc = bm.state["rng_acc"]
+    k = (key, name)
+    acc[k] = acc.get(k, 0.0) + frac
+    while acc[k] >= 1.0:
+        acc[k] -= 1.0
+        fire()
+
+
 # ── CharState (캐릭터별 발사 상태) ────────────────────────────────────────
 
 class CharState:
     """캐릭터 1명의 발사 루프 상태 관리. 버스트 사용 중에도 발사 계속."""
 
-    def __init__(self, char: dict, base_atk: float, is_element_match: bool):
+    def __init__(self, char: dict, base_atk: float, enemy_code: str):
         self.char = char
         self.name = char["name"]
         self.base_atk = base_atk
-        self.is_element_match = is_element_match
 
         weapon_data = _NIKKE[self.name]
+
+        # 로스터 코드 상성은 전투 내내 고정이지만, `element_code_override`는 버프라
+        # 활성 여부를 조회 시점에 봐야 한다 → element_match()가 둘을 합친다.
+        self.enemy_code = enemy_code
+        self.base_element_match = is_element_match(
+            weapon_data.get("element_code", ""), enemy_code)
+
         self.burst_stage: str = weapon_data["burst_stage"]
         self.weapon = weapon_data
         self.weapon_type = weapon_data["weapon_type"]
@@ -215,6 +249,10 @@ class CharState:
         self._reload_in_weapon_change: bool = False
         self._wc_shots: int = 0             # 현재 무기 변경 세션에서 실제 발사한 발수
         self._wc_new_session: bool = False  # 이번 tick이 세션 첫 진입인가
+        # `first_damage_coeff`(원문 `최초 대미지`)의 레벨 환산값. 세션 첫 발에만 쓴다.
+        # 없으면 None. _tick_weapon_change()가 매 tick 세팅한다.
+        self._wc_first_coeff: float | None = None
+        self._wc_normal_coeff: float | None = None  # 같은 세션의 `일반 대미지` 계수
         # 연사 무기 모드는 진입 시 self.ammo를 모드 장탄으로 덮어쓴다(원래 장탄은 버린다).
         # 모드가 끝날 때 되돌려 놓아야 그 값이 원래 무기로 새어 나가지 않는다.
         self._wc_ammo_borrowed: bool = False
@@ -270,6 +308,9 @@ class CharState:
             None if rl.get("duration") is None else float(rl["duration"]))
         # 이미 처리한 앵커 시각 (사이클당 1회 보장)
         self._reload_ctrl_anchor: float = -1.0
+        # 탄충 취소: 재장전 중에 탄환 충전이 들어와 탄창이 꽉 차면 재장전을 끊고 즉시 사격한다.
+        # 오토는 이걸 하지 않는다 (유저 확인) — 그래서 기본 동작이 아니라 컨트롤이다.
+        self.reload_cancel_on_full: bool = bool(rl.get("cancel_on_full", False))
 
         # 버스트 엄폐컨: 본인이 버스트를 쓴 사이클의 풀버스트 동안 **한 발도 쏘지 않는다.**
         # 장전컨과 같은 원시타입(cover)을 쓰지만 목적이 다르다 — 재장전을 유리한 구간에
@@ -314,6 +355,16 @@ class CharState:
         self._ctrl_seq: list[dict] = sorted(
             control.get("sequence") or [], key=lambda a: float(a.get("t", 0.0)))
         self._ctrl_seq_i: int = 0
+
+    def element_match(self, bm: BuffManager) -> bool:
+        """이 히트에 우월 코드(DealForm ⑦)가 붙는가.
+
+        두 경로가 OR로 합쳐진다 — 로스터 코드 상성(고정)과 `element_code_override`
+        버프(라피 : 레드 후드 `부착형 유탄`: 전격 적에게도 우월). 후자는 버프라
+        조회 시점에 봐야 하므로 값을 캐싱하지 않는다.
+        """
+        return self.base_element_match or bm.element_override_match(
+            self.name, self.enemy_code)
 
     def tick(self, t: float, bm: BuffManager, enemy: dict, cfg: dict) -> list[HitEvent]:
         # 기절 중: 일반공격 불가
@@ -468,6 +519,7 @@ class CharState:
 
     def _fire(self, t: float, bm: BuffManager, enemy: dict, cfg: dict) -> list[HitEvent]:
         events = []
+        self._apply_wc_first_coeff()
         is_last = (self.ammo == 1)
         if is_last:
             bm.notify("last_bullet_fire", t, self.name)
@@ -488,7 +540,7 @@ class CharState:
             self._sim_log.ammo_log.append(AmmoLogEntry(t=t, caster=self.name, ammo=self.ammo))
         bm.notify("squad_ammo_consume", t, self.name)
         buffs = bm.get_buffs(self.name, "__enemy__", t)
-        buffs["is_element_match"] = self.is_element_match or buffs["is_element_match"]
+        buffs["is_element_match"] = self.element_match(bm)
         is_optimal = self.weapon_type in enemy.get("optimal_range_weapons", [])
 
         # 코어히트 확률: core_px>0이면 명중률·탄착군·코어 크기로 계산, 0이면 코어 없음
@@ -519,11 +571,15 @@ class CharState:
             split = max(1, self.pellets + int(round(buffs.get("pellet_count", 0.0))))
         hit_count = split * self.muzzles
 
+        expected = cfg.get("rng_mode") == "expected"
         for i in range(hit_count):
-            is_core = random.random() < P_core  # 히트마다 독립 샘플링 (SG: 10회, 기타: 1회)
+            # 히트마다 독립 샘플링 (SG: 10회, 기타: 1회). 기대값 모드는 판정 대신 확률을 넘긴다
+            # (P_core가 1이면 판정할 게 없으므로 기대값 모드에서도 코어 히트로 남긴다)
+            is_core = (P_core >= 1.0) if expected else (random.random() < P_core)
             coeff = (self.weapon["damage_coeff"] / split) if split > 1 else None
             ht = default_hit_type(
                 is_core=is_core,
+                core_prob=(P_core if expected else None),
                 is_full_burst=is_full_burst,
                 is_optimal_range=is_optimal,
                 is_normal_atk=True,
@@ -537,21 +593,25 @@ class CharState:
             res = calc_damage(
                 base_atk=self.base_atk, buffs=buffs, weapon=self.weapon,
                 hit_type=ht, enemy_def=enemy.get("def", 31784),
+                expected=expected,
             )
             if in_debug_window and i == 0:
                 print()
+            # 기대값 모드에서는 한 히트에 코어/비코어가 섞여 있어 태그를 코어로 가르지 않는다
+            # (코어 배율은 이미 이 히트의 damage에 확률로 반영돼 있다)
             tag = (f"core:pellet:{i}" if is_core else f"pellet:{i}") if hit_count > 1 \
                   else ("core" if is_core else "normal")
             events.append(HitEvent(t=t, caster=self.name, damage=res["damage"],
                                    is_crit=res["is_crit"], hit_tag=tag))
             bm.notify("pellet_hit", t, self.name)
-            if not is_core:
-                ev = "squad_part_hit" if enemy.get("has_parts", False) else "squad_body_hit"
-                bm.notify_team_hit(ev, t, self.name)
-            if res["is_crit"]:
-                bm.notify("crit_hit", t, self.name)
-            if is_core:
-                bm.notify("core_hit", t, self.name)
+            body_ev = "squad_part_hit" if enemy.get("has_parts", False) else "squad_body_hit"
+            core_frac = P_core if expected else (1.0 if is_core else 0.0)
+            _notify_frac(bm, body_ev, self.name, 1.0 - core_frac,
+                         lambda: bm.notify_team_hit(body_ev, t, self.name))
+            _notify_frac(bm, "crit_hit", self.name, res["crit_frac"],
+                         lambda: bm.notify("crit_hit", t, self.name))
+            _notify_frac(bm, "core_hit", self.name, core_frac,
+                         lambda: bm.notify("core_hit", t, self.name))
 
         # hit_count: 발사 1회당 1회 (펠릿 수와 무관). pellet_hit은 루프 내 펠릿마다 발생
         bm.notify("hit_count", t, self.name)
@@ -570,7 +630,10 @@ class CharState:
         if buffs.get("charge_time_fixed"):
             return self._fixed_charge_time(bm)
         cs_pct = buffs.get("charge_speed_pct", 0.0) / 100.0
-        return self.charge_time_base * max(0.0, 1.0 - cs_pct)
+        # charge_time_flat(초)은 차지 속도 % 를 적용한 뒤 더한다 — "차지 시간 N초 ▼"는
+        # 속도 배율이 아니라 결과 시간에서 그만큼 빼는 표기다 (마나 `매터 시그마 4`).
+        return max(0.0, self.charge_time_base * max(0.0, 1.0 - cs_pct)
+                   + buffs.get("charge_time_flat", 0.0))
 
     def _tick_charge(self, t: float, bm: BuffManager, enemy: dict, cfg: dict) -> list[HitEvent]:
         events = []
@@ -676,13 +739,14 @@ class CharState:
     ) -> list[HitEvent]:
         """차지 무기 1발 발사 처리. `is_full=False`면 논차지 샷(톡톡이)."""
         events = []
+        self._apply_wc_first_coeff()
         is_optimal = self.weapon_type in enemy.get("optimal_range_weapons", [])
         if is_full:
             self._last_full_charge_t = t
             self._force_full_charge = False
             bm.notify("full_charge", t, self.name)
         buffs = bm.get_buffs(self.name, "__enemy__", t)
-        buffs["is_element_match"] = self.is_element_match or buffs["is_element_match"]
+        buffs["is_element_match"] = self.element_match(bm)
         if enemy.get("core_px", 0) > 0:
             P_core = _core_hit_prob(
                 self.weapon_type,
@@ -691,7 +755,9 @@ class CharState:
             )
         else:
             P_core = 0.0
-        is_core = random.random() < P_core
+        expected = cfg.get("rng_mode") == "expected"
+        # P_core가 1이면 판정할 게 없으므로 기대값 모드에서도 코어 히트로 남긴다
+        is_core = (P_core >= 1.0) if expected else (random.random() < P_core)
 
         debug_char = cfg.get("_debug_char")
         in_debug_window = (
@@ -702,6 +768,7 @@ class CharState:
         is_full_burst = bm.state.get("full_burst", False)
         ht = default_hit_type(
             is_core=is_core,
+            core_prob=(P_core if expected else None),
             is_full_burst=is_full_burst,
             is_optimal_range=is_optimal,
             is_normal_atk=True,
@@ -716,6 +783,7 @@ class CharState:
         res = calc_damage(
             base_atk=self.base_atk, buffs=buffs, weapon=self.weapon,
             hit_type=ht, enemy_def=enemy.get("def", 31784),
+            expected=expected,
         )
         if in_debug_window:
             print()
@@ -738,15 +806,16 @@ class CharState:
         bm.notify("hit_count", t, self.name)
         if is_full:
             bm.notify("full_charge_hit", t, self.name)
-        if not is_core:
-            ev = "squad_part_hit" if enemy.get("has_parts", False) else "squad_body_hit"
-            bm.notify_team_hit(ev, t, self.name)
+        body_ev = "squad_part_hit" if enemy.get("has_parts", False) else "squad_body_hit"
+        core_frac = P_core if expected else (1.0 if is_core else 0.0)
+        _notify_frac(bm, body_ev, self.name, 1.0 - core_frac,
+                     lambda: bm.notify_team_hit(body_ev, t, self.name))
         bm.notify("on_attack", t, self.name)
         bm.consume_bullet_buffs(self.name, t)
-        if res["is_crit"]:
-            bm.notify("crit_hit", t, self.name)
-        if is_core:
-            bm.notify("core_hit", t, self.name)
+        _notify_frac(bm, "crit_hit", self.name, res["crit_frac"],
+                     lambda: bm.notify("crit_hit", t, self.name))
+        _notify_frac(bm, "core_hit", self.name, core_frac,
+                     lambda: bm.notify("core_hit", t, self.name))
         if is_last:
             bm.notify("last_bullet", t, self.name)
 
@@ -769,6 +838,24 @@ class CharState:
 
     # ── weapon_change ─────────────────────────────────────────────────────
 
+    def _apply_wc_first_coeff(self) -> None:
+        """무기 변경 세션의 **첫 발**만 `최초 대미지` 계수로 쏘게 한다.
+
+        `self.weapon`은 `_tick_weapon_change()`가 만든 임시 dict이고 그 함수가 발사
+        처리 후 원복하므로, 여기서 복사본으로 갈아끼워도 기본 무기는 오염되지 않는다.
+        발사 처리 **직전**에 호출되므로 판정 기준은 `_wc_shots == 0`이다
+        (`_fire()`는 이 뒤에서, `_charge_fire()`는 대미지 계산 뒤에서 카운트를 올린다).
+
+        한 tick에 두 발이 나갈 수 있으므로(연사 24/s + dt 0.05s) 첫 발이 아닐 때도
+        **일반 계수로 되돌려** 쓴다 — 되돌리지 않으면 같은 tick의 두 번째 발까지
+        최초 대미지로 나간다.
+        """
+        if not self._in_weapon_change or self._wc_first_coeff is None:
+            return
+        coeff = self._wc_first_coeff if self._wc_shots == 0 else self._wc_normal_coeff
+        if coeff is not None and self.weapon.get("damage_coeff") != coeff:
+            self.weapon = {**self.weapon, "damage_coeff": coeff}
+
     def _tick_weapon_change(
         self, t: float, bm: BuffManager, enemy: dict, cfg: dict, wc_eff: dict
     ) -> list[HitEvent]:
@@ -790,6 +877,17 @@ class CharState:
             coeff = float(dc.get(skill_lv, dc.get("10", 0.0)))
         else:
             coeff = float(dc)
+
+        # `최초 대미지` / `일반 대미지` 2단 계수. dc(=일반 대미지)는 위에서 이미 풀었고,
+        # 첫 발 전용 계수만 여기서 푼다. 필드가 없으면 None → 기존 동작 그대로.
+        fdc = wc_eff.get("first_damage_coeff")
+        if isinstance(fdc, dict):
+            self._wc_first_coeff = float(fdc.get(skill_lv, fdc.get("10", 0.0)))
+        elif fdc is not None:
+            self._wc_first_coeff = float(fdc)
+        else:
+            self._wc_first_coeff = None
+        self._wc_normal_coeff = coeff
 
         wc_weapon_type = wc_eff.get("weapon_type", "SR")
         wc_mech = _MECHANICS["weapon_type_defaults"].get(wc_weapon_type, {})
@@ -968,10 +1066,15 @@ class CharState:
     # ── 재장전 ────────────────────────────────────────────────────────────
 
     def _fixed_reload_time(self, bm: BuffManager) -> float | None:
-        """reload_time_fixed 버프의 fixed_value(초). 복수이면 최대값. 없으면 None.
+        """reload_time_fixed 버프의 고정 재장전 시간(초). 복수이면 최대값. 없으면 None.
 
-        charge_time_fixed와 같은 방식으로 _active를 직접 읽는다 (fixed_value 계열은
-        get_buffs의 수치 합산 경로를 타지 않는다).
+        _active를 직접 읽는다 (고정값 계열은 get_buffs의 수치 합산 경로를 타지 않는다).
+
+        `fixed_value`뿐 아니라 레벨별 `values`도 읽는다 — **"고정"은 *다른 버프의 영향을
+        받지 않는다*는 뜻이지 *스킬 레벨과 무관하다*는 뜻이 아니다.** 원문이
+        `[재장전 속도 {0}% 증가 상태로 고정]`이면 레벨마다 고정값이 다르다
+        (질 `슈퍼 캅` — Lv1 0.454s ~ Lv10 0.0004s). `values`만 있는 항목을 건너뛰면
+        후보가 비어 고정이 통째로 무시되고 재장전이 기본 시간으로 돌아간다.
         """
         max_val: float | None = None
         for ab in bm._active:
@@ -979,7 +1082,7 @@ class CharState:
                 continue
             if self.name not in (ab.target_chars or []):
                 continue
-            val = ab.effect.get("fixed_value")
+            val = bm._get_value(ab.effect, ab)
             if val is not None:
                 max_val = float(val) if max_val is None else max(max_val, float(val))
         return max_val
@@ -1240,6 +1343,21 @@ class CharState:
         if self._sim_log is not None:
             self._sim_log.reload_log.append(ReloadLogEntry(t=t, caster=self.name, event=label))
 
+    def _cancel_reload(self, t: float, bm: BuffManager):
+        """진행 중인 재장전을 **완료시키지 않고** 끊는다 (탄충 취소 컨트롤).
+
+        `_finish_reload`와 반드시 달라야 하는 것이 둘 있다.
+        - `event:full_reload`를 발동시키지 않는다. 재장전은 끝난 게 아니라 취소됐다 —
+          여기서 알리면 `재장전 완료 시` 스킬이 공짜로 한 번 더 터진다.
+        - 장탄을 채우지 않는다. 이미 탄환 충전이 채운 값이 정답이다.
+        재장전 완료 후 딜레이(`post_reload_delay`)도 걸지 않는다. 완료 모션이 없기 때문이다.
+        """
+        self.reloading_until = -1.0
+        self._reload_in_weapon_change = False
+        if self._sim_log is not None:
+            self._sim_log.reload_log.append(
+                ReloadLogEntry(t=t, caster=self.name, event="재장전 취소(탄충)"))
+
     def _full_ammo(self, bm: BuffManager, t: float) -> int:
         # 무기 변경 모드 중이면 그 모드의 장탄으로 채운다
         wc_eff = bm.get_weapon_change(self.name)
@@ -1250,10 +1368,8 @@ class CharState:
         buffs = bm.get_buffs(self.name, "__enemy__", t)
         ammo_pct = buffs.get("max_ammo_pct", 0.0) / 100.0
         ammo_flat = int(round(buffs.get("max_ammo_flat", 0.0)))
-        # 최대 장탄 감소가 겹치면(예: 프리바티 `EX 매거진 3` 전원 -50.66% +
-        # 아니스 : 스파클링 서머 `스파클링 웨이브` 자신 -73.92%) 합이 -100%를 넘어
-        # 실효 장탄이 0 이하로 떨어질 수 있다. 게임에선 탄창이 최소 1발로 유지되며,
-        # 0 이하면 재장전이 채우는 장탄이 없어 발사 루프가 재장전만 반복해 스톨한다.
+        # 감소 버프가 겹쳐도 최대 장탄은 1발 아래로 내려가지 않는다 (GAMEPLAY.md §무기 메카닉).
+        # 하한이 없으면 0발이 되어 재장전만 무한 반복하며 한 발도 쏘지 못한다.
         return max(1, round(self.weapon["max_ammo"] * (1.0 + ammo_pct)) + ammo_flat)
 
     def _finish_reload(self, t: float, bm: BuffManager):
@@ -1621,7 +1737,7 @@ class BurstController:
                 name, "__enemy__", t,
                 exclude_names=eff.get("_exclude_buffs", frozenset()),
             )
-            buffs["is_element_match"] = cs.is_element_match or buffs["is_element_match"]
+            buffs["is_element_match"] = cs.element_match(bm)
 
             coeff = eff["_coeff"]
             # scaling: "stack_count" → 참조 게이지/버프의 현재 수치만큼 계수 곱산
@@ -1650,6 +1766,7 @@ class BurstController:
                 res = calc_damage(
                     base_atk=cs.base_atk, buffs=buffs, weapon=cs.weapon,
                     hit_type=ht, enemy_def=self.enemy_def,
+                    expected=(self.config.get("rng_mode") == "expected"),
                 )
                 if in_debug_window:
                     print()
@@ -1717,25 +1834,22 @@ class BurstController:
         if stage == "3":
             self._fb_caster = name
 
-        cs = self.char_states[name]
-
-        for eff in _PARSED_SKILLS.get(name, []):
-            if eff.get("source") != "스킬3":
-                continue
-
-            # instant/damage 타입 모두 bm.notify("burst_cast") 경로에서 처리됨
+        # 스킬3의 instant/damage 타입은 모두 위 bm.notify("burst_cast") 경로에서 처리된다
 
         return events
 
 
-def _later_burst_cast_buffs(caster: str, eff: dict) -> frozenset[str]:
+def _later_burst_cast_buffs(bm: BuffManager, caster: str, eff: dict) -> frozenset[str]:
     """`eff`보다 **뒤에** 서술된 같은 `burst_cast` 트리거 buff들의 이름.
 
     parsed_skills.json의 배열 순서는 원문 `■` 블록 순서를 그대로 보존한다
     (GAMEPLAY.md §효과 실행 순서). 딜 블록보다 뒤에 적힌 버프는 그 딜에 실리지 않으므로,
     계산이 풀버스트로 밀리는 보류 딜에서 제외할 이름 집합을 만든다.
+
+    목록은 `bm.char_effects()`에서 받는다 — 애장품 캐릭터는 원본에 안 쓰는 판본이
+    섞여 있어 서술 순서가 실제 실행 순서와 어긋나기 때문이다.
     """
-    effs = _PARSED_SKILLS.get(caster, [])
+    effs = bm.char_effects(caster)
     # 호출 경로에 따라 eff가 원본 dict의 사본일 수 있어 identity로 못 찾는다.
     # name + source + stat로 위치를 되짚는다 (name은 캐릭터 내 사실상 유일).
     key = (eff.get("name"), eff.get("source"), eff.get("stat"))
@@ -1762,23 +1876,31 @@ def _register_instant_handlers(bm, char_states: dict[str, "CharState"], burst_ct
     """BuffManager에 타임라인 전용 instant stat 핸들러를 등록한다."""
 
     def _resolve_targets(eff: dict, caster: str) -> list[str]:
-        """target 필드를 캐릭터명 목록으로 변환 (아군 only)."""
+        """target 필드를 캐릭터명 목록으로 변환 (아군 only).
+
+        해석은 `bm._resolve_target()`에 위임한다 — 예전에는 여기서 `self`·`all_allies`만
+        처리하고 나머지를 전부 시전자로 폴백해, `allies_lowest_hp:2` 같은 대상이 붙은
+        회복이 조용히 시전자 자신에게만 들어갔다 (트리나 `네이처 그레이스 2·3`).
+        instant는 지속시간이 없어 지연 resolve가 의미 없으므로 발동 시점 상태로 즉시 판정한다.
+        적 대상 센티널·스쿼드 밖 이름은 걸러 아군만 남긴다.
+        """
         target = eff.get("target", "self")
-        if target == "self":
-            return [caster]
-        if target in ("all_allies",):
-            return list(char_states.keys())
-        if isinstance(target, list):
-            result = []
-            for t in target:
-                result.extend(_resolve_targets({"target": t}, caster))
-            return result
-        return [caster]
+        names = bm._resolve_target(target, caster)
+        allies = [n for n in names if n in char_states]
+        # 매칭 아군이 없으면 무발동 — 시전자로 폴백하지 않는다.
+        return allies
 
     def _effective_max_ammo(cs: "CharState", t: float) -> int:
         # 재장전이 채우는 최대치와 같은 값이어야 한다 — 탄환 충전의 기준·상한도 이것이다.
         # (무기 변경 모드 장탄 상한 처리도 _full_ammo가 함께 맡는다)
         return cs._full_ammo(bm, t)
+
+    def _cancel_reload_if_full(cs: "CharState", t: float, max_ammo: int):
+        # 탄충 취소 컨트롤 — 재장전 중에 탄창이 꽉 차면 재장전을 끊고 바로 쏜다.
+        # 켠 캐릭터에게만 걸린다. 정본: context/CONTROL.md §탄충 취소
+        if (cs.reload_cancel_on_full and cs.reloading_until > 0
+                and cs.ammo >= max_ammo):
+            cs._cancel_reload(t, bm)
 
     def handle_ammo_charge_pct(eff, caster, t, val):
         target_names = _resolve_targets(eff, caster)
@@ -1791,6 +1913,7 @@ def _register_instant_handlers(bm, char_states: dict[str, "CharState"], burst_ct
             cs.ammo = min(cs.ammo + charge, max_ammo)
             if cs._sim_log is not None:
                 cs._sim_log.ammo_log.append(AmmoLogEntry(t=t, caster=name, ammo=cs.ammo))
+            _cancel_reload_if_full(cs, t, max_ammo)
         # 이 instant 효과 발동을 이벤트로 전파 (예: 급조 탄환 → 임시 개조 트리거)
         eff_name = eff.get("name", "")
         if eff_name:
@@ -1806,6 +1929,7 @@ def _register_instant_handlers(bm, char_states: dict[str, "CharState"], burst_ct
             cs.ammo = min(cs.ammo + int(val), max_ammo)
             if cs._sim_log is not None:
                 cs._sim_log.ammo_log.append(AmmoLogEntry(t=t, caster=name, ammo=cs.ammo))
+            _cancel_reload_if_full(cs, t, max_ammo)
 
     def handle_burst_cooldown_reduce(eff, caster, t, val):
         target_names = _resolve_targets(eff, caster)
@@ -1824,11 +1948,14 @@ def _register_instant_handlers(bm, char_states: dict[str, "CharState"], burst_ct
             bm.notify("event:heal_received", t, name)
 
     def handle_current_hp_reduce(eff, caster, t, val):
+        # `[현재 체력 N% ▼]`은 *현재* 체력의 N%다 — 최대 체력 기준 정액이 아니다.
+        # 곱연산이라 체력은 0에 수렴할 뿐 0이 되지 않는다 (GAMEPLAY.md §값 산정).
         target_names = _resolve_targets(eff, caster)
         hp = bm.state["hp"]
         for name in target_names:
             base_hp = bm.state["base_stats"].get(name, {}).get("hp", 0.0)
-            hp[name] = max(hp.get(name, base_hp) - base_hp * val / 100.0, 0.0)
+            cur = hp.get(name, base_hp)
+            hp[name] = max(cur * (1.0 - val / 100.0), 0.0)
             bm.sync_hp(name)
 
     def handle_force_reload(eff, caster, t, val):
@@ -1897,6 +2024,11 @@ def simulate(
              정수를 주면 크리·코어히트·prob 조건·allies_random이 모두 재현되어
              결과가 완전히 결정론적이 된다. 회귀 하네스(context/snapshot.py)와
              CLI(context/sim.py)가 사용한다.
+
+    난수를 아예 없애고 싶으면 `config={"rng_mode": "expected"}`를 쓴다 —
+    크리·코어히트를 확률 판정 대신 기대값으로 태워 1회 실행으로 기대딜이 나온다.
+    (시뮬의 난수원은 이 둘뿐이라 시드 없이도 결과가 완전히 결정론적이다.
+     대신 히트별 크리/코어 구분이 사라진다 — context/CALCULATOR.md §기대값 모드)
     """
     if seed is not None:
         random.seed(seed)
@@ -1904,6 +2036,9 @@ def simulate(
     cfg = {**DEFAULT_CONFIG, **(config or {})}
     enm = {**DEFAULT_ENEMY, **(enemy or {})}
     duration = cfg["duration"]
+
+    if cfg["rng_mode"] not in ("random", "expected"):
+        raise ValueError(f'rng_mode는 "random" 또는 "expected"여야 한다: {cfg["rng_mode"]!r}')
 
     squad = [{**DEFAULT_CHAR, **c} for c in squad]
     _check_names([c["name"] for c in squad], bool(cfg["allow_unparsed"]))
@@ -1919,6 +2054,11 @@ def simulate(
         "hp_pct":       {c["name"]: 100.0 for c in squad},
         "hp":           {c["name"]: float(base_stats[c["name"]]["hp"]) for c in squad},
         "base_stats":   base_stats,
+        # 기대값 모드에서 확률 이벤트(크리·코어히트·`prob:` 조건)를 소수 누적 발화시키는 잔여분
+        # 키: (이벤트명, 캐릭터명) → 누적값
+        "rng_acc":      {},
+        # 기대값 모드 여부. buff_manager의 `prob:` 조건이 난수 대신 누적 발화를 쓰는 판정
+        "rng_expected": cfg.get("rng_mode") == "expected",
         "stacks":       {c["name"]: {} for c in squad},
         "gauges":       {c["name"]: {} for c in squad},
         "burst_stages": {c["name"]: _NIKKE[c["name"]]["burst_stage"] for c in squad},
@@ -1926,13 +2066,9 @@ def simulate(
     }
 
     enemy_code = enm.get("code", "")
-    element_match: dict[str, bool] = {
-        c["name"]: is_element_match(_NIKKE[c["name"]].get("element_code", ""), enemy_code)
-        for c in squad
-    }
 
     char_states: dict[str, CharState] = {
-        c["name"]: CharState(c, float(base_stats[c["name"]]["atk"]), element_match[c["name"]])
+        c["name"]: CharState(c, float(base_stats[c["name"]]["atk"]), enemy_code)
         for c in squad
     }
 
@@ -2014,7 +2150,7 @@ def simulate(
             hit_count = 1
             if isinstance(target_field, str) and target_field.startswith("same_target:"):
                 ref_name = target_field[len("same_target:"):]
-                for ref_eff in _PARSED_SKILLS.get(caster, []):
+                for ref_eff in bm.char_effects(caster):
                     if ref_eff.get("name") != ref_name:
                         continue
                     ref_stat = ref_eff.get("stat", "")
@@ -2024,14 +2160,14 @@ def simulate(
                     break
             # 원문 블록 순서 = 실행 순서: 이 딜보다 뒤에 서술된 같은 burst_cast 버프는
             # 계산이 풀버스트로 밀려도 실리면 안 된다 (GAMEPLAY.md §효과 실행 순서).
-            eff_with_coeff["_exclude_buffs"] = _later_burst_cast_buffs(caster, eff)
+            eff_with_coeff["_exclude_buffs"] = _later_burst_cast_buffs(bm, caster, eff)
             burst_ctrl._pending_burst_dmg.append((caster, eff_with_coeff, hit_count))
             return
 
         # damage_formula: "normal_attack" → is_normal_atk=True で일반 공격 버프 적용
         is_normal = eff.get("damage_formula") == "normal_attack"
         buffs = bm.get_buffs(caster, "__enemy__", t)
-        buffs["is_element_match"] = cs.is_element_match or buffs["is_element_match"]
+        buffs["is_element_match"] = cs.element_match(bm)
         is_full_burst = bm.state.get("full_burst", False)
         stat = eff.get("stat", "damage")
         stat_parts = stat.split(":")
@@ -2100,6 +2236,7 @@ def simulate(
             res = calc_damage(
                 base_atk=cs.base_atk, buffs=buffs, weapon=cs.weapon,
                 hit_type=ht, enemy_def=enm.get("def", 31784),
+                expected=(cfg.get("rng_mode") == "expected"),
             )
             if in_debug_window:
                 print()
@@ -2109,9 +2246,18 @@ def simulate(
                 is_crit=res["is_crit"], hit_tag=hit_tag,
                 skill_name=eff.get("name", stat),
             ))
-            # hit_count:[스킬명] 이벤트 — named damage effect 명중마다 발생
+            # hit_count:[스킬명] 이벤트 — named damage effect 명중마다 발생.
+            # 이 히트의 크리 여부를 함께 실어 보낸다 (`trigger_hit_crit` 조건용).
+            # 기대값 모드에는 is_crit이 없으므로 crit_frac을 소수 누적해 같은 장기
+            # 빈도로 발화시킨다 — 일반 공격의 crit_hit 처리와 같은 규약이다.
             if eff_name:
-                bm.notify(f"hit_count:{eff_name}", t, caster)
+                hit_crit = res["is_crit"]
+                if not hit_crit and cfg.get("rng_mode") == "expected":
+                    _crit_fired: list[int] = []
+                    _notify_frac(bm, f"skill_crit:{eff_name}", caster,
+                                 res.get("crit_frac", 0.0), lambda: _crit_fired.append(1))
+                    hit_crit = bool(_crit_fired)
+                bm.notify(f"hit_count:{eff_name}", t, caster, hit_crit=hit_crit)
 
         # weapon_hit:name 이벤트 발생 (hit_count:N 트리거로 발사된 발사체 명중 시)
         if eff_name:
@@ -2207,7 +2353,7 @@ if __name__ == "__main__":
             "level": 200, "breakthrough": 3, "core_enhancement": 7,
             "affinity": 30, "skill_levels": {"1": 10, "2": 10, "3": 10}, "burst_regen_time": 2.0,
             "equipment": {p: {"level": 5, "skills": []} for p in ["머리","몸통","팔","다리"]},
-            "cube": {"name": "재장", "level": 5},
+            "cube": {"name": "렐릭 베어 큐브", "level": 5},
             "console": {"common_level": 10, "class_level": 10, "company_level": 10},
             "collection_stage": "SR15",
         }

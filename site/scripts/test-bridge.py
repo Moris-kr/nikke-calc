@@ -9,6 +9,8 @@ sys.path.insert(0, str(SITE_DIR))
 sys.path.insert(0, str(REPO_ROOT))
 
 from pybridge.bridge import run_request
+from context.spec import is_preview
+from context.spec import _nikke as parsed_nikke
 
 
 class BrowserBridgeTest(unittest.TestCase):
@@ -91,10 +93,17 @@ class BrowserBridgeTest(unittest.TestCase):
         self.assertGreater(level_ten["squadTotal"], level_one["squadTotal"])
 
     def test_preview_skill_levels_cannot_be_forged_below_ten(self):
+        # 프리뷰(출시 전 카드) 캐릭터 명단은 출시될 때마다 비므로 이름을 박지 않는다.
+        # 비어 있으면 위조를 시도할 대상 자체가 없는 정상 상태다.
+        previews = [name for name in parsed_nikke() if is_preview(name)]
+        if not previews:
+            self.skipTest("등록된 프리뷰 캐릭터가 없다 (전원 정식 출시)")
+        preview = previews[0]
+
         payload = {
-            "squad": ["아마기 유키코"],
+            "squad": [preview],
             "characters": {
-                "아마기 유키코": {
+                preview: {
                     "skillLevels": {"1": 9, "2": 10, "3": 10},
                 },
             },
@@ -133,7 +142,7 @@ class BrowserBridgeTest(unittest.TestCase):
             "characters": {
                 "리타": {
                     "overload": {"atk_pct": 100},
-                    "cube": {"name": "파츠", "level": 1},
+                    "cube": {"name": "렐릭 디스트로이 큐브", "level": 1},
                     "manualStats": {"normal_atk_dmg_pct": 20},
                 },
             },
@@ -254,7 +263,7 @@ class BrowserBridgeTest(unittest.TestCase):
     def test_rejects_character_settings_outside_the_squad(self):
         payload = {
             "squad": ["리타"],
-            "characters": {"라피": {"cube": {"name": "재장", "level": 15}}},
+            "characters": {"라피": {"cube": {"name": "렐릭 베어 큐브", "level": 15}}},
             "duration": 10,
             "enemyDef": 31_784,
             "enemyCode": "",

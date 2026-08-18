@@ -1,36 +1,4 @@
 {
-  "니지마 마코토": {
-    "rarity": "SSR",
-    "element_code": "작열",
-    "class": "화력형",
-    "manufacturer": "미상",
-    "squad": "",
-    "squad_name": "",
-    "burst_stage": "3",
-    "burst_cooldown": 40.0,
-    "weapon_type": "SG",
-    "max_ammo": 9,
-    "reload_time": 1.5,
-    "damage_coeff": 201.5,
-    "core_dmg_mult": 200.0,
-    "preview": true
-  },
-  "아마기 유키코": {
-    "rarity": "SSR",
-    "element_code": "작열",
-    "class": "화력형",
-    "manufacturer": "미상",
-    "squad": "",
-    "squad_name": "",
-    "burst_stage": "3",
-    "burst_cooldown": 40.0,
-    "weapon_type": "MG",
-    "max_ammo": 300,
-    "reload_time": 2.5,
-    "damage_coeff": 5.57,
-    "core_dmg_mult": 200.0,
-    "preview": true
-  },
   "라피": {
     "rarity": "SR",
     "element_code": "작열",
@@ -259,7 +227,13 @@
     "pellets": 10,
     "muzzles": 1,
     "damage_coeff": 201.5,
-    "core_dmg_mult": 200.0
+    "core_dmg_mult": 200.0,
+    "favorite_item": "형사 수첩",
+    "favorite_slots": [
+      1,
+      3,
+      2
+    ]
   },
   "미란다": {
     "rarity": "SSR",
@@ -277,7 +251,13 @@
     "pellets": 1,
     "muzzles": 1,
     "damage_coeff": 10.8,
-    "core_dmg_mult": 250.0
+    "core_dmg_mult": 250.0,
+    "favorite_item": "롤링 페이퍼",
+    "favorite_slots": [
+      3,
+      2,
+      1
+    ]
   },
   "키리": {
     "rarity": "SSR",
@@ -467,7 +447,13 @@
     "pellets": 1,
     "muzzles": 1,
     "damage_coeff": 5.38,
-    "core_dmg_mult": 200.0
+    "core_dmg_mult": 200.0,
+    "favorite_item": "장난감 기차 세트",
+    "favorite_slots": [
+      2,
+      3,
+      1
+    ]
   },
   "브리드 : 사일런트 트랙": {
     "rarity": "SSR",
@@ -543,7 +529,13 @@
     "damage_coeff": 61.3,
     "core_dmg_mult": 200.0,
     "charge_time": 1.0,
-    "full_charge_mult": 250.0
+    "full_charge_mult": 250.0,
+    "favorite_item": "금속 목걸이",
+    "favorite_slots": [
+      2,
+      1,
+      3
+    ]
   },
   "리타": {
     "rarity": "SSR",
@@ -701,7 +693,13 @@
     "damage_coeff": 63.11,
     "core_dmg_mult": 200.0,
     "charge_time": 1.0,
-    "full_charge_mult": 250.0
+    "full_charge_mult": 250.0,
+    "favorite_item": "히어로 트릴로지 BD",
+    "favorite_slots": [
+      2,
+      3,
+      1
+    ]
   },
   "드레이크": {
     "rarity": "SSR",
@@ -719,7 +717,13 @@
     "pellets": 10,
     "muzzles": 1,
     "damage_coeff": 214.3,
-    "core_dmg_mult": 200.0
+    "core_dmg_mult": 200.0,
+    "favorite_item": "빌런 피규어",
+    "favorite_slots": [
+      1,
+      2,
+      3
+    ]
   },
   "맥스웰": {
     "rarity": "SSR",
@@ -835,7 +839,13 @@
     "pellets": 10,
     "muzzles": 1,
     "damage_coeff": 220.4,
-    "core_dmg_mult": 200.0
+    "core_dmg_mult": 200.0,
+    "favorite_item": "첫 휴대폰과 연락처 수첩",
+    "favorite_slots": [
+      1,
+      3,
+      2
+    ]
   },
   "E.H.": {
     "rarity": "SSR",
@@ -967,7 +977,13 @@
     "pellets": 10,
     "muzzles": 1,
     "damage_coeff": 231.6,
-    "core_dmg_mult": 200.0
+    "core_dmg_mult": 200.0,
+    "favorite_item": "기념 열쇠고리",
+    "favorite_slots": [
+      1,
+      2,
+      3
+    ]
   },
   "밀크": {
     "rarity": "SSR",
@@ -987,7 +1003,13 @@
     "damage_coeff": 69.04,
     "core_dmg_mult": 200.0,
     "charge_time": 1.0,
-    "full_charge_mult": 250.0
+    "full_charge_mult": 250.0,
+    "favorite_item": "커플 머그잔",
+    "favorite_slots": [
+      1,
+      2,
+      3
+    ]
   },
   "프림": {
     "rarity": "SSR",
@@ -1007,7 +1029,13 @@
     "damage_coeff": 65.95,
     "core_dmg_mult": 200.0,
     "charge_time": 1.0,
-    "full_charge_mult": 250.0
+    "full_charge_mult": 250.0,
+    "favorite_item": "애착 베개",
+    "favorite_slots": [
+      1,
+      3,
+      2
+    ]
   },
   "밀크 : 블루밍 바니": {
     "rarity": "SSR",
@@ -1045,7 +1073,13 @@
     "pellets": 1,
     "muzzles": 1,
     "damage_coeff": 14.07,
-    "core_dmg_mult": 200.0
+    "core_dmg_mult": 200.0,
+    "favorite_item": "음악 노트",
+    "favorite_slots": [
+      2,
+      1,
+      3
+    ]
   },
   "유니": {
     "rarity": "SSR",
@@ -1121,7 +1155,13 @@
     "pellets": 1,
     "muzzles": 1,
     "damage_coeff": 13.65,
-    "core_dmg_mult": 200.0
+    "core_dmg_mult": 200.0,
+    "favorite_item": "중앙 정부 특별 훈장",
+    "favorite_slots": [
+      3,
+      2,
+      1
+    ]
   },
   "율하": {
     "rarity": "SSR",
@@ -1293,7 +1333,13 @@
     "pellets": 1,
     "muzzles": 1,
     "damage_coeff": 14.2,
-    "core_dmg_mult": 200.0
+    "core_dmg_mult": 200.0,
+    "favorite_item": "파이어 스타터",
+    "favorite_slots": [
+      1,
+      3,
+      2
+    ]
   },
   "네베": {
     "rarity": "SR",
@@ -1445,7 +1491,13 @@
     "damage_coeff": 69.04,
     "core_dmg_mult": 200.0,
     "charge_time": 1.0,
-    "full_charge_mult": 250.0
+    "full_charge_mult": 250.0,
+    "favorite_item": "게임 키드 에볼루션",
+    "favorite_slots": [
+      2,
+      3,
+      1
+    ]
   },
   "노벨": {
     "rarity": "SSR",
@@ -1881,7 +1933,13 @@
     "pellets": 1,
     "muzzles": 1,
     "damage_coeff": 5.1,
-    "core_dmg_mult": 200.0
+    "core_dmg_mult": 200.0,
+    "favorite_item": "인장 반지",
+    "favorite_slots": [
+      2,
+      3,
+      1
+    ]
   },
   "목단": {
     "rarity": "SSR",
@@ -1899,7 +1957,13 @@
     "pellets": 1,
     "muzzles": 1,
     "damage_coeff": 14.71,
-    "core_dmg_mult": 200.0
+    "core_dmg_mult": 200.0,
+    "favorite_item": "모란꽃 모양 비녀",
+    "favorite_slots": [
+      1,
+      2,
+      3
+    ]
   },
   "사쿠라": {
     "rarity": "SSR",
@@ -2425,7 +2489,13 @@
     "damage_coeff": 69.04,
     "core_dmg_mult": 200.0,
     "charge_time": 1.0,
-    "full_charge_mult": 250.0
+    "full_charge_mult": 250.0,
+    "favorite_item": "낡은 나침반",
+    "favorite_slots": [
+      1,
+      2,
+      3
+    ]
   },
   "헬름 : 아쿠아마린": {
     "rarity": "SSR",
@@ -2577,7 +2647,13 @@
     "pellets": 5,
     "muzzles": 2,
     "damage_coeff": 100.75,
-    "core_dmg_mult": 200.0
+    "core_dmg_mult": 200.0,
+    "favorite_item": "네잎클로버 책갈피",
+    "favorite_slots": [
+      3,
+      2,
+      1
+    ]
   },
   "아인": {
     "rarity": "SSR",
@@ -2707,7 +2783,13 @@
     "pellets": 1,
     "muzzles": 1,
     "damage_coeff": 5.57,
-    "core_dmg_mult": 200.0
+    "core_dmg_mult": 200.0,
+    "favorite_item": "함께 만든 화분",
+    "favorite_slots": [
+      1,
+      2,
+      3
+    ]
   },
   "트리나": {
     "rarity": "SSR",
@@ -3099,7 +3181,13 @@
     "damage_coeff": 61.3,
     "core_dmg_mult": 200.0,
     "charge_time": 1.0,
-    "full_charge_mult": 250.0
+    "full_charge_mult": 250.0,
+    "favorite_item": "연습용 신발",
+    "favorite_slots": [
+      1,
+      2,
+      3
+    ]
   },
   "클레이": {
     "rarity": "SSR",
@@ -3153,7 +3241,13 @@
     "pellets": 1,
     "muzzles": 1,
     "damage_coeff": 15.78,
-    "core_dmg_mult": 200.0
+    "core_dmg_mult": 200.0,
+    "favorite_item": "소중한 가면들",
+    "favorite_slots": [
+      1,
+      2,
+      3
+    ]
   },
   "아르카나": {
     "rarity": "SSR",
@@ -3577,6 +3671,24 @@
     "damage_coeff": 5.47,
     "core_dmg_mult": 200.0
   },
+  "사쿠라 (SR)": {
+    "rarity": "SR",
+    "element_code": "수냉",
+    "class": "지원형",
+    "manufacturer": "어브노말",
+    "squad": "CE005",
+    "squad_name": "WILLE",
+    "burst_stage": "1",
+    "burst_cooldown": 40.0,
+    "weapon_type": "SMG",
+    "max_ammo": 120,
+    "reload_time": 1.0,
+    "fire_rate": 24.0,
+    "pellets": 1,
+    "muzzles": 1,
+    "damage_coeff": 8.1,
+    "core_dmg_mult": 200.0
+  },
   "에이다": {
     "rarity": "SSR",
     "element_code": "전격",
@@ -3746,6 +3858,62 @@
     "muzzles": 1,
     "damage_coeff": 13.65,
     "core_dmg_mult": 200.0
+  },
+  "퀸(마코토)": {
+    "rarity": "SSR",
+    "element_code": "작열",
+    "class": "화력형",
+    "manufacturer": "어브노말",
+    "squad": "CE009_01",
+    "squad_name": "마음의 괴도단",
+    "burst_stage": "3",
+    "burst_cooldown": 40.0,
+    "weapon_type": "SG",
+    "max_ammo": 9,
+    "reload_time": 1.5,
+    "fire_rate": 1.5,
+    "pellets": 10,
+    "muzzles": 1,
+    "damage_coeff": 201.5,
+    "core_dmg_mult": 200.0
+  },
+  "유키코": {
+    "rarity": "SSR",
+    "element_code": "작열",
+    "class": "화력형",
+    "manufacturer": "어브노말",
+    "squad": "CE009_02",
+    "squad_name": "자칭 특별수사대",
+    "burst_stage": "3",
+    "burst_cooldown": 40.0,
+    "weapon_type": "MG",
+    "max_ammo": 300,
+    "reload_time": 2.5,
+    "fire_rate": 1.0,
+    "fire_rate_max": 70.0,
+    "fire_rate_change_pershot": 1.6667,
+    "pellets": 1,
+    "muzzles": 1,
+    "damage_coeff": 5.57,
+    "core_dmg_mult": 200.0
+  },
+  "아이기스": {
+    "rarity": "SR",
+    "element_code": "철갑",
+    "class": "지원형",
+    "manufacturer": "어브노말",
+    "squad": "CE009_03",
+    "squad_name": "특별과외활동부",
+    "burst_stage": "2",
+    "burst_cooldown": 20.0,
+    "weapon_type": "SMG",
+    "max_ammo": 120,
+    "reload_time": 1.0,
+    "fire_rate": 24.0,
+    "pellets": 1,
+    "muzzles": 2,
+    "damage_coeff": 5.06,
+    "core_dmg_mult": 250.0
   },
   "test_B1": {
     "rarity": "SSR",

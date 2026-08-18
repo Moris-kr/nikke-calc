@@ -26,13 +26,16 @@ from __future__ import annotations
 import argparse
 import bisect
 import json
+import os
 import sys
 from collections import Counter, defaultdict
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
+from calculator.buff_manager import _PARSED_SKILLS
 from calculator.timeline import simulate
 from context import spec
 
@@ -76,6 +79,16 @@ SQUADS: dict[str, dict] = {
     },
     "스쿼드4": {
         "members": ["목단", "마스트 : 로망틱 메이드", "홍련 : 흑영", "리버렐리오", "앵커 : 이노센트 메이드"],
+        "chars": {
+            # 택티컬 베어 큐브(탄충) = 유일한 instant 큐브. 다른 큐브는 전부 battle_start
+            # 상시 버프라, 이 자리가 빠지면 `_make_cube_effects`의 instant 경로를
+            # 어느 baseline도 밟지 않는다. 홍련 : 흑영은 실전에서도 탄충을 낀다.
+            #
+            # 이 스쿼드에서는 발동 32회가 잔탄 하한만 3 → 9로 올리고 **딜은 안 바뀐다** —
+            # 홍련이 탄창을 비우는 일이 없어 재장전 시점이 그대로이기 때문이다.
+            # 딜까지 움직이는 쪽은 `레이드_볼륨`이 덮는다(거기선 잔탄이 0을 찍는다).
+            "홍련 : 흑영": {"cube": {"name": "택티컬 베어 큐브", "level": 15}},
+        },
         "config": {"first_burst_time": 3.0},
         "seed": 42,
     },
@@ -187,6 +200,10 @@ SQUADS: dict[str, dict] = {
     "레이드_볼륨": {
         # 커버: 볼륨
         "members": ["볼륨", "앵커 : 이노센트 메이드", "마스트 : 로망틱 메이드", "리버렐리오", "홍련 : 흑영"],
+        "chars": {
+            # 스쿼드4와 같은 이유 — 홍련 : 흑영은 탄충 큐브로 굴린다.
+            "홍련 : 흑영": {"cube": {"name": "택티컬 베어 큐브", "level": 15}},
+        },
         "config": {"first_burst_time": 3.0},
         "seed": 42,
     },
@@ -194,6 +211,8 @@ SQUADS: dict[str, dict] = {
     # `enemy.code: "풍압"`이 작열 약점 보스다 (작열 → 풍압 우월, damage._CODE_ADVANTAGE).
     # 위 스쿼드들은 전부 무속성 적이라 is_element_match 경로가 스냅샷에 들어오지 않는다.
     # 같은 계열: `스쿼드3`(작열샷건덱) · `레이드_브리드디젤`(브브마디젤덱).
+    # 풍압이 아닌 적은 `지그_라피1버전격` 하나뿐이다 — 로스터 코드가 아니라
+    # `element_code_override`로 성립하는 우월 코드를 덮는 유일한 자리다.
 
     "레이드_라피앨리스": {
         # 커버: 앨리스(작열 SR) 속성 유리 · 라피 : 레드 후드
@@ -241,6 +260,33 @@ SQUADS: dict[str, dict] = {
         "seed": 42,
     },
 
+    "레이드_트리나홍련": {
+        # 커버: 홍련 — 자해(`current_hp_reduce`)로 자기 체력을 깎아
+        # `self_hp_below:60`(크리 대미지)·`self_hp_below:50`(크리 확률)을 여는 유일한 캐릭터다.
+        # **체력 모델이 딜에 직접 연결되는 자리**라, 자해가 현재 체력 비례가 아니게 되거나
+        # 회복이 엉뚱한 대상에게 가면 여기가 먼저 운다.
+        #
+        # 트리나가 양방향으로 홍련의 체력을 움직인다 —
+        #   ↓ `피스풀 트리`(`hp_only_caster_based_pct`)가 최대 체력만 올려 시작부터 hp_pct 67%
+        #   ↑ `네이처 그레이스 2·3`(`allies_lowest_hp:2`)이 최저 체력 아군을 회복
+        # 후자는 **instant target 해석이 시전자로 폴백하던 버그의 유일한 실사용 검출점**이다
+        # (수정 전 홍련 hp_pct 수렴 12.7~19.1% → 수정 후 28.6~39.5%).
+        #
+        # 배치 주의: 홍련이 목단보다 **왼쪽**이어야 트리나의
+        # `allies_code_weapon_leftmost:전격:AR:1` 버프 3종이 홍련에게 간다.
+        # 둘 다 전격 AR이라 `allies_code_weapon:전격:AR` 쪽은 원래 양쪽 다 받는다.
+        #
+        # 적: 수냉 + 코어 보유. 전격 > 수냉이라 전격 4명이 우월 코드를 받는다
+        # (기본 스펙의 장비 옵션 `우월코드 대미지 88.6%`가 실제로 실리는 자리다).
+        # 코어 직경 52px는 `context/scenarios/명중률 탄착군.md`의 추정 코어 반경 26px에서
+        # 온 값이며, 트리나의 `accuracy_pct` 버프가 코어히트율을 통해 딜에 반영되는
+        # 경로를 함께 지킨다.
+        "members": ["트리나", "홍련", "아니스 : 스파클링 서머", "프리바티", "목단"],
+        "config": {"first_burst_time": 3.0},
+        "enemy": {"code": "수냉", "core_px": 52},
+        "seed": 42,
+    },
+
     "지그_리타": {
         # 커버: 리타 — 시즌 30~39 실전 조합에 한 번도 등장하지 않아 템플릿 지그를 쓴다.
         "members": ["리타", "크라운", "test_B3", "스노우 화이트 : 헤비암즈"],
@@ -263,6 +309,28 @@ SQUADS: dict[str, dict] = {
         # 컨트롤_에이다미하라가 이미 덮는다.
         "members": ["목단", "타키나", "치사토", "스노우 화이트 : 헤비암즈", "에이다"],
         "config": {"first_burst_time": 3.0},
+        "seed": 42,
+    },
+
+    "지그_라피1버전격": {
+        # 커버 둘. 다른 스쿼드가 하나도 덮지 않는 경로다.
+        #
+        # ① `element_code_override` — 라피 : 레드 후드 `부착형 유탄`은 본인 코드(작열)와
+        #    무관하게 **전격 적에게** 우월 코드를 성립시킨다. 아래 `enemy.code: "전격"`이
+        #    그 유일한 스위치다. 코드 상성이 붙은 다른 스쿼드 6개는 전부 풍압이라,
+        #    이 스쿼드가 빠지면 override 경로는 어느 baseline도 밟지 않는다.
+        # ② **1버스트 라피** — 기본 B1 아군이 없어야 `no_burst1_ally` → `전투 보조`가
+        #    걸린다. 스쿼드1·레이드_라피앨리스는 둘 다 리틀 머메이드가 있어 라피가 B3다.
+        #    그래서 **B1 캐릭터를 넣으면 이 스쿼드의 의미가 사라진다.**
+        #
+        # 실전 조합이 아니라 GAMEPLAY.md §표준 테스트 스쿼드 템플릿이다 —
+        # 철갑 약점(=전격 적) 시즌의 상위 조합 자료가 없어 지그로 둔다.
+        # 라피 자신의 버쿨감(전황 파악 7.48 + 계승되는 힘 20)으로 40초 쿨이 매 사이클
+        # 회복돼 12.533s 균일 사이클이 나온다 — 7.48 계열의 정상 간격열이다.
+        # 크라운·test_B3(철갑)도 전격에 우월이라 ⑦가 넷 중 셋에 걸린다.
+        "members": ["라피 : 레드 후드", "크라운", "test_B3", "스노우 화이트 : 헤비암즈"],
+        "config": {"first_burst_time": 3.0},
+        "enemy": {"code": "전격"},
         "seed": 42,
     },
 
@@ -688,14 +756,48 @@ def save(squad_name: str, snap: dict) -> None:
     )
 
 
-def run(names: list[str], update: bool) -> int:
+def coverage() -> tuple[int, int, list[str]]:
+    """(파싱된 캐릭터 수, 커버된 수, 미커버 이름 목록).
+
+    `HARNESS.md §스쿼드 커버리지`가 이 함수를 정본으로 가리킨다 — 문서에 명단을 옮겨
+    적으면 캐릭터가 추가될 때마다 조용히 낡는다. `test_*`는 지그용 더미라 제외한다.
+    """
+    parsed = [c for c in _PARSED_SKILLS if not c.startswith("test_")]
+    members = {m for info in SQUADS.values() for m in info["members"]}
+    uncovered = sorted(set(parsed) - members)
+    return len(parsed), len(parsed) - len(uncovered), uncovered
+
+
+def _snapshot_job(name: str) -> tuple[str, dict]:
+    """워커 프로세스 진입점. 프로세스 간에 오가는 건 스쿼드 이름과 스냅샷 dict뿐이다."""
+    return name, make_snapshot(name, SQUADS[name])
+
+
+def _snapshots(names: list[str], jobs: int):
+    """(이름, 스냅샷)을 `names` 순서 그대로 내놓는다.
+
+    스쿼드끼리 완전히 독립이고 시드가 고정이라(`HARNESS.md §왜 결정론적인가`) 어느
+    순서로 돌리든, 몇 개를 동시에 돌리든 결과가 같다. `simulate()`가 건드리는 난수는
+    프로세스별 전역 `random`이고 워커마다 자기 시드를 다시 심는다.
+
+    출력 순서는 `ProcessPoolExecutor.map`이 보존하므로 순차 실행과 로그가 동일하다.
+    """
+    if jobs <= 1 or len(names) <= 1:
+        for name in names:
+            yield name, make_snapshot(name, SQUADS[name])
+        return
+    with ProcessPoolExecutor(max_workers=min(jobs, len(names))) as ex:
+        yield from ex.map(_snapshot_job, names)
+
+
+def run(names: list[str], update: bool, jobs: int) -> int:
     n_fail = 0
     for name in names:
-        info = SQUADS[name]
         # 프리뷰(출시 전 카드 기준) 캐릭터가 낀 baseline은 출시 후 정식 등록에서 바뀔 수 있다
-        if note := spec.preview_note(info["members"]):
+        if note := spec.preview_note(SQUADS[name]["members"]):
             print(f"⚠ [{name}] {note}")
-        snap = make_snapshot(name, info)
+
+    for name, snap in _snapshots(names, jobs):
         path = baseline_path(name)
 
         if update or not path.exists():
@@ -721,6 +823,11 @@ def main() -> None:
     ap.add_argument("--squad", action="append", help="대상 스쿼드 (반복 지정 가능)")
     ap.add_argument("--update", action="store_true", help="baseline을 현재 결과로 갱신")
     ap.add_argument("--list", action="store_true", help="스쿼드 목록 출력")
+    ap.add_argument(
+        "--jobs", "-j", type=int, default=min(8, os.cpu_count() or 1),
+        help="동시에 돌릴 스쿼드 수 (기본: CPU 수, 최대 8). 1이면 순차 — "
+             "결과는 어느 쪽이든 같고, 디버깅할 때만 1로 둔다",
+    )
     args = ap.parse_args()
 
     if args.list:
@@ -731,6 +838,10 @@ def main() -> None:
             for nm, items in spec.squad_deviations(squad).items():
                 for k, b, c, src in items:
                     print(f"      · [{nm}] {k}: {spec._fmt(b)} → {spec._fmt(c)} ({src})")
+        parsed, covered, uncovered = coverage()
+        print(f"\n총 {len(SQUADS)}스쿼드 · 파싱된 {parsed}명 중 {covered}명 커버")
+        print(f"\n미커버 {len(uncovered)}명 (새 스쿼드를 짤 때 우선 후보):")
+        print("  " + " · ".join(uncovered))
         return
 
     names = args.squad or list(SQUADS)
@@ -744,7 +855,7 @@ def main() -> None:
     else:
         print("=== 스냅샷 회귀 검사 ===\n")
 
-    n_fail = run(names, args.update)
+    n_fail = run(names, args.update, args.jobs)
 
     if args.update:
         print(f"\n{len(names)}개 스쿼드 baseline 저장 완료")

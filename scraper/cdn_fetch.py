@@ -6,8 +6,11 @@ blablalink CDN에서 캐릭터 데이터 직접 수집 → nikke_scraped.json
 브라우저를 쓰지 않는다. CDN 경로가 평문 경로에서 결정되므로(`cdn_path.py`)
 전체 캐릭터를 수 초 만에 받는다.
 
+캐릭터 외의 성장 테이블(소장품·장비·호감도)은 `cdn_tables.py`가 따로 만든다.
+다만 **큐브는 신규 종류가 주기적으로 추가되므로** 여기서 같이 갱신한다.
+
 Run:
-  python scraper/cdn_fetch.py            # 전량 수집 + 이미지 + parse_nikke
+  python scraper/cdn_fetch.py            # 전량 수집 + 이미지 + parse_nikke + 큐브 표
   python scraper/cdn_fetch.py --check    # 수집 후 기존 파일과 diff만 출력 (쓰기 없음)
   python scraper/cdn_fetch.py --ids 601,602
 """
@@ -230,6 +233,29 @@ async def fetch_json(client: httpx.AsyncClient, path: str):
     return json.loads(r.content.decode("utf-8-sig"))
 
 
+def _resolve_collision(a: dict, b: dict) -> tuple[dict, dict]:
+    """동명이인 둘 → (맨이름을 갖는 쪽, 개명될 쪽).
+
+    수집이 비동기라 도착 순서가 매번 다르다. 순서에 의존하면 재수집마다 키가 뒤바뀌므로
+    **등급이 높은 쪽**(동률이면 resource_id가 작은 쪽 = 먼저 출시된 원본)이 맨이름을
+    갖도록 고정한다.
+    """
+    rank = lambda e: (RARITY_RANK.get(e["레어도"], 0), -e["id"])
+    return (a, b) if rank(a) >= rank(b) else (b, a)
+
+
+def _alias_name(name: str, alias: dict, results: dict) -> str:
+    """개명될 쪽의 새 키. `사쿠라 (SR)` — 등급까지 같으면 `사쿠라 (836)`.
+
+    이름은 유저가 스쿼드에 직접 치는 식별자다(`context/ALIASES.md`). 그래서 기계적인
+    id보다 읽어서 구분되는 등급을 먼저 쓰고, 그걸로도 안 갈리는 경우에만 id로 떨어진다.
+    """
+    candidate = f"{name} ({alias['레어도']})"
+    if candidate in results:
+        candidate = f"{name} ({alias['id']})"
+    return candidate
+
+
 async def collect(ids: list[int] | None) -> dict:
     async with httpx.AsyncClient(timeout=30, http2=False) as client:
         if ids is None:
@@ -251,16 +277,20 @@ async def collect(ids: list[int] | None) -> dict:
                     missing.append(rid)
                     return
                 name, entry = adapt(role)
-                # 게임 내 동명이인(예: SSR 사쿠라 vs 신규 SR 사쿠라)이 존재한다.
-                # 이름을 키로 쓰므로 높은 등급을 우선 보존하고 나머지는 버린다.
+                # 게임 내 동명이인(예: SSR 사쿠라 rid282 / SR 사쿠라 rid836)이 존재한다.
+                # 이름을 키로 쓰므로 충돌하는 쪽을 개명해 **둘 다** 보존한다 — 버리면
+                # 그 resource_id는 이름으로 되돌릴 길이 없어져 프로필 수집에서 통째로
+                # 빠진다(profile_fetch의 `이름매핑 실패`).
                 prev = results.get(name)
                 if prev is not None:
-                    keep, drop = (prev, entry) if RARITY_RANK.get(prev["레어도"], 0) \
-                        >= RARITY_RANK.get(entry["레어도"], 0) else (entry, prev)
+                    keep, alias = _resolve_collision(prev, entry)
+                    alias_name = _alias_name(name, alias, results)
                     print(f"  [WARN] 이름 충돌 {name!r}: "
                           f"id={keep['id']}({keep['레어도']}) 유지, "
-                          f"id={drop['id']}({drop['레어도']}) 버림", file=sys.stderr)
+                          f"id={alias['id']}({alias['레어도']}) → {alias_name!r} 개명",
+                          file=sys.stderr)
                     results[name] = keep
+                    results[alias_name] = alias
                     return
                 results[name] = entry
 
@@ -425,8 +455,13 @@ def main() -> None:
 
     partial = ids is not None
 
+    # 큐브 표 갱신. `cdn_tables`가 `cdn_fetch`를 import하므로 여기서 늦게 부른다.
+    from cdn_tables import refresh as refresh_tables
+
     if args.check:
         report_diff(results, JSON_PATH, partial=partial)
+        print()
+        refresh_tables(["cube"], check=True)
         print("\n--check 모드: 파일을 쓰지 않았다")
         return
 
@@ -442,6 +477,8 @@ def main() -> None:
 
     asyncio.run(download_images(results, force=args.force_images))
     parse_nikke(results)
+    print()
+    refresh_tables(["cube"])
 
 
 if __name__ == "__main__":

@@ -13,7 +13,6 @@ const EQUIP_PART_LABELS: Record<EquipPart, string> = {
   머리: '머리', 몸통: '몸통', 팔: '장갑', 다리: '다리',
 };
 
-const cubeNames: CubeName[] = ['재장', '탄충', '체력', '차속', '파츠', '분배'];
 const skillLabels: Array<[keyof SkillLevels, string]> = [
   ['1', '스킬 1'],
   ['2', '스킬 2'],
@@ -347,16 +346,22 @@ export function renderCharacterSettings(
   cubeControls.className = 'cube-controls';
   const cubeSelect = document.createElement('select');
   cubeSelect.dataset.cubeName = '';
-  for (const cubeName of cubeNames) {
+  // 선택지는 카탈로그(=cube.json)에서 그대로 온다. 새 큐브가 추가돼도 코드는 그대로다.
+  for (const cubeName of Object.keys(catalog.cubes)) {
     const option = document.createElement('option');
     option.value = cubeName;
     option.textContent = cubeName;
     cubeSelect.append(option);
   }
-  cubeSelect.value = current.cube.name;
+  // 저장된 편성이 지금 카탈로그에 없는 큐브를 가리킬 수 있다(데이터 갱신·구버전 상태).
+  // 그때는 목록의 첫 큐브로 되돌려 UI가 통째로 죽지 않게 한다.
+  const cubeNames = Object.keys(catalog.cubes);
+  const cubeName = catalog.cubes[current.cube.name] ? current.cube.name : cubeNames[0]!;
+  const cubeMeta = catalog.cubes[cubeName]!;
+  cubeSelect.value = cubeName;
   const levelSelect = document.createElement('select');
   levelSelect.dataset.cubeLevel = '';
-  const availableLevels = Object.keys(catalog.cubes[current.cube.name].levels)
+  const availableLevels = Object.keys(cubeMeta.levels)
     .map(Number).sort((left, right) => left - right);
   for (const level of availableLevels) {
     const option = document.createElement('option');
@@ -368,7 +373,7 @@ export function renderCharacterSettings(
   cubeSelect.addEventListener('change', () => {
     const next = cloneOverrides(current);
     next.cube = { name: cubeSelect.value as CubeName, level: current.cube!.level };
-    if (!catalog.cubes[next.cube.name].levels[String(next.cube.level)]) {
+    if (!catalog.cubes[next.cube.name]?.levels[String(next.cube.level)]) {
       next.cube.level = 15;
     }
     commit(next);
@@ -379,15 +384,25 @@ export function renderCharacterSettings(
     commit(next);
   });
   cubeControls.append(cubeSelect, levelSelect);
-  const level = catalog.cubes[current.cube.name].levels[String(current.cube.level)];
+  const level = cubeMeta.levels[String(current.cube.level)];
   const cubeSummary = document.createElement('p');
   cubeSummary.className = 'cube-summary';
   if (level) {
-    const effect = catalog.cubes[current.cube.name].template.replace('{0}', String(level.effect));
+    const effect = cubeMeta.template.replace('{0}', String(level.effect));
     cubeSummary.textContent = `공격 ${level.atk.toLocaleString('en-US')} · 방어 ${level.def.toLocaleString('en-US')} · `
       + `체력 ${level.hp.toLocaleString('en-US')} · ${effect} · 우월 코드 ${level.commonElement}%`;
   }
   cubeBox.append(cubeHeading, cubeControls, cubeSummary);
+  // 고유 스킬이 계산에 안 들어가는 큐브는 그 사실을 숨기지 않는다. 스탯은 붙으므로
+  // 선택 자체는 의미가 있고, 표시된 효과 수치만 결과에 반영되지 않는다.
+  if (cubeMeta.unsupported) {
+    const note = document.createElement('p');
+    note.className = 'cube-unsupported-note';
+    note.dataset.cubeUnsupported = '';
+    note.textContent = `이 큐브의 고유 효과는 아직 계산에 반영되지 않습니다 — `
+      + `공격력·방어력·체력과 우월 코드 효과만 적용됩니다. (${cubeMeta.unsupported})`;
+    cubeBox.append(note);
+  }
   body.append(cubeBox);
 
   const controlEditor = document.createElement('section');

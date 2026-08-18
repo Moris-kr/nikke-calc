@@ -177,10 +177,33 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     activeDeckId: number;
     battle: BattleSettings;
   }
+  // 큐브 이름이 짧은 통칭에서 인게임 정식 명칭으로 바뀌었다. 이전 버전에서 저장된
+  // 편성에는 옛 이름이 남아 있어 그대로 두면 엔진이 요청을 거부한다. 불러올 때 한 번
+  // 옮겨주고, 카탈로그에 없는 이름은 캐릭터 기본값으로 되돌아가도록 지운다.
+  const LEGACY_CUBE_NAMES: Record<string, string> = {
+    재장: '렐릭 베어 큐브',
+    탄충: '택티컬 베어 큐브',
+    체력: '렐릭 비고르 큐브',
+    차속: '렐릭 부스트 큐브',
+    파츠: '렐릭 디스트로이 큐브',
+    분배: '렐릭 디바이드 큐브',
+  };
+  const migrateSavedCubes = (state: Partial<SavedState>): Partial<SavedState> => {
+    for (const deck of state.decks ?? []) {
+      for (const overrides of Object.values(deck.characters ?? {})) {
+        const cube = overrides.cube;
+        if (!cube) continue;
+        const renamed = LEGACY_CUBE_NAMES[cube.name];
+        if (renamed) cube.name = renamed;
+        if (!settings.cubes[cube.name]) delete overrides.cube;
+      }
+    }
+    return state;
+  };
   const loadSavedState = (): Partial<SavedState> | null => {
     try {
       const raw = resolveStorage()?.getItem(STATE_KEY);
-      return raw ? (JSON.parse(raw) as Partial<SavedState>) : null;
+      return raw ? migrateSavedCubes(JSON.parse(raw) as Partial<SavedState>) : null;
     } catch {
       return null;
     }

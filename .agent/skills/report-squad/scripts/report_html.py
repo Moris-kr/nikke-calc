@@ -347,6 +347,15 @@ def _squad_strip(names: list[str]) -> str:
     return f'<div class="squad">{"".join(cells)}</div>'
 
 
+def _spread(st: dict) -> bool:
+    """이 집계에 분산 정보가 있는가.
+
+    기대값 모드(난수 없음)나 1회 실행은 표준편차가 0으로 고정이라, 그대로 그리면
+    "± 0 (0.00%)"라는 없는 정보를 있는 것처럼 보여준다. 그 경우 아예 감춘다.
+    """
+    return st.get("n", 0) > 1
+
+
 def _case_card(c: dict, show_name: bool, ops: str = "") -> str:
     """케이스 요약 카드 1장.
 
@@ -356,8 +365,15 @@ def _case_card(c: dict, show_name: bool, ops: str = "") -> str:
     ops:       이 케이스에만 걸린 설정 줄(`_ops()`가 만든다). 상단 블록과 겹치지 않는다.
     """
     t = c["total"]
-    tip = (f"{c['name']}\n평균 {_kor(t['mean'])}\n표준편차 {_kor(t['std'])} ({t['cv']:.2f}%)\n"
-           f"최소 {_kor(t['min'])}\n최대 {_kor(t['max'])}\nn={t['n']}회")
+    if _spread(t):
+        tip = (f"{c['name']}\n평균 {_kor(t['mean'])}\n표준편차 {_kor(t['std'])} ({t['cv']:.2f}%)\n"
+               f"최소 {_kor(t['min'])}\n최대 {_kor(t['max'])}\nn={t['n']}회")
+        spread_html = f'<span class="pm">± {_kor(t["std"])} ({t["cv"]:.2f}%)</span>'
+        range_html = f"<span>범위 {_kor(t['min'])} ~ {_kor(t['max'])}</span>"
+    else:
+        tip = f"{c['name']}\n기대딜 {_kor(t['mean'])}\n난수 없음 (기대값 모드)"
+        spread_html = ""
+        range_html = ""
     # 이름·설명은 카드 폭 전체를 쓴다 (왼쪽 칸에 갇히면 줄바꿈이 심하다).
     head = ""
     if show_name:
@@ -377,10 +393,10 @@ def _case_card(c: dict, show_name: bool, ops: str = "") -> str:
   <div class="caseright">
   <div class="hero" data-tip="{_esc(tip)}">
     <b>{_kor(t['mean'])}</b>
-    <span class="pm">± {_kor(t['std'])} ({t['cv']:.2f}%)</span>
+    {spread_html}
   </div>
   <div class="kv">
-    <span>범위 {_kor(t['min'])} ~ {_kor(t['max'])}</span>
+    {range_html}
     <span>{c['duration']:.0f}초 · 풀버스트 {c['burst_count']:.0f}회</span>
   </div>
   </div>
@@ -403,8 +419,9 @@ def _contrib_block(c: dict, hi: float) -> str:
     segs, legend = [], []
     for ch, color in _by_damage(c):
         share = ch["mean"] / total * 100
-        tip = (f"{ch['name']}\n평균 {_kor(ch['mean'])} ({share:.1f}%)\n"
-               f"±{_kor(ch['std'])} (CV {ch['cv']:.2f}%)")
+        tip = f"{ch['name']}\n{_kor(ch['mean'])} ({share:.1f}%)"
+        if _spread(ch):
+            tip += f"\n±{_kor(ch['std'])} (CV {ch['cv']:.2f}%)"
         # 세그먼트 안에는 글자를 넣지 않는다 — 밝은 슬롯(노랑·아쿠아·마젠타) 위 텍스트는
         # 대비가 부족하다. 이름·딜량은 아래 범례가 직접 라벨로 담당한다.
         segs.append(f'<div class="seg" style="flex:{share:.4f} 0 0; background:{color}" '
@@ -444,7 +461,7 @@ def _char_detail(c: dict) -> str:
         <span class="charhead">
           <span class="dot" style="background:{color}"></span>{img}
           <b>{_esc(ch['name'])}</b>
-          <span>{_kor(ch['mean'])} · {share:.1f}% · ±{_kor(ch['std'])} (CV {ch['cv']:.2f}%)</span>
+          <span>{_kor(ch['mean'])} · {share:.1f}%{f" · ±{_kor(ch['std'])} (CV {ch['cv']:.2f}%)" if _spread(ch) else ""}</span>
         </span>
       </summary>
       <div class="detail-body">
@@ -471,6 +488,8 @@ def _char_detail(c: dict) -> str:
 
 
 def _raw_table(cases: list[dict], seeds: list) -> str:
+    if len(seeds) <= 1:
+        return ""   # 기대값 모드(또는 1회 실행) — 회차가 하나라 평균과 같은 표가 된다
     head = "".join(f"<th>{('랜덤' if s is None else f'seed {s}')}</th>" for s in seeds)
     rows = []
     for c in cases:
@@ -503,7 +522,7 @@ _OPT_LABEL = {                       # 표시 순서도 겸한다
 
 _SPEC_LABEL = {
     "level": "레벨", "breakthrough": "돌파", "core_enhancement": "코어 강화",
-    "affinity": "호감도", "collection_stage": "컬렉션",
+    "affinity": "호감도", "collection_stage": "컬렉션", "favorite_stage": "애장품 단계",
     "weapon_mode_swap": "무기 변경 모드", "cube.name": "큐브", "cube.level": "큐브 레벨",
     "skill_levels.1": "스킬1 레벨", "skill_levels.2": "스킬2 레벨", "skill_levels.3": "스킬3 레벨",
     "console.common_level": "공용 콘솔", "console.class_level": "클래스 콘솔",
@@ -588,16 +607,46 @@ def _burst_pattern_text(pattern) -> str:
     return ", ".join(str(x) for x in pattern) + "번째 사이클"
 
 
-def _base_line() -> str:
+@functools.lru_cache(maxsize=8)
+def _load_profile(name: str) -> char_spec.GrowthProfile:
+    # `allow_unowned=True` — 미보유 판정은 계산할 때 이미 끝났다. 렌더러는 이탈 보고의
+    # 기준선을 맞추려고 다시 읽을 뿐이라 여기서 또 끊을 이유가 없다.
+    return char_spec.load_profile(name, allow_unowned=True)
+
+
+def _profile(spec: dict) -> char_spec.GrowthProfile | None:
+    """보고서가 육성 프로필로 계산됐으면 그 프로필. 아니면 None.
+
+    이탈 보고의 기준선을 계산 때와 같게 맞추는 데 쓴다. 프로필 파일이 그 사이 사라졌거나
+    다시 받아 내용이 바뀌었으면 기준선만 고정 스펙으로 되돌아가고, 보고서에 굳혀 둔
+    `profile_header`는 그대로 남아 무엇으로 계산됐는지는 계속 드러난다.
+    """
+    name = spec.get("profile")
+    if not name:
+        return None
+    try:
+        return _load_profile(name)
+    except SystemExit:
+        return None
+
+
+def _base_line(spec: dict | None = None) -> str:
     d = char_spec.DEFAULT_CHAR
+    head = (f"컨트롤 자동 · 버스트순서 왼쪽부터 · 버스트 충전 {d['burst_regen_time']:g}초")
+    if spec and spec.get("profile"):
+        return head          # 오버로드는 캐릭터마다 실제 값이라 공통 기준이 없다
     eq = d["equip_skills"]
     keys = list(_OPT_LABEL) + [k for k in eq if k not in _OPT_LABEL]
     opts = " / ".join(f"{_OPT_LABEL.get(k, k)} {eq[k]:g}%" for k in keys if eq.get(k))
-    return (f"컨트롤 자동 · 버스트순서 왼쪽부터 · 버스트 충전 {d['burst_regen_time']:g}초 · "
-            f"옵션 {opts}")
+    return f"{head} · 옵션 {opts}"
 
 
-def _spec_line() -> str:
+def _spec_line(spec: dict | None = None) -> str:
+    if spec and spec.get("profile"):
+        # 프로필은 캐릭터마다 육성이 다르므로 한 줄로 요약할 대표값이 없다.
+        # 무엇으로 돌렸는지는 바로 위 프로필 헤더가 말한다.
+        return ("육성은 캐릭터마다 프로필 값 — 공통 기준 없음. "
+                "캐릭터별 실제 육성은 아래 '실행 설정'에서 본다.")
     d = char_spec.DEFAULT_CHAR
     lv = d["skill_levels"]
     equipment = "/".join(
@@ -605,7 +654,7 @@ def _spec_line() -> str:
     )
     return (f"육성 레벨 {d['level']} · {d['breakthrough']}돌 · 호감도 {d['affinity']} · "
             f"스킬 {lv['1']}/{lv['2']}/{lv['3']} · 장비 {equipment} · "
-            f"{d['cube']['name']} 큐브 {d['cube']['level']} · {d['collection_stage']}")
+            f"{d['cube']['name']} {d['cube']['level']} · {d['collection_stage']}")
 
 
 def _chip(cat: str, text: str) -> str:
@@ -710,7 +759,7 @@ def _ops(spec: dict, cases: list[dict]) -> tuple[str, dict[str, str]]:
             seen.setdefault(("공통", *kt), []).append(cname)
 
         squad = [_char_of(spec, c, nm) for nm in c["squad"]]
-        devs = char_spec.squad_deviations([s for s in squad if s])
+        devs = char_spec.squad_deviations([s for s in squad if s], _profile(spec))
 
         # A pattern supplied directly through case.config is not present in the
         # resolved character dictionaries, so surface it explicitly here.
@@ -752,8 +801,15 @@ def _ops(spec: dict, cases: list[dict]) -> tuple[str, dict[str, str]]:
     def _sorted(parts: list[tuple[int, str]]) -> str:
         return "".join(p for _, p in sorted(parts, key=lambda p: p[0]))
 
-    base = (f'<div><b>기준</b>{_esc(_base_line())}</div>'
-            f'<div class="base2">{_esc(_spec_line())}</div>')
+    base = (f'<div><b>기준</b>{_esc(_base_line(spec))}</div>'
+            f'<div class="base2">{_esc(_spec_line(spec))}</div>')
+    # 프로필로 돌렸다면 그 사실을 기준 블록 맨 위에 못박는다 — 고정 스펙 보고서와
+    # 총딜을 나란히 놓으면 안 된다.
+    if spec.get("profile_header"):
+        notes = "".join(f'<div class="base2">⚠ {_esc(n)}</div>'
+                        for n in spec.get("profile_notes") or [])
+        base = (f'<div><b>⚠ 육성 프로필</b>{_esc(spec["profile_header"])}</div>'
+                f'{notes}{base}')
     if common:
         rows = "".join(f'<li><b>{_esc(s)}</b>{_sorted(p)}</li>' for s, p in common.items())
         top = (f'<div class="ops has-exc">{base}'
@@ -810,16 +866,25 @@ def _full_name(c: dict) -> str:
 
 # ── 진입점 ────────────────────────────────────────────────────────────────
 
-def render_html(spec: dict, cases: list[dict], seeds: list, random_seed: bool) -> str:
+def render_html(spec: dict, cases: list[dict], seeds: list, random_seed: bool,
+                expected: bool = False) -> str:
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
     n = len(seeds)
     # 고정 시드는 언제나 `1..runs`라 회차 수와 같은 말이다 — 랜덤일 때만 적는다.
     seed_txt = "매 회차 랜덤 시드" if random_seed else ""
+    foot_txt = (
+        "크리·코어히트를 확률 판정 대신 기대값으로 계산해 난수가 없다 — 케이스당 1회로 "
+        "같은 수치가 재현되고, 케이스 간 차이는 전부 실제 차이다. 인게임 한 판은 이 값 "
+        "주위로 흩어진다(총딜 기준 표준편차 0.2~0.6% 남짓)."
+        if expected else
+        "시드를 고정하면 같은 스펙에서 같은 수치가 재현된다. 표준편차는 시드 간 편차이며, "
+        "스킬 상세의 히트수는 회차 평균이라 소수점이 나온다."
+    )
 
     chips = [
         f"케이스 {len(cases)}개",
-        f"케이스당 {n}회",
-        seed_txt,
+        "기대값 모드 · 크리/코어 난수 없음" if expected else f"케이스당 {n}회",
+        "" if expected else seed_txt,
         f"전투 {cases[0]['duration']:.0f}초" if cases else "",
         f"생성 {now}",
     ]
@@ -901,8 +966,7 @@ def render_html(spec: dict, cases: list[dict], seeds: list, random_seed: bool) -
   </div>
 
   <p class="foot">
-    시드를 고정하면 같은 스펙에서 같은 수치가 재현된다. 표준편차는 시드 간 편차이며,
-    스킬 상세의 히트수는 회차 평균이라 소수점이 나온다.
+    {foot_txt}
   </p>
 </div>
 <div id="tip"></div>

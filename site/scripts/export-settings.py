@@ -57,24 +57,31 @@ def main() -> None:
         }
 
     cubes = {}
+    common_values = cube_table["공통"]["values"]
     for name in CUBE_NAMES:
         entry = cube_table[name]
         levels = {}
         for level in range(1, 16):
             key = str(level)
             stats = cube_table["_stats"][key]
+            # `공통`(우월 코드)은 큐브 레벨 1~4 구간에 스킬 레벨이 없어 키가 아예 빠져
+            # 있다 (cube.json `_level_note`). 그 구간은 효과가 붙지 않으므로 0이다.
+            common = common_values.get(key)
             levels[key] = {
                 "atk": int(stats["atk"]),
                 "def": int(stats["def"]),
                 "hp": int(stats["hp"]),
                 "effect": float(entry["values"][key][0]),
-                "commonElement": float(cube_table["공통"]["values"][key][0]),
+                "commonElement": float(common[0]) if common else 0.0,
             }
         cubes[name] = {
             "label": name,
             "stat": entry["stat"],
             "template": entry["template"],
             "levels": levels,
+            # 계산기가 스킬을 아직 처리하지 못하는 큐브. 공격력·방어력·체력과 공통
+            # 우월 코드 효과는 그대로 붙고, 고유 스킬만 빠진다.
+            **({"unsupported": entry["unsupported"]} if entry.get("unsupported") else {}),
         }
 
     payload = {

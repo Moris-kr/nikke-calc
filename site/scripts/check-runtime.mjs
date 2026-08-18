@@ -43,8 +43,15 @@ for (const char of catalog) {
     problems.push(`growth default is not a legal option: ${char.name}`);
   }
 }
-if (Object.keys(settings.cubes ?? {}).join(',') !== '재장,탄충,체력,차속,파츠,분배') {
-  problems.push('settings must contain exactly the six supported cubes');
+// 큐브 종류는 게임 업데이트로 늘어난다. 개수를 박지 않고 정본(cube.json)과
+// 어긋나지 않는지만 본다 — `공통`은 종류가 아니라 항상 붙는 효과라 뺀다.
+const cubeTable = JSON.parse(
+  readFileSync(join(siteDir, '..', 'data', 'base_stat_tables', 'cube.json'), 'utf8'),
+);
+const canonicalCubes = Object.keys(cubeTable)
+  .filter((name) => !name.startsWith('_') && name !== '공통');
+if (Object.keys(settings.cubes ?? {}).join(',') !== canonicalCubes.join(',')) {
+  problems.push('settings cubes must match data/base_stat_tables/cube.json');
 }
 
 if (problems.length > 0) {
