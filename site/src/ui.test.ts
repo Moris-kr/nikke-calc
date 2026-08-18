@@ -213,6 +213,51 @@ describe('calculator UI', () => {
     expect(root.querySelector<HTMLInputElement>('#squad-filter-1')!.value).toBe('');
   });
 
+  it('copies the active deck squad and settings into the chosen decks', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const mode = root.querySelector<HTMLInputElement>('#squad-mode')!;
+    mode.checked = true;
+    mode.dispatchEvent(new Event('change'));
+
+    // 덱 2는 미리 채워 둔다 — 덮어쓰기 대상은 기본 선택되지 않아야 한다.
+    root.querySelector<HTMLButtonElement>('[data-deck-tab="2"]')!.click();
+    chooseCharacter(root, 0, '앨리스');
+    root.querySelector<HTMLButtonElement>('[data-deck-tab="1"]')!.click();
+
+    root.querySelector<HTMLButtonElement>('[data-deck-copy-open]')!.click();
+    const targets = [...root.querySelectorAll<HTMLInputElement>('[data-deck-copy-target]')];
+    expect(targets.map((box) => box.dataset.deckCopyTarget)).toEqual(['2', '3', '4', '5']);
+    expect(targets[0]!.checked).toBe(false);
+    expect(targets.slice(1).every((box) => box.checked)).toBe(true);
+
+    // 이미 짜둔 덱 2까지 명시적으로 골라 덮어쓴다.
+    targets[0]!.checked = true;
+    const deckOne = [...root.querySelectorAll<HTMLSelectElement>('[data-squad-slot]')].map((slot) => slot.value);
+    root.querySelector<HTMLButtonElement>('[data-deck-copy-apply]')!.click();
+
+    for (const id of ['2', '3', '4', '5']) {
+      root.querySelector<HTMLButtonElement>(`[data-deck-tab="${id}"]`)!.click();
+      expect([...root.querySelectorAll<HTMLSelectElement>('[data-squad-slot]')].map((slot) => slot.value))
+        .toEqual(deckOne);
+    }
+    expect(root.querySelector<HTMLElement>('[data-deck-copy-panel]')!.hidden).toBe(true);
+  });
+
+  it('refuses to copy a deck when no target is selected', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const mode = root.querySelector<HTMLInputElement>('#squad-mode')!;
+    mode.checked = true;
+    mode.dispatchEvent(new Event('change'));
+
+    root.querySelector<HTMLButtonElement>('[data-deck-copy-open]')!.click();
+    for (const box of root.querySelectorAll<HTMLInputElement>('[data-deck-copy-target]')) box.checked = false;
+    root.querySelector<HTMLButtonElement>('[data-deck-copy-apply]')!.click();
+
+    expect(root.querySelector<HTMLElement>('[data-errors]')!.textContent)
+      .toContain('복사할 대상 덱을 하나 이상 선택하세요');
+    expect(root.querySelector<HTMLElement>('[data-deck-copy-panel]')!.hidden).toBe(false);
+  });
+
   it('keeps five-deck tabs visually hidden until the mode is enabled', () => {
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
     const tabs = root.querySelector<HTMLElement>('[data-deck-tabs]')!;
@@ -247,6 +292,54 @@ describe('calculator UI', () => {
     expect(root.querySelectorAll('[data-character-result]')).toHaveLength(5);
     expect(root.querySelector('[data-status]')?.textContent).toContain('계산 완료');
     expect(client.lastRequest?.duration).toBe(10);
+  });
+
+  it('renders the normal-attack vs skill damage split per character', async () => {
+    class BreakdownClient extends FakeClient {
+      override async simulate(request: SimulationRequest): Promise<SimulationResult> {
+        await super.simulate(request);
+        return {
+          ...calculated,
+          charBreakdown: {
+            리타: {
+              normal: 45_000,
+              normalHits: 300,
+              skill: 15_000,
+              skillHits: 12,
+              skills: [{ name: '버스트', damage: 15_000, hits: 12 }],
+            },
+          },
+        };
+      }
+    }
+    const client = new BreakdownClient();
+    mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });
+    root.querySelector<HTMLInputElement>('#duration')!.value = '10';
+
+    root.querySelector<HTMLFormElement>('form')!.requestSubmit();
+    await flush();
+
+    const splits = [...root.querySelectorAll<HTMLElement>('[data-dmg-split]')];
+    // 분해 정보를 준 캐릭터에만 붙는다.
+    expect(splits).toHaveLength(1);
+    const legend = splits[0]!.querySelector<HTMLElement>('.split-legend')!.textContent!;
+    expect(legend).toContain('75.0%');
+    expect(legend).toContain('25.0%');
+    expect(splits[0]!.querySelector<HTMLElement>('.split-normal')!.style.width).toBe('75%');
+    expect(splits[0]!.querySelector<HTMLElement>('.split-skill')!.style.width).toBe('25%');
+    expect(splits[0]!.querySelector('.skill-breakdown li')!.textContent).toContain('버스트');
+  });
+
+  it('omits the damage split when the result has no breakdown (older cached results)', async () => {
+    const client = new FakeClient();
+    mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });
+    root.querySelector<HTMLInputElement>('#duration')!.value = '10';
+
+    root.querySelector<HTMLFormElement>('form')!.requestSubmit();
+    await flush();
+
+    expect(root.querySelectorAll('[data-character-result]').length).toBeGreaterThan(0);
+    expect(root.querySelectorAll('[data-dmg-split]')).toHaveLength(0);
   });
 
   it('reuses a cached result instead of recalculating', async () => {

@@ -107,6 +107,54 @@ function renderCharacterRows(container: HTMLElement, entry: DeckResultEntry): vo
     bar.style.width = `${Math.max(1, share)}%`;
     track.append(bar);
     row.append(top, track);
+
+    // 평타/스킬 딜 분해. 구버전 캐시 결과에는 없으므로 있을 때만 그린다.
+    const breakdown = entry.result.charBreakdown?.[name];
+    if (breakdown && value > 0) {
+      const split = document.createElement('div');
+      split.className = 'dmg-split';
+      split.dataset.dmgSplit = '';
+      const normalPct = breakdown.normal / value * 100;
+      const skillPct = breakdown.skill / value * 100;
+
+      const splitTrack = document.createElement('div');
+      splitTrack.className = 'split-track';
+      const normalBar = document.createElement('i');
+      normalBar.className = 'split-normal';
+      normalBar.style.width = `${normalPct}%`;
+      const skillBar = document.createElement('i');
+      skillBar.className = 'split-skill';
+      skillBar.style.width = `${skillPct}%`;
+      splitTrack.append(normalBar, skillBar);
+
+      const legend = document.createElement('p');
+      legend.className = 'split-legend';
+      legend.append(
+        createText('span', `평타 ${formatDamage(breakdown.normal)} (${normalPct.toFixed(1)}%)`, 'legend-normal'),
+        createText('span', `스킬 ${formatDamage(breakdown.skill)} (${skillPct.toFixed(1)}%)`, 'legend-skill'),
+      );
+      split.append(splitTrack, legend);
+
+      if (breakdown.skills.length > 0) {
+        const details = document.createElement('details');
+        details.className = 'skill-breakdown';
+        const summary = document.createElement('summary');
+        summary.textContent = `스킬 ${breakdown.skills.length}종 세부`;
+        details.append(summary);
+        const list = document.createElement('ul');
+        for (const skill of breakdown.skills) {
+          const item = document.createElement('li');
+          item.append(
+            createText('span', skill.name),
+            createText('span', `${formatDamage(skill.damage)} · ${(skill.damage / value * 100).toFixed(1)}% · ${skill.hits}히트`),
+          );
+          list.append(item);
+        }
+        details.append(list);
+        split.append(details);
+      }
+      row.append(split);
+    }
     rows.append(row);
   }
   container.append(rows);
@@ -239,6 +287,17 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <p class="roster-note" data-roster-note hidden></p>
           </div>
           <div class="deck-tabs" data-deck-tabs hidden></div>
+          <div class="deck-copy" data-deck-copy hidden>
+            <button type="button" class="deck-copy-open" data-deck-copy-open>현재 덱 복사</button>
+            <div class="deck-copy-panel" data-deck-copy-panel hidden>
+              <p class="deck-copy-title" data-deck-copy-title></p>
+              <div class="deck-copy-targets" data-deck-copy-targets></div>
+              <div class="deck-copy-actions">
+                <button type="button" class="deck-copy-apply" data-deck-copy-apply>복사</button>
+                <button type="button" class="deck-copy-cancel" data-deck-copy-cancel>취소</button>
+              </div>
+            </div>
+          </div>
           <p class="deck-note" data-deck-note hidden>덱 사이에는 같은 캐릭터를 다시 편성할 수 있습니다.</p>
           <div class="squad-grid" data-squad-grid></div>
         </section>
@@ -318,6 +377,13 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const squadGrid = element<HTMLElement>(root, '[data-squad-grid]');
   const deckTabs = element<HTMLElement>(root, '[data-deck-tabs]');
   const deckNote = element<HTMLElement>(root, '[data-deck-note]');
+  const deckCopy = element<HTMLElement>(root, '[data-deck-copy]');
+  const deckCopyOpen = element<HTMLButtonElement>(root, '[data-deck-copy-open]');
+  const deckCopyPanel = element<HTMLElement>(root, '[data-deck-copy-panel]');
+  const deckCopyTitle = element<HTMLElement>(root, '[data-deck-copy-title]');
+  const deckCopyTargets = element<HTMLElement>(root, '[data-deck-copy-targets]');
+  const deckCopyApply = element<HTMLButtonElement>(root, '[data-deck-copy-apply]');
+  const deckCopyCancel = element<HTMLButtonElement>(root, '[data-deck-copy-cancel]');
   const status = element<HTMLElement>(root, '[data-status]');
   const errors = element<HTMLElement>(root, '[data-errors]');
   const submit = element<HTMLButtonElement>(root, 'button[type="submit"]');
@@ -348,6 +414,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       button.textContent = `덱 ${deck.id}${count ? ` · ${count}` : ''}`;
       button.addEventListener('click', () => {
         activeDeckId = deck.id;
+        // 패널은 '현재 덱' 기준이라 덱을 옮기면 닫는다 (열린 채로 두면 대상이 헷갈린다).
+        closeDeckCopy();
         saveState();
         renderDeckTabs();
         renderSquad();
@@ -355,6 +423,76 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       deckTabs.append(button);
     }
   };
+
+  // 덱 복사 — 같은 편성을 여러 덱에 깔아두고 딜러 한 자리만 바꿔 비교하는 용도다.
+  // 편성(squad)과 캐릭터별 설정(characters)을 함께 복사해야 비교가 공정하다.
+  const closeDeckCopy = () => {
+    deckCopyPanel.hidden = true;
+    deckCopyOpen.setAttribute('aria-expanded', 'false');
+  };
+
+  const renderDeckCopy = () => {
+    const source = activeDeck();
+    deckCopyTitle.textContent = `덱 ${source.id}의 편성과 캐릭터 설정을 복사할 대상`;
+    deckCopyTargets.replaceChildren();
+    for (const deck of decks) {
+      if (deck.id === source.id) continue;
+      const count = deck.squad.filter(Boolean).length;
+      const label = document.createElement('label');
+      label.className = 'deck-copy-target';
+      const box = document.createElement('input');
+      box.type = 'checkbox';
+      box.dataset.deckCopyTarget = String(deck.id);
+      // 비어 있는 덱은 잃을 게 없으므로 기본 선택. 이미 짜둔 덱은 사용자가 직접 고른다.
+      box.checked = count === 0;
+      label.append(
+        box,
+        createText('span', count === 0 ? `덱 ${deck.id} · 비어 있음` : `덱 ${deck.id} · ${count}명 (덮어씀)`,
+          count === 0 ? undefined : 'deck-copy-warn'),
+      );
+      deckCopyTargets.append(label);
+    }
+  };
+
+  const applyDeckCopy = () => {
+    const source = activeDeck();
+    const targets = Array.from(
+      deckCopyTargets.querySelectorAll<HTMLInputElement>('[data-deck-copy-target]'),
+    ).filter((box) => box.checked).map((box) => Number(box.dataset.deckCopyTarget));
+    if (targets.length === 0) {
+      showErrors(['복사할 대상 덱을 하나 이상 선택하세요.']);
+      return;
+    }
+    for (const id of targets) {
+      const target = decks[id - 1];
+      if (!target) continue;
+      target.squad = [...source.squad];
+      target.characters = Object.fromEntries(
+        Object.entries(source.characters).map(([name, value]) => [name, cloneOverride(value)]),
+      );
+    }
+    // 슬롯별 캐릭터 필터는 화면 상태일 뿐이라 같이 옮겨 검색어가 남지 않게 한다.
+    const sourceFilters = characterFilters[source.id - 1]!;
+    for (const id of targets) characterFilters[id - 1] = [...sourceFilters];
+
+    closeDeckCopy();
+    showErrors([]);
+    saveState();
+    renderDeckTabs();
+    status.textContent = `덱 ${source.id}을(를) ${targets.map((id) => `덱 ${id}`).join(' · ')}에 복사했습니다.`;
+  };
+
+  deckCopyOpen.addEventListener('click', () => {
+    if (deckCopyPanel.hidden) {
+      renderDeckCopy();
+      deckCopyPanel.hidden = false;
+      deckCopyOpen.setAttribute('aria-expanded', 'true');
+    } else {
+      closeDeckCopy();
+    }
+  });
+  deckCopyCancel.addEventListener('click', closeDeckCopy);
+  deckCopyApply.addEventListener('click', applyDeckCopy);
 
   const renderSquad = () => {
     const deck = activeDeck();
@@ -593,6 +731,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     activeDeckId = 1;
     deckTabs.hidden = !fiveDeckMode;
     deckNote.hidden = !fiveDeckMode;
+    deckCopy.hidden = !fiveDeckMode;
+    closeDeckCopy();
     saveState();
     renderDeckTabs();
     renderSquad();
@@ -776,6 +916,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       element<HTMLInputElement>(root, '#squad-mode').checked = true;
       deckTabs.hidden = false;
       deckNote.hidden = false;
+      deckCopy.hidden = false;
     }
     if (savedState.battle) writeBattle(savedState.battle);
   };
