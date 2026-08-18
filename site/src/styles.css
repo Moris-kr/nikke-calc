@@ -61,7 +61,9 @@ a:focus-visible {
 .hero h1 span { color: var(--amber); text-shadow: 0 0 40px rgba(255, 184, 58, .15); }
 .hero-lede { max-width: 650px; margin: 24px 0 20px; color: #aebdca; font-size: clamp(15px, 1.4vw, 19px); line-height: 1.7; }
 .trust-row { display: flex; flex-wrap: wrap; gap: 8px; }
-.trust-row span { border: 1px solid var(--line); padding: 7px 11px; color: #b9c7d3; background: rgba(7, 15, 25, .55); font-size: 12px; }
+.trust-row span, .trust-row .roster-open { border: 1px solid var(--line); padding: 7px 11px; color: #b9c7d3; background: rgba(7, 15, 25, .55); font-size: 12px; }
+.trust-row .roster-open { font-family: inherit; cursor: pointer; border-color: rgba(69,214,208,.35); color: #cfeceb; }
+.trust-row .roster-open:hover { background: rgba(69,214,208,.14); border-color: var(--cyan); }
 .hero-orbit { width: 150px; aspect-ratio: 1; border: 1px solid rgba(69,214,208,.35); border-radius: 50%; display: grid; place-items: center; position: relative; color: var(--cyan); }
 .hero-orbit::before, .hero-orbit::after { content: ""; position: absolute; inset: 13px; border: 1px dashed rgba(255,191,60,.3); border-radius: 50%; transform: rotate(25deg); }
 .hero-orbit::after { inset: -8px 66px; border-radius: 0; border-width: 0 1px; }
@@ -80,6 +82,25 @@ h2 { margin: 0; font-size: 24px; letter-spacing: -.035em; }
 .mode-toggle { grid-column: auto; white-space: nowrap; padding-bottom: 2px; }
 .roster-import { display: inline-flex; align-items: center; padding: 8px 12px; border: 1px solid rgba(69,214,208,.3); background: rgba(69,214,208,.08); color: #cfeceb; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; border-radius: 7px; }
 .roster-import:hover { background: rgba(69,214,208,.16); }
+.roster-import.danger { border-color: rgba(233,110,110,.38); background: rgba(233,110,110,.08); color: #f0c3c3; }
+.roster-import.danger:hover { background: rgba(233,110,110,.17); }
+
+/* 지원 니케 목록 모달 */
+.roster-card { width: min(880px, 100%); }
+.roster-search { width: 100%; margin: 12px 0 14px; padding: 9px 11px; background: rgba(3,9,16,.7); border: 1px solid var(--line); border-radius: 8px; color: var(--ink); font: inherit; font-size: 12px; }
+.roster-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 10px; }
+.roster-cell { display: flex; flex-direction: column; gap: 4px; padding: 8px; background: rgba(7,15,25,.6); border: 1px solid var(--line); border-radius: 10px; }
+.roster-portrait { position: relative; aspect-ratio: 1; overflow: hidden; border-radius: 7px; background: rgba(3,9,16,.75); }
+.roster-portrait img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.roster-burst { position: absolute; top: 4px; left: 4px; padding: 1px 5px; background: rgba(2,6,12,.78); color: var(--cyan); font-size: 9px; font-weight: 700; border-radius: 4px; }
+.roster-cell strong { font-size: 11px; line-height: 1.35; color: var(--ink); word-break: keep-all; }
+.roster-cell span { color: var(--muted); font-size: 9px; line-height: 1.4; }
+.roster-empty { margin: 14px 0 0; color: var(--muted); font-size: 11px; }
+
+/* 완전 초기화 확인 */
+.reset-card { width: min(460px, 100%); }
+.reset-list { margin: 12px 0 0; padding-left: 18px; color: #b9c7d3; font-size: 11px; line-height: 1.75; }
+.deck-copy-actions .deck-copy-apply.danger { background: rgba(233,110,110,.2); border-color: rgba(233,110,110,.4); color: #f6dada; }
 .roster-note { margin: 10px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
 
 .custom-modal { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(2,6,12,.7); }

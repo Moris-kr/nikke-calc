@@ -258,6 +258,84 @@ describe('calculator UI', () => {
     expect(root.querySelector<HTMLElement>('[data-deck-copy-panel]')!.hidden).toBe(false);
   });
 
+  it('drops the AI/no-server badges and turns the supported count into a roster button', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const trust = root.querySelector<HTMLElement>('.trust-row')!;
+
+    expect(trust.textContent).not.toContain('AI 없음');
+    expect(trust.textContent).not.toContain('서버 전송 없음');
+    const open = trust.querySelector<HTMLButtonElement>('[data-roster-open]')!;
+    expect(open.textContent).toBe(`${catalog.length}명 지원`);
+  });
+
+  it('opens a searchable grid of every supported nikke', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const modal = root.querySelector<HTMLElement>('[data-roster-modal]')!;
+    expect(modal.hidden).toBe(true);
+
+    root.querySelector<HTMLButtonElement>('[data-roster-open]')!.click();
+    expect(modal.hidden).toBe(false);
+    expect(root.querySelectorAll('[data-roster-cell]')).toHaveLength(catalog.length);
+    expect(root.querySelector('[data-roster-count]')!.textContent).toBe(`${catalog.length}명`);
+
+    const search = root.querySelector<HTMLInputElement>('[data-roster-search]')!;
+    search.value = '라피';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+    expect([...root.querySelectorAll<HTMLElement>('[data-roster-cell] strong')].map((n) => n.textContent))
+      .toEqual(['라피 : 레드 후드']);
+    expect(root.querySelector('[data-roster-count]')!.textContent).toBe(`1 / ${catalog.length}명`);
+
+    search.value = '없는이름';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(root.querySelectorAll('[data-roster-cell]')).toHaveLength(0);
+    expect(root.querySelector<HTMLElement>('[data-roster-empty]')!.hidden).toBe(false);
+
+    root.querySelector<HTMLButtonElement>('[data-roster-close]')!.click();
+    expect(modal.hidden).toBe(true);
+  });
+
+  it('wipes every stored key and reloads only after the reset is confirmed', () => {
+    let reloads = 0;
+    localStorage.setItem('nikke-roster-v1', '{"리타":{}}');
+    localStorage.setItem('nikke-custom-v1', JSON.stringify({
+      테스트니케: {
+        name: '테스트니케',
+        nikke: {
+          rarity: 'SSR', element_code: '철갑', class: '화력형', weapon_type: 'AR',
+          burst_stage: '3', burst_cooldown: 40, max_ammo: 60, reload_time: 1,
+          fire_rate: 10, damage_coeff: 13.65, core_dmg_mult: 200,
+        },
+        skills: [],
+      },
+    }));
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+      reload: () => { reloads += 1; },
+    });
+    // 편성 상태를 남겨 초기화 대상이 실제로 존재하게 한다.
+    chooseCharacter(root, 0, '프리바티');
+    expect(localStorage.getItem('nikke-state-v1')).not.toBeNull();
+
+    const modal = root.querySelector<HTMLElement>('[data-reset-modal]')!;
+    root.querySelector<HTMLButtonElement>('[data-reset-all]')!.click();
+    expect(modal.hidden).toBe(false);
+
+    // 취소하면 아무것도 지우지 않는다.
+    root.querySelector<HTMLButtonElement>('[data-reset-cancel]')!.click();
+    expect(modal.hidden).toBe(true);
+    expect(reloads).toBe(0);
+    expect(localStorage.getItem('nikke-state-v1')).not.toBeNull();
+
+    root.querySelector<HTMLButtonElement>('[data-reset-all]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-reset-confirm]')!.click();
+
+    expect(localStorage.getItem('nikke-state-v1')).toBeNull();
+    expect(localStorage.getItem('nikke-roster-v1')).toBeNull();
+    expect(localStorage.getItem('nikke-custom-v1')).toBeNull();
+    expect(reloads).toBe(1);
+    expect(modal.hidden).toBe(true);
+  });
+
   it('keeps five-deck tabs visually hidden until the mode is enabled', () => {
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
     const tabs = root.querySelector<HTMLElement>('[data-deck-tabs]')!;

@@ -47,6 +47,9 @@ interface CalculatorDependencies {
   version: string;
   client: CalculatorClientLike;
   storage: StorageSource;
+  // 완전 초기화는 저장소를 비운 뒤 페이지를 다시 띄워 메모리 상태까지 확실히
+  // 되돌린다. 테스트에서는 이 자리에 가짜 함수를 넣는다.
+  reload?: () => void;
 }
 
 const element = <T extends Element>(root: ParentNode, selector: string): T => {
@@ -161,7 +164,7 @@ function renderCharacterRows(container: HTMLElement, entry: DeckResultEntry): vo
 }
 
 export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies): () => void {
-  const { catalog, settings, version, client, storage } = deps;
+  const { catalog, settings, version, client, storage, reload } = deps;
   const cache = new ResultCache(storage, version, 30);
   const catalogByName = new Map(catalog.map((char) => [char.name, char]));
   const decks = Array.from({ length: 5 }, (_, index) => emptyDeck(index + 1));
@@ -267,7 +270,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           <p class="eyebrow">BROWSER SIM <span>·</span> 60 FPS TIMELINE</p>
           <h1><span>NIKKE</span> 스쿼드 계산기</h1>
           <p class="hero-lede">캐릭터별 오버로드와 큐브, 전투 조건을 반영해 프레임 단위 예상 대미지를 계산합니다.</p>
-          <div class="trust-row" aria-label="서비스 특징"><span>AI 없음</span><span>서버 전송 없음</span><span>${catalog.length}명 지원</span></div>
+          <div class="trust-row" aria-label="서비스 특징"><button type="button" class="roster-open" data-roster-open title="지원하는 니케 전체 보기">${catalog.length}명 지원</button></div>
         </div>
         <div class="hero-orbit" aria-hidden="true"><span>01</span><strong>LOCAL<br />SIM</strong></div>
       </header>
@@ -282,6 +285,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
                 <span>CSV 불러오기</span>
               </label>
               <button type="button" class="roster-import" data-add-nikke title="미출시·미등록 니케를 직접 추가">새 니케 추가</button>
+              <button type="button" class="roster-import danger" data-reset-all title="편성·설정·CSV 로스터·추가한 니케·저장된 결과를 모두 지우고 처음 상태로 되돌립니다">완전 초기화</button>
               <label class="toggle-field mode-toggle"><input id="squad-mode" type="checkbox" /><span class="toggle"></span><span>5덱 모드</span></label>
             </div>
             <p class="roster-note" data-roster-note hidden></p>
@@ -332,6 +336,34 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         <div data-timeline-body></div>
       </section>
       <footer><p>비공식 팬 제작 도구 · 실제 전투 환경과 차이가 있을 수 있습니다.</p><a href="https://github.com/Moris-kr/nikke-calc" target="_blank" rel="noreferrer">SOURCE / GITHUB ↗</a></footer>
+
+      <div class="custom-modal" data-roster-modal hidden>
+        <div class="custom-card roster-card" role="dialog" aria-label="지원 니케 목록">
+          <div class="custom-head"><h2>지원 니케 <span data-roster-count></span></h2><button type="button" class="custom-close" data-roster-close aria-label="닫기">✕</button></div>
+          <p class="custom-desc">스킬까지 파싱되어 계산에 쓸 수 있는 니케입니다. 이름으로 걸러 볼 수 있습니다.</p>
+          <input type="search" class="roster-search" data-roster-search placeholder="이름 검색" autocomplete="off" aria-label="지원 니케 이름 검색" />
+          <div class="roster-grid" data-roster-grid></div>
+          <p class="roster-empty" data-roster-empty hidden>검색과 일치하는 니케가 없습니다.</p>
+        </div>
+      </div>
+
+      <div class="custom-modal" data-reset-modal hidden>
+        <div class="custom-card reset-card" role="dialog" aria-label="완전 초기화 확인">
+          <div class="custom-head"><h2>완전 초기화</h2><button type="button" class="custom-close" data-reset-close aria-label="닫기">✕</button></div>
+          <p class="custom-desc">아래 항목을 모두 지우고 처음 상태로 되돌립니다. 되돌릴 수 없습니다.</p>
+          <ul class="reset-list">
+            <li>모든 덱의 편성과 캐릭터별 설정</li>
+            <li>CSV로 불러온 로스터</li>
+            <li>직접 추가한 니케</li>
+            <li>저장된 계산 결과</li>
+            <li>전투 조건</li>
+          </ul>
+          <div class="deck-copy-actions">
+            <button type="button" class="deck-copy-apply danger" data-reset-confirm>초기화</button>
+            <button type="button" class="deck-copy-cancel" data-reset-cancel>취소</button>
+          </div>
+        </div>
+      </div>
 
       <div class="custom-modal" data-custom-modal hidden>
         <div class="custom-card" role="dialog" aria-label="새 니케 추가">
@@ -751,6 +783,86 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     saveState();
     showErrors([]);
   });
+  // 지원 니케 목록 — 카탈로그(파싱까지 끝난 실제 캐릭터)를 그리드로 보여준다.
+  const rosterModal = element<HTMLElement>(root, '[data-roster-modal]');
+  const rosterGrid = element<HTMLElement>(root, '[data-roster-grid]');
+  const rosterSearch = element<HTMLInputElement>(root, '[data-roster-search]');
+  const rosterEmpty = element<HTMLElement>(root, '[data-roster-empty]');
+  const rosterCount = element<HTMLElement>(root, '[data-roster-count]');
+
+  const renderRosterGrid = () => {
+    // 직접 추가한 니케까지 포함해 지금 고를 수 있는 전체를 보여준다.
+    const all = [...catalogByName.values()].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+    const query = rosterSearch.value.trim().toLowerCase();
+    const shown = query ? all.filter((char) => char.name.toLowerCase().includes(query)) : all;
+    rosterCount.textContent = query ? `${shown.length} / ${all.length}명` : `${all.length}명`;
+    rosterGrid.replaceChildren();
+    for (const char of shown) {
+      const cell = document.createElement('article');
+      cell.className = 'roster-cell';
+      cell.dataset.rosterCell = '';
+      const portrait = document.createElement('div');
+      portrait.className = 'roster-portrait';
+      if (char.image) {
+        const img = document.createElement('img');
+        img.src = `${import.meta.env.BASE_URL}${char.image}`;
+        img.alt = '';
+        img.loading = 'lazy';
+        portrait.append(img);
+      }
+      const badge = document.createElement('span');
+      badge.className = 'roster-burst';
+      badge.textContent = `B${char.burstStage}`;
+      portrait.append(badge);
+      cell.append(
+        portrait,
+        createText('strong', char.name),
+        createText('span', [char.elementCode, char.weaponType, char.className].filter(Boolean).join(' · ')),
+      );
+      rosterGrid.append(cell);
+    }
+    rosterEmpty.hidden = shown.length > 0;
+  };
+
+  const closeRosterModal = () => { rosterModal.hidden = true; };
+  element<HTMLButtonElement>(root, '[data-roster-open]').addEventListener('click', () => {
+    rosterSearch.value = '';
+    renderRosterGrid();
+    rosterModal.hidden = false;
+  });
+  element<HTMLButtonElement>(root, '[data-roster-close]').addEventListener('click', closeRosterModal);
+  rosterModal.addEventListener('click', (event) => {
+    if (event.target === rosterModal) closeRosterModal();
+  });
+  rosterSearch.addEventListener('input', renderRosterGrid);
+
+  // 완전 초기화 — 이 브라우저에 쌓인 저장 상태를 전부 버린다. 메모리 변수까지
+  // 하나씩 되돌리는 대신 저장소를 비우고 페이지를 다시 띄워, 새로 방문한 것과
+  // 같은 상태임을 보장한다.
+  const resetModal = element<HTMLElement>(root, '[data-reset-modal]');
+  const closeResetModal = () => { resetModal.hidden = true; };
+  element<HTMLButtonElement>(root, '[data-reset-all]').addEventListener('click', () => {
+    resetModal.hidden = false;
+  });
+  element<HTMLButtonElement>(root, '[data-reset-close]').addEventListener('click', closeResetModal);
+  element<HTMLButtonElement>(root, '[data-reset-cancel]').addEventListener('click', closeResetModal);
+  resetModal.addEventListener('click', (event) => {
+    if (event.target === resetModal) closeResetModal();
+  });
+  element<HTMLButtonElement>(root, '[data-reset-confirm]').addEventListener('click', () => {
+    cache.clear();
+    const store = resolveStorage();
+    for (const key of [STATE_KEY, ROSTER_KEY, CUSTOM_KEY]) {
+      try {
+        store?.removeItem(key);
+      } catch {
+        // 저장소를 못 쓰는 브라우저에서도 나머지 초기화는 계속한다.
+      }
+    }
+    closeResetModal();
+    (reload ?? (() => window.location.reload()))();
+  });
+
   element<HTMLButtonElement>(root, '[data-clear-cache]').addEventListener('click', () => {
     cache.clear();
     showErrors([]);
