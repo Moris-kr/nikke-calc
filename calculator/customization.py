@@ -8,7 +8,9 @@ listed here; state/trigger/weapon-change flags deliberately stay out.
 
 from __future__ import annotations
 
+import json
 import math
+from pathlib import Path
 from typing import Any
 
 from context.growth import resolve_character_growth
@@ -26,7 +28,23 @@ OVERLOAD_FIELDS: dict[str, dict[str, Any]] = {
     "accuracy_pct": {"label": "명중률", "unit": "%", "min": 0.0, "max": 1000.0},
 }
 
-CUBE_NAMES = ("재장", "탄충", "체력", "차속", "파츠", "분배")
+def _load_cube_names() -> tuple[str, ...]:
+    """선택 가능한 하모니 큐브 이름. 정본은 `data/base_stat_tables/cube.json`이다.
+
+    `_`로 시작하는 키는 주석·공용 표이고, `공통`은 종류가 아니라 어떤 큐브를 끼든
+    항상 붙는 두 번째 스킬이라 선택지에서 뺀다. 나머지는 계산기가 스킬을 아직
+    처리하지 못하는 큐브(`unsupported`)까지 모두 넣는다 — 스킬이 빠져도 큐브의
+    공격력·방어력·체력과 `공통` 우월 코드 효과는 그대로 붙기 때문에, 목록에서
+    빼면 실제로 그 큐브를 낀 유저의 스펙이 과소평가된다.
+    """
+    root = Path(__file__).resolve().parent.parent
+    table = json.loads(
+        (root / "data" / "base_stat_tables" / "cube.json").read_text(encoding="utf-8")
+    )
+    return tuple(k for k in table if not k.startswith("_") and k != "공통")
+
+
+CUBE_NAMES = _load_cube_names()
 SKILL_LEVEL_KEYS = {"1", "2", "3"}
 EQUIP_PARTS = ("머리", "몸통", "팔", "다리")
 EQUIP_LEVEL_MAX = 5  # data/base_stat_tables/equipment_stats.json 은 부위별 LV0~5
@@ -290,12 +308,12 @@ def _self_test() -> None:
     assert normalize_character_overrides({
         "skillLevels": {"1": 8, "2": 9, "3": 10},
         "overload": {"atk_pct": 22.22},
-        "cube": {"name": "탄충", "level": 15},
+        "cube": {"name": "택티컬 베어 큐브", "level": 15},
         "manualStats": {"split_dmg_pct": 20},
     }) == {
         "skill_levels": {"1": 8, "2": 9, "3": 10},
         "equip_skills": {"atk_pct": 22.22},
-        "cube": {"name": "탄충", "level": 15},
+        "cube": {"name": "택티컬 베어 큐브", "level": 15},
         "manual_stats": {"split_dmg_pct": 20.0},
     }
     try:

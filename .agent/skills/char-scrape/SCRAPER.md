@@ -12,23 +12,45 @@
 
 | 파일 | 역할 |
 |------|------|
-| `cdn_fetch.py` | CDN 수집기(메인). 캐릭터 목록 확정 → roledata 병렬 수집 → 어댑트 → 이미지 → `parse_nikke.py` |
+| `cdn_fetch.py` | CDN 수집기(메인). 캐릭터 목록 확정 → roledata 병렬 수집 → 어댑트 → 이미지 → `parse_nikke.py` → 큐브 표 |
+| `cdn_tables.py` | 캐릭터가 아닌 성장 표 수집기. 큐브·소장품·장비·호감도 → `data/base_stat_tables/` |
 | `cdn_path.py` | 평문 경로 → 난독화 CDN URL 변환. 프론트엔드 `obfuscatedPath()` 재현 |
 | `parse_nikke.py` | `nikke_scraped.json` → `parsed_nikke.json` 변환. 단독 실행 가능 |
 | `nikke_scraped.json` | 수집기 출력(원시 데이터). 파싱 입력 소스 |
 | `preview_skills.json` | 출시 전 카드 이미지 전사본(수동). 같은 스키마, `values`는 레벨 10만 |
 | `preview_diff.py` | 프리뷰 원문 ↔ 스크랩 원문 대조. char-add 단계 R에서 실행 |
 
+`scraper/`에는 `profile_fetch.py`도 있지만 **이 문서의 대상이 아니다** — 한 계정의 개인 육성
+상태를 로그인 세션으로 받는 도구이며 `profile-sync` skill이 맡는다(아래 §유저 계정 수집은
+여기가 아니다). 위 표의 파일은 전부 로그인 없는 공개 CDN 데이터를 다룬다.
+
 ---
 
 ## 사용법
 
 ```bash
-python scraper/cdn_fetch.py            # 전량 수집 + 이미지 + parse_nikke
+python scraper/cdn_fetch.py            # 전량 수집 + 이미지 + parse_nikke + 큐브 표
 python scraper/cdn_fetch.py --check    # 수집 후 기존 파일과 diff만 출력 (쓰기 없음)
 python scraper/cdn_fetch.py --ids 601,602   # 특정 resource_id(숫자)만 (기존 파일에 병합)
 python scraper/cdn_fetch.py --force-images  # 이미지 전부 다시 받기
 ```
+
+### 성장 표 (`cdn_tables.py`)
+
+```bash
+python scraper/cdn_tables.py                 # 큐브·소장품·장비·호감도 전부
+python scraper/cdn_tables.py --check         # diff만 출력 (쓰기 없음)
+python scraper/cdn_tables.py --only cube     # 일부만 (쉼표 구분)
+```
+
+**큐브는 `cdn_fetch.py`가 돌 때마다 같이 갱신된다** — 신규 큐브가 주기적으로 출시되기
+때문이다. 소장품·장비·호감도는 게임이 표를 바꿀 때만 손대면 되므로 자동 갱신에 넣지 않았다
+(대량 캐릭터 수집에 매번 얹을 이유가 없다). 의심되면 `--check`로 확인한다.
+
+신규 큐브가 들어오면 수집이 **매핑 없는 큐브 스킬**이라며 멈춘다. 게임 설명문 → 우리 stat
+키는 의미 판단이라 자동화하지 않는다 — `cdn_tables.py`의 `CUBE_STAT_MAP`에 사람이 추가한다
+(`context/PARSING.md §stat 로스터`가 어휘의 정본). 계산기가 아직 못 다루는 stat이거나
+조건부 발동이면 `unsupported`가 붙어 데이터만 남고 버프로는 등록되지 않는다.
 
 ### 신캐 출시 / 기존 캐릭 스킬 업데이트 — 이게 정문이다
 
@@ -92,6 +114,17 @@ cdn_fetch.py
 
 ---
 
+## 유저 계정 수집은 여기가 아니다
+
+특정 계정의 실제 육성 상태(내 니케의 레벨·장비·오버로드…)를 받는 일은 **`profile-sync` skill**이
+맡는다 — `.agent/skills/profile-sync/SKILL.md`. 로그인 세션이 필요하고, 산출물이 개인 데이터라
+커밋 금지이며, 갱신 주기도 게임 마스터 데이터와 무관해서 이 문서와 gate를 공유하지 않는다.
+이 문서가 다루는 건 전부 로그인 없는 공개 CDN 데이터다.
+
+난독화 경로 규칙만은 양쪽이 공유하며, 아래 절이 그 정본이다.
+
+---
+
 ## 난독화 경로 규칙 (`cdn_path.py`)
 
 프론트엔드 `index-*.js`의 `obfuscatedPath()`와 동일:
@@ -107,6 +140,16 @@ cdn_fetch.py
 | `/character/character_id_map.json` | 전체 캐릭터 resource_id 목록 |
 | `/roledata/{rid}-v2-ko.json` | 캐릭터 1명 완결 데이터(무기·스킬·스탯) |
 | `/character/mi/mi_c{rid:03d}_00_s.webp` | 256×512 썸네일 |
+| `/equip/cube_rare_map.json` | 큐브 목록(id·resource_id·등급) |
+| `/equip/ko/cube_{id}.json` | 큐브 1종(레벨별 스탯·스킬 2개) |
+| `/equip/favorite_rare_map.json` | 애장품(SSR) · 소장품(R·SR) id 목록 |
+| `/equip/ko/favorite_{id}.json` | 애장품 또는 소장품 1종 |
+| `/equip/ItemEquipTable-ko.json` | 장비 T1~T10 × 클래스 × 부위 스탯 |
+| `/character/AttractiveLevelTable.json` | 호감도 1~40레벨 클래스별 보너스 |
+
+CDN이 주는데 아직 안 쓰는 것: `/equip/equip_option_table_v2-ko.json`(오버로드 옵션 30종
+이름). 옵션의 **단계별 수치**는 `state_effect_id`만 있고 값 테이블이 CDN에 노출되지 않아
+`equipment_skills.json`은 여전히 수동 관리다.
 
 **리스크:** 사이트가 난독화 상수(소수·djb2·locale)를 바꾸면 URL이 깨진다.
 그때는 전량 404로 즉시 드러나므로, JS 번들에서 `LARGE_PRIMES`·`generateTwoLetterHash`·
@@ -136,7 +179,15 @@ roledata(영문 enum) → 기존 `nikke_scraped.json` 한국어 스키마:
 - `<color>`·`<word_group>` 태그만 제거(설명문의 리터럴 `<Step N ...>` 텍스트는 보존)
 
 **동명이인 처리:** 게임에 같은 이름 캐릭터가 존재한다(예: SSR 사쿠라 rid282 / SR 사쿠라 rid836).
-이름을 키로 쓰므로 등급이 높은 쪽을 보존하고 나머지는 버린다(경고 출력).
+이름을 키로 쓰므로 **충돌하는 쪽을 개명해 둘 다 보존한다**(경고 출력).
+
+- 맨이름은 **등급이 높은 쪽**, 동률이면 resource_id가 작은 쪽(먼저 출시된 원본)이 갖는다.
+  수집이 비동기라 도착 순서에 의존하면 재수집마다 키가 뒤바뀌므로 순서와 무관하게 고정한다.
+- 개명 키는 `사쿠라 (SR)` — 등급까지 같아 구분이 안 되면 `사쿠라 (836)`처럼 resource_id로
+  떨어진다. 이름은 유저가 스쿼드에 직접 치는 식별자라 id보다 등급을 먼저 쓴다
+  (`context/ALIASES.md` 해석 규칙 5).
+- **버리면 안 되는 이유:** 버린 resource_id는 이름으로 되돌릴 길이 없어져 `profile-sync`가
+  그 캐릭터를 통째로 놓친다(`이름매핑 실패 name_code`). 실제로 SR 사쿠라가 그렇게 빠져 있었다.
 
 **이미지 파일명:** Windows 금지 문자(`/ : * ? " < > |`)를 `_`로 치환. 기존 `image/` 규칙과 동일
 (예: `D : 킬러 와이프` → `D _ 킬러 와이프.webp`).
@@ -149,8 +200,9 @@ roledata(영문 enum) → 기존 `nikke_scraped.json` 한국어 스키마:
 - `favoriteitem_skill_group_data` = 애장품 1/2/3단계. **배열 순서 = 단계**, 각 항목의
   `skill_change_slot`(1/2/3)이 기존 skill1/skill2/ulti 중 무엇을 교체하는지 나타낸다(캐릭마다 다름).
 - 각 단계 스킬 값은 `render_skill()`로 base와 동일하게 template/values 압축.
-- `collection_skill_group_data`(소유 시 상시 버프)는 캐릭터 특성이 아니므로 수집하지 않는다.
-- `favorite_rare_map`의 R/SR(1xxxxx)은 스탯 전용 인형이라 대상 아님.
+- `collection_skill_group_data`(소유 시 상시 버프)는 캐릭터 특성이 아니므로 여기서는 수집하지 않는다.
+- `favorite_rare_map`의 R/SR(1xxxxx)은 캐릭터별 애장품이 아니라 **무기군별 소장품**이다.
+  `cdn_tables.py`가 `collection.json`으로 따로 만든다.
 
 애장품 스킬을 계산기에 반영하려면 base 스킬처럼 `parsed_skills.json`에 손파싱해야 한다
 (`nikke_scraped.json`의 `애장품` 필드는 raw 소스일 뿐, `parsed_nikke.json`엔 반영 안 됨).

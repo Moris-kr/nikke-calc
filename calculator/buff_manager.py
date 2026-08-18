@@ -22,6 +22,8 @@ import random
 from dataclasses import dataclass, field
 from typing import Any
 
+from calculator.base_stat import NO_ITEM
+
 _DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 _TABLE_DIR = os.path.join(_DATA_DIR, "base_stat_tables")
 
@@ -50,6 +52,57 @@ def _get_skill_lv(char: dict, eff: dict) -> str:
 
 _NIKKE = _load(os.path.join(_DATA_DIR, "parsed_nikke.json"))
 _PARSED_SKILLS = _load(os.path.join(_DATA_DIR, "parsed_skills.json"))
+
+FAVORITE_MAX_STAGE = 3          # 애장품 단계는 0(미보유)~3
+
+
+def char_effects(name: str, favorite_stage: int | None = None) -> list[dict]:
+    """캐릭터의 활성 스킬 효과 목록. 애장품 단계에 맞는 슬롯 조합을 고른다.
+
+    애장품은 단계마다 스킬 슬롯 **하나**를 통째로 갈아끼운다. 어느 단계가 어느 슬롯을
+    바꾸는지는 캐릭터마다 다르고(`parsed_nikke.json`의 `favorite_slots`), 그래서
+    `parsed_skills.json`에는 한 캐릭터의 슬롯마다 판본이 둘 있다 —
+    `favorite: N`이 붙은 항목은 **애장품 N단계 판본**, 안 붙은 항목은 **기본(비애장품) 판본**.
+
+    단계 S에서는 1~S단계가 교체한 슬롯은 애장품 판본을, 나머지 슬롯은 기본 판본을 쓴다.
+    애장품이 없는 캐릭터는 단계와 무관하게 파싱된 항목 전부를 그대로 쓴다.
+
+    필요한 판본이 아직 파싱돼 있지 않으면 **끊는다** — 그대로 두면 그 슬롯의 스킬이
+    통째로 빠진 채 조용히 낮은 딜이 나온다.
+    """
+    effs = _PARSED_SKILLS.get(name, [])
+    slots: list[int] = _NIKKE.get(name, {}).get("favorite_slots") or []
+    if not slots or not effs:
+        return effs
+
+    stage = FAVORITE_MAX_STAGE if favorite_stage is None else int(favorite_stage)
+    if not 0 <= stage <= FAVORITE_MAX_STAGE:
+        raise ValueError(
+            f"[{name}] 애장품 단계는 0~{FAVORITE_MAX_STAGE}여야 한다 (favorite_stage={favorite_stage})"
+        )
+
+    # 슬롯 → 그 슬롯에 실제로 쓸 판본. 애장품 판본이면 그 단계, 기본 판본이면 None.
+    want: dict[int, int | None] = {
+        slot: (i + 1 if i + 1 <= stage else None) for i, slot in enumerate(slots)
+    }
+    out = [eff for eff in effs
+           if eff.get("favorite") == want[int(eff["source"].removeprefix("스킬"))]]
+
+    missing = sorted(slot for slot in want
+                     if not any(eff["source"] == f"스킬{slot}"
+                                and eff.get("favorite") == want[slot] for eff in effs))
+    if missing:
+        kind = {slot: ("애장품 %d단계" % want[slot]) if want[slot] else "기본(비애장품)"
+                for slot in missing}
+        raise ValueError(
+            f"[{name}] 애장품 {stage}단계로 돌리려면 필요한 스킬 판본이 "
+            f"data/parsed_skills.json에 없다: "
+            + ", ".join(f"스킬{slot}({k})" for slot, k in kind.items()) + "\n"
+            f"  이대로 두면 그 슬롯의 효과가 통째로 빠져 딜이 조용히 낮게 나온다.\n"
+            f"  ① 그 판본을 파싱한다 — char-add 단계 2 (`.agent/skills/char-add/PARSE.md`)\n"
+            f"  ② 파싱 전이라면 애장품 3단계(`favorite_stage: 3`)로만 돌린다"
+        )
+    return out
 _EQUIP_SKILLS = _load(os.path.join(_TABLE_DIR, "equipment_skills.json"))
 _CUBE = _load(os.path.join(_TABLE_DIR, "cube.json"))
 _COLLECTION = _load(os.path.join(_TABLE_DIR, "collection.json"))
@@ -82,6 +135,7 @@ _BUFFS_ZERO: dict[str, Any] = {
     "def_pct":          0.0,
     "enemy_def_down_pct": 0.0,  # 적 방어력 감소(②). 적 대상 def_pct 버프 합(음수)
     "charge_speed_pct": 0.0,
+    "charge_time_flat": 0.0,  # 차지 시간 절대 가감(초). 감소는 음수
     "charge_time_fixed": False,
     "persona_state": False,   # 페르소나 상태 마커. 수치 기여 없이 대상 판정에만 쓴다
     "charge_speed_buff_immune": False,
@@ -146,6 +200,7 @@ _STAT_TO_BUFF: dict[str, str] = {
     "personal_enemy_def_down_pct": "enemy_def_down_pct",
     "charge_speed_pct":     "charge_speed_pct",
     "charge_speed_caster_based_pct": "charge_speed_pct",  # _get_value에서 시전자 charge_time 기준 환산
+    "charge_time_flat":     "charge_time_flat",
     "charge_time_fixed":    "charge_time_fixed",
     "persona_state":        "persona_state",
     "charge_speed_buff_immune":  "charge_speed_buff_immune",
@@ -177,6 +232,28 @@ _STAT_TO_BUFF: dict[str, str] = {
 
 # 크리확률로 합산되는 stat 집합 (백분율 → 확률 환산 후 기본 15%와 합연산)
 _CRIT_RATE_STATS = {"crit_rate", "normal_atk_crit_rate"}
+
+# 수치 없이 True만 세우는 boolean 플래그 buff_key
+_BOOL_BUFF_KEYS = frozenset([
+    "charge_time_fixed", "charge_speed_buff_immune", "charge_speed_debuff_immune",
+    "debuff_immune", "stun_immune", "stack_change_immune", "taunt",
+    "pierce_enabled", "armor_break_enabled", "persona_state",
+])
+
+# get_buffs 실행 계획의 스텝 종류 (`BuffManager._build_plan` 참고)
+_PLAN_ADD, _PLAN_CRIT, _PLAN_FLAG, _PLAN_LIVE = 0, 1, 2, 3
+
+# 계획 캐시 감사 모드. `NIKKE_BUFF_AUDIT=1`이면 매 조회마다 계획을 다시 만들어 캐시와
+# 대조하고, 다르면 즉시 예외를 던진다 (조용히 틀리는 대신 터진다).
+#
+# 계획 캐시의 전제는 **`_active`가 바뀌면 반드시 `_invalidate_buffs_cache()`를 거친다**는
+# 것 하나다. 지금 코드의 모든 `_active` 변경 지점이 이를 지키지만, 앞으로 추가될 효과가
+# 이 전제를 깰 수 있다. 새 캐릭터를 넣고 결과가 의심스러우면 이 모드로 회귀를 돌린다:
+#
+#     NIKKE_BUFF_AUDIT=1 python -m context.snapshot --squad <스쿼드>
+#
+# 느리므로 평상시에는 끈다.
+_BUFF_AUDIT = os.environ.get("NIKKE_BUFF_AUDIT") == "1"
 
 # 대상별 보호막을 만드는 stat 집합. `shared_shield_from_max_hp_pct`(아군 공용 보호막)는
 # 부여 대상이 시전자 1인이라는 점만 다르고 보호막 판정(during_shield ·
@@ -254,6 +331,7 @@ _LAZY_RESOLVE_PREFIXES = (
     "allies_lowest_atk_burst3:",
     "allies_top_atk:",
     "allies_top_atk_excl:",
+    "allies_weapon_top_atk:",
     "allies_lowest_hp:",
     "allies_lowest_hp_excl:",
     "allies_top_def:",
@@ -332,6 +410,9 @@ class BuffManager:
         # 등록된 효과 목록: (effect, caster_name)
         self._effects: list[tuple[dict, str]] = []
 
+        # 캐릭터명 → 애장품 단계까지 반영한 스킬 효과 목록 (`char_effects()`)
+        self._char_effects_cache: dict[str, list[dict]] = {}
+
         # 활성 버프 목록
         self._active: list[ActiveBuff] = []
 
@@ -366,6 +447,8 @@ class BuffManager:
 
         # 현재 시각. sync_hp()처럼 t를 받지 않는 지점에서 이벤트를 쏘기 위해 보관
         self._cur_t: float = 0.0
+        # 지금 처리 중인 notify의 추가 컨텍스트 (hit_crit 등). _condition_ok가 읽는다
+        self._notify_ctx: dict = {}
         # sync_hp → notify → _activate → sync_hp 재진입 방지
         self._in_hp_edge: bool = False
 
@@ -386,6 +469,18 @@ class BuffManager:
         self._buffs_cache: dict = {}
         self._cache_version: int = 0
 
+        # get_buffs 실행 계획 캐시: (caster, target, exclude_names) → (plan, hp_abs, cb_abs)
+        # `_active`가 그대로인 동안(= 같은 _cache_version) 기여가 변하지 않는 버프를
+        # 미리 평가해 둔다. 자세한 근거는 get_buffs / _plan_step 참고.
+        self._plan_cache: dict = {}
+
+        # `_active`를 stat/name으로 되짚는 인덱스. 셋 다 _invalidate_buffs_cache에서 함께 비운다
+        self._stat_index: dict[str, list] = {}
+        self._name_index_cache: dict[str, list] = {}
+
+        # id(eff) → eff 역참조. _effects는 __init__ 이후 불변이라 1회만 만든다
+        self._eff_by_id: dict[int, dict] = {}
+
         # is_stunned 캐시: char_name → bool (_invalidate_buffs_cache 시 함께 초기화)
         self._stunned_cache: dict = {}
 
@@ -403,14 +498,36 @@ class BuffManager:
 
         self._register_all()
 
+        # `_effects`는 여기서 확정되고 이후 변하지 않는다 — 프레임마다 다시 훑던 두 가지를
+        # 이 시점에 한 번만 만든다. `tick()`의 every:Ns 블록과 tick_interval 블록이 쓴다.
+        self._eff_by_id = {id(eff): eff for eff, _ in self._effects}
+        self._every_effects: list[tuple[dict, str, str]] = [
+            (eff, caster, timing)
+            for eff, caster in self._effects
+            for timing in eff["trigger"]["timing"]
+            if timing.startswith("every:")
+        ]
+
     # ── 등록 ─────────────────────────────────────────────────────────────
+
+    def char_effects(self, name: str) -> list[dict]:
+        """스쿼드 멤버의 활성 스킬 효과 목록 (그 캐릭터의 애장품 단계 기준).
+
+        모듈 함수 `char_effects()`와 달리 단계를 캐릭터 dict에서 읽는다. 효과 목록을
+        순서대로 되짚는 타임라인 쪽 코드도 `_PARSED_SKILLS` 대신 이걸 써야 한다 —
+        원본에는 안 쓰는 판본이 섞여 있어 서술 순서가 실제 실행 순서와 어긋난다.
+        """
+        if name not in self._char_effects_cache:
+            char = self._char.get(name) or {}
+            self._char_effects_cache[name] = char_effects(name, char.get("favorite_stage"))
+        return self._char_effects_cache[name]
 
     def _register_all(self):
         """스쿼드 전원의 모든 버프 소스를 효과 목록에 등록."""
         for char in self.squad:
             name = char["name"]
-            # parsed_skills
-            for eff in _PARSED_SKILLS.get(name, []):
+            # parsed_skills (애장품 단계에 맞는 슬롯 판본만)
+            for eff in self.char_effects(name):
                 self._effects.append((eff, name))
             # 장비 스킬 (부위별 개별 옵션)
             for part_data in char["equipment"].values():
@@ -526,9 +643,17 @@ class BuffManager:
     def _make_cube_effects(self, cube_name: str, cube_lv: int) -> list[dict]:
         """큐브 효과 목록.
 
-        `공통`(우월 코드 대미지)은 소장품의 `공통`과 마찬가지로 **어떤 큐브를 끼든
-        항상 붙는다**. 선택한 종류의 효과는 그 위에 추가된다 — 재장전 큐브를 끼면
-        재장전 효과가 더해지는 것이지 우월 코드가 빠지는 게 아니다.
+        `공통`(우월 코드 공격 대미지)은 소장품의 `공통`과 마찬가지로 **어떤 큐브를 끼든
+        항상 붙는다** — 모든 큐브의 두 번째 스킬이 같기 때문이다. 큐브 이름으로 고른
+        효과는 그 위에 추가된다.
+
+        `unsupported`가 달린 항목(계산기 미구현 stat·조건부 발동)은 등록하지 않는다.
+        `cube.json`이 데이터는 다 갖고 있되 엔진이 못 다루는 것을 명시한 표시다.
+
+        엔트리의 `type`·`timing`을 그대로 따른다. 없으면 `battle_start` 상시 버프다 —
+        대부분의 큐브가 그렇지만, 택티컬 베어 큐브(10발 사격 시 탄환 충전)처럼
+        `type: instant` + 트리거 타이밍으로 오는 것도 있다. instant는 duration이 없다
+        (`parsed_skills.json`의 instant와 같은 모양이어야 타임라인 핸들러가 받는다).
         """
         names = ["공통"]
         if cube_name != "공통":
@@ -537,26 +662,31 @@ class BuffManager:
         effects = []
         for nm in names:
             entry = _CUBE.get(nm)
-            if not entry or nm.startswith("_"):
+            if not entry or nm.startswith("_") or entry.get("unsupported"):
                 continue
             vals = entry.get("values", {}).get(str(cube_lv))
             if not vals:
                 continue
-            is_ammo_cube = nm == "탄충"
-            effects.append({
-                "type": "instant" if is_ammo_cube else "buff",
+            val = float(vals[0])
+            # 받는 대미지 감소(이로운) → 음수로 저장 (소장품과 같은 규약)
+            if entry["stat"] == "received_dmg_pct":
+                val = -val
+            eff = {
+                "type": entry.get("type", "buff"),
                 "name": f"큐브:{nm}",
                 "trigger": {
-                    "timing": ["hit_count:10"] if is_ammo_cube else ["battle_start"],
+                    "timing": [entry.get("timing", "battle_start")],
                     "condition": [],
                 },
                 "target": "self",
                 "stat": entry["stat"],
-                "polarity": "beneficial",
-                "fixed_value": float(vals[0]),
-                "duration": None,
+                "fixed_value": val,
                 "_source_tag": "cube",
-            })
+            }
+            if eff["type"] == "buff":
+                eff["polarity"] = "beneficial"
+                eff["duration"] = None
+            effects.append(eff)
         return effects
 
     def _make_manual_effect(self, stat: str, value: float) -> dict:
@@ -594,7 +724,13 @@ class BuffManager:
 
     def _make_collection_effects(self, char: dict) -> list[dict]:
         stage = char["collection_stage"]
-        entry = _COLLECTION["_stat_table"][stage]
+        if stage == NO_ITEM:        # 미장착 — 플랫 스탯도 스킬도 없다
+            return []
+        entry = _COLLECTION["_stat_table"].get(stage)
+        if entry is None:
+            raise KeyError(
+                f"[{char['name']}] 알 수 없는 소장품 단계 {stage!r} — "
+                "'R0'~'R15' · 'SR0'~'SR15' 또는 '없음'(미장착)")
         skill_lv = entry["skill_lv"]
         idx = skill_lv - 1
         rarity_prefix = "SR" if stage.startswith("SR") else "R"
@@ -725,6 +861,28 @@ class BuffManager:
 
         # ── 내장 처리 ──────────────────────────────────────────────────────
 
+        # force_skill_use — `[스킬 N 강제 사용]`
+        #
+        # `target_skill` 슬롯의 **활성 판본**(그 캐릭터의 애장품 단계 기준) 효과를 전부
+        # 즉시 1회 발동한다. 슬롯 단위인 이유는 원문이 효과가 아니라 스킬을 지목하기
+        # 때문이고, 애장품 판본이 슬롯마다 갈리는 캐릭터에서는 "대상 슬롯 항목들의
+        # timing에 battle_start를 얹는" 우회가 단계 조합과 어긋난다 (율리아 애장품 1단계
+        # — 강제 사용은 슬롯2 판본에 적혀 있는데 대상 슬롯1은 아직 기본 판본).
+        #
+        # `every:Ns` 타이머는 건드리지 않는다. 강제 사용은 주기 격자를 리셋하는 게
+        # 아니라 그 격자와 별개로 한 번 더 도는 것이다(사쿠라 : 블룸 인 서머의 기존
+        # `["battle_start", "every:30.0s"]` 표현과 같은 동작).
+        if stat == "force_skill_use":
+            slot = eff.get("target_skill")
+            if not slot:
+                raise ValueError(f"[{caster}] force_skill_use에 target_skill이 없다: {eff.get('name')}")
+            for other in self.char_effects(caster):
+                if other.get("source") != slot or other is eff:
+                    continue
+                if self._condition_ok(other["trigger"].get("condition", []), caster, t, other):
+                    self._activate(other, caster, t)
+            return
+
         # feather_refresh — 소환체를 슬롯 단위로 (재)소환 (아인 니어 페더)
         #
         # 소환과 공격 쿨 초기화를 **한 항목이 함께** 한다. 둘을 나누면 재소환 프레임에
@@ -744,6 +902,33 @@ class BuffManager:
                 "base": base,
                 "mult": mult,
             }
+            return
+
+        # skill_cooldown_reduce_pct — 스킬 재사용 시간 N% ▼ (즉시 1회)
+        #
+        # 대상 캐릭터가 시전자인 `every:Ns` 효과의 **남은 시간에만** (1 - N/100)을 곱한다.
+        # `interval` 자체는 건드리지 않으므로 다음 주기는 원래 길이로 복귀한다 —
+        # 원문에 `[N초 유지]`·`[N 중첩]`이 없는 % 쿨감은 버프가 아니라 그 순간의 잔여 쿨을
+        # 깎는 1회성 사건이기 때문이다 (GAMEPLAY.md §값 산정). 주기 자체를 줄이는 쪽은
+        # 버프인 `skill_cooldown_pct`가 담당한다.
+        #
+        # `target_effect`는 지원하지 않는다 — `skill_cooldown_pct`와 같은 범위(대상의
+        # 모든 every:Ns)다. 센티 `보수공사`.
+        if stat == "skill_cooldown_reduce_pct":
+            if not val:
+                return
+            factor = max(0.0, 1.0 - float(val) / 100.0)
+            target_chars = set(self._resolve_target(eff.get("target", "self"), caster))
+            for _eff, _caster in self._effects:
+                if _caster not in target_chars:
+                    continue
+                if not any(tm.startswith("every:") for tm in _eff["trigger"]["timing"]):
+                    continue
+                entry = self._next_fire.get(id(_eff))
+                if entry is None:
+                    continue
+                next_t, interval = entry
+                self._next_fire[id(_eff)] = (t + max(0.0, next_t - t) * factor, interval)
             return
 
         # buff_stack_add / buff_stack_remove
@@ -1039,7 +1224,20 @@ class BuffManager:
         caster : str  이벤트 주체 캐릭터명
         ctx : 추가 컨텍스트
             count (int): 누적 횟수 (hit_count, burst_cast_count 등)
+            hit_crit (bool): 트리거를 발생시킨 히트의 크리 여부 (`trigger_hit_crit` 조건용)
+
+        ctx는 `_notify_ctx`에 실어 `_condition_ok`가 읽는다. 발동 중 다시 notify가
+        걸리는 경로가 있으므로(damage 핸들러 → named damage 명중 → notify) 반드시
+        이전 ctx를 되돌린다 — 안 되돌리면 바깥 트리거의 조건이 안쪽 히트의 결과를 본다.
         """
+        prev_ctx = self._notify_ctx
+        self._notify_ctx = ctx
+        try:
+            self._notify(event, t, caster)
+        finally:
+            self._notify_ctx = prev_ctx
+
+    def _notify(self, event: str, t: float, caster: str):
         self._cur_t = t
         # squad_ammo_consume: 스쿼드 전체 탄환 소비 카운터 — caster와 무관하게 합산, 모든 스쿼드원 효과 순회
         if event == "squad_ammo_consume":
@@ -1313,6 +1511,11 @@ class BuffManager:
             elif cond == "not_during_full_burst":
                 if self.state.get("full_burst"):
                     return False
+            elif cond == "trigger_hit_crit":
+                # 트리거를 발생시킨 그 히트가 크리티컬이었는가 — notify의 ctx로 전달된다.
+                # 확률 근사가 아니라 실제 롤 결과를 읽는다 (율리아 `마르카토 2`).
+                if not self._notify_ctx.get("hit_crit"):
+                    return False
             elif cond == "burst_casted":
                 if not self.state.get("burst_casted", {}).get(burst_check_char):
                     return False
@@ -1320,8 +1523,33 @@ class BuffManager:
                 if self.state.get("burst_casted", {}).get(burst_check_char):
                     return False
             elif cond.startswith("prob:"):
-                p = float(cond.split(":")[1]) / 100
-                if random.random() >= p:
+                # prob:{0} 형태면 trigger_values에서 현재 스킬 레벨 기준 확률을 꺼낸다
+                # (timing의 hit_count:{0}과 같은 규약 — 토브 `급조 탄환` 기본 판본)
+                raw = cond.split(":", 1)[1]
+                if raw.startswith("{") and raw.endswith("}"):
+                    tv = (eff or {}).get("trigger_values", {})
+                    if not tv:
+                        return False
+                    char = self._char.get(caster, {})
+                    raw = str(tv.get(_get_skill_lv(char, eff), tv.get("10")))
+                p = float(raw) / 100
+                # 기대값 모드에서는 난수를 굴리지 않고 확률을 (효과, 캐스터)별로 누적해
+                # 1.0을 넘길 때마다 발동시킨다 — 크리·코어히트의 `_notify_frac`과 같은
+                # 규약이다(기대 발동 횟수는 같고 위상만 규칙적으로 퍼진다). 이게 없으면
+                # `prob:` 보유 캐릭터(토브·슈가·홍련)만 기대값 모드에서 시드에 의존한다.
+                if self.state.get("rng_expected"):
+                    acc = self.state.setdefault("rng_acc", {})
+                    key = ("prob", id(eff), caster)
+                    acc[key] = acc.get(key, 0.0) + p
+                    if acc[key] < 1.0:
+                        return False
+                    acc[key] -= 1.0
+                elif random.random() >= p:
+                    return False
+            elif cond == "target_stunned":
+                # 기절은 이름 있는 상태가 아니므로 target_state:로 잡지 않는다.
+                # 누가 걸었든 stat이 stun이면 참 (프리바티 `LD 어설트 3` 기본 판본)
+                if not self.is_stunned("__enemy__"):
                     return False
             elif cond.startswith("self_hp_above:"):
                 n = float(cond.split(":")[1])
@@ -1470,12 +1698,26 @@ class BuffManager:
         weapon_change는 _active에 등록되지 않으므로 여기서 같이 봐야
         `self_state:저격 모드`처럼 모드 자체를 가리키는 조건이 성립한다.
         """
-        if any(
-            ab.effect.get("name") == state_name and caster in (ab.target_chars or [])
-            for ab in self._active
-        ):
+        if any(caster in (ab.target_chars or []) for ab in self._by_name(state_name)):
             return True
         return self.weapon_change_name(caster) == state_name
+
+    def element_override_match(self, name: str, enemy_code: str) -> bool:
+        """`element_code_override` 버프로 이 적에게 우월 코드가 성립하는가.
+
+        본인 코드 상성(`damage.is_element_match`)과 **별개의 경로**다. 로스터 코드
+        자체는 바뀌지 않으므로 `allies_code:` 같은 대상 판정에는 영향이 없다
+        (`scenarios/센티.md §해석 선언`).
+
+        대상 코드는 `note` 원문이 아니라 `target_code` 필드에서 읽는다.
+        """
+        if not enemy_code:
+            return False
+        return any(
+            ab.effect.get("target_code") == enemy_code
+            and name in (ab.target_chars or [])
+            for ab in self._by_stat("element_code_override")
+        )
 
     def _has_persona_state(self, name: str) -> bool:
         """`persona_state` 마커 버프 보유 여부 — `allies_burst3_persona_excl_self` 판정용."""
@@ -1490,7 +1732,7 @@ class BuffManager:
         기본은 스쿼드 전체 브로드캐스트다 — 다른 캐릭터가 남의 상태 변화를 트리거로
         반응하는 기존 캐릭터들이 이 동작에 의존한다.
         `event_scope: "recipients"`인 효과만 **실제로 버프를 받은 대상**에게만 통지한다.
-        자기 자신에게만 붙는 상태(니지마 마코토·아마기 유키코의 `1more`)가 이름이 같아
+        자기 자신에게만 붙는 상태(퀸(마코토)·유키코의 `1more`)가 이름이 같아
         서로의 트리거를 잘못 여는 것을 막는 용도다.
         """
         if eff.get("event_scope") != "recipients":
@@ -1527,8 +1769,7 @@ class BuffManager:
         단일 적 가정 — `"__enemy__"`가 target_chars에 있는 활성 효과로 확인한다.
         """
         return any(
-            ab.effect.get("name") == state_name and "__enemy__" in (ab.target_chars or [])
-            for ab in self._active
+            "__enemy__" in (ab.target_chars or []) for ab in self._by_name(state_name)
         )
 
     def weapon_change_name(self, caster: str) -> str:
@@ -2062,8 +2303,7 @@ class BuffManager:
         # 그 틱만 버프 없이 계산돼 딜이 몇 분의 일로 줄어든다 — 인게임에서는 마지막 틱도
         # 버프를 받는다(유저 확인). 순서를 앞에 두는 것으로 "틱 시각을 살짝 당기는" 효과를 낸다.
         if self._damage_handler and self._dot_timers:
-            # id → eff 역참조 맵 (필요한 경우에만 구성)
-            eff_by_id = {id(eff): eff for eff, _ in self._effects}
+            eff_by_id = self._eff_by_id  # __init__에서 만든 id → eff 역참조 맵
             expired_dots = []
             for eid, (caster, next_t, expires_at) in self._dot_timers.items():
                 eff = eff_by_id.get(eid)
@@ -2182,52 +2422,47 @@ class BuffManager:
                     for tgt in tgt_chars:
                         self._buff_event_handler("expire", ab.effect.get("name", ""), ab.caster, tgt, t, t)
 
-        # every:Ns 처리
-        for eff, caster in self._effects:
-            for timing in eff["trigger"]["timing"]:
-                if not timing.startswith("every:"):
-                    continue
-                eid = id(eff)
-                base_interval = float(timing[6:-1])  # "every:20s" → 20.0
-                # skill_cooldown_pct 버프 반영: 음수 = 감소 (예: -75% → interval × 0.25)
-                cool_pct = sum(
+        # every:Ns 처리 (`_every_effects`는 __init__에서 한 번만 추린다)
+        for eff, caster, timing in self._every_effects:
+            eid = id(eff)
+            base_interval = float(timing[6:-1])  # "every:20s" → 20.0
+            # skill_cooldown_pct 버프 반영: 음수 = 감소 (예: -75% → interval × 0.25)
+            cool_pct = sum(
+                (self._get_value(ab.effect, ab, caster) or 0.0)
+                for ab in self._by_stat("skill_cooldown_pct")
+                if ab.target_chars is None or caster in (ab.target_chars or [])
+            )
+            # effect_interval 버프 반영: 이 효과(target_effect)의 발동 주기를 초 단위로 가감
+            eff_name = eff.get("name", "")
+            flat = 0.0
+            if eff_name:
+                flat = sum(
                     (self._get_value(ab.effect, ab, caster) or 0.0)
-                    for ab in self._active
-                    if ab.effect.get("stat") == "skill_cooldown_pct"
+                    for ab in self._by_stat("effect_interval")
+                    if ab.effect.get("target_effect") == eff_name
                     and (ab.target_chars is None or caster in (ab.target_chars or []))
                 )
-                # effect_interval 버프 반영: 이 효과(target_effect)의 발동 주기를 초 단위로 가감
-                eff_name = eff.get("name", "")
-                flat = 0.0
-                if eff_name:
-                    flat = sum(
-                        (self._get_value(ab.effect, ab, caster) or 0.0)
-                        for ab in self._active
-                        if ab.effect.get("stat") == "effect_interval"
-                        and ab.effect.get("target_effect") == eff_name
-                        and (ab.target_chars is None or caster in (ab.target_chars or []))
-                    )
-                interval = max(0.0, base_interval + flat) * max(0.0, 1.0 + cool_pct / 100.0)
-                interval = max(interval, base_interval * 0.05)  # 최소 5% cap
-                if eid not in self._next_fire:
-                    # 전투 시작 후 interval초 후 첫 발동
-                    self._next_fire[eid] = (interval, interval)
-                next_t, prev_interval = self._next_fire[eid]
-                if interval != prev_interval:
-                    # 쿨감이 도중에 켜지거나 꺼졌다 — 이미 예약된 절대 시각을 그대로 두면
-                    # 진행 중인 쿨타임에는 효과가 안 먹고 다음 주기부터 적용된다(위상 밀림).
-                    # 남은 시간을 새 배율로 비례 재조정한다.
-                    #   예) 20s 쿨 중 10s 경과 후 −75% → 잔여 10s × (5/20) = 2.5s
-                    next_t = t + max(0.0, next_t - t) * (interval / prev_interval)
-                self._next_fire[eid] = (next_t, interval)
-                if t >= next_t:
-                    if self._condition_ok(eff["trigger"].get("condition", []), caster, t, eff):
-                        self._activate(eff, caster, t)
-                    self._next_fire[eid] = (next_t + interval, interval)
+            interval = max(0.0, base_interval + flat) * max(0.0, 1.0 + cool_pct / 100.0)
+            interval = max(interval, base_interval * 0.05)  # 최소 5% cap
+            if eid not in self._next_fire:
+                # 전투 시작 후 interval초 후 첫 발동
+                self._next_fire[eid] = (interval, interval)
+            next_t, prev_interval = self._next_fire[eid]
+            if interval != prev_interval:
+                # 쿨감이 도중에 켜지거나 꺼졌다 — 이미 예약된 절대 시각을 그대로 두면
+                # 진행 중인 쿨타임에는 효과가 안 먹고 다음 주기부터 적용된다(위상 밀림).
+                # 남은 시간을 새 배율로 비례 재조정한다.
+                #   예) 20s 쿨 중 10s 경과 후 −75% → 잔여 10s × (5/20) = 2.5s
+                next_t = t + max(0.0, next_t - t) * (interval / prev_interval)
+            self._next_fire[eid] = (next_t, interval)
+            if t >= next_t:
+                if self._condition_ok(eff["trigger"].get("condition", []), caster, t, eff):
+                    self._activate(eff, caster, t)
+                self._next_fire[eid] = (next_t + interval, interval)
 
         # tick_interval instant 처리
         if self._instant_timers:
-            eff_by_id = {id(eff): eff for eff, _ in self._effects}
+            eff_by_id = self._eff_by_id
             expired_instants = []
             for eid, (caster, next_t, expires_at) in list(self._instant_timers.items()):
                 if t >= expires_at:
@@ -2260,6 +2495,140 @@ class BuffManager:
         self._cache_version += 1
         self._buffs_cache.clear()
         self._stunned_cache.clear()
+        # 아래 셋은 전부 "`_active`가 그대로인 동안" 유효한 파생물이다. `_active`의
+        # 추가·제거는 반드시 이 함수를 거치므로 여기서 한꺼번에 비우면 수명이 맞는다.
+        self._plan_cache.clear()
+        self._stat_index.clear()
+        self._name_index_cache.clear()
+
+    # ── `_active` 인덱스 ──────────────────────────────────────────────────
+    #
+    # stat·name으로 활성 버프를 찾는 일이 매 프레임 여러 번 일어난다. 그때마다 _active
+    # 전체(스쿼드 1개 기준 ~100개)를 훑으면 프레임당 수천 번의 헛돈다.
+    # 목록은 _active 순서를 그대로 보존하므로 합산 순서(= 부동소수점 결과)가 변하지 않는다.
+
+    def _by_stat(self, stat: str) -> list:
+        """`stat`이 일치하는 활성 버프 목록 (_active 순서 유지)."""
+        out = self._stat_index.get(stat)
+        if out is None:
+            out = self._stat_index[stat] = [
+                ab for ab in self._active if ab.effect.get("stat") == stat
+            ]
+        return out
+
+    def _by_name(self, name: str) -> list:
+        """효과 이름이 일치하는 활성 버프 목록 (_active 순서 유지).
+
+        `target_chars`는 지연 resolve로 나중에 채워질 수 있으므로 **여기서 거르지 않는다** —
+        대상 판정은 호출부가 조회 시점에 한다.
+        """
+        out = self._name_index_cache.get(name)
+        if out is None:
+            out = self._name_index_cache[name] = [
+                ab for ab in self._active if ab.effect.get("name") == name
+            ]
+        return out
+
+    @staticmethod
+    def _is_time_invariant(ab: ActiveBuff) -> bool:
+        """이 버프의 기여가 `_active`가 그대로인 동안 절대 변하지 않는가.
+
+        참이면 값을 한 번만 구해 `_build_plan`에 박아 둘 수 있다. **보수적으로 판정한다** —
+        애매하면 거짓을 돌려 매 조회 재평가시키는 쪽이 언제나 안전하다. 거짓 하나가
+        늘어봐야 원래 하던 일을 그대로 할 뿐이고, 참을 잘못 주면 조용히 틀린다.
+
+        각 조건이 막는 것:
+          - `expires_at`가 유한  → 만료 판정이 t에 달렸다
+          - runtime condition    → 풀버스트·차지·HP 등 상태에 달렸다
+          - 지연 resolve 미완료   → 조회 시점에 대상이 결정되며 부작용도 있다
+          - per_char_stacks      → 조회하는 캐릭터마다 값이 다르다
+          - `scaling`            → lost_hp_pct·stack_count가 실시간 상태를 읽는다
+          - `max_stack` != 1     → `_get_value`가 ab.stack을 곱한다
+          - duration_bullets     → 발사에 따라 대상·잔량이 줄어든다
+        """
+        if ab.expires_at != math.inf:
+            return False
+        if ab.has_runtime_conditions:
+            return False
+        if ab.target_chars is None:
+            return False
+        if ab.per_char_stacks:
+            return False
+        eff = ab.effect
+        if eff.get("scaling"):
+            return False
+        if eff.get("max_stack", 1) != 1:
+            return False
+        if ab.bullets_left != -1 or ab.bullets_per_target:
+            return False
+        return True
+
+    def _plan_step(self, ab: ActiveBuff, caster: str, target: str,
+                   exclude_names: frozenset[str]) -> tuple | None:
+        """시간 불변 버프 1개를 미리 평가해 스텝으로 축약. 기여가 없으면 None.
+
+        분기 순서는 `get_buffs`의 조회 시점 경로와 **한 줄씩 대응한다.** 둘이 갈라지면
+        정적/동적 버프가 서로 다른 규칙으로 집계되므로, 한쪽을 고치면 반드시 다른 쪽도 고친다.
+        """
+        eff = ab.effect
+        if exclude_names and ab.caster == caster and eff.get("name") in exclude_names:
+            return None
+        stat = eff.get("stat", "")
+        buff_key = _STAT_TO_BUFF.get(stat)
+        if not buff_key:
+            return None
+
+        target_chars = ab.target_chars or []
+        applies_to_caster = caster in target_chars
+        applies_to_target = target in target_chars
+        # 고급 설정의 개인 수치는 적이 아니라 본인에게 붙은 채로 ⑥에 반영된다
+        # (`_make_manual_effect`). get_buffs 쪽과 같은 자리에 같은 분기를 둔다.
+        if stat in ("personal_received_dmg_pct", "personal_enemy_def_down_pct"):
+            if not applies_to_caster:
+                return None
+        elif buff_key == "received_dmg":
+            if not applies_to_target:
+                return None
+        elif buff_key == "split_dmg_pct":
+            if not applies_to_caster:
+                return None
+        elif not (applies_to_caster or applies_to_target):
+            return None
+
+        if stat == "def_pct" and applies_to_target and not applies_to_caster:
+            buff_key = "enemy_def_down_pct"
+        actual_recipient = caster if applies_to_caster else target
+
+        if buff_key in _BOOL_BUFF_KEYS:
+            return (_PLAN_FLAG, buff_key, None)
+
+        val = self._get_value(eff, ab, actual_recipient, stack_override=None)
+        if val is None:
+            return None
+        if stat in _CRIT_RATE_STATS:
+            return (_PLAN_CRIT, None, val / 100)
+        return (_PLAN_ADD, buff_key, val)
+
+    def _build_plan(self, caster: str, target: str, exclude_names: frozenset[str]) -> list:
+        """`_active`를 훑는 순서를 그대로 보존한 get_buffs 실행 계획.
+
+        `_active`의 대부분은 장비·큐브·소장품·영구 패시브라 매 프레임 같은 값을 낸다
+        (실측 79~88%). 그것들을 미리 스텝으로 접어 두고, 나머지만 조회 시점에 평가한다.
+
+        **순서를 보존하는 이유**: 합산이 부동소수점이라 순서가 바뀌면 마지막 자리가
+        달라지고, 회귀 하네스는 완전 일치를 요구한다(`HARNESS.md §왜 결정론적인가`).
+        그래서 "정적인 것만 앞으로 모아 더하기"는 하지 않는다.
+
+        계획은 `_cache_version`이 오르면 `_invalidate_buffs_cache`가 통째로 버린다.
+        """
+        plan = [
+            self._plan_step(ab, caster, target, exclude_names)
+            if self._is_time_invariant(ab) else (_PLAN_LIVE, ab, None)
+            for ab in self._active
+        ]
+        plan = [step for step in plan if step is not None]
+        self._plan_cache[(caster, target, exclude_names)] = plan
+        return plan
 
     def get_buffs(
         self, caster: str, target: str, t: float,
@@ -2282,10 +2651,35 @@ class BuffManager:
         if cached is not None:
             return cached
 
+        plan = self._plan_cache.get((caster, target, exclude_names))
+        if plan is None:
+            plan = self._build_plan(caster, target, exclude_names)
+        elif _BUFF_AUDIT:
+            fresh = self._build_plan(caster, target, exclude_names)
+            if fresh != plan:
+                raise AssertionError(
+                    f"get_buffs 계획 캐시가 낡았다 (caster={caster}, t={t}). "
+                    f"`_active`를 바꾸고 _invalidate_buffs_cache()를 부르지 않은 경로가 있다."
+                )
+            plan = fresh
+
         buffs = dict(_BUFFS_ZERO)
         crit_rate_parts: list[float] = [0.15]  # 기본 크리확률 15%
 
-        for ab in self._active:
+        for kind, key, pre in plan:
+            # 미리 접어 둔 스텝 — 시간 불변 버프의 기여 (`_build_plan`)
+            if kind == _PLAN_ADD:
+                buffs[key] = buffs.get(key, 0.0) + pre
+                continue
+            if kind == _PLAN_CRIT:
+                crit_rate_parts.append(pre)
+                continue
+            if kind == _PLAN_FLAG:
+                buffs[key] = True
+                continue
+
+            # _PLAN_LIVE — 시간·상태에 따라 기여가 변하는 버프는 매번 평가한다
+            ab = key
             if t >= ab.expires_at:
                 continue
 
@@ -2293,14 +2687,6 @@ class BuffManager:
             if exclude_names and ab.caster == caster and eff.get("name") in exclude_names:
                 continue
             stat = eff.get("stat", "")
-            if stat == "element_code_override":
-                target_chars = (
-                    ab.target_chars if ab.target_chars is not None else self._resolve_lazy(ab)
-                )
-                enemy_code = (self.state.get("enemy") or {}).get("code", "")
-                if caster in target_chars and eff.get("target_code") == enemy_code:
-                    buffs["is_element_match"] = True
-                continue
             buff_key = _STAT_TO_BUFF.get(stat)
             if not buff_key:
                 continue
@@ -2343,9 +2729,7 @@ class BuffManager:
             actual_recipient = caster if applies_to_caster else target
 
             # boolean 플래그 스탯: 수치 없이 True만 세팅
-            if buff_key in ("charge_time_fixed", "charge_speed_buff_immune", "charge_speed_debuff_immune",
-                            "debuff_immune", "stun_immune", "stack_change_immune", "taunt",
-                            "pierce_enabled", "armor_break_enabled", "persona_state"):
+            if buff_key in _BOOL_BUFF_KEYS:
                 buffs[buff_key] = True
                 continue
 
@@ -2364,10 +2748,8 @@ class BuffManager:
         buffs["crit_rate"] = min(1.0, sum(crit_rate_parts))
 
         # atk_from_hp_pct: 최종 최대 HP × (val/100) → atk_flat에 합산
-        for ab in self._active:
+        for ab in self._by_stat("atk_from_hp_pct"):
             if t >= ab.expires_at:
-                continue
-            if ab.effect.get("stat") != "atk_from_hp_pct":
                 continue
             target_chars = (
                 self._resolve_target(ab.effect.get("target", "self"), ab.caster)
@@ -2387,10 +2769,8 @@ class BuffManager:
             buffs["atk_flat"] = buffs.get("atk_flat", 0.0) + final_hp * (val / 100.0)
 
         # atk_caster_based_pct: 시전자 공격력 × (val/100) → 수령자 atk_flat에 합산
-        for ab in self._active:
+        for ab in self._by_stat("atk_caster_based_pct"):
             if t >= ab.expires_at:
-                continue
-            if ab.effect.get("stat") != "atk_caster_based_pct":
                 continue
             target_chars = (
                 self._resolve_target(ab.effect.get("target", "self"), ab.caster)
@@ -2411,10 +2791,8 @@ class BuffManager:
             mag_mult = 1.0
             buff_name = ab.effect.get("name", "")
             if buff_name:
-                for mag_ab in self._active:
+                for mag_ab in self._by_stat("atk_buff_mag_pct"):
                     if mag_ab.expires_at <= t:
-                        continue
-                    if mag_ab.effect.get("stat") != "atk_buff_mag_pct":
                         continue
                     if mag_ab.effect.get("target_effect") != buff_name:
                         continue
@@ -2496,9 +2874,8 @@ class BuffManager:
                 parts = cond.split(":")
                 stack_name, threshold = parts[1], int(parts[2])
                 current = next(
-                    (ab.stack for ab in self._active
-                     if ab.effect.get("name") == stack_name
-                     and ab.caster == buff_caster
+                    (ab.stack for ab in self._by_name(stack_name)
+                     if ab.caster == buff_caster
                      and (buff_caster in (ab.target_chars or []) or "__enemy__" in (ab.target_chars or []))),
                     0,
                 )
@@ -2564,8 +2941,8 @@ class BuffManager:
         feathers = self.state.get("feathers", {}).get(caster, {})
         if ref in feathers:
             return sum(1 for e in feathers[ref]["expiry"] if e > self._cur_t)
-        for ab in self._active:
-            if ab.caster == caster and ab.effect.get("name") == ref:
+        for ab in self._by_name(ref):
+            if ab.caster == caster:
                 return ab.stack
         return None
 
@@ -2749,6 +3126,15 @@ class BuffManager:
             if idx < len(self.squad_names) - 1:
                 adj.append(self.squad_names[idx + 1])
             return [caster] + adj[:n]
+        # "최종 공격력이 가장 높은 [무기] 소지 아군 N기" — 무기 필터 ∩ 공격력 top N.
+        # 시전자 포함(원문에 자신 제외 표기 없음). 매칭 아군이 N보다 적으면 있는 만큼.
+        # 공격력 정렬이라 _LAZY_RESOLVE_PREFIXES 등록 필수. 레오나 `용기있는 시선 2`
+        if target.startswith("allies_weapon_top_atk:"):
+            _, wtype, cnt = target.split(":")
+            pool = [c for c in self.squad_names
+                    if _NIKKE[c]["weapon_type"] == wtype]
+            pool.sort(key=self._effective_atk, reverse=True)
+            return pool[:int(cnt)]
         if target.startswith("allies_weapon_excl_self:"):
             wtype = target.split(":")[1]
             return [n for n in self.squad_names
@@ -2757,6 +3143,14 @@ class BuffManager:
             wtype = target.split(":")[1]
             return [n for n in self.squad_names
                     if _NIKKE[n]["weapon_type"] == wtype]
+        # "기본 차지 시간이 가장 긴 아군 N기" — 버프를 뺀 무기 표기 차지 시간 기준.
+        # 고정 속성이라 lazy resolve가 필요 없다. 차지 무기 아군이 없으면 빈 리스트고,
+        # 동률이면 스쿼드 입력 순서가 앞선 쪽이 이긴다(정렬 안정성). 마나 `매터 시그마 4`
+        if target.startswith("allies_top_base_charge_time:"):
+            n = int(target.split(":")[1])
+            charged = [c for c in self.squad_names if (_NIKKE[c].get("charge_time") or 0.0) > 0]
+            charged.sort(key=lambda c: -_NIKKE[c]["charge_time"])
+            return charged[:n]
         # "[버프명] 상태인 아군 전체" — 부여 시점 스냅샷(비lazy).
         # 상태 판정은 self_state:와 같은 창구를 써서 weapon_change 모드도 함께 본다.
         if target.startswith("allies_with_buff:"):
@@ -3002,6 +3396,9 @@ class BuffManager:
         self._event_counts.clear()
         self._trigger_counts.clear()
         self._buffs_cache.clear()
+        self._plan_cache.clear()
+        self._stat_index.clear()
+        self._name_index_cache.clear()
         self._cache_version = 0
         self._cond_passive_prev.clear()
 

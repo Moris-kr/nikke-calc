@@ -13,12 +13,10 @@ describe('generated browser runtime', () => {
       readFileSync(join(publicDir, 'catalog.json'), 'utf8'),
     ) as CharacterMeta[];
 
-    expect(catalog).toHaveLength(77);
+    expect(catalog).toHaveLength(85);
     expect(catalog.every((char) => !char.name.startsWith('test_'))).toBe(true);
-    expect(catalog.filter((char) => char.preview).map((char) => char.name)).toEqual([
-      '니지마 마코토',
-      '아마기 유키코',
-    ]);
+    // 프리뷰(출시 전 카드) 항목은 출시되면 정식 등록되며 사라진다. 지금은 전원 출시됐다.
+    expect(catalog.filter((char) => char.preview).map((char) => char.name)).toEqual([]);
   });
 
   it('lists only runtime files that exist and have content', () => {
@@ -62,15 +60,27 @@ describe('generated browser runtime', () => {
       manualStats: Record<string, { label: string; unit: string }>;
     };
 
-    expect(Object.keys(settings.cubes)).toEqual(['재장', '탄충', '체력', '차속', '파츠', '분배']);
-    expect(settings.cubes['재장']!.levels['1']).toMatchObject({
+    // 큐브 종류는 게임 업데이트로 늘어난다. 목록을 여기 박아두면 데이터가 앞설 때마다
+    // 테스트가 깨지므로, 정본(cube.json)과 어긋나지 않는지만 본다.
+    const cubeTable = JSON.parse(
+      readFileSync(
+        join(import.meta.dirname, '..', '..', 'data', 'base_stat_tables', 'cube.json'),
+        'utf8',
+      ),
+    ) as Record<string, unknown>;
+    const canonicalCubes = Object.keys(cubeTable)
+      .filter((name) => !name.startsWith('_') && name !== '공통');
+
+    expect(Object.keys(settings.cubes)).toEqual(canonicalCubes);
+    expect(settings.cubes['렐릭 베어 큐브']!.levels['1']).toMatchObject({
       atk: 390,
       def: 78,
       hp: 11_800,
       effect: 14.84,
+      // 큐브 레벨 1~4에는 공통(우월 코드) 스킬 레벨이 없다 — cube.json `_level_note`
       commonElement: 0,
     });
-    expect(settings.cubes['탄충']!.levels['15']).toMatchObject({
+    expect(settings.cubes['택티컬 베어 큐브']!.levels['15']).toMatchObject({
       atk: 2_780,
       def: 552,
       hp: 83_400,
@@ -78,7 +88,7 @@ describe('generated browser runtime', () => {
       commonElement: 19.09,
     });
     expect(settings.characters['미하라 : 본딩 체인']!.overload.atk_pct).toBe(23.22);
-    expect(settings.characters['미하라 : 본딩 체인']!.cube).toEqual({ name: '재장', level: 15 });
+    expect(settings.characters['미하라 : 본딩 체인']!.cube).toEqual({ name: '렐릭 베어 큐브', level: 15 });
     expect(settings.characters['리타']).toMatchObject({
       skillLevels: { '1': 10, '2': 10, '3': 10 },
       skillLevelsLocked: false,
@@ -106,14 +116,15 @@ describe('generated browser runtime', () => {
     for (const name of ['라피 : 레드 후드', '아니스 : 스타', '네온 : 비전 아이']) {
       expect(settings.characters[name]!.growthOptions[3]!.affinity).toBe(40);
     }
-    expect(settings.characters['니지마 마코토']).toMatchObject({
-      skillLevels: { '1': 10, '2': 10, '3': 10 },
-      skillLevelsLocked: true,
-    });
-    expect(settings.characters['아마기 유키코']).toMatchObject({
-      skillLevels: { '1': 10, '2': 10, '3': 10 },
-      skillLevelsLocked: true,
-    });
+    // `skillLevelsLocked`는 프리뷰(출시 전 카드) 캐릭터 전용이다 — 레벨 10 계수만
+    // 존재하기 때문이다. 전원 출시돼 프리뷰가 비었으므로 잠긴 캐릭터도 없어야 한다.
+    // 프리뷰였던 `니지마 마코토`·`아마기 유키코`는 정식 명칭으로 등록되며 잠금이 풀렸다.
+    expect(Object.entries(settings.characters)
+      .filter(([, meta]) => meta.skillLevelsLocked)
+      .map(([name]) => name)).toEqual([]);
+    for (const name of ['퀸(마코토)', '유키코']) {
+      expect(settings.characters[name]).toMatchObject({ skillLevelsLocked: false });
+    }
     expect(settings.overloadFields.element_bonus).toMatchObject({
       label: '우월 코드 대미지',
       unit: '%',

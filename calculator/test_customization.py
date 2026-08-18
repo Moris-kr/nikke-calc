@@ -7,7 +7,8 @@ from pathlib import Path
 from calculator.buff_manager import BuffManager
 from calculator.customization import OVERLOAD_FIELDS, normalize_character_overrides
 from calculator.timeline import simulate
-from context.spec import build_config, build_squad
+from context.spec import build_config, build_squad, is_preview
+from context.spec import _nikke as parsed_nikke
 
 
 class CharacterCustomizationTest(unittest.TestCase):
@@ -75,7 +76,10 @@ class CharacterCustomizationTest(unittest.TestCase):
         manager = BuffManager([sugar], {"enemy": {"code": "작열"}})
         manager.notify("battle_start", 0, "슈가")
         start = manager.get_buffs("슈가", "__enemy__", 0)
-        self.assertTrue(start["is_element_match"])
+        # 우월 코드 추가 부여는 버프 집계(get_buffs)가 아니라 전용 경로로 판정한다
+        # — `BuffManager.element_override_match` → `CharState.element_match`.
+        self.assertTrue(manager.element_override_match("슈가", "작열"))
+        self.assertFalse(manager.element_override_match("슈가", "수냉"))
         self.assertEqual(start["atk_dmg_pct"], 19.98)
 
         manager.notify("full_burst_start", 1, "슈가")
@@ -95,19 +99,11 @@ class CharacterCustomizationTest(unittest.TestCase):
 
         electric = BuffManager([rapi], {"enemy": {"code": "전격"}})
         electric.notify("battle_start", 0, "라피 : 레드 후드")
-        self.assertTrue(
-            electric.get_buffs("라피 : 레드 후드", "__enemy__", 0)[
-                "is_element_match"
-            ]
-        )
+        self.assertTrue(electric.element_override_match("라피 : 레드 후드", "전격"))
 
         water = BuffManager([rapi], {"enemy": {"code": "수냉"}})
         water.notify("battle_start", 0, "라피 : 레드 후드")
-        self.assertFalse(
-            water.get_buffs("라피 : 레드 후드", "__enemy__", 0)[
-                "is_element_match"
-            ]
-        )
+        self.assertFalse(water.element_override_match("라피 : 레드 후드", "수냉"))
 
     def test_growth_stage_is_normalized_for_the_engine(self):
         self.assertEqual(
@@ -175,7 +171,14 @@ class CharacterCustomizationTest(unittest.TestCase):
         self.assertEqual(values, [7.05, 45.17])
 
     def test_preview_skill_levels_are_fixed_at_ten(self):
-        preview = "아마기 유키코"
+        # 프리뷰(출시 전 카드) 캐릭터는 레벨 10 계수만 존재한다. 명단은 출시될 때마다
+        # 비므로 이름을 박지 않고 현재 등록된 프리뷰에서 고른다 — 비어 있으면 검사할
+        # 대상 자체가 없는 정상 상태다.
+        previews = [name for name in parsed_nikke() if is_preview(name)]
+        if not previews:
+            self.skipTest("등록된 프리뷰 캐릭터가 없다 (전원 정식 출시)")
+        preview = previews[0]
+
         allowed = build_squad([preview], {
             preview: {"skill_levels": {"1": 10, "2": 10, "3": 10}},
         })[0]
@@ -225,10 +228,10 @@ class CharacterCustomizationTest(unittest.TestCase):
 
     def test_split_cube_is_accepted_and_applies_split_damage(self):
         self.assertEqual(
-            normalize_character_overrides({"cube": {"name": "분배", "level": 15}}),
-            {"cube": {"name": "분배", "level": 15}},
+            normalize_character_overrides({"cube": {"name": "렐릭 디바이드 큐브", "level": 15}}),
+            {"cube": {"name": "렐릭 디바이드 큐브", "level": 15}},
         )
-        squad = build_squad(["브래디"], {"브래디": {"cube": {"name": "분배", "level": 15}}})
+        squad = build_squad(["브래디"], {"브래디": {"cube": {"name": "렐릭 디바이드 큐브", "level": 15}}})
         manager = BuffManager(squad, {"enemy": {}})
         manager.notify("battle_start", 0, "브래디")
         buffs = manager.get_buffs("브래디", "__enemy__", 0)
@@ -304,7 +307,7 @@ class CharacterCustomizationTest(unittest.TestCase):
 
     def test_part_cube_routes_its_value_to_part_damage(self):
         squad = build_squad(["리타"], {
-            "리타": {"cube": {"name": "파츠", "level": 15}},
+            "리타": {"cube": {"name": "렐릭 디스트로이 큐브", "level": 15}},
         })
         manager = BuffManager(squad, {"enemy": {}})
         manager.notify("battle_start", 0, "리타")
@@ -316,7 +319,7 @@ class CharacterCustomizationTest(unittest.TestCase):
 
     def test_ammo_cube_triggers_every_tenth_hit_not_at_battle_start(self):
         squad = build_squad(["리타"], {
-            "리타": {"cube": {"name": "탄충", "level": 15}},
+            "리타": {"cube": {"name": "택티컬 베어 큐브", "level": 15}},
         })
         manager = BuffManager(squad, {"enemy": {}})
         events: list[tuple[str, float]] = []

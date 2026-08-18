@@ -1,5 +1,8 @@
 export type ElementCode = '' | '풍압' | '수냉' | '작열' | '전격' | '철갑';
-export type CubeName = '재장' | '탄충' | '체력' | '차속' | '파츠' | '분배';
+// 큐브 종류의 정본은 `data/base_stat_tables/cube.json`이며 게임 업데이트로 계속
+// 늘어난다. 목록을 여기 박아두면 데이터가 앞서갈 때 조용히 어긋나므로, 이름은
+// 문자열로 두고 실제 선택지는 `SettingsCatalog.cubes`의 키에서 얻는다.
+export type CubeName = string;
 
 export interface CubeSelection {
   name: CubeName;
@@ -145,6 +148,9 @@ export interface CubeMeta {
   stat: string;
   template: string;
   levels: Record<string, CubeLevelMeta>;
+  // 계산기가 이 큐브의 고유 스킬을 아직 처리하지 못할 때의 사유. 공격력·방어력·
+  // 체력과 공통 우월 코드 효과는 그대로 붙고 고유 스킬만 빠진다.
+  unsupported?: string;
 }
 
 export interface CharacterSettingsDefaults {
