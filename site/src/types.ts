@@ -113,11 +113,22 @@ export interface BattleTimeline {
   fullBurst: [number, number][];
 }
 
+// 캐릭터 한 명의 딜을 일반공격(평타)과 스킬로 나눈 내역.
+export interface CharacterDamageBreakdown {
+  normal: number;
+  normalHits: number;
+  skill: number;
+  skillHits: number;
+  skills: Array<{ name: string; damage: number; hits: number }>;
+}
+
 export interface SimulationResult {
   squadTotal: number;
   duration: number;
   hitCount: number;
   charTotals: Record<string, number>;
+  // 구버전 캐시에 저장된 결과에는 없을 수 있다.
+  charBreakdown?: Record<string, CharacterDamageBreakdown>;
   previewNote: string;
   deviations: string;
   timeline?: BattleTimeline;

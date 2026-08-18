@@ -6,6 +6,10 @@ import json
 import math
 
 from calculator.customization import normalize_character_overrides
+# `_is_normal`은 히트 태그로 일반공격을 가려내는 엔진 정본이다. 포크에서 다시
+# 구현하면 태그가 늘어날 때 조용히 어긋나므로 그대로 빌려 쓴다 (이름이 바뀌면
+# ImportError로 즉시 드러난다).
+from calculator.sim_result import _is_normal
 from calculator.timeline import simulate
 from context import spec as char_spec
 
@@ -48,6 +52,44 @@ def _build_timeline(result, names: list[str]) -> dict:
         "bursts": bursts,
         "fullBurst": full_burst,
     }
+
+
+def _build_breakdown(result, names: list[str]) -> dict:
+    """캐릭터별 일반공격/스킬 딜 분해와 스킬별 내역.
+
+    `SimResult.dmg_breakdown()`이 콘솔용으로 하는 집계와 같은 기준이며, 브라우저가
+    비율을 그릴 수 있도록 수치만 구조화해 넘긴다.
+    """
+    breakdown = {}
+    for name in names:
+        hits = [hit for hit in result.hits if hit.caster == name]
+        normal_damage = skill_damage = 0
+        normal_hits = skill_hits = 0
+        per_skill: dict[str, dict[str, int]] = {}
+        for hit in hits:
+            if _is_normal(hit):
+                normal_damage += hit.damage
+                normal_hits += 1
+                continue
+            skill_damage += hit.damage
+            skill_hits += 1
+            entry = per_skill.setdefault(hit.skill_name, {"damage": 0, "hits": 0})
+            entry["damage"] += hit.damage
+            entry["hits"] += 1
+        breakdown[name] = {
+            "normal": int(normal_damage),
+            "normalHits": normal_hits,
+            "skill": int(skill_damage),
+            "skillHits": skill_hits,
+            "skills": sorted(
+                (
+                    {"name": skill, "damage": int(v["damage"]), "hits": v["hits"]}
+                    for skill, v in per_skill.items()
+                ),
+                key=lambda item: -item["damage"],
+            ),
+        }
+    return breakdown
 
 
 _REQUIRED_NIKKE_FIELDS = (
@@ -140,6 +182,7 @@ def run_request(raw: str) -> str:
         "duration": result.duration,
         "hitCount": len(result.hits),
         "charTotals": result.char_total,
+        "charBreakdown": _build_breakdown(result, names),
         "previewNote": char_spec.preview_note(names),
         "deviations": char_spec.format_deviations(squad),
         "timeline": _build_timeline(result, names),

@@ -132,6 +132,20 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .deck-tabs button:hover { border-color: rgba(69,214,208,.45); color: var(--ink); }
 .deck-tabs button.is-active { border-color: var(--amber); background: rgba(255,191,60,.1); color: var(--amber); }
 .deck-note { margin: 0 0 16px; color: var(--muted); font-size: 11px; }
+
+/* 덱 복사 */
+.deck-copy { position: relative; margin-top: 10px; }
+.deck-copy-open { padding: 6px 10px; background: rgba(69,214,208,.07); border: 1px solid rgba(69,214,208,.22); color: #a9c7cb; font-size: 10px; cursor: pointer; }
+.deck-copy-open:hover { background: rgba(69,214,208,.14); }
+.deck-copy-panel { margin-top: 8px; padding: 12px; background: rgba(3,9,16,.8); border: 1px solid rgba(69,214,208,.18); }
+.deck-copy-title { margin: 0 0 8px; color: #a9c7cb; font-size: 10px; }
+.deck-copy-targets { display: flex; flex-wrap: wrap; gap: 10px; }
+.deck-copy-target { display: flex; align-items: center; gap: 6px; color: #849cac; font-size: 10px; cursor: pointer; white-space: nowrap; }
+.deck-copy-target input { flex: 0 0 auto; width: 13px; height: 13px; margin: 0; accent-color: var(--cyan); }
+.deck-copy-target .deck-copy-warn { color: var(--amber); }
+.deck-copy-actions { display: flex; gap: 8px; margin-top: 12px; }
+.deck-copy-actions button { padding: 6px 12px; font-size: 10px; cursor: pointer; border: 1px solid rgba(69,214,208,.22); background: rgba(69,214,208,.07); color: #a9c7cb; }
+.deck-copy-actions .deck-copy-apply { background: rgba(69,214,208,.18); color: #d7ecef; }
 .squad-grid { display: grid; grid-template-columns: repeat(5, minmax(220px, 1fr)); gap: 10px; align-items: start; overflow-x: auto; padding-bottom: 6px; }
 .squad-slot { position: relative; min-width: 0; padding: 9px 9px 12px; border: 1px solid rgba(146,176,201,.15); background: rgba(5,13,22,.68); transition: transform .18s ease, border-color .18s ease; }
 .squad-slot:hover { transform: translateY(-3px); border-color: rgba(255,191,60,.42); }
@@ -254,6 +268,20 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .result-row-top strong { font-size: 18px; }
 .share-track { height: 3px; margin-top: 9px; background: rgba(146,176,201,.12); overflow: hidden; }
 .share-track i { display: block; height: 100%; background: linear-gradient(90deg, var(--cyan), var(--amber)); box-shadow: 0 0 12px rgba(69,214,208,.28); }
+/* 평타/스킬 딜 분해 */
+.dmg-split { margin-top: 10px; }
+.split-track { display: flex; height: 3px; background: rgba(146,176,201,.12); overflow: hidden; }
+.split-track i { display: block; height: 100%; }
+.split-track .split-normal { background: var(--cyan); }
+.split-track .split-skill { background: var(--amber); }
+.split-legend { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 0; font-size: 9px; line-height: 1.5; }
+.split-legend .legend-normal { color: var(--cyan); }
+.split-legend .legend-skill { color: var(--amber); }
+.skill-breakdown { margin-top: 6px; }
+.skill-breakdown summary { color: #7e91a2; font-size: 9px; cursor: pointer; }
+.skill-breakdown ul { margin: 6px 0 0; padding: 0; list-style: none; }
+.skill-breakdown li { display: flex; justify-content: space-between; gap: 10px; padding: 2px 0; color: #849cac; font-size: 9px; }
+.skill-breakdown li span:last-child { color: #a9c7cb; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .result-facts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
 .result-facts span { padding: 6px 8px; background: rgba(69,214,208,.07); border: 1px solid rgba(69,214,208,.13); color: #a9c7cb; font-size: 10px; }
 .deviations { margin: 14px 0 0; padding: 12px; max-height: 110px; overflow: auto; background: rgba(3,9,16,.65); color: #7e91a2; font: 10px/1.55 ui-monospace, monospace; white-space: pre-wrap; }
