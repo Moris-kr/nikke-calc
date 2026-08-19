@@ -100,6 +100,17 @@ h2 { margin: 0; font-size: 24px; letter-spacing: -.035em; }
 /* 완전 초기화 확인 */
 .reset-card { width: min(460px, 100%); }
 .reset-list { margin: 12px 0 0; padding-left: 18px; color: #b9c7d3; font-size: 11px; line-height: 1.75; }
+
+/* 보고서 이미지 */
+.report-tools { display: flex; justify-content: flex-end; margin: 0 0 14px; }
+.report-open { padding: 8px 14px; border: 1px solid rgba(69,214,208,.32); background: rgba(69,214,208,.1); color: #cfeceb; font-family: inherit; font-size: 12px; font-weight: 700; border-radius: 7px; cursor: pointer; }
+.report-open:hover { background: rgba(69,214,208,.18); border-color: var(--cyan); }
+.report-card { width: min(1040px, 100%); }
+.report-preview { margin: 14px 0 0; padding: 10px; background: rgba(3,9,16,.6); border: 1px solid var(--line); border-radius: 10px; text-align: center; }
+.report-preview img { max-width: 100%; height: auto; display: block; margin: 0 auto; border-radius: 6px; }
+.report-loading { margin: 26px 0; color: var(--muted); font-size: 12px; }
+.report-msg { margin: 12px 0 0; color: var(--danger); font-size: 11px; line-height: 1.55; }
+.report-msg.is-ok { color: var(--cyan); }
 .deck-copy-actions .deck-copy-apply.danger { background: rgba(233,110,110,.2); border-color: rgba(233,110,110,.4); color: #f6dada; }
 .roster-note { margin: 10px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
 

@@ -420,6 +420,32 @@ describe('calculator UI', () => {
     expect(root.querySelectorAll('[data-dmg-split]')).toHaveLength(0);
   });
 
+  it('offers a report button once results exist and surfaces render failures', async () => {
+    const client = new FakeClient();
+    mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });
+    // 계산 전에는 결과가 없으니 보고서 버튼도 없다.
+    expect(root.querySelector('[data-report-open]')).toBeNull();
+
+    root.querySelector<HTMLInputElement>('#duration')!.value = '10';
+    root.querySelector<HTMLFormElement>('form')!.requestSubmit();
+    await flush();
+
+    const open = root.querySelector<HTMLButtonElement>('[data-report-open]')!;
+    expect(open).not.toBeNull();
+
+    open.click();
+    await flush();
+
+    // 초상화를 받는 동안 모달이 먼저 열리고 진행 상태를 보여준다.
+    // (그리기 실패 경로는 report.test.ts에서 직접 검증한다.)
+    expect(root.querySelector<HTMLElement>('[data-report-modal]')!.hidden).toBe(false);
+    expect(root.querySelector<HTMLElement>('[data-report-preview]')!.textContent)
+      .toContain('보고서를 그리는 중');
+
+    root.querySelector<HTMLButtonElement>('[data-report-close]')!.click();
+    expect(root.querySelector<HTMLElement>('[data-report-modal]')!.hidden).toBe(true);
+  });
+
   it('reuses a cached result instead of recalculating', async () => {
     const firstClient = new FakeClient();
     mountCalculator(root, { catalog, settings, version: 'v1', client: firstClient, storage: localStorage });
