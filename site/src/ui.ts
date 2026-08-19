@@ -10,6 +10,15 @@ import {
   parseCustomInput,
   unsupportedEffects,
 } from './custom-nikke';
+import {
+  canvasToBlob,
+  copyImage,
+  downloadImage,
+  loadPortraits,
+  renderReport,
+  reportFilename,
+  type ReportMeta,
+} from './report';
 import { createTimelineBlock } from './timeline';
 import {
   aggregateDeckResults,
@@ -336,6 +345,19 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         <div data-timeline-body></div>
       </section>
       <footer><p>비공식 팬 제작 도구 · 실제 전투 환경과 차이가 있을 수 있습니다.</p><a href="https://github.com/Moris-kr/nikke-calc" target="_blank" rel="noreferrer">SOURCE / GITHUB ↗</a></footer>
+
+      <div class="custom-modal" data-report-modal hidden>
+        <div class="custom-card report-card" role="dialog" aria-label="보고서 이미지">
+          <div class="custom-head"><h2>보고서 이미지</h2><button type="button" class="custom-close" data-report-close aria-label="닫기">✕</button></div>
+          <p class="custom-desc">아래 이미지를 복사해 커뮤니티에 바로 붙여넣을 수 있습니다. 복사가 막히면 PNG로 저장하거나, 이미지를 우클릭해 복사해도 됩니다. 이 브라우저 안에서만 만들어집니다.</p>
+          <div class="report-preview" data-report-preview></div>
+          <p class="report-msg" data-report-msg hidden></p>
+          <div class="deck-copy-actions">
+            <button type="button" class="deck-copy-apply" data-report-copy>이미지 복사</button>
+            <button type="button" class="deck-copy-cancel" data-report-save>PNG 저장</button>
+          </div>
+        </div>
+      </div>
 
       <div class="custom-modal" data-roster-modal hidden>
         <div class="custom-card roster-card" role="dialog" aria-label="지원 니케 목록">
@@ -703,6 +725,74 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     return messages;
   };
 
+  // ── 보고서 이미지 ────────────────────────────────────────────────────────
+  let lastBatch: BatchResult | null = null;
+  let reportBlob: Blob | null = null;
+  const reportModal = element<HTMLElement>(root, '[data-report-modal]');
+  const reportPreview = element<HTMLElement>(root, '[data-report-preview]');
+  const reportMsg = element<HTMLElement>(root, '[data-report-msg]');
+
+  const showReportMsg = (message: string, ok = false) => {
+    reportMsg.hidden = message === '';
+    reportMsg.textContent = message;
+    reportMsg.classList.toggle('is-ok', ok);
+  };
+
+  const openReport = async () => {
+    if (!lastBatch) return;
+    const batch = lastBatch;
+    showReportMsg('');
+    reportPreview.replaceChildren(createText('p', '보고서를 그리는 중…', 'report-loading'));
+    reportModal.hidden = false;
+    try {
+      const names = batch.decks.flatMap((entry) => entry.request.squad);
+      const portraits = await loadPortraits(names, catalogByName, import.meta.env.BASE_URL);
+      const battle = readBattle();
+      const meta: ReportMeta = {
+        enemyDef: battle.enemyDef,
+        enemyCode: battle.enemyCode,
+        corePx: battle.coreEnabled ? battle.corePx : 0,
+        hasParts: battle.hasParts,
+        siteUrl: 'moris-kr.github.io/nikke-calc',
+      };
+      const canvas = renderReport(batch, meta, portraits);
+      reportBlob = await canvasToBlob(canvas);
+      const image = document.createElement('img');
+      image.src = URL.createObjectURL(reportBlob);
+      image.alt = '전투 결과 보고서';
+      image.dataset.reportImage = '';
+      reportPreview.replaceChildren(image);
+    } catch (error) {
+      reportBlob = null;
+      reportPreview.replaceChildren();
+      showReportMsg(error instanceof Error ? error.message : '보고서를 만들지 못했습니다.');
+    }
+  };
+
+  const closeReport = () => { reportModal.hidden = true; };
+  element<HTMLButtonElement>(root, '[data-report-close]').addEventListener('click', closeReport);
+  reportModal.addEventListener('click', (event) => {
+    if (event.target === reportModal) closeReport();
+  });
+  element<HTMLButtonElement>(root, '[data-report-copy]').addEventListener('click', () => {
+    void (async () => {
+      if (!reportBlob) return;
+      // 이미지 클립보드 쓰기를 막는 브라우저가 있어 실패하면 저장으로 안내한다.
+      const outcome = await copyImage(reportBlob);
+      const message = {
+        copied: '이미지를 복사했습니다. 커뮤니티 글에 붙여넣으세요.',
+        unsupported: '이 브라우저는 이미지 복사를 지원하지 않습니다. PNG 저장을 사용해 주세요.',
+        blocked: '복사가 차단됐습니다. 이 창을 한 번 클릭한 뒤 다시 눌러 보세요. 계속 막히면 PNG 저장을 사용해 주세요.',
+      }[outcome];
+      showReportMsg(message, outcome === 'copied');
+    })();
+  });
+  element<HTMLButtonElement>(root, '[data-report-save]').addEventListener('click', () => {
+    if (!reportBlob || !lastBatch) return;
+    downloadImage(reportBlob, reportFilename(lastBatch));
+    showReportMsg('PNG로 저장했습니다.', true);
+  });
+
   const renderBatchResult = (batch: BatchResult) => {
     resultPanel.replaceChildren();
     const duration = batch.decks[0]?.result.duration ?? 1;
@@ -718,6 +808,20 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     summary.append(createText('span', batch.decks.length > 1 ? '전체 덱 총 대미지' : '스쿼드 총 대미지'), total, createText('small', formatDps(batch.total / duration)));
     header.append(copy, summary);
     resultPanel.append(header);
+
+    // 보고서는 마지막으로 그려진 결과를 그대로 쓴다.
+    lastBatch = batch;
+    const reportTools = document.createElement('div');
+    reportTools.className = 'report-tools';
+    const reportButton = document.createElement('button');
+    reportButton.type = 'button';
+    reportButton.className = 'report-open';
+    reportButton.dataset.reportOpen = '';
+    reportButton.textContent = '보고서 이미지 만들기';
+    reportButton.title = '결과를 한 장짜리 PNG로 만들어 복사하거나 저장합니다';
+    reportButton.addEventListener('click', () => { void openReport(); });
+    reportTools.append(reportButton);
+    resultPanel.append(reportTools);
 
     for (const entry of batch.decks) {
       const section = document.createElement('section');
