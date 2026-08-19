@@ -2,7 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { copyImage, loadPortraits, renderReport, reportFilename, type ReportMeta } from './report';
+import { copyImage, loadPortraits, renderReport, reportFilename, reportRows, type ReportMeta } from './report';
 import type { BatchResult, DeckResultEntry, SimulationRequest, SimulationResult } from './types';
 
 const request = (squad: string[]): SimulationRequest => ({
@@ -46,6 +46,29 @@ const batchOf = (decks: DeckResultEntry[]): BatchResult => ({
 
 describe('report image', () => {
   afterEach(() => { vi.unstubAllGlobals(); });
+
+  it('keeps the squad slot order instead of ranking by damage', () => {
+    // 니케는 배치 순서가 전투에 영향을 준다. 딜 순으로 재정렬하면 보고서가 실제
+    // 편성과 다른 그림이 되므로, 좌→우 편성을 위→아래로 그대로 옮겨야 한다.
+    const squad = ['리타', '크라운', '라피 : 레드 후드', '앨리스', '나가'];
+    const deck: DeckResultEntry = {
+      deckId: 1,
+      request: request(squad),
+      result: result(1000, { 리타: 100, 크라운: 200, '라피 : 레드 후드': 500, 앨리스: 150, 나가: 50 }),
+    };
+
+    expect(reportRows(deck, new Map()).map((row) => row.name)).toEqual(squad);
+  });
+
+  it('drops empty slots from the report', () => {
+    const deck: DeckResultEntry = {
+      deckId: 1,
+      request: request(['리타', '', '크라운', '', '']),
+      result: result(300, { 리타: 100, 크라운: 200 }),
+    };
+
+    expect(reportRows(deck, new Map()).map((row) => row.name)).toEqual(['리타', '크라운']);
+  });
 
   it('names the file by deck count so saved reports stay distinguishable', () => {
     const single = batchOf([entry(1, ['리타'], 100)]);

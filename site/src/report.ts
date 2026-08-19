@@ -38,7 +38,7 @@ export interface ReportMeta {
 }
 
 /** 캐릭터 한 명의 보고서용 집계값. */
-interface Row {
+export interface ReportRow {
   name: string;
   damage: number;
   share: number;
@@ -47,10 +47,18 @@ interface Row {
   portrait: HTMLImageElement | null;
 }
 
-const rowsOf = (
+/**
+ * 보고서에 실을 캐릭터 줄을 만든다.
+ *
+ * **편성 순서(좌→우)를 그대로 위→아래로 쓴다.** 니케는 배치 순서 자체가 전투에
+ * 영향을 주므로 딜 순으로 재정렬하면 실제 편성과 다른 그림이 된다. 화면의 결과
+ * 목록도 같은 순서다. 빈 슬롯은 뺀다.
+ */
+export const reportRows = (
   entry: DeckResultEntry,
   portraits: Map<string, HTMLImageElement>,
-): Row[] => entry.request.squad
+): ReportRow[] => entry.request.squad
+  .filter(Boolean)
   .map((name) => {
     const damage = entry.result.charTotals[name] ?? 0;
     const breakdown = entry.result.charBreakdown?.[name];
@@ -62,8 +70,7 @@ const rowsOf = (
       skill: breakdown?.skill ?? 0,
       portrait: portraits.get(name) ?? null,
     };
-  })
-  .sort((left, right) => right.damage - left.damage);
+  });
 
 /**
  * 스쿼드에 등장하는 캐릭터의 초상화를 미리 받아 둔다.
@@ -207,7 +214,7 @@ function drawSingle(
   meta: ReportMeta,
   portraits: Map<string, HTMLImageElement>,
 ): number {
-  const rows = rowsOf(entry, portraits);
+  const rows = reportRows(entry, portraits);
   let y = PAD + 16;
 
   text(ctx, `NIKKE SQUAD SIM · ${entry.result.duration}s`, PAD, y, 11, COLOR.cyan, 800);
@@ -320,8 +327,7 @@ function drawBatch(
     line(ctx, x, cy, colW);
     cy += 16;
 
-    for (const row of rowsOf(entry, portraits)) {
-      if (!row.name) continue;
+    for (const row of reportRows(entry, portraits)) {
       portrait(ctx, row.portrait, x, cy - 12, 26, 5);
       const nameX = x + 34;
       const damageLabel = formatDamage(row.damage);
