@@ -129,6 +129,19 @@ describe('generated browser runtime', () => {
       label: '우월 코드 대미지',
       unit: '%',
     });
+    // 입력 칸 순서는 인게임 오버로드 표기 순서를 따른다 — 게임 화면을 보고 그대로
+    // 옮겨 적을 수 있어야 한다. 순서가 뜻을 가지므로 테스트로 고정한다.
+    expect(Object.keys(settings.overloadFields)).toEqual([
+      'element_bonus',    // 우코
+      'atk_pct',          // 공증
+      'max_ammo_pct',     // 장탄
+      'charge_speed_pct', // 차속
+      'charge_dmg_pct',   // 차댐
+      'accuracy_pct',     // 명중
+      'crit_rate',        // 크확
+      'crit_dmg',         // 크댐
+      'def_pct',          // 방어
+    ]);
     expect(settings.manualStats.split_dmg_pct).toMatchObject({
       label: '분배 대미지',
       unit: '%',

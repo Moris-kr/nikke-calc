@@ -173,7 +173,8 @@ describe('character settings editor', () => {
 
     const head = root.querySelector<HTMLSelectElement>('[data-equip-level="머리"]')!;
     const arm = root.querySelector<HTMLSelectElement>('[data-equip-level="팔"]')!;
-    expect([...head.options].map((option) => option.value)).toEqual(['5', '4', '3', '2', '1', '0']);
+    // 스킬 레벨과 같은 방향(오름차순)으로 통일했다.
+    expect([...head.options].map((option) => option.value)).toEqual(['0', '1', '2', '3', '4', '5']);
     expect(head.value).toBe('5');
     expect(root.querySelectorAll('[data-equip-level]').length).toBe(4);
 
