@@ -20,6 +20,11 @@ context/snapshot.py                (회귀 하네스)
 `context/spec.py`이고(정본: `HARNESS.md §기본 스펙`), `timeline.DEFAULT_CHAR`는 호출자가
 키를 빠뜨렸을 때의 **최소 폴백**일 뿐이다 — 장비 옵션·컨트롤 기본값은 거기 없다.
 
+`equip_skills`의 값은 **스칼라(합산 퍼센트) 또는 줄별 퍼센트 리스트**다. 최대 장탄·차지 속도는
+옵션 단계마다 따로 반올림되므로(`GAMEPLAY.md §무기 메카닉`) 단계가 섞인 장비는 리스트로 적어야
+한다 — 같은 값(= 같은 레벨)끼리 묶여 한 그룹이 된다. 줄이 전부 같은 레벨이면 스칼라와 결과가
+같으므로 기본 스펙은 스칼라 그대로다.
+
 ---
 
 ## 2. 초기화 단계 (simulate 진입 직후)
@@ -82,7 +87,7 @@ for t in 0, DT, 2·DT, ..., duration:
 cs.tick(t)
   ├─ weapon_change 활성?  → _tick_weapon_change()
   ├─ 컨트롤 액션 생산      → _pump_ctrl_seq() / _apply_cover_policy() → _enter_cover()
-  ├─ 재장전 중?           → 완료 시 _finish_reload()
+  ├─ 재장전 중?           → 완료 시 _finish_reload()  (클립 무기는 1/3만 차면 다음 클립으로)
   ├─ 엄폐 중?             → _tick_cover() → 사격·차징 불가
   ├─ post_reload_delay 중? → 대기
   └─ fire_mode 분기
