@@ -16,16 +16,20 @@ from typing import Any
 from context.growth import resolve_character_growth
 
 
+# 순서는 **인게임 오버로드 표기 순서**다 — 우코·공증·장탄·차속·차댐·명중·크확·크댐·방어.
+# 브라우저가 이 dict 순서를 그대로 입력 칸 순서로 쓰므로(export-settings → UI),
+# 게임 화면을 보고 그대로 옮겨 적을 수 있게 맞춘다. 값 조회는 전부 키 기준이라
+# 순서를 바꿔도 계산에는 영향이 없다.
 OVERLOAD_FIELDS: dict[str, dict[str, Any]] = {
     "element_bonus": {"label": "우월 코드 대미지", "unit": "%", "min": 0.0, "max": 1000.0},
     "atk_pct": {"label": "공격력", "unit": "%", "min": 0.0, "max": 1000.0},
-    "def_pct": {"label": "방어력", "unit": "%", "min": 0.0, "max": 1000.0},
     "max_ammo_pct": {"label": "최대 장탄수", "unit": "%", "min": 0.0, "max": 10000.0},
-    "crit_rate": {"label": "크리티컬 확률", "unit": "%", "min": 0.0, "max": 100.0},
-    "crit_dmg": {"label": "크리티컬 대미지", "unit": "%", "min": 0.0, "max": 1000.0},
     "charge_speed_pct": {"label": "차지 속도", "unit": "%", "min": 0.0, "max": 1000.0},
     "charge_dmg_pct": {"label": "차지 대미지", "unit": "%", "min": 0.0, "max": 1000.0},
     "accuracy_pct": {"label": "명중률", "unit": "%", "min": 0.0, "max": 1000.0},
+    "crit_rate": {"label": "크리티컬 확률", "unit": "%", "min": 0.0, "max": 100.0},
+    "crit_dmg": {"label": "크리티컬 대미지", "unit": "%", "min": 0.0, "max": 1000.0},
+    "def_pct": {"label": "방어력", "unit": "%", "min": 0.0, "max": 1000.0},
 }
 
 def _load_cube_names() -> tuple[str, ...]:

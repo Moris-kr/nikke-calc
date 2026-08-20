@@ -276,10 +276,12 @@ export function renderCharacterSettings(
     partText.textContent = EQUIP_PART_LABELS[part];
     const partSelect = document.createElement('select');
     partSelect.dataset.equipLevel = part;
-    for (let lv = 5; lv >= 0; lv -= 1) {
+    // 스킬 레벨과 같은 방향(낮은 값이 위)으로 둔다 — 한 패널 안에서 정렬이
+    // 엇갈리면 고를 때마다 방향을 다시 읽어야 한다.
+    for (let lv = 0; lv <= 5; lv += 1) {
       const option = document.createElement('option');
       option.value = String(lv);
-      option.textContent = `Lv ${lv}`;
+      option.textContent = `Lv${lv}`;
       partSelect.append(option);
     }
     partSelect.value = String(current.equipLevels?.[part] ?? 5);
