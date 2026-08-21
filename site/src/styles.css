@@ -232,6 +232,14 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .control-grid { display: grid; gap: 7px; margin-top: 9px; }
 .control-toggle { justify-content: flex-start; }
 .control-toggle select { margin-left: auto; min-height: 32px; font-size: 10px; }
+/* 톡톡이 발사 속도 직접 입력 */
+.control-toggle .input-unit { margin-left: auto; width: 118px; flex: 0 0 auto; }
+/* 기본 .input-unit은 단위(em) 자리로 오른쪽 42px을 비워둔다. 폭을 채우지 않으면
+   number 입력의 기본 크기(56px)만 남아 글자가 패딩에 가려 보이지 않는다. */
+.control-toggle .input-unit input { width: 100%; min-height: 32px; font-size: 10px; text-align: right; }
+.tap-rate-hint { flex-basis: 100%; margin-top: 4px; color: var(--muted); font-size: 9px; line-height: 1.5; }
+.tap-rate-hint.is-warning { color: var(--amber); }
+.control-toggle { flex-wrap: wrap; }
 .field-note.warning { color: var(--accent); }
 .cube-summary { margin: 8px 0 0; color: #849cac; font-size: 9px; line-height: 1.55; }
 .cube-unsupported-note { margin: 6px 0 0; color: #e0b25a; font-size: 9px; line-height: 1.55; }

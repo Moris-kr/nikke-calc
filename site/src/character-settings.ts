@@ -7,6 +7,12 @@ import type {
   SkillLevels,
 } from './types';
 
+// 톡톡이 기본 발사 속도(발/초). 36톡톡이 — 박자감이 준수한 사람의 일반적인 값이다.
+// 220ms(≈4.5발/초)는 게임이 강제하는 하한이라 그 위는 사람이 낼 수 없다
+// (`context/CONTROL.md` §톡톡이).
+const TAP_FIRE_DEFAULT = 3.6;
+const TAP_FIRE_HARD_LIMIT = 4.5;
+
 const EQUIP_PARTS: EquipPart[] = ['머리', '몸통', '팔', '다리'];
 // 내부 부위 키는 '팔'이지만 UI·CSV 표기는 '장갑'이다.
 const EQUIP_PART_LABELS: Record<EquipPart, string> = {
@@ -510,7 +516,37 @@ export function renderCharacterSettings(
   };
 
   if (defaults.weaponType === 'SR' || defaults.weaponType === 'RL') {
-    addControlToggle('tap_fire', '톡톡이 (3.6발/초)', { rate: 3.6, release: 0.03 });
+    const tapLabel = addControlToggle('tap_fire', '톡톡이', { rate: TAP_FIRE_DEFAULT, release: 0.03 });
+    // 발사 속도는 사람마다 다르다. 커뮤니티는 10초당 발수(«N톡톡이»)로 부르므로
+    // 입력은 발/초로 받되 환산값을 같이 보여준다.
+    const tapRate = document.createElement('input');
+    tapRate.type = 'number';
+    tapRate.dataset.tapRate = '';
+    tapRate.step = '0.1';
+    tapRate.min = '0.1';
+    tapRate.max = '20';
+    tapRate.value = String(displayedControl.tap_fire?.rate ?? TAP_FIRE_DEFAULT);
+    tapRate.disabled = isAutomatic || displayedControl.tap_fire === undefined;
+    const tapHint = document.createElement('small');
+    tapHint.className = 'tap-rate-hint';
+    tapHint.dataset.tapHint = '';
+    const paintHint = (rate: number) => {
+      if (!Number.isFinite(rate) || rate <= 0) { tapHint.textContent = ''; return; }
+      // 10초에 N발이면 사이클은 10/(N-1)초다 (CONTROL.md §톡톡이).
+      tapHint.textContent = `≈ ${Math.round(rate * 10)}톡톡이`
+        + (rate > TAP_FIRE_HARD_LIMIT ? ' · 게임 하한(220ms)을 넘는 값입니다' : '');
+      tapHint.classList.toggle('is-warning', rate > TAP_FIRE_HARD_LIMIT);
+    };
+    paintHint(Number(tapRate.value));
+    tapRate.addEventListener('input', () => {
+      const rate = Number(tapRate.value);
+      paintHint(rate);
+      if (!Number.isFinite(rate) || rate <= 0) return;
+      const next = cloneOverrides(current);
+      next.control = { ...(next.control ?? {}), tap_fire: { rate, release: 0.03 } };
+      emitNumericChange(next);
+    });
+    tapLabel.append(makeInputUnit(tapRate, '발/초'), tapHint);
     const holdLabel = addControlToggle('hold', '홀드 컨트롤', {
       policy: 'own_full_burst', lead: 0.5,
     });

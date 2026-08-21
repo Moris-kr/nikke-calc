@@ -285,6 +285,33 @@ describe('character settings editor', () => {
     expect(value).not.toHaveProperty('control');
   });
 
+  it('lets the tap-fire rate be typed in and shows the 톡톡이 equivalent', () => {
+    characterName = '라피';
+    render();
+    setToggle('[data-custom-toggle]', true);
+    setToggle('[data-control-mode="manual"]', true);
+
+    // 켜기 전에는 속도를 만질 수 없다.
+    expect(root.querySelector<HTMLInputElement>('[data-tap-rate]')?.disabled).toBe(true);
+    setToggle('[data-control="tap_fire"]', true);
+
+    const rate = root.querySelector<HTMLInputElement>('[data-tap-rate]')!;
+    expect(rate.disabled).toBe(false);
+    expect(rate.value).toBe('3.6');
+    expect(root.querySelector('[data-tap-hint]')?.textContent).toContain('36톡톡이');
+
+    rate.value = '4';
+    rate.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(value?.control?.tap_fire).toEqual({ rate: 4, release: 0.03 });
+    expect(root.querySelector('[data-tap-hint]')?.textContent).toContain('40톡톡이');
+
+    // 게임이 강제하는 하한(220ms ≈ 4.5발/초)을 넘으면 그 사실을 알린다.
+    rate.value = '6';
+    rate.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(value?.control?.tap_fire?.rate).toBe(6);
+    expect(root.querySelector('[data-tap-hint]')?.textContent).toContain('게임 하한');
+  });
+
   it('does not show charge-only controls for a non-charge weapon', () => {
     setToggle('[data-custom-toggle]', true);
     expect(root.querySelector('[data-control="tap_fire"]')).toBeNull();
