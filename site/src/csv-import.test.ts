@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseCsvLine, parseRosterCsv } from './csv-import';
+import { parseCollection, parseCsvLine, parseRosterCsv } from './csv-import';
 import type { CharacterSettingsDefaults, SettingsCatalog } from './types';
 
 const charDefaults = (over: Partial<CharacterSettingsDefaults> = {}): CharacterSettingsDefaults => ({
@@ -15,6 +15,7 @@ const charDefaults = (over: Partial<CharacterSettingsDefaults> = {}): CharacterS
   skillLevelsLocked: false,
   overload: {},
   cube: { name: '재장', level: 15 },
+  collection: { stage: 'SR15', favorite: 0 },
   ...over,
 });
 
@@ -30,6 +31,25 @@ const header = [
   '우코(%)', '공증(%)', '방어(%)', '장탄(%)', '크확(%)', '크댐(%)', '차속(%)', '차댐(%)', '명중(%)',
   '머리_레벨', '몸통_레벨', '장갑_레벨', '다리_레벨',
 ].join(',');
+
+describe('소장품 컬럼', () => {
+  it('reads the collection stage actually owned instead of assuming the best', () => {
+    // 이 컬럼을 안 읽으면 기본값(SR15 + 애장품 3단계)이 그대로 남아 과대평가된다.
+    expect(parseCollection('애장품 ★★★')).toEqual({ stage: 'SR15', favorite: 3 });
+    expect(parseCollection('애장품 ★★☆')).toEqual({ stage: 'SR15', favorite: 2 });
+    expect(parseCollection('SR 15')).toEqual({ stage: 'SR15', favorite: 0 });
+    expect(parseCollection('SR 5')).toEqual({ stage: 'SR5', favorite: 0 });
+    expect(parseCollection('R 0')).toEqual({ stage: 'R0', favorite: 0 });
+    // 빈 칸 = 미장착. 엔진이 아는 '없음'으로 옮긴다.
+    expect(parseCollection('')).toEqual({ stage: '없음', favorite: 0 });
+    expect(parseCollection(undefined)).toEqual({ stage: '없음', favorite: 0 });
+  });
+
+  it('leaves the default alone when the notation is unknown', () => {
+    // 모르는 표기를 억지로 해석해 잘못 낮추느니 기본값을 그대로 둔다.
+    expect(parseCollection('전설 소장품 XL')).toEqual({ stage: '', favorite: 0 });
+  });
+});
 
 describe('parseCsvLine', () => {
   it('handles quoted fields with embedded commas and quotes', () => {

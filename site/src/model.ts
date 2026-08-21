@@ -64,6 +64,12 @@ function normalizeCharacters(
       ...(value.cube ? {
         cube: { name: value.cube.name, level: Math.trunc(value.cube.level) },
       } : {}),
+      ...(value.collection ? {
+        collection: {
+          stage: value.collection.stage,
+          favorite: Math.trunc(value.collection.favorite),
+        },
+      } : {}),
       ...(manualStats ? { manualStats } : {}),
       ...(value.burst ? { burst: value.burst } : {}),
       ...(value.equipLevels && Object.keys(value.equipLevels).length > 0

@@ -48,7 +48,9 @@ const settings: SettingsCatalog = {
       crit_dmg: 0,
     },
     cube: { name: '재장', level: 15 },
+    collection: { stage: 'SR15', favorite: 0 },
   }])),
+  collectionStages: ['없음', 'SR0', 'SR5', 'SR15'],
   cubes: {
     재장: { label: '재장', stat: 'reload_speed_pct', template: '재장전 {0}%', levels: cubeLevels },
     탄충: { label: '탄충', stat: 'ammo_charge_flat', template: '10발마다 {0}발', levels: cubeLevels },

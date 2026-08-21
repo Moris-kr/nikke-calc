@@ -26,6 +26,7 @@ const cloneOverrides = (value: CharacterOverrides): CharacterOverrides => ({
   ...(value.skillLevels ? { skillLevels: { ...value.skillLevels } } : {}),
   ...(value.overload ? { overload: { ...value.overload } } : {}),
   ...(value.cube ? { cube: { ...value.cube } } : {}),
+  ...(value.collection ? { collection: { ...value.collection } } : {}),
   ...(value.control !== undefined ? {
     control: Object.fromEntries(
       Object.entries(value.control).map(([key, entry]) => [key, { ...entry }]),
@@ -47,6 +48,7 @@ export function defaultCharacterOverrides(
     skillLevels: { ...defaults.skillLevels },
     overload: { ...defaults.overload },
     cube: { ...defaults.cube },
+    collection: { ...defaults.collection },
     manualStats: {},
   };
 }
@@ -128,6 +130,7 @@ export function renderCharacterSettings(
   current.skillLevels ??= { ...defaults.skillLevels };
   current.overload ??= { ...defaults.overload };
   current.cube ??= { ...defaults.cube };
+  current.collection ??= { ...defaults.collection };
   current.manualStats ??= {};
   const emitNumericChange = (next: CharacterOverrides) => {
     current = cloneOverrides(next);
@@ -302,16 +305,47 @@ export function renderCharacterSettings(
   equipEditor.append(equipHeading, equipGrid, equipNote);
   body.append(equipEditor);
 
-  if (defaults.favoriteItem) {
-    const favorite = document.createElement('section');
-    favorite.className = 'favorite-item-note';
-    const favoriteTitle = document.createElement('strong');
-    favoriteTitle.textContent = `${defaults.favoriteItem.name} · 애장품 ${defaults.favoriteItem.stage}단계`;
-    const favoriteText = document.createElement('p');
-    favoriteText.textContent = '애장품 보유 캐릭터는 반드시 애장품 3단계로 적용합니다.';
-    favorite.append(favoriteTitle, favoriteText);
-    body.append(favorite);
+  // 소장품 / 애장품 — 같은 슬롯이라 한 목록에서 고른다. 애장품이 있는 캐릭터만
+  // 애장품 단계가 선택지에 나온다.
+  const collectionEditor = document.createElement('section');
+  collectionEditor.className = 'collection-editor';
+  const collectionHeading = document.createElement('h4');
+  collectionHeading.textContent = defaults.favoriteItem ? '소장품 · 애장품' : '소장품';
+  const collectionSelect = document.createElement('select');
+  collectionSelect.dataset.collection = '';
+  const collectionOptions: Array<{ value: string; label: string }> = [
+    ...(defaults.favoriteItem
+      ? [3, 2, 1].map((stage) => ({
+        value: `favorite:${stage}`,
+        label: `애장품 ${'★'.repeat(stage)}${'☆'.repeat(3 - stage)}`,
+      }))
+      : []),
+    ...catalog.collectionStages.map((stage) => ({ value: `stage:${stage}`, label: stage })),
+  ];
+  for (const option of collectionOptions) {
+    const node = document.createElement('option');
+    node.value = option.value;
+    node.textContent = option.label;
+    collectionSelect.append(node);
   }
+  collectionSelect.value = current.collection!.favorite > 0
+    ? `favorite:${current.collection!.favorite}`
+    : `stage:${current.collection!.stage}`;
+  collectionSelect.addEventListener('change', () => {
+    const [kind, raw] = collectionSelect.value.split(':');
+    const next = cloneOverrides(current);
+    next.collection = kind === 'favorite'
+      ? { stage: 'SR15', favorite: Number(raw) }
+      : { stage: raw!, favorite: 0 };
+    commit(next);
+  });
+  const collectionNote = document.createElement('p');
+  collectionNote.className = 'field-note';
+  collectionNote.textContent = defaults.favoriteItem
+    ? `${defaults.favoriteItem.name} 보유 시 애장품을, 아니면 실제 낀 소장품 단계를 고르세요. 애장품은 소장품 슬롯을 씁니다.`
+    : '실제로 장착한 소장품 등급·레벨입니다. 안 꼈으면 «없음»을 고르세요.';
+  collectionEditor.append(collectionHeading, collectionSelect, collectionNote);
+  body.append(collectionEditor);
 
   const overloadGrid = document.createElement('div');
   overloadGrid.className = 'overload-grid';

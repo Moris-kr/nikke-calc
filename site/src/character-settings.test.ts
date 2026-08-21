@@ -29,6 +29,7 @@ const settings: SettingsCatalog = {
         crit_dmg: 0,
       },
       cube: { name: '재장', level: 15 },
+      collection: { stage: 'SR15', favorite: 0 },
     },
     라피: {
       weaponType: 'RL',
@@ -53,6 +54,7 @@ const settings: SettingsCatalog = {
         crit_dmg: 0,
       },
       cube: { name: '재장', level: 15 },
+      collection: { stage: 'SR15', favorite: 3 },
     },
     '아마기 유키코': {
       weaponType: 'AR',
@@ -76,8 +78,10 @@ const settings: SettingsCatalog = {
         crit_dmg: 0,
       },
       cube: { name: '재장', level: 15 },
+      collection: { stage: 'SR15', favorite: 0 },
     },
   },
+  collectionStages: ['없음', 'SR0', 'SR5', 'SR15'],
   cubes: {
     재장: { label: '재장', stat: 'reload_speed_pct', template: '재장전 속도 {0} ▲%', levels: { '15': { atk: 2780, def: 552, hp: 83400, effect: 29.69, commonElement: 19.09 } } },
     탄충: { label: '탄충', stat: 'ammo_charge_flat', template: '10발 사격 시 탄환 충전 {0}발 ▲', levels: { '15': { atk: 2780, def: 552, hp: 83400, effect: 3, commonElement: 19.09 } } },
@@ -227,15 +231,38 @@ describe('character settings editor', () => {
     expect(root.textContent).toContain('스킬 4 / 6 / 8');
   });
 
-  it('shows favorite item stage three and all nine overload options', () => {
+  it('lets a favorite-item character pick the stage actually owned', () => {
     characterName = '라피';
     render();
     setToggle('[data-custom-toggle]', true);
 
     expect(root.textContent).toContain('기념 열쇠고리');
-    expect(root.textContent).toContain('애장품 보유 캐릭터는 반드시 애장품 3단계로 적용합니다.');
+    const select = root.querySelector<HTMLSelectElement>('[data-collection]')!;
+    // 애장품 단계가 먼저 오고, 그 뒤로 소장품 단계가 이어진다.
+    expect([...select.options].slice(0, 3).map((option) => option.textContent))
+      .toEqual(['애장품 ★★★', '애장품 ★★☆', '애장품 ★☆☆']);
+    expect(select.value).toBe('favorite:3');
+
+    // 실제로는 애장품이 없고 소장품 SR5만 낀 경우.
+    select.value = 'stage:SR5';
+    select.dispatchEvent(new Event('change'));
+    expect(value?.collection).toEqual({ stage: 'SR5', favorite: 0 });
+
     expect(root.querySelectorAll('[data-overload-key]')).toHaveLength(9);
     expect(root.textContent).toContain('차지형 무기가 아니면 차지 옵션은 효과가 없습니다.');
+  });
+
+  it('offers only collection stages when the character has no favorite item', () => {
+    characterName = '리타';
+    render();
+    setToggle('[data-custom-toggle]', true);
+
+    const select = root.querySelector<HTMLSelectElement>('[data-collection]')!;
+    expect([...select.options].every((option) => !option.value.startsWith('favorite:'))).toBe(true);
+
+    select.value = 'stage:없음';
+    select.dispatchEvent(new Event('change'));
+    expect(value?.collection).toEqual({ stage: '없음', favorite: 0 });
   });
 
   it('switches from recommended controls to exact per-character controls', () => {
