@@ -26,8 +26,8 @@ export function normalizeRequest(request: SimulationRequest): SimulationRequest 
     seed: Math.trunc(request.seed),
     ...(request.console ? { console: {
       common_level: Math.trunc(request.console.common_level),
-      class_level: Math.trunc(request.console.class_level),
-      company_level: Math.trunc(request.console.company_level),
+      class_level: normalizeBuckets(request.console.class_level),
+      company_level: normalizeBuckets(request.console.company_level),
     } } : {}),
   };
 }
@@ -41,6 +41,15 @@ function pickCustomForSquad(
   const picked: NonNullable<SimulationRequest['customCharacters']> = {};
   for (const name of squad) if (custom[name]) picked[name] = custom[name]!;
   return Object.keys(picked).length > 0 ? picked : undefined;
+}
+
+// 소속별 콘솔은 키 순서가 흔들려도 같은 설정이다 — 캐시 키가 갈리지 않게 정렬한다.
+function normalizeBuckets(values: Record<string, number>): Record<string, number> {
+  return Object.fromEntries(
+    Object.entries(values)
+      .map(([bucket, level]) => [bucket, Math.trunc(level)] as const)
+      .sort(([left], [right]) => left.localeCompare(right)),
+  );
 }
 
 function normalizeRecord(values: Record<string, number> | undefined): Record<string, number> | undefined {
@@ -113,8 +122,10 @@ export function validateRequest(request: SimulationRequest): string[] {
   if (request.console) {
     const levels: Array<[number, string]> = [
       [request.console.common_level, '공통'],
-      [request.console.class_level, '클래스'],
-      [request.console.company_level, '기업'],
+      ...Object.entries(request.console.class_level)
+        .map(([bucket, level]) => [level, `클래스(${bucket})`] as [number, string]),
+      ...Object.entries(request.console.company_level)
+        .map(([bucket, level]) => [level, `기업(${bucket})`] as [number, string]),
     ];
     for (const [level, label] of levels) {
       if (!integerInRange(level, 0, 1_000)) {

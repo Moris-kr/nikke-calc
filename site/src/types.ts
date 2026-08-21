@@ -71,10 +71,12 @@ export interface CustomCharacter {
 
 // 계정 콘솔(전초기지 재활용 연구실). 캐릭터가 아니라 계정 속성이라 요청 최상위에
 // 두고 스쿼드 전원에게 같이 적용된다.
+// `공통`은 전체 하나, `클래스`·`기업`은 소속별로 따로 큰다 — 인게임 재활용
+// 연구실이 그렇게 생겼고, 엔진도 빠진 소속을 에러로 끊는다.
 export interface ConsoleLevels {
   common_level: number;
-  class_level: number;
-  company_level: number;
+  class_level: Record<string, number>;
+  company_level: Record<string, number>;
 }
 
 export interface SimulationRequest {
@@ -202,6 +204,8 @@ export interface SettingsCatalog {
   characters: Record<string, CharacterSettingsDefaults>;
   cubes: Record<CubeName, CubeMeta>;
   collectionStages: string[];
+  consoleClasses: string[];
+  consoleCompanies: string[];
   overloadFields: Record<string, NumericFieldMeta>;
   manualStats: Record<string, NumericFieldMeta>;
 }

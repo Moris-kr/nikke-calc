@@ -219,21 +219,51 @@ def _normalize_control(raw: Any) -> dict[str, Any]:
     return result
 
 
+def _roster_buckets(field: str) -> tuple[str, ...]:
+    """로스터에 실제로 존재하는 소속 목록. 정본은 `data/parsed_nikke.json`이다.
+
+    엔진은 소속별 콘솔 dict에서 **빠진 소속을 KeyError로 끊는다**
+    (`base_stat.console_level`) — 조용히 0이 되지 않게 하려는 자리다. 그래서
+    선택지를 로스터에서 뽑아, 신규 기업·클래스가 생겨도 저절로 따라가게 한다.
+    """
+    root = Path(__file__).resolve().parent.parent
+    nikke = json.loads((root / "data" / "parsed_nikke.json").read_text(encoding="utf-8"))
+    seen = {
+        meta.get(field) for name, meta in nikke.items()
+        if not name.startswith("test_") and meta.get(field)
+    }
+    return tuple(sorted(seen))
+
+
+CONSOLE_CLASSES = _roster_buckets("class")
+CONSOLE_COMPANIES = _roster_buckets("manufacturer")
+
+CONSOLE_MAX_LEVEL = 1000
+
+# 콘솔 세 축. `공통`은 전체 하나지만 `클래스`·`기업`은 인게임 재활용 연구실이
+# 소속별로 따로 크므로 소속마다 레벨을 받는다 (`base_stat.py` §콘솔 스탯).
 CONSOLE_FIELDS: dict[str, dict[str, Any]] = {
-    "common_level": {"label": "공통 콘솔", "max": 1000},
-    "class_level": {"label": "클래스 콘솔", "max": 1000},
-    "company_level": {"label": "기업 콘솔", "max": 1000},
+    "common_level": {"label": "공통 콘솔", "buckets": ()},
+    "class_level": {"label": "클래스 콘솔", "buckets": CONSOLE_CLASSES},
+    "company_level": {"label": "기업 콘솔", "buckets": CONSOLE_COMPANIES},
 }
 
 
-def normalize_console(raw: Any) -> dict[str, int]:
+def _console_number(value: Any, label: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) \
+            or not 0 <= value <= CONSOLE_MAX_LEVEL:
+        raise ValueError(f"{label} 레벨은 0~{CONSOLE_MAX_LEVEL} 정수여야 한다")
+    return value
+
+
+def normalize_console(raw: Any) -> dict[str, Any]:
     """계정 콘솔(전초기지 재활용 연구실) 레벨 → 엔진 `console` dict.
 
     콘솔은 계정 속성이라 캐릭터마다 다를 수 없다. 그래서 캐릭터 설정이 아니라
     전투 조건과 같은 층에서 받아 스쿼드 전원에게 똑같이 얹는다.
 
-    엔진은 소속별로 갈린 dict도 받지만(`base_stat.console_level`) 여기서는 숫자
-    하나만 받는다 — "전 역할군·전 기업 동일"이라는 뜻이다.
+    `클래스`·`기업`은 소속별 dict로 받는다. 숫자 하나로 와도 받아주고 전 소속
+    같은 값으로 편다 — 소속별로 나누기 전에 저장된 설정이 그대로 돌아야 한다.
     """
     if raw is None:
         return {}
@@ -242,14 +272,31 @@ def normalize_console(raw: Any) -> dict[str, int]:
     unknown = set(raw) - set(CONSOLE_FIELDS)
     if unknown:
         raise ValueError(f"지원하지 않는 콘솔 항목: {sorted(unknown)}")
-    result: dict[str, int] = {}
+
+    result: dict[str, Any] = {}
     for key, meta in CONSOLE_FIELDS.items():
         if key not in raw:
             continue
         value = raw[key]
-        if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= meta["max"]:
-            raise ValueError(f"{meta['label']} 레벨은 0~{meta['max']} 정수여야 한다")
-        result[key] = value
+        label = meta["label"]
+        buckets: tuple[str, ...] = meta["buckets"]
+        if not buckets:
+            result[key] = _console_number(value, label)
+            continue
+        if not isinstance(value, dict):
+            # 구버전 표기(숫자 하나) — 전 소속 동일이라는 뜻으로 편다.
+            result[key] = dict.fromkeys(buckets, _console_number(value, label))
+            continue
+        missing = set(buckets) - set(value)
+        if missing:
+            raise ValueError(f"{label}에 빠진 소속이 있다: {sorted(missing)}")
+        extra = set(value) - set(buckets)
+        if extra:
+            raise ValueError(f"{label}에 모르는 소속이 있다: {sorted(extra)}")
+        result[key] = {
+            bucket: _console_number(value[bucket], f"{label}({bucket})")
+            for bucket in buckets
+        }
     return result
 
 

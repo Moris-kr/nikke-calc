@@ -51,6 +51,8 @@ const settings: SettingsCatalog = {
     collection: { stage: 'SR15', favorite: 0 },
   }])),
   collectionStages: ['없음', 'SR0', 'SR5', 'SR15'],
+  consoleClasses: ['화력형', '방어형', '지원형'],
+  consoleCompanies: ['엘리시온', '미실리스', '테트라', '필그림', '어브노말'],
   cubes: {
     재장: { label: '재장', stat: 'reload_speed_pct', template: '재장전 {0}%', levels: cubeLevels },
     탄충: { label: '탄충', stat: 'ammo_charge_flat', template: '10발마다 {0}발', levels: cubeLevels },
@@ -394,32 +396,40 @@ describe('calculator UI', () => {
     expect(css).toMatch(/\[hidden\]\s*\{\s*display:\s*none\s*!important;/);
   });
 
-  it('sends the account console with the request and restores it on reload', async () => {
+  it('sends per-affiliation console levels and restores them on reload', async () => {
     const client = new FakeClient();
     mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });
 
-    // 기본 스펙 값이 그대로 실린다.
+    // 클래스 3개 · 기업 5개가 각각 칸을 갖는다 — 엔진이 빠진 소속을 에러로 끊는다.
+    const bucketInput = (axis: 'class' | 'company', bucket: string) =>
+      root.querySelector<HTMLInputElement>(`[data-console-bucket="${axis}:${bucket}"]`)!;
+    expect(root.querySelectorAll('[data-console-bucket^="class:"]')).toHaveLength(3);
+    expect(root.querySelectorAll('[data-console-bucket^="company:"]')).toHaveLength(5);
+
     root.querySelector<HTMLInputElement>('#duration')!.value = '10';
     root.querySelector<HTMLFormElement>('form')!.requestSubmit();
     await flush();
-    expect(client.lastRequest?.console).toEqual({
-      common_level: 180, class_level: 100, company_level: 100,
+    expect(client.lastRequest?.console?.common_level).toBe(180);
+    expect(client.lastRequest?.console?.company_level).toEqual({
+      엘리시온: 100, 미실리스: 100, 테트라: 100, 필그림: 100, 어브노말: 100,
     });
 
-    // 바꾼 값이 요청에 반영되고 저장된다.
-    const company = root.querySelector<HTMLInputElement>('#console-company')!;
-    company.value = '250';
-    // 저장은 다른 전투 조건 필드와 같이 change(포커스 이탈·확정)에서 걸린다.
-    company.dispatchEvent(new Event('change', { bubbles: true }));
+    // 한 소속만 올려도 그 소속만 바뀐다.
+    const tetra = bucketInput('company', '테트라');
+    tetra.value = '250';
+    tetra.dispatchEvent(new Event('change', { bubbles: true }));
     root.querySelector<HTMLFormElement>('form')!.requestSubmit();
     await flush();
-    expect(client.lastRequest?.console?.company_level).toBe(250);
+    expect(client.lastRequest?.console?.company_level).toEqual({
+      엘리시온: 100, 미실리스: 100, 테트라: 250, 필그림: 100, 어브노말: 100,
+    });
 
     root.remove();
     root = document.createElement('main');
     document.body.append(root);
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
-    expect(root.querySelector<HTMLInputElement>('#console-company')!.value).toBe('250');
+    expect(bucketInput('company', '테트라').value).toBe('250');
+    expect(bucketInput('company', '엘리시온').value).toBe('100');
   });
 
   it('shows validation errors without running the calculator', async () => {
