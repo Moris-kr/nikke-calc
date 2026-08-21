@@ -103,9 +103,9 @@ h2 { margin: 0; font-size: 24px; letter-spacing: -.035em; }
 .reset-list { margin: 12px 0 0; padding-left: 18px; color: #b9c7d3; font-size: 11px; line-height: 1.75; }
 
 /* 조합 공유 */
-.share-block { margin: 14px 0 0; }
-.share-block h4 { margin: 0 0 6px; color: var(--cyan); font-size: 12px; }
-.share-block .custom-json { margin: 0 0 8px; }
+.squad-code-block { margin: 14px 0 0; }
+.squad-code-block h4 { margin: 0 0 6px; color: var(--cyan); font-size: 12px; }
+.squad-code-block .custom-json { margin: 0 0 8px; }
 
 /* 보고서 이미지 */
 .report-tools { display: flex; justify-content: flex-end; margin: 0 0 14px; }
