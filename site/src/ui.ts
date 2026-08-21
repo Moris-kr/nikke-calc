@@ -356,13 +356,13 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       <div class="custom-modal" data-share-modal hidden>
         <div class="custom-card" role="dialog" aria-label="조합 공유">
           <div class="custom-head"><h2>조합 공유</h2><button type="button" class="custom-close" data-share-close aria-label="닫기">✕</button></div>
-          <p class="custom-desc">편성과 캐릭터 설정을 코드 한 줄로 주고받습니다. 5덱 모드면 5개 덱이 한 번에 담깁니다. 서버로 전송되지 않습니다.</p>
-          <div class="share-block">
+          <p class="custom-desc">누가 편성됐는지(캐릭터 조합)만 코드 한 줄로 주고받습니다. 5덱 모드면 5개 덱이 한 번에 담깁니다. <b>오버로드·공격력·돌파 같은 개인 스펙과 전투 조건은 코드에 담기지 않습니다</b> — 코드를 적용하면 캐릭터만 바뀌고 스펙은 각자 자기 설정(CSV 로스터를 넣었다면 그 값)이 그대로 쓰입니다. 서버로 전송되지 않습니다.</p>
+          <div class="squad-code-block">
             <h4>내 조합 코드</h4>
             <textarea class="custom-json" data-share-out rows="3" readonly></textarea>
             <div class="deck-copy-actions"><button type="button" class="deck-copy-apply" data-share-copy>코드 복사</button></div>
           </div>
-          <div class="share-block">
+          <div class="squad-code-block">
             <h4>받은 코드 적용</h4>
             <textarea class="custom-json" data-share-in rows="3" placeholder="받은 조합 코드를 붙여넣으세요 (NIKKE1-...)"></textarea>
             <div class="deck-copy-actions"><button type="button" class="deck-copy-apply" data-share-apply>이 조합 적용</button></div>
@@ -875,7 +875,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     shareMsg.classList.toggle('is-ok', ok);
   };
   element<HTMLButtonElement>(root, '[data-share-open]').addEventListener('click', () => {
-    shareOut.value = encodeShareCode(decks, fiveDeckMode, readBattle());
+    shareOut.value = encodeShareCode(decks, fiveDeckMode);
     shareIn.value = '';
     showShareMsg('');
     shareModal.hidden = false;
@@ -898,15 +898,17 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   element<HTMLButtonElement>(root, '[data-share-apply]').addEventListener('click', () => {
     try {
       const payload = decodeShareCode(shareIn.value);
+      // 스펙은 내 것을 쓴다 — CSV 로스터를 넣어 뒀으면 그대로 얹힌다.
       const { applied, skipped } = applyShareToDecks(
-        payload, decks, (name) => catalogByName.has(name),
+        payload, decks,
+        (name) => catalogByName.has(name),
+        (name) => (roster[name] ? cloneOverride(roster[name]!) : undefined),
       );
       fiveDeckMode = payload.fiveDeckMode || applied > 1;
       element<HTMLInputElement>(root, '#squad-mode').checked = fiveDeckMode;
       deckTabs.hidden = !fiveDeckMode;
       deckNote.hidden = !fiveDeckMode;
       activeDeckId = 1;
-      if (payload.battle) writeBattle({ ...readBattle(), ...payload.battle });
       saveState();
       renderDeckTabs();
       renderSquad();
