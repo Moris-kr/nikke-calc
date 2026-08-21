@@ -82,6 +82,8 @@ const settings: SettingsCatalog = {
     },
   },
   collectionStages: ['없음', 'SR0', 'SR5', 'SR15'],
+  consoleClasses: ['화력형', '방어형', '지원형'],
+  consoleCompanies: ['엘리시온', '미실리스', '테트라', '필그림', '어브노말'],
   cubes: {
     재장: { label: '재장', stat: 'reload_speed_pct', template: '재장전 속도 {0} ▲%', levels: { '15': { atk: 2780, def: 552, hp: 83400, effect: 29.69, commonElement: 19.09 } } },
     탄충: { label: '탄충', stat: 'ammo_charge_flat', template: '10발 사격 시 탄환 충전 {0}발 ▲', levels: { '15': { atk: 2780, def: 552, hp: 83400, effect: 3, commonElement: 19.09 } } },

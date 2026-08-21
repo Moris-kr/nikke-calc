@@ -10,7 +10,8 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from calculator.customization import (  # noqa: E402
-    COLLECTION_STAGES, CUBE_NAMES, MANUAL_STATS, OVERLOAD_FIELDS,
+    COLLECTION_STAGES, CONSOLE_CLASSES, CONSOLE_COMPANIES, CUBE_NAMES,
+    MANUAL_STATS, OVERLOAD_FIELDS,
 )
 from context.growth import growth_options, growth_profile  # noqa: E402
 from context.spec import CHAR_DEFAULTS, build_squad  # noqa: E402
@@ -96,6 +97,9 @@ def main() -> None:
         "characters": characters,
         "cubes": cubes,
         "collectionStages": list(COLLECTION_STAGES),
+        # 콘솔 소속. 엔진이 빠진 소속을 에러로 끊으므로 목록의 정본을 넘긴다.
+        "consoleClasses": list(CONSOLE_CLASSES),
+        "consoleCompanies": list(CONSOLE_COMPANIES),
         "overloadFields": OVERLOAD_FIELDS,
         "manualStats": MANUAL_STATS,
     }

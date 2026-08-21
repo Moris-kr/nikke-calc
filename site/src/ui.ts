@@ -331,12 +331,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           </div>
           <section class="console-editor">
             <h3>콘솔 <span>전초기지 재활용 연구실</span></h3>
-            <div class="console-grid">
-              <label><span>공통</span><input id="console-common" type="number" min="0" max="1000" step="1" value="180" /></label>
-              <label><span>클래스</span><input id="console-class" type="number" min="0" max="1000" step="1" value="100" /></label>
-              <label><span>기업</span><input id="console-company" type="number" min="0" max="1000" step="1" value="100" /></label>
-            </div>
-            <p class="field-note">계정 설정이라 스쿼드 전원에게 같이 적용됩니다. 기업은 공격력, 공통·클래스는 체력을 올립니다 — 체력 계수를 쓰는 캐릭터(신데렐라 등)는 공통·클래스도 딜에 반영됩니다.</p>
+            <div class="console-grid" data-console-grid></div>
+            <p class="field-note">계정 설정이라 스쿼드 전원에게 같이 적용됩니다. 클래스·기업은 인게임에서 소속별로 따로 크므로 각각 받습니다. 기업은 공격력, 공통·클래스는 체력을 올립니다 — 체력 계수를 쓰는 캐릭터(신데렐라 등)는 공통·클래스도 딜에 반영됩니다.</p>
           </section>
           <div class="error-box" data-errors hidden role="alert"></div>
           <button class="calculate-button" type="submit"><span>시뮬레이션 실행</span><b aria-hidden="true">→</b></button>
@@ -698,6 +694,80 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     }
   };
 
+  // ── 콘솔 ────────────────────────────────────────────────────────────────
+  // 클래스·기업은 소속별로 따로 큰다. 목록은 카탈로그가 정본이라(로스터에서 뽑는다)
+  // 신규 기업·클래스가 생겨도 코드는 그대로다.
+  //
+  // 만든 입력을 Map으로 들고 읽고 쓴다 — 소속명이 그대로 들어가는 선택자를 쓰면
+  // 이스케이프에 기대게 되고(`CSS.escape`), 그 API가 없는 환경에서 통째로 깨진다.
+  const CONSOLE_DEFAULTS = { common: 180, class: 100, company: 100 } as const;
+  const consoleInputs: Record<'class' | 'company', Map<string, HTMLInputElement>> = {
+    class: new Map(),
+    company: new Map(),
+  };
+  let consoleCommon!: HTMLInputElement;
+
+  const consoleBuckets = (axis: 'class' | 'company'): string[] =>
+    axis === 'class' ? settings.consoleClasses : settings.consoleCompanies;
+
+  const renderConsole = () => {
+    const grid = element<HTMLElement>(root, '[data-console-grid]');
+    grid.replaceChildren();
+    consoleInputs.class.clear();
+    consoleInputs.company.clear();
+
+    const field = (label: string, value: number): [HTMLLabelElement, HTMLInputElement] => {
+      const wrap = document.createElement('label');
+      const text = document.createElement('span');
+      text.textContent = label;
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.min = '0';
+      input.max = '1000';
+      input.step = '1';
+      input.value = String(value);
+      wrap.append(text, input);
+      return [wrap, input];
+    };
+    const group = (title: string, nodes: HTMLElement[]) => {
+      const box = document.createElement('div');
+      box.className = 'console-group';
+      box.append(createText('h4', title), ...nodes);
+      return box;
+    };
+
+    const [commonWrap, commonInput] = field('전체', CONSOLE_DEFAULTS.common);
+    commonInput.id = 'console-common';
+    consoleCommon = commonInput;
+
+    const axisGroup = (axis: 'class' | 'company', title: string) => group(
+      title,
+      consoleBuckets(axis).map((bucket) => {
+        const [wrap, input] = field(bucket, CONSOLE_DEFAULTS[axis]);
+        input.dataset.consoleBucket = `${axis}:${bucket}`;
+        consoleInputs[axis].set(bucket, input);
+        return wrap;
+      }),
+    );
+
+    grid.append(
+      group('공통', [commonWrap]),
+      axisGroup('class', '클래스'),
+      axisGroup('company', '기업'),
+    );
+  };
+  renderConsole();
+
+  const readConsoleBuckets = (axis: 'class' | 'company'): Record<string, number> =>
+    Object.fromEntries([...consoleInputs[axis]].map(([bucket, input]) => [bucket, Number(input.value)]));
+
+  const writeConsoleBuckets = (axis: 'class' | 'company', levels: Record<string, number>) => {
+    for (const [bucket, input] of consoleInputs[axis]) {
+      const level = levels[bucket];
+      if (level !== undefined) input.value = String(level);
+    }
+  };
+
   const readBattle = (): BattleSettings => ({
     duration: Number(element<HTMLInputElement>(root, '#duration').value),
     enemyDef: Number(element<HTMLInputElement>(root, '#enemy-def').value),
@@ -707,9 +777,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     hasParts: element<HTMLInputElement>(root, '#has-parts').checked,
     seed: Number(element<HTMLInputElement>(root, '#seed').value),
     console: {
-      common_level: Number(element<HTMLInputElement>(root, '#console-common').value),
-      class_level: Number(element<HTMLInputElement>(root, '#console-class').value),
-      company_level: Number(element<HTMLInputElement>(root, '#console-company').value),
+      common_level: Number(consoleCommon.value),
+      class_level: readConsoleBuckets('class'),
+      company_level: readConsoleBuckets('company'),
     },
   });
 
@@ -723,9 +793,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     element<HTMLInputElement>(root, '#has-parts').checked = battle.hasParts;
     element<HTMLInputElement>(root, '#seed').value = String(battle.seed);
     if (battle.console) {
-      element<HTMLInputElement>(root, '#console-common').value = String(battle.console.common_level);
-      element<HTMLInputElement>(root, '#console-class').value = String(battle.console.class_level);
-      element<HTMLInputElement>(root, '#console-company').value = String(battle.console.company_level);
+      consoleCommon.value = String(battle.console.common_level);
+      writeConsoleBuckets('class', battle.console.class_level);
+      writeConsoleBuckets('company', battle.console.company_level);
     }
   };
 

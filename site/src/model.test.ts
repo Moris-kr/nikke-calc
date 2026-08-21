@@ -23,7 +23,7 @@ const valid: SimulationRequest = {
 };
 
 const battle: BattleSettings = {
-  console: { common_level: 180, class_level: 100, company_level: 100 },
+  console: { common_level: 180, class_level: { 화력형: 100, 방어형: 100, 지원형: 100 }, company_level: { 엘리시온: 100, 미실리스: 100, 테트라: 100, 필그림: 100, 어브노말: 100 } },
   duration: 180,
   enemyDef: 31_784,
   enemyCode: '',
@@ -275,11 +275,11 @@ describe('formatDamage', () => {
 
   it('carries the account console into the request and the cache key', () => {
     // 콘솔은 계정 속성이라 캐릭터가 아니라 요청 최상위에 실린다.
-    const base = { ...valid, console: { common_level: 180, class_level: 100, company_level: 100 } };
-    const grown = { ...valid, console: { common_level: 360, class_level: 200, company_level: 200 } };
+    const base = { ...valid, console: { common_level: 180, class_level: { 화력형: 100, 방어형: 100, 지원형: 100 }, company_level: { 엘리시온: 100, 미실리스: 100, 테트라: 100, 필그림: 100, 어브노말: 100 } } };
+    const grown = { ...valid, console: { common_level: 360, class_level: { 화력형: 200, 방어형: 200, 지원형: 200 }, company_level: { 엘리시온: 200, 미실리스: 200, 테트라: 200, 필그림: 200, 어브노말: 200 } } };
 
     expect(normalizeRequest(base).console).toEqual({
-      common_level: 180, class_level: 100, company_level: 100,
+      common_level: 180, class_level: { 화력형: 100, 방어형: 100, 지원형: 100 }, company_level: { 엘리시온: 100, 미실리스: 100, 테트라: 100, 필그림: 100, 어브노말: 100 },
     });
     // 콘솔이 다르면 결과도 다르므로 캐시가 섞이면 안 된다.
     expect(cacheKey(base, 'v1')).not.toBe(cacheKey(grown, 'v1'));
@@ -288,13 +288,13 @@ describe('formatDamage', () => {
   it('rejects console levels outside the allowed range', () => {
     // 기업만 딜에 직결되지만 공통·클래스도 체력 계수 캐릭터(신데렐라 등)를 통해
     // 딜에 들어오므로 셋 다 검사한다.
-    expect(validateRequest({ ...valid, console: { common_level: -1, class_level: 100, company_level: 100 } }))
+    expect(validateRequest({ ...valid, console: { common_level: -1, class_level: { 화력형: 100, 방어형: 100, 지원형: 100 }, company_level: { 엘리시온: 100, 미실리스: 100, 테트라: 100, 필그림: 100, 어브노말: 100 } } }))
       .toContain('공통 콘솔 레벨은 0~1000 사이의 정수여야 합니다.');
-    expect(validateRequest({ ...valid, console: { common_level: 180, class_level: 1001, company_level: 100 } }))
-      .toContain('클래스 콘솔 레벨은 0~1000 사이의 정수여야 합니다.');
-    expect(validateRequest({ ...valid, console: { common_level: 180, class_level: 100, company_level: 1.5 } }))
-      .toContain('기업 콘솔 레벨은 0~1000 사이의 정수여야 합니다.');
-    expect(validateRequest({ ...valid, console: { common_level: 0, class_level: 0, company_level: 0 } }))
+    expect(validateRequest({ ...valid, console: { common_level: 180, class_level: { ...{ 화력형: 100, 방어형: 100, 지원형: 100 }, 화력형: 1001 }, company_level: { 엘리시온: 100, 미실리스: 100, 테트라: 100, 필그림: 100, 어브노말: 100 } } }))
+      .toContain('클래스(화력형) 콘솔 레벨은 0~1000 사이의 정수여야 합니다.');
+    expect(validateRequest({ ...valid, console: { common_level: 180, class_level: { 화력형: 100, 방어형: 100, 지원형: 100 }, company_level: { ...{ 엘리시온: 100, 미실리스: 100, 테트라: 100, 필그림: 100, 어브노말: 100 }, 테트라: 1.5 } } }))
+      .toContain('기업(테트라) 콘솔 레벨은 0~1000 사이의 정수여야 합니다.');
+    expect(validateRequest({ ...valid, console: { common_level: 0, class_level: { 화력형: 0, 방어형: 0, 지원형: 0 }, company_level: { 엘리시온: 0, 미실리스: 0, 테트라: 0, 필그림: 0, 어브노말: 0 } } }))
       .toEqual([]);
   });
 });
