@@ -213,6 +213,8 @@ export function customToSettings(custom: CustomCharacter): CharacterSettingsDefa
     growthOptions: growth.options,
     skillLevels: { '1': 10, '2': 10, '3': 10 },
     skillLevelsLocked: false,
+    // 직접 추가한 니케는 애장품 데이터가 없으므로 소장품만 기본 스펙(SR15)으로 둔다.
+    collection: { stage: 'SR15', favorite: 0 },
     overload: {
       element_bonus: 88.6, atk_pct: 22.22, def_pct: 0, max_ammo_pct: 129.64,
       crit_rate: 0, crit_dmg: 0, charge_speed_pct: 0, charge_dmg_pct: 0, accuracy_pct: 0,

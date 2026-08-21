@@ -9,7 +9,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from calculator.customization import CUBE_NAMES, MANUAL_STATS, OVERLOAD_FIELDS  # noqa: E402
+from calculator.customization import (  # noqa: E402
+    COLLECTION_STAGES, CUBE_NAMES, MANUAL_STATS, OVERLOAD_FIELDS,
+)
 from context.growth import growth_options, growth_profile  # noqa: E402
 from context.spec import CHAR_DEFAULTS, build_squad  # noqa: E402
 
@@ -54,6 +56,12 @@ def main() -> None:
             "growthOptions": growth_options(name, meta),
             "overload": {key: float(equip.get(key, 0.0)) for key in OVERLOAD_FIELDS},
             "cube": char["cube"],
+            # 기본 스펙은 소장품 SR15이고, 애장품이 있는 캐릭터는 3단계로 본다
+            # (`context/spec.py` §기본 육성 스펙). 실제 보유는 유저가 고른다.
+            "collection": {
+                "stage": str(char["collection_stage"]),
+                "favorite": int(char["favorite_stage"]) if favorite else 0,
+            },
         }
 
     cubes = {}
@@ -87,6 +95,7 @@ def main() -> None:
     payload = {
         "characters": characters,
         "cubes": cubes,
+        "collectionStages": list(COLLECTION_STAGES),
         "overloadFields": OVERLOAD_FIELDS,
         "manualStats": MANUAL_STATS,
     }

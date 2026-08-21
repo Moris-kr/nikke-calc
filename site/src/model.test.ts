@@ -247,4 +247,28 @@ describe('formatDamage', () => {
   it('keeps smaller numbers readable', () => {
     expect(formatDamage(999_999)).toBe('999,999');
   });
+
+  it('carries the collection choice into the request and the cache key', () => {
+    // normalizeCharacters는 필드를 하나씩 옮겨 담는 화이트리스트다. 빠뜨리면 설정이
+    // 요청 직전에 조용히 사라지고 결과가 기본값으로 나온다 — 실제로 그랬다.
+    const base = {
+      ...valid,
+      characters: {
+        리타: { collection: { stage: 'SR15', favorite: 0 } },
+      },
+    };
+    expect(normalizeRequest(base).characters?.리타?.collection)
+      .toEqual({ stage: 'SR15', favorite: 0 });
+
+    const owned = {
+      ...valid,
+      characters: {
+        리타: { collection: { stage: 'SR0', favorite: 0 } },
+      },
+    };
+    expect(normalizeRequest(owned).characters?.리타?.collection)
+      .toEqual({ stage: 'SR0', favorite: 0 });
+    // 소장품이 다르면 결과도 달라지므로 캐시가 섞이면 안 된다.
+    expect(cacheKey(base, 'v1')).not.toBe(cacheKey(owned, 'v1'));
+  });
 });

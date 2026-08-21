@@ -38,11 +38,19 @@ export type BurstAssignment =
   | { mode: 'skip' };
 export type EquipPart = '머리' | '몸통' | '팔' | '다리';
 
+// 소장품과 애장품은 같은 슬롯이다. favorite이 1~3이면 애장품을 낀 것이고
+// 그때 stage는 SR15로 고정된다(스탯이 SR15와 같다).
+export interface CollectionSelection {
+  stage: string;
+  favorite: number;
+}
+
 export interface CharacterOverrides {
   growthStage?: number;
   skillLevels?: SkillLevels;
   overload?: Record<string, number>;
   cube?: CubeSelection;
+  collection?: CollectionSelection;
   control?: CharacterControl;
   manualStats?: Record<string, number>;
   burst?: BurstAssignment;
@@ -169,6 +177,7 @@ export interface CharacterSettingsDefaults {
   recommendedControl: CharacterControl;
   hasConditionalControl: boolean;
   favoriteItem?: { name: string; stage: 3 };
+  collection: CollectionSelection;
   growthStage: number;
   rarity: string;
   maxGrowthStage: number;
@@ -182,6 +191,7 @@ export interface CharacterSettingsDefaults {
 export interface SettingsCatalog {
   characters: Record<string, CharacterSettingsDefaults>;
   cubes: Record<CubeName, CubeMeta>;
+  collectionStages: string[];
   overloadFields: Record<string, NumericFieldMeta>;
   manualStats: Record<string, NumericFieldMeta>;
 }

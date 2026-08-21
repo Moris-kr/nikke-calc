@@ -16,6 +16,23 @@ const OVERLOAD_BY_HEADER: Record<string, string> = {
   '명중(%)': 'accuracy_pct',
 };
 
+// 렛츠도로 `소장품` 컬럼 표기 → 계산기 설정.
+//   '애장품 ★★★' / '애장품 ★★☆' → 애장품 단계(별 개수). 소장품 슬롯을 공유한다.
+//   'SR 15' / 'SR 5' / 'R 0'     → 소장품 등급+레벨 (공백을 지워 'SR15' 형태로)
+//   빈 칸                        → 미장착
+// 이 컬럼을 읽지 않으면 계산기 기본값(SR15 + 애장품 3단계)이 그대로 적용돼,
+// 실제로 안 낀 캐릭터가 과대평가된다.
+export function parseCollection(raw: string | undefined): { stage: string; favorite: number } {
+  const text = (raw ?? '').trim();
+  if (text === '') return { stage: '없음', favorite: 0 };
+  const stars = text.match(/★/g);
+  if (stars) return { stage: 'SR15', favorite: Math.min(3, stars.length) };
+  const graded = text.replace(/\s+/g, '').toUpperCase().match(/^(SR|R)(\d{1,2})$/);
+  if (graded) return { stage: `${graded[1]}${Number(graded[2])}`, favorite: 0 };
+  // 모르는 표기는 건드리지 않는다 — 기본값이 그대로 남는 편이 잘못 낮추는 것보다 낫다.
+  return { stage: '', favorite: 0 };
+}
+
 const EQUIP_LEVEL_HEADER: Record<EquipPart, string> = {
   머리: '머리_레벨',
   몸통: '몸통_레벨',
@@ -104,6 +121,9 @@ export function parseRosterCsv(text: string, settings: SettingsCatalog): RosterI
         };
       }
     }
+
+    const collection = parseCollection(at(row, '소장품'));
+    if (collection.stage !== '') override.collection = collection;
 
     const equipLevels: Partial<Record<EquipPart, number>> = {};
     for (const part of Object.keys(EQUIP_LEVEL_HEADER) as EquipPart[]) {

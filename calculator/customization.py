@@ -13,6 +13,8 @@ import math
 from pathlib import Path
 from typing import Any
 
+from calculator.base_stat import NO_ITEM
+from calculator.buff_manager import FAVORITE_MAX_STAGE
 from context.growth import resolve_character_growth
 
 
@@ -49,6 +51,25 @@ def _load_cube_names() -> tuple[str, ...]:
 
 
 CUBE_NAMES = _load_cube_names()
+def _load_collection_stages() -> tuple[str, ...]:
+    """선택 가능한 소장품 단계. 정본은 `data/base_stat_tables/collection.json`이다.
+
+    `없음`(미장착)을 맨 앞에 둔다 — 엔진이 이미 아는 값이고(`base_stat.NO_ITEM`),
+    실제로 소장품을 안 낀 캐릭터가 적지 않다.
+    """
+    root = Path(__file__).resolve().parent.parent
+    table = json.loads(
+        (root / "data" / "base_stat_tables" / "collection.json").read_text(encoding="utf-8")
+    )
+    return (NO_ITEM, *table["_stat_table"].keys())
+
+
+COLLECTION_STAGES = _load_collection_stages()
+
+# 애장품은 소장품 슬롯을 공유한다 — 끼면 스탯이 SR15와 같고 그 위에 단계별 스킬이
+# 붙는다(`context/spec.py` §기본 육성 스펙). 그래서 둘을 한 설정으로 받는다.
+FAVORITE_COLLECTION_STAGE = "SR15"
+
 SKILL_LEVEL_KEYS = {"1", "2", "3"}
 EQUIP_PARTS = ("머리", "몸통", "팔", "다리")
 EQUIP_LEVEL_MAX = 5  # data/base_stat_tables/equipment_stats.json 은 부위별 LV0~5
@@ -208,7 +229,7 @@ def normalize_character_overrides(
         raise ValueError("캐릭터 설정은 객체여야 한다")
     unknown_sections = set(raw) - {
         "growthStage", "overload", "cube", "manualStats", "skillLevels", "control",
-        "burst", "equipLevels",
+        "burst", "equipLevels", "collection",
     }
     if unknown_sections:
         raise ValueError(f"지원하지 않는 캐릭터 설정: {sorted(unknown_sections)}")
@@ -264,6 +285,26 @@ def normalize_character_overrides(
             key: _number(value, key, OVERLOAD_FIELDS[key])
             for key, value in overload.items()
         }
+
+    # 소장품 / 애장품. 둘은 같은 슬롯이라 한 설정으로 받는다 —
+    # `favorite`가 1~3이면 애장품을 낀 것이고 소장품 단계는 SR15로 고정된다.
+    collection = raw.get("collection")
+    if collection is not None:
+        if not isinstance(collection, dict) or set(collection) - {"stage", "favorite"}:
+            raise ValueError("소장품 설정은 stage와 favorite만 포함해야 한다")
+        favorite = collection.get("favorite", 0)
+        if isinstance(favorite, bool) or not isinstance(favorite, int) \
+                or not 0 <= favorite <= FAVORITE_MAX_STAGE:
+            raise ValueError(f"애장품 단계는 0~{FAVORITE_MAX_STAGE} 정수여야 한다")
+        if favorite > 0:
+            result["collection_stage"] = FAVORITE_COLLECTION_STAGE
+        else:
+            stage = collection.get("stage", NO_ITEM)
+            if stage not in COLLECTION_STAGES:
+                raise ValueError(
+                    f"소장품 단계는 {NO_ITEM} 또는 R0~R15 · SR0~SR15 중 하나여야 한다 ({stage!r})")
+            result["collection_stage"] = stage
+        result["favorite_stage"] = favorite
 
     cube = raw.get("cube")
     if cube is not None:
