@@ -215,6 +215,53 @@ describe('calculator UI', () => {
     expect(root.querySelector<HTMLInputElement>('#squad-filter-1')!.value).toBe('');
   });
 
+  it('swaps a nikke with the neighbouring slot, carrying its filter text along', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const slots = () => [...root.querySelectorAll<HTMLSelectElement>('[data-squad-slot]')].map((s) => s.value);
+    const before = slots();
+    filterCharacterSlot(root, 0, '리타');
+
+    // 0번을 오른쪽으로 → 1번과 자리를 맞바꾼다.
+    root.querySelector<HTMLButtonElement>('[data-slot-move="0:1"]')!.click();
+
+    const after = slots();
+    expect(after[0]).toBe(before[1]);
+    expect(after[1]).toBe(before[0]);
+    expect(after.slice(2)).toEqual(before.slice(2));
+    // 슬롯에 매인 검색어도 같이 따라간다.
+    expect(root.querySelector<HTMLInputElement>('#squad-filter-1')!.value).toBe('리타');
+    expect(root.querySelector<HTMLInputElement>('#squad-filter-0')!.value).toBe('');
+
+    // 되돌리면 원래대로.
+    root.querySelector<HTMLButtonElement>('[data-slot-move="1:-1"]')!.click();
+    expect(slots()).toEqual(before);
+  });
+
+  it('disables the move that would run past either end', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+
+    expect(root.querySelector<HTMLButtonElement>('[data-slot-move="0:-1"]')!.disabled).toBe(true);
+    expect(root.querySelector<HTMLButtonElement>('[data-slot-move="0:1"]')!.disabled).toBe(false);
+    expect(root.querySelector<HTMLButtonElement>('[data-slot-move="4:1"]')!.disabled).toBe(true);
+    expect(root.querySelector<HTMLButtonElement>('[data-slot-move="4:-1"]')!.disabled).toBe(false);
+  });
+
+  it('keeps per-character settings with the nikke, not with the slot', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const moved = root.querySelector<HTMLSelectElement>('#squad-0')!.value;
+    // 0번 캐릭터에 개별 설정을 준다.
+    const toggle = root.querySelector<HTMLInputElement>('[data-slot-card="0"] [data-custom-toggle]')!;
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event('change', { bubbles: true }));
+
+    root.querySelector<HTMLButtonElement>('[data-slot-move="0:1"]')!.click();
+
+    // 설정은 이름에 매여 있으므로 자리를 옮겨도 그 캐릭터를 따라간다.
+    const saved = JSON.parse(localStorage.getItem('nikke-state-v1')!);
+    expect(saved.decks[0].squad[1]).toBe(moved);
+    expect(saved.decks[0].characters[moved]).toBeDefined();
+  });
+
   it('copies the active deck squad and settings into the chosen decks', () => {
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
     const mode = root.querySelector<HTMLInputElement>('#squad-mode')!;

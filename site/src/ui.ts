@@ -565,6 +565,36 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       portrait.className = 'portrait-wrap';
       const number = createText('span', `0${index + 1}`, 'slot-number');
       portrait.append(number, createText('div', '', 'portrait-fallback'));
+
+      // 자리 이동. 니케는 배치 순서가 전투에 영향을 주므로 캐릭터를 다시 고르지 않고
+      // 자리만 맞바꿀 수 있어야 한다. 이름으로 걸린 설정(deck.characters)은 슬롯과
+      // 무관하니 그대로 두고, 슬롯에 매인 편성과 검색어만 맞바꾼다.
+      const moves = document.createElement('div');
+      moves.className = 'slot-moves';
+      for (const [delta, label, title] of [
+        [-1, '‹', '왼쪽으로'], [1, '›', '오른쪽으로'],
+      ] as const) {
+        const move = document.createElement('button');
+        move.type = 'button';
+        move.className = 'slot-move';
+        move.dataset.slotMove = `${index}:${delta}`;
+        move.textContent = label;
+        move.title = `${title} 이동`;
+        move.ariaLabel = `슬롯 ${index + 1} ${title} 이동`;
+        const target = index + delta;
+        move.disabled = target < 0 || target > 4;
+        move.addEventListener('click', () => {
+          const filters = characterFilters[deck.id - 1]!;
+          [deck.squad[index], deck.squad[target]] = [deck.squad[target] ?? '', deck.squad[index] ?? ''];
+          [filters[index], filters[target]] = [filters[target] ?? '', filters[index] ?? ''];
+          showErrors([]);
+          saveState();
+          renderDeckTabs();
+          renderSquad();
+        });
+        moves.append(move);
+      }
+      portrait.append(moves);
       if (char?.image) {
         const image = document.createElement('img');
         image.src = `${import.meta.env.BASE_URL}${char.image}`;
