@@ -7,10 +7,13 @@ import type {
   SkillLevels,
 } from './types';
 
-// 톡톡이 기본 발사 속도(발/초). 36톡톡이 — 박자감이 준수한 사람의 일반적인 값이다.
+// 톡톡이를 직접 켤 때 채워지는 발사 속도(발/초) — 44톡톡이. 유저 지정값이다.
 // 220ms(≈4.5발/초)는 게임이 강제하는 하한이라 그 위는 사람이 낼 수 없다
 // (`context/CONTROL.md` §톡톡이).
-const TAP_FIRE_DEFAULT = 3.6;
+//
+// 참고: 엔진의 캐릭터별 «추천 자동» 컨트롤은 `data/char_defaults.json`에서 3.6을 쓰고
+// CONTROL.md는 실질 범위를 3.0~4.2로 적는다. 여기는 직접 켤 때의 출발값이라 별개다.
+const TAP_FIRE_DEFAULT = 4.4;
 const TAP_FIRE_HARD_LIMIT = 4.5;
 
 const EQUIP_PARTS: EquipPart[] = ['머리', '몸통', '팔', '다리'];

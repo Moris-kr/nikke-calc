@@ -279,7 +279,8 @@ describe('character settings editor', () => {
     setToggle('[data-control-mode="manual"]', true);
     expect(value?.control).toEqual({});
     setToggle('[data-control="tap_fire"]', true);
-    expect(value?.control?.tap_fire).toEqual({ rate: 3.6, release: 0.03 });
+    // 직접 켤 때 채워지는 출발값. 엔진의 «추천 자동»(3.6)과는 별개다.
+    expect(value?.control?.tap_fire).toEqual({ rate: 4.4, release: 0.03 });
 
     setToggle('[data-control-mode="auto"]', true);
     expect(value).not.toHaveProperty('control');
@@ -297,8 +298,8 @@ describe('character settings editor', () => {
 
     const rate = root.querySelector<HTMLInputElement>('[data-tap-rate]')!;
     expect(rate.disabled).toBe(false);
-    expect(rate.value).toBe('3.6');
-    expect(root.querySelector('[data-tap-hint]')?.textContent).toContain('36톡톡이');
+    expect(rate.value).toBe('4.4');
+    expect(root.querySelector('[data-tap-hint]')?.textContent).toContain('44톡톡이');
 
     rate.value = '4';
     rate.dispatchEvent(new Event('input', { bubbles: true }));
