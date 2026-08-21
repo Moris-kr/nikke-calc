@@ -282,6 +282,15 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .calculate-button:hover { filter: brightness(1.08); transform: translateY(-1px); }
 .calculate-button:disabled { cursor: wait; filter: grayscale(.6); transform: none; opacity: .72; }
 .calculate-button.is-running b { animation: pulse-arrow .7s ease-in-out infinite alternate; }
+/* 콘솔 — 계정 단위 설정 */
+.console-editor { margin-top: 16px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: rgba(7,15,25,.4); }
+.console-editor h3 { margin: 0 0 10px; font-size: 12px; color: var(--ink); }
+.console-editor h3 span { margin-left: 6px; color: var(--muted); font-size: 10px; font-weight: 400; }
+.console-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.console-grid label { display: flex; flex-direction: column; gap: 5px; }
+.console-grid span { color: var(--muted); font-size: 10px; }
+.console-editor .field-note { margin: 10px 0 0; }
+
 .result-cache-tools { margin-top: 10px; text-align: right; }
 .clear-cache { padding: 6px 11px; border: 1px solid rgba(146,176,201,.2); background: rgba(4,12,21,.55); color: var(--muted); font-size: 10px; font-weight: 700; border-radius: 7px; cursor: pointer; }
 .clear-cache:hover { border-color: var(--amber); color: var(--amber); }

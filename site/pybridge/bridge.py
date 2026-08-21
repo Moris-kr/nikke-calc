@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import math
 
-from calculator.customization import normalize_character_overrides
+from calculator.customization import normalize_character_overrides, normalize_console
 # `_is_normal`은 히트 태그로 일반공격을 가려내는 엔진 정본이다. 포크에서 다시
 # 구현하면 태그가 늘어날 때 조용히 어긋나므로 그대로 빌려 쓴다 (이름이 바뀌면
 # ImportError로 즉시 드러난다).
@@ -148,6 +148,15 @@ def run_request(raw: str) -> str:
         for name in names
         if name in raw_characters
     }
+    # 콘솔은 계정 속성이라 요청 최상위로 온다 — 스쿼드 전원에게 똑같이 얹는다.
+    # 기본 스펙에 이미 콘솔이 있으므로, 준 항목만 덮어쓴다.
+    console = normalize_console(payload.get("console"))
+    if console:
+        for name in names:
+            overrides = characters.setdefault(name, {})
+            overrides["console"] = {
+                **char_spec.DEFAULT_CHAR["console"], **console,
+            }
     squad = char_spec.build_squad(names, characters)
     config_in: dict = {"duration": int(payload["duration"])}
     # 버스트 운용 배정 → config["burst_pattern"]. solo는 매 사이클 우선(전담),
