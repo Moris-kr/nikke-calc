@@ -219,6 +219,40 @@ def _normalize_control(raw: Any) -> dict[str, Any]:
     return result
 
 
+CONSOLE_FIELDS: dict[str, dict[str, Any]] = {
+    "common_level": {"label": "공통 콘솔", "max": 1000},
+    "class_level": {"label": "클래스 콘솔", "max": 1000},
+    "company_level": {"label": "기업 콘솔", "max": 1000},
+}
+
+
+def normalize_console(raw: Any) -> dict[str, int]:
+    """계정 콘솔(전초기지 재활용 연구실) 레벨 → 엔진 `console` dict.
+
+    콘솔은 계정 속성이라 캐릭터마다 다를 수 없다. 그래서 캐릭터 설정이 아니라
+    전투 조건과 같은 층에서 받아 스쿼드 전원에게 똑같이 얹는다.
+
+    엔진은 소속별로 갈린 dict도 받지만(`base_stat.console_level`) 여기서는 숫자
+    하나만 받는다 — "전 역할군·전 기업 동일"이라는 뜻이다.
+    """
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise ValueError("콘솔 설정은 객체여야 한다")
+    unknown = set(raw) - set(CONSOLE_FIELDS)
+    if unknown:
+        raise ValueError(f"지원하지 않는 콘솔 항목: {sorted(unknown)}")
+    result: dict[str, int] = {}
+    for key, meta in CONSOLE_FIELDS.items():
+        if key not in raw:
+            continue
+        value = raw[key]
+        if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= meta["max"]:
+            raise ValueError(f"{meta['label']} 레벨은 0~{meta['max']} 정수여야 한다")
+        result[key] = value
+    return result
+
+
 def normalize_character_overrides(
     raw: Any, *, character_name: str | None = None
 ) -> dict[str, Any]:

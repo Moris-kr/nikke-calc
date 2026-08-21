@@ -24,6 +24,11 @@ export function normalizeRequest(request: SimulationRequest): SimulationRequest 
     corePx: Math.trunc(request.corePx),
     hasParts: Boolean(request.hasParts),
     seed: Math.trunc(request.seed),
+    ...(request.console ? { console: {
+      common_level: Math.trunc(request.console.common_level),
+      class_level: Math.trunc(request.console.class_level),
+      company_level: Math.trunc(request.console.company_level),
+    } } : {}),
   };
 }
 
@@ -105,6 +110,18 @@ export function validateRequest(request: SimulationRequest): string[] {
   if (!integerInRange(request.seed, 0, 2_147_483_647)) {
     errors.push('시드는 0~2147483647 사이의 정수여야 합니다.');
   }
+  if (request.console) {
+    const levels: Array<[number, string]> = [
+      [request.console.common_level, '공통'],
+      [request.console.class_level, '클래스'],
+      [request.console.company_level, '기업'],
+    ];
+    for (const [level, label] of levels) {
+      if (!integerInRange(level, 0, 1_000)) {
+        errors.push(`${label} 콘솔 레벨은 0~1000 사이의 정수여야 합니다.`);
+      }
+    }
+  }
 
   return errors;
 }
@@ -148,6 +165,7 @@ export function requestForDeck(
     corePx: battle.coreEnabled ? battle.corePx : 0,
     hasParts: battle.hasParts,
     seed: battle.seed,
+    console: battle.console,
   });
 }
 

@@ -69,6 +69,14 @@ export interface CustomCharacter {
   skills: unknown[];
 }
 
+// 계정 콘솔(전초기지 재활용 연구실). 캐릭터가 아니라 계정 속성이라 요청 최상위에
+// 두고 스쿼드 전원에게 같이 적용된다.
+export interface ConsoleLevels {
+  common_level: number;
+  class_level: number;
+  company_level: number;
+}
+
 export interface SimulationRequest {
   squad: string[];
   characters?: Record<string, CharacterOverrides>;
@@ -79,6 +87,7 @@ export interface SimulationRequest {
   corePx: number;
   hasParts: boolean;
   seed: number;
+  console?: ConsoleLevels;
 }
 
 export interface BattleSettings {
@@ -89,6 +98,7 @@ export interface BattleSettings {
   corePx: number;
   hasParts: boolean;
   seed: number;
+  console: ConsoleLevels;
 }
 
 export interface DeckState {

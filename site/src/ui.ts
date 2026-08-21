@@ -329,6 +329,15 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <label data-core-size><span>코어 직경</span><div class="input-unit"><input id="core-px" type="number" min="0" max="1000" step="1" value="52" disabled /><em>px</em></div></label>
             <label class="toggle-field"><input id="has-parts" type="checkbox" /><span class="toggle"></span><span>파괴 가능 파츠</span></label>
           </div>
+          <section class="console-editor">
+            <h3>콘솔 <span>전초기지 재활용 연구실</span></h3>
+            <div class="console-grid">
+              <label><span>공통</span><input id="console-common" type="number" min="0" max="1000" step="1" value="180" /></label>
+              <label><span>클래스</span><input id="console-class" type="number" min="0" max="1000" step="1" value="100" /></label>
+              <label><span>기업</span><input id="console-company" type="number" min="0" max="1000" step="1" value="100" /></label>
+            </div>
+            <p class="field-note">계정 설정이라 스쿼드 전원에게 같이 적용됩니다. 기업은 공격력, 공통·클래스는 체력을 올립니다 — 체력 계수를 쓰는 캐릭터(신데렐라 등)는 공통·클래스도 딜에 반영됩니다.</p>
+          </section>
           <div class="error-box" data-errors hidden role="alert"></div>
           <button class="calculate-button" type="submit"><span>시뮬레이션 실행</span><b aria-hidden="true">→</b></button>
           <div class="result-cache-tools"><button type="button" class="clear-cache" data-clear-cache title="같은 조건에 저장된 결과를 지우고 다음 실행부터 새로 계산합니다">저장된 결과 지우기</button></div>
@@ -697,6 +706,11 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     corePx: Number(corePxInput.value),
     hasParts: element<HTMLInputElement>(root, '#has-parts').checked,
     seed: Number(element<HTMLInputElement>(root, '#seed').value),
+    console: {
+      common_level: Number(element<HTMLInputElement>(root, '#console-common').value),
+      class_level: Number(element<HTMLInputElement>(root, '#console-class').value),
+      company_level: Number(element<HTMLInputElement>(root, '#console-company').value),
+    },
   });
 
   const writeBattle = (battle: BattleSettings) => {
@@ -708,6 +722,11 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     corePxInput.disabled = !battle.coreEnabled;
     element<HTMLInputElement>(root, '#has-parts').checked = battle.hasParts;
     element<HTMLInputElement>(root, '#seed').value = String(battle.seed);
+    if (battle.console) {
+      element<HTMLInputElement>(root, '#console-common').value = String(battle.console.common_level);
+      element<HTMLInputElement>(root, '#console-class').value = String(battle.console.class_level);
+      element<HTMLInputElement>(root, '#console-company').value = String(battle.console.company_level);
+    }
   };
 
   const validateCharacterValues = (deck: DeckState): string[] => {

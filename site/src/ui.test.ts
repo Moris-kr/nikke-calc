@@ -394,6 +394,34 @@ describe('calculator UI', () => {
     expect(css).toMatch(/\[hidden\]\s*\{\s*display:\s*none\s*!important;/);
   });
 
+  it('sends the account console with the request and restores it on reload', async () => {
+    const client = new FakeClient();
+    mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });
+
+    // 기본 스펙 값이 그대로 실린다.
+    root.querySelector<HTMLInputElement>('#duration')!.value = '10';
+    root.querySelector<HTMLFormElement>('form')!.requestSubmit();
+    await flush();
+    expect(client.lastRequest?.console).toEqual({
+      common_level: 180, class_level: 100, company_level: 100,
+    });
+
+    // 바꾼 값이 요청에 반영되고 저장된다.
+    const company = root.querySelector<HTMLInputElement>('#console-company')!;
+    company.value = '250';
+    // 저장은 다른 전투 조건 필드와 같이 change(포커스 이탈·확정)에서 걸린다.
+    company.dispatchEvent(new Event('change', { bubbles: true }));
+    root.querySelector<HTMLFormElement>('form')!.requestSubmit();
+    await flush();
+    expect(client.lastRequest?.console?.company_level).toBe(250);
+
+    root.remove();
+    root = document.createElement('main');
+    document.body.append(root);
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    expect(root.querySelector<HTMLInputElement>('#console-company')!.value).toBe('250');
+  });
+
   it('shows validation errors without running the calculator', async () => {
     const client = new FakeClient();
     mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });
