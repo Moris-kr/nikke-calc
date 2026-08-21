@@ -19,6 +19,7 @@ import {
   reportFilename,
   type ReportMeta,
 } from './report';
+import { applyShareToDecks, decodeShareCode, encodeShareCode } from './share-code';
 import { createTimelineBlock } from './timeline';
 import {
   aggregateDeckResults,
@@ -294,6 +295,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
                 <span>CSV 불러오기</span>
               </label>
               <button type="button" class="roster-import" data-add-nikke title="미출시·미등록 니케를 직접 추가">새 니케 추가</button>
+              <button type="button" class="roster-import" data-share-open title="편성을 코드로 만들어 공유하거나, 받은 코드를 붙여넣어 5덱을 한 번에 적용">조합 공유</button>
               <button type="button" class="roster-import danger" data-reset-all title="편성·설정·CSV 로스터·추가한 니케·저장된 결과를 모두 지우고 처음 상태로 되돌립니다">완전 초기화</button>
               <label class="toggle-field mode-toggle"><input id="squad-mode" type="checkbox" /><span class="toggle"></span><span>5덱 모드</span></label>
             </div>
@@ -350,6 +352,24 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         <div data-timeline-body></div>
       </section>
       <footer><p>비공식 팬 제작 도구 · 실제 전투 환경과 차이가 있을 수 있습니다.</p><a href="https://github.com/Moris-kr/nikke-calc" target="_blank" rel="noreferrer">SOURCE / GITHUB ↗</a></footer>
+
+      <div class="custom-modal" data-share-modal hidden>
+        <div class="custom-card" role="dialog" aria-label="조합 공유">
+          <div class="custom-head"><h2>조합 공유</h2><button type="button" class="custom-close" data-share-close aria-label="닫기">✕</button></div>
+          <p class="custom-desc">편성과 캐릭터 설정을 코드 한 줄로 주고받습니다. 5덱 모드면 5개 덱이 한 번에 담깁니다. 서버로 전송되지 않습니다.</p>
+          <div class="share-block">
+            <h4>내 조합 코드</h4>
+            <textarea class="custom-json" data-share-out rows="3" readonly></textarea>
+            <div class="deck-copy-actions"><button type="button" class="deck-copy-apply" data-share-copy>코드 복사</button></div>
+          </div>
+          <div class="share-block">
+            <h4>받은 코드 적용</h4>
+            <textarea class="custom-json" data-share-in rows="3" placeholder="받은 조합 코드를 붙여넣으세요 (NIKKE1-...)"></textarea>
+            <div class="deck-copy-actions"><button type="button" class="deck-copy-apply" data-share-apply>이 조합 적용</button></div>
+          </div>
+          <p class="custom-msg" data-share-msg hidden></p>
+        </div>
+      </div>
 
       <div class="custom-modal" data-report-modal hidden>
         <div class="custom-card report-card" role="dialog" aria-label="보고서 이미지">
@@ -843,6 +863,62 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     }
     return messages;
   };
+
+  // ── 조합 공유 코드 ──────────────────────────────────────────────────────
+  const shareModal = element<HTMLElement>(root, '[data-share-modal]');
+  const shareOut = element<HTMLTextAreaElement>(root, '[data-share-out]');
+  const shareIn = element<HTMLTextAreaElement>(root, '[data-share-in]');
+  const shareMsg = element<HTMLElement>(root, '[data-share-msg]');
+  const showShareMsg = (message: string, ok = false) => {
+    shareMsg.hidden = message === '';
+    shareMsg.textContent = message;
+    shareMsg.classList.toggle('is-ok', ok);
+  };
+  element<HTMLButtonElement>(root, '[data-share-open]').addEventListener('click', () => {
+    shareOut.value = encodeShareCode(decks, fiveDeckMode, readBattle());
+    shareIn.value = '';
+    showShareMsg('');
+    shareModal.hidden = false;
+  });
+  element<HTMLButtonElement>(root, '[data-share-close]').addEventListener('click', () => {
+    shareModal.hidden = true;
+  });
+  shareModal.addEventListener('click', (event) => {
+    if (event.target === shareModal) shareModal.hidden = true;
+  });
+  element<HTMLButtonElement>(root, '[data-share-copy]').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(shareOut.value);
+      showShareMsg('조합 코드를 복사했습니다. 이대로 공유하면 됩니다.', true);
+    } catch {
+      shareOut.select();
+      showShareMsg('자동 복사가 막혀 코드를 선택해 뒀습니다. Ctrl+C로 복사해 주세요.');
+    }
+  });
+  element<HTMLButtonElement>(root, '[data-share-apply]').addEventListener('click', () => {
+    try {
+      const payload = decodeShareCode(shareIn.value);
+      const { applied, skipped } = applyShareToDecks(
+        payload, decks, (name) => catalogByName.has(name),
+      );
+      fiveDeckMode = payload.fiveDeckMode || applied > 1;
+      element<HTMLInputElement>(root, '#squad-mode').checked = fiveDeckMode;
+      deckTabs.hidden = !fiveDeckMode;
+      deckNote.hidden = !fiveDeckMode;
+      activeDeckId = 1;
+      if (payload.battle) writeBattle({ ...readBattle(), ...payload.battle });
+      saveState();
+      renderDeckTabs();
+      renderSquad();
+      showErrors([]);
+      const missing = skipped.length > 0
+        ? ` · 목록에 없는 니케 ${skipped.length}명 제외(${skipped.slice(0, 3).join(', ')}${skipped.length > 3 ? '…' : ''})`
+        : '';
+      showShareMsg(`덱 ${applied}개를 적용했습니다${missing}.`, skipped.length === 0);
+    } catch (error) {
+      showShareMsg(error instanceof Error ? error.message : String(error));
+    }
+  });
 
   // ── 보고서 이미지 ────────────────────────────────────────────────────────
   let lastBatch: BatchResult | null = null;
