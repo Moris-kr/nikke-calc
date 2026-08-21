@@ -897,7 +897,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   });
   element<HTMLButtonElement>(root, '[data-share-apply]').addEventListener('click', () => {
     try {
-      const payload = decodeShareCode(shareIn.value);
+      // 카탈로그 이름을 넘겨야 해시에서 캐릭터를 되찾는다(커스텀 니케도 카탈로그에 있다).
+      const payload = decodeShareCode(shareIn.value, catalog.map((char) => char.name));
       // 스펙은 내 것을 쓴다 — CSV 로스터를 넣어 뒀으면 그대로 얹힌다.
       const { applied, skipped } = applyShareToDecks(
         payload, decks,
