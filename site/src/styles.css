@@ -102,13 +102,21 @@ h2 { margin: 0; font-size: 24px; letter-spacing: -.035em; }
 .reset-card { width: min(460px, 100%); }
 .reset-list { margin: 12px 0 0; padding-left: 18px; color: #b9c7d3; font-size: 11px; line-height: 1.75; }
 
+/* 조합 공유 */
+.share-block { margin: 14px 0 0; }
+.share-block h4 { margin: 0 0 6px; color: var(--cyan); font-size: 12px; }
+.share-block .custom-json { margin: 0 0 8px; }
+
 /* 보고서 이미지 */
 .report-tools { display: flex; justify-content: flex-end; margin: 0 0 14px; }
 .report-open { padding: 8px 14px; border: 1px solid rgba(69,214,208,.32); background: rgba(69,214,208,.1); color: #cfeceb; font-family: inherit; font-size: 12px; font-weight: 700; border-radius: 7px; cursor: pointer; }
 .report-open:hover { background: rgba(69,214,208,.18); border-color: var(--cyan); }
-.report-card { width: min(1040px, 100%); }
+/* 보고서는 읽으라고 만드는 이미지다 — 모달을 화면의 90%까지 넓혀 크게 보여준다. */
+/* .custom-card가 뒤에 정의돼 있어 같은 명시도로는 진다 — 클래스 둘을 겹쳐 이긴다. */
+.custom-card.report-card { width: 90vw; max-width: 90vw; max-height: 92vh; }
 .report-preview { margin: 14px 0 0; padding: 10px; background: rgba(3,9,16,.6); border: 1px solid var(--line); border-radius: 10px; text-align: center; }
-.report-preview img { max-width: 100%; height: auto; display: block; margin: 0 auto; border-radius: 6px; }
+/* 세로로 긴 보고서라 높이를 묶으면 가로가 반으로 줄어든다 — 폭을 채우고 세로는 카드가 스크롤한다. */
+.report-preview img { width: 100%; max-width: 100%; height: auto; display: block; margin: 0 auto; border-radius: 6px; }
 .report-loading { margin: 26px 0; color: var(--muted); font-size: 12px; }
 .report-msg { margin: 12px 0 0; color: var(--danger); font-size: 11px; line-height: 1.55; }
 .report-msg.is-ok { color: var(--cyan); }
