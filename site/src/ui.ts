@@ -300,6 +300,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
                 <input id="roster-profile" type="file" accept=".json,application/json" hidden />
                 <span>프로필 불러오기</span>
               </label>
+              <button type="button" class="roster-import" data-blabla-open title="블라블라링크에서 내 육성 상태를 그대로 가져옵니다">블라블라링크 연동</button>
               <button type="button" class="roster-import" data-add-nikke title="미출시·미등록 니케를 직접 추가">새 니케 추가</button>
               <button type="button" class="roster-import" data-share-open title="편성을 코드로 만들어 공유하거나, 받은 코드를 붙여넣어 5덱을 한 번에 적용">조합 공유</button>
               <button type="button" class="roster-import danger" data-reset-all title="편성·설정·CSV 로스터·추가한 니케·저장된 결과를 모두 지우고 처음 상태로 되돌립니다">완전 초기화</button>
@@ -415,6 +416,52 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <button type="button" class="deck-copy-apply danger" data-reset-confirm>초기화</button>
             <button type="button" class="deck-copy-cancel" data-reset-cancel>취소</button>
           </div>
+        </div>
+      </div>
+
+      <div class="custom-modal" data-blabla-modal hidden>
+        <div class="custom-card blabla-card" role="dialog" aria-label="블라블라링크 연동">
+          <div class="custom-head"><h2>블라블라링크 연동</h2><button type="button" class="custom-close" data-blabla-close aria-label="닫기">✕</button></div>
+          <p class="custom-desc">블라블라링크에 있는 <b>내 실제 육성 상태</b>(돌파·코강·스킬·장비·오버로드)를 그대로 가져옵니다. CSV를 손으로 받을 필요가 없고, 오버로드를 줄 단위로 읽어 더 정확합니다.</p>
+
+          <div class="custom-caution">
+            <b>왜 버튼 한 번으로 안 되나요?</b>
+            <ul>
+              <li>블라블라링크 API는 <b>다른 사이트에서의 호출을 차단</b>합니다(CORS). 그래서 이 계산기가 직접 가져올 수 없습니다.</li>
+              <li>대신 <b>블라블라링크 탭에서 실행하는 스크립트</b>로 받아옵니다. 로그인 정보는 블라블라링크 안에만 있고 <b>이 사이트로 전송되지 않습니다.</b></li>
+            </ul>
+          </div>
+
+          <ol class="blabla-steps">
+            <li>
+              <b>① 아래 주소를 복사</b>해 브라우저 <b>즐겨찾기(북마크)로 추가</b>하세요.
+              <div class="blabla-code-row">
+                <textarea class="custom-json blabla-bookmarklet" data-blabla-code rows="3" readonly></textarea>
+                <button type="button" class="custom-btn" data-blabla-copy>복사</button>
+              </div>
+              <p class="field-note">즐겨찾기 추가 방법: 북마크 막대에서 마우스 오른쪽 → <b>페이지 추가</b> → 이름은 아무거나, <b>URL 칸에 붙여넣기</b>.<br />
+              (한 번만 실행할 거면 블라블라링크 탭에서 <b>F12 → 콘솔</b>에 붙여넣어도 됩니다. 이때는 맨 앞 <code>javascript:</code>를 지우세요.)</p>
+            </li>
+            <li>
+              <b>② 블라블라링크에 로그인</b>한 뒤 내 니케 도감을 엽니다.
+              <p class="field-note"><a href="https://www.blablalink.com/shiftyspad/nikke-list" target="_blank" rel="noreferrer">블라블라링크 니케 도감 열기 ↗</a><br />
+              남의 프로필을 가져오려면 그 사람의 <b>프로필 주소로 이동한 뒤</b> 실행하세요(상대가 공개해 둔 경우에만 됩니다).</p>
+            </li>
+            <li>
+              <b>③ 그 페이지에서 즐겨찾기를 클릭</b>하면 <code>nikke-profile.json</code>이 다운로드됩니다.
+              <p class="field-note">니케 정보가 비공개면 <b>“니케 정보를 공개해주세요”</b>라고 안내가 뜹니다. 블라블라링크 설정에서 공개로 바꾼 뒤 다시 실행하세요.</p>
+            </li>
+            <li>
+              <b>④ 아래 버튼으로 그 파일을 불러오면 끝</b>입니다.
+              <div class="blabla-code-row">
+                <label class="custom-btn primary blabla-file">
+                  <input type="file" accept=".json,application/json" data-blabla-file hidden />
+                  <span>내려받은 JSON 불러오기</span>
+                </label>
+              </div>
+            </li>
+          </ol>
+          <p class="custom-msg" data-blabla-msg hidden></p>
         </div>
       </div>
 
@@ -1246,6 +1293,70 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       updateRosterNote(`프로필 불러오기 실패: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       profileInput.value = '';
+    }
+  });
+
+  // ── 블라블라링크 연동 ──────────────────────────────────────────────────
+  // 계산기에서 blablalink API를 직접 부를 수 없다(CORS 차단, 실측). 대신 blablalink
+  // 탭에서 도는 스크립트를 북마클릿으로 넘겨 그쪽 출처에서 받게 한다 — 로그인 정보는
+  // blablalink 안에만 있고 이 사이트로 오지 않는다.
+  const blablaModal = element<HTMLElement>(root, '[data-blabla-modal]');
+  const blablaCode = element<HTMLTextAreaElement>(root, '[data-blabla-code]');
+  const blablaFile = element<HTMLInputElement>(root, '[data-blabla-file]');
+  const blablaMsg = element<HTMLElement>(root, '[data-blabla-msg]');
+  const exportUrl = new URL(`${import.meta.env.BASE_URL}blabla-export.js`, location.href).href;
+  // 캐시된 옛 스크립트가 돌지 않게 버전을 붙인다.
+  blablaCode.value = `javascript:(function(){var s=document.createElement('script');`
+    + `s.src='${exportUrl}?v='+Date.now();document.body.appendChild(s);})()`;
+
+  const showBlablaMsg = (text: string, ok = false) => {
+    blablaMsg.textContent = text;
+    blablaMsg.hidden = !text;
+    blablaMsg.classList.toggle('is-ok', ok);
+  };
+  element<HTMLButtonElement>(root, '[data-blabla-open]').addEventListener('click', () => {
+    blablaModal.hidden = false;
+    showBlablaMsg('');
+  });
+  element<HTMLButtonElement>(root, '[data-blabla-close]').addEventListener('click', () => {
+    blablaModal.hidden = true;
+  });
+  blablaModal.addEventListener('click', (event) => {
+    if (event.target === blablaModal) blablaModal.hidden = true;
+  });
+  element<HTMLButtonElement>(root, '[data-blabla-copy]').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(blablaCode.value);
+      showBlablaMsg('복사했습니다. 즐겨찾기(북마크)의 URL 칸에 붙여넣으세요.', true);
+    } catch {
+      blablaCode.select();
+      showBlablaMsg('자동 복사에 실패했습니다. 위 상자의 내용을 직접 복사해 주세요.');
+    }
+  });
+  blablaFile.addEventListener('change', async () => {
+    const file = blablaFile.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const { overrides, matched, unmatched, meta } = parseProfileJson(text, settings);
+      if (matched.length === 0) {
+        showBlablaMsg('니케 정보를 공개해주세요. 파일에서 지원 캐릭터를 찾지 못했습니다.');
+        return;
+      }
+      roster = overrides;
+      saveRoster();
+      applyRosterToDecks();
+      saveState();
+      renderDeckTabs();
+      renderSquad();
+      const skipped = unmatched.length > 0 ? ` · 미지원 ${unmatched.length}명 제외` : '';
+      updateRosterNote(`블라블라링크 ${matched.length}명 적용${skipped}`);
+      showBlablaMsg(`니케 ${matched.length}명을 적용했습니다${skipped}.`
+        + (meta.fetchedAt ? ` (${meta.fetchedAt.slice(0, 10)} 기준)` : ''), true);
+    } catch (error) {
+      showBlablaMsg(`불러오기 실패: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      blablaFile.value = '';
     }
   });
 
