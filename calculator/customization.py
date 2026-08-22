@@ -362,18 +362,8 @@ def normalize_character_overrides(
         unknown = set(overload) - set(OVERLOAD_FIELDS)
         if unknown:
             raise ValueError(f"지원하지 않는 오버로드 옵션: {sorted(unknown)}")
-        # 값은 스칼라(합산 %) 또는 **줄별 리스트**다. 최대 장탄·차지 속도는 줄마다
-        # 따로 반올림되므로(GAMEPLAY §무기 메카닉), 육성 프로필처럼 줄별 값을 아는
-        # 입력은 리스트로 넘겨야 실제 게임과 같은 수치가 나온다. 엔진의
-        # `buff_manager`가 리스트를 줄별 그룹으로 그대로 받는다.
-        def _overload_value(key: str, value: Any) -> Any:
-            meta = OVERLOAD_FIELDS[key]
-            if isinstance(value, list):
-                return [_number(v, key, meta) for v in value]
-            return _number(value, key, meta)
-
         result["equip_skills"] = {
-            key: _overload_value(key, value)
+            key: _number(value, key, OVERLOAD_FIELDS[key])
             for key, value in overload.items()
         }
 

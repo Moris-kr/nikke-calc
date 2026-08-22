@@ -48,7 +48,7 @@ export interface CollectionSelection {
 export interface CharacterOverrides {
   growthStage?: number;
   skillLevels?: SkillLevels;
-  overload?: Record<string, number | number[]>;
+  overload?: Record<string, number>;
   cube?: CubeSelection;
   collection?: CollectionSelection;
   control?: CharacterControl;
