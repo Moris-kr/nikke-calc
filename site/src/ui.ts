@@ -1,6 +1,7 @@
 import { ResultCache, type StorageLike, type StorageSource } from './cache';
 import { renderCharacterSettings } from './character-settings';
 import { parseRosterCsv } from './csv-import';
+import { parseProfileJson } from './profile-import';
 import {
   buildAddPrompt,
   CUSTOM_KEY,
@@ -275,6 +276,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
   root.innerHTML = `
     <div class="site-shell">
+      <p class="site-notice"><a href="https://gall.dcinside.com/mgallery/board/view/?id=gov&amp;no=6038781" target="_blank" rel="noreferrer">설명서 확인, 문의, 피드백, 착한말 등은 여기로 →</a></p>
       <header class="hero">
         <div class="hero-copy">
           <p class="eyebrow">BROWSER SIM <span>·</span> 60 FPS TIMELINE</p>
@@ -293,6 +295,10 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
               <label class="roster-import" title="렛츠도로 니케정보 CSV를 불러와 모든 니케 설정에 적용">
                 <input id="roster-csv" type="file" accept=".csv,text/csv" hidden />
                 <span>CSV 불러오기</span>
+              </label>
+              <label class="roster-import" title="blablalink 육성 프로필(profiles/&lt;이름&gt;.json)을 불러옵니다. 돌파·스킬·장비·오버로드를 줄 단위로 그대로 반영해 CSV보다 정확합니다">
+                <input id="roster-profile" type="file" accept=".json,application/json" hidden />
+                <span>프로필 불러오기</span>
               </label>
               <button type="button" class="roster-import" data-add-nikke title="미출시·미등록 니케를 직접 추가">새 니케 추가</button>
               <button type="button" class="roster-import" data-share-open title="편성을 코드로 만들어 공유하거나, 받은 코드를 붙여넣어 5덱을 한 번에 적용">조합 공유</button>
@@ -472,6 +478,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const coreToggle = element<HTMLInputElement>(root, '#has-core');
   const corePxInput = element<HTMLInputElement>(root, '#core-px');
   const rosterInput = element<HTMLInputElement>(root, '#roster-csv');
+  const profileInput = element<HTMLInputElement>(root, '#roster-profile');
   const rosterNote = element<HTMLElement>(root, '[data-roster-note]');
 
   const activeDeck = () => decks[activeDeckId - 1]!;
@@ -846,7 +853,10 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       }
       for (const [key, value] of Object.entries(custom.overload ?? {})) {
         const meta = settings.overloadFields[key];
-        if (!meta || !Number.isFinite(value) || value < meta.min || value > meta.max) {
+        const lines = Array.isArray(value) ? value : [value];
+        const bad = !meta || lines.length === 0
+          || lines.some((v) => !Number.isFinite(v) || v < meta.min || v > meta.max);
+        if (bad) {
           messages.push(`덱 ${deck.id} · ${name}: ${meta?.label ?? key} 값이 허용 범위를 벗어났습니다.`);
         }
       }
@@ -1207,6 +1217,35 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       updateRosterNote(`CSV 불러오기 실패: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       rosterInput.value = '';
+    }
+  });
+
+  // blablalink 육성 프로필. 브라우저가 blablalink를 직접 부르지는 않는다 —
+  // 계정 세션 쿠키가 필요하고 교차 출처 호출도 막혀 있어서, 로컬에서
+  // `python scraper/profile_fetch.py`로 받은 profiles/<이름>.json만 읽는다.
+  profileInput.addEventListener('change', async () => {
+    const file = profileInput.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const { overrides, matched, unmatched, meta } = parseProfileJson(text, settings);
+      if (matched.length === 0) {
+        updateRosterNote('프로필에서 지원 캐릭터를 찾지 못했습니다.');
+        return;
+      }
+      roster = overrides;
+      saveRoster();
+      applyRosterToDecks();
+      saveState();
+      renderDeckTabs();
+      renderSquad();
+      const skipped = unmatched.length > 0 ? ` · 미지원 ${unmatched.length}명 제외` : '';
+      const when = meta.fetchedAt ? ` · ${meta.fetchedAt.slice(0, 10)} 기준` : '';
+      updateRosterNote(`육성 프로필 ${matched.length}명 적용${skipped}${when}`);
+    } catch (error) {
+      updateRosterNote(`프로필 불러오기 실패: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      profileInput.value = '';
     }
   });
 

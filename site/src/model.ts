@@ -60,6 +60,25 @@ function normalizeRecord(values: Record<string, number> | undefined): Record<str
   return entries.length > 0 ? Object.fromEntries(entries) : undefined;
 }
 
+// 오버로드 값은 스칼라이거나 **줄별 리스트**다(육성 프로필). 최대 장탄·차지 속도는
+// 줄마다 따로 반올림되므로 리스트를 합치지 않고 그대로 넘긴다 — 엔진이 줄별로 받는다.
+function normalizeOverload(
+  values: Record<string, number | number[]> | undefined,
+): Record<string, number | number[]> | undefined {
+  if (!values) return undefined;
+  const entries = Object.entries(values)
+    .map(([key, value]): [string, number | number[]] | null => {
+      if (Array.isArray(value)) {
+        const lines = value.filter((v) => Number.isFinite(v));
+        return lines.length > 0 ? [key, lines] : null;
+      }
+      return Number.isFinite(value) ? [key, value] : null;
+    })
+    .filter((entry): entry is [string, number | number[]] => entry !== null)
+    .sort(([left], [right]) => left.localeCompare(right));
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+}
+
 function normalizeCharacters(
   raw: Record<string, CharacterOverrides> | undefined,
   squad: string[],
@@ -69,7 +88,7 @@ function normalizeCharacters(
     const value = raw?.[name];
     if (!value) continue;
     const skillLevels = value.skillLevels ? { ...value.skillLevels } : undefined;
-    const overload = normalizeRecord(value.overload);
+    const overload = normalizeOverload(value.overload);
     const manualStats = normalizeRecord(value.manualStats);
     const normalized: CharacterOverrides = {
       ...(value.growthStage !== undefined ? { growthStage: value.growthStage } : {}),
