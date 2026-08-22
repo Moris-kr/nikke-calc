@@ -28,10 +28,6 @@ const skillLabels: Array<[keyof SkillLevels, string]> = [
   ['3', '버스트'],
 ];
 
-// 오버로드 값은 스칼라이거나 줄별 리스트다(육성 프로필). 요약·입력칸은 합계로 보여준다.
-const overloadTotal = (value: number | number[] | undefined): number =>
-  Array.isArray(value) ? value.reduce((sum, v) => sum + v, 0) : (value ?? 0);
-
 const numberText = (value: number, digits = 2): string => value.toFixed(digits);
 
 const cloneOverrides = (value: CharacterOverrides): CharacterOverrides => ({
@@ -94,8 +90,8 @@ function summaryText(name: string, catalog: SettingsCatalog, value?: CharacterOv
     ? '수치 미공개 · Lv10 고정'
     : `스킬 ${skillLevels['1']} / ${skillLevels['2']} / ${skillLevels['3']}`;
   return `${value ? '개별값' : '기본값'} · ${growth.label} · 호감도 ${growth.affinity} · ${skillSummary} · `
-    + `우코 ${numberText(overloadTotal(overload.element_bonus))} · `
-    + `공증 ${numberText(overloadTotal(overload.atk_pct))} · 장탄 ${numberText(overloadTotal(overload.max_ammo_pct))} · `
+    + `우코 ${numberText(overload.element_bonus ?? 0)} · `
+    + `공증 ${numberText(overload.atk_pct ?? 0)} · 장탄 ${numberText(overload.max_ammo_pct ?? 0)} · `
     + `${cube.name} Lv${cube.level} · ${controlSummary}`;
 }
 
@@ -371,9 +367,7 @@ export function renderCharacterSettings(
     input.step = '0.01';
     input.min = String(meta.min);
     input.max = String(meta.max);
-    input.value = String(current.overload[key] !== undefined
-      ? overloadTotal(current.overload[key])
-      : (defaults.overload[key] ?? 0));
+    input.value = String(current.overload[key] ?? defaults.overload[key] ?? 0);
     input.dataset.overloadKey = key;
     input.addEventListener('input', () => {
       const next = cloneOverrides(current);
