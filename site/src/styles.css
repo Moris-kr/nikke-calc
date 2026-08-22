@@ -419,3 +419,8 @@ footer a { color: #93aabd; text-decoration: none; font-weight: 800; letter-spaci
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
+
+/* 상단 안내 링크 */
+.site-notice { margin: 0 0 4px; padding: 10px 14px; background: rgba(69,214,208,.08); border: 1px solid rgba(69,214,208,.24); border-radius: 8px; text-align: center; font-size: 13px; font-weight: 700; }
+.site-notice a { color: #cfeceb; text-decoration: none; }
+.site-notice a:hover { color: var(--cyan); text-decoration: underline; }
