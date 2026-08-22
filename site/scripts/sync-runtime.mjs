@@ -125,4 +125,5 @@ writeFileSync(join(runtimeDir, 'manifest.json'), `${JSON.stringify(manifest, nul
 writeFileSync(join(publicDir, 'catalog.json'), `${JSON.stringify(catalog, null, 2)}\n`);
 writeFileSync(join(publicDir, 'settings.json'), settings);
 
+
 console.log(`runtime ${manifest.files.length} files · catalog ${catalog.length} characters · settings exported · version ${manifest.version}`);

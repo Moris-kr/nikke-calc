@@ -60,6 +60,21 @@ python3 -m context.doclint
 python3 -m context.snapshot
 ```
 
+## 블라블라링크 연동
+
+사이트의 `블라블라링크 연동` 버튼이 북마클릿을 안내합니다. 북마클릿은
+`site/public/blabla-export.js`를 blablalink 탭에 주입해 그쪽 출처에서 육성 상태를
+받아 계산기용 프로필 JSON으로 내려받습니다 — 계산기가 blablalink API를 직접 부르면
+`Access-Control-Allow-Origin`이 없어 브라우저가 막기 때문입니다. 로그인 정보는
+blablalink 안에만 있고 이 사이트로 전송되지 않습니다.
+
+캐릭터 이름 표(`site/public/nikke-name-codes.json`)는 blablalink의 `name_code`를 우리
+캐릭터명으로 옮기는 데 쓰며, 신규 캐릭터가 등록되면 다시 만듭니다(CDN 접속 필요).
+
+```bash
+python site/scripts/export-name-codes.py
+```
+
 ## 데이터 갱신
 
 엔진이나 데이터, 캐릭터 이미지가 변경되면 생성물을 직접 수정하지 말고 다음 명령으로 다시 동기화합니다.
