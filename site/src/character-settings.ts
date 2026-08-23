@@ -677,7 +677,8 @@ export function renderCharacterSettings(
   const controlFold = disclosure('컨트롤', 'data-control-open', controlWasOpen);
   controlFold.panel.append(controlMode, recommendation, controlGrid, controlWarning);
   controlEditor.append(controlFold.head, controlFold.panel);
-  body.append(controlEditor);
+  // 컨트롤은 돌파·스킬·오버로드·큐브와 **형제**로 둔다. 그 안에 넣으면 컨트롤만
+  // 보려 해도 설정 뭉치를 먼저 펼쳐야 한다 — 두 뭉치는 만지는 이유가 다르다.
 
   const advancedLabel = document.createElement('label');
   advancedLabel.className = 'inline-check advanced-toggle';
@@ -771,5 +772,5 @@ export function renderCharacterSettings(
   body.append(advanced);
   const bodyFold = disclosure('돌파 · 스킬 · 오버로드 · 큐브', 'data-settings-open', bodyWasOpen);
   bodyFold.panel.append(body);
-  container.append(bodyFold.head, bodyFold.panel);
+  container.append(bodyFold.head, bodyFold.panel, controlEditor);
 }

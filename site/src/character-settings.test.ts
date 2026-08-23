@@ -329,6 +329,30 @@ describe('character settings editor', () => {
     expect(value?.collection).toEqual({ stage: '없음', favorite: 0 });
   });
 
+  it('keeps 컨트롤 beside the stat settings, both folded, not one inside the other', () => {
+    characterName = '라피';
+    render();
+    setToggle('[data-custom-toggle]', true);
+
+    const stats = root.querySelector<HTMLElement>('[data-settings-open]')!;
+    const control = root.querySelector<HTMLElement>('[data-control-open]')!;
+
+    // 둘 다 접힌 채로 시작한다 — 개별 설정을 켜는 것과 펼치는 것은 별개다.
+    expect(stats.getAttribute('aria-expanded')).toBe('false');
+    expect(control.getAttribute('aria-expanded')).toBe('false');
+
+    // 컨트롤은 수치 뭉치 **안**에 있으면 안 된다. 만지는 이유가 다른 두 뭉치다.
+    const statsPanel = stats.nextElementSibling!;
+    expect(statsPanel.contains(control)).toBe(false);
+    // 그리고 그 아래에 온다.
+    expect(statsPanel.compareDocumentPosition(control) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    // 각자 따로 펼쳐진다.
+    control.click();
+    expect(control.getAttribute('aria-expanded')).toBe('true');
+    expect(stats.getAttribute('aria-expanded')).toBe('false');
+  });
+
   it('switches from recommended controls to exact per-character controls', () => {
     characterName = '라피';
     render();
