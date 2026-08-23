@@ -12893,6 +12893,7 @@
       "stat": "dot_damage",
       "polarity": "harmful",
       "max_stack": 10,
+      "scaling": "stack_count",
       "tick_interval": 1,
       "duration": 5,
       "values": {
