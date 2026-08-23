@@ -433,3 +433,15 @@ footer a { color: #93aabd; text-decoration: none; font-weight: 800; letter-spaci
 .doro-link { margin: 12px 0 10px; font-size: 13px; font-weight: 700; }
 .doro-link a { color: var(--cyan); }
 .doro-shot { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+
+/* 니케 피커 */
+.roster-filters { display: flex; flex-wrap: wrap; gap: 10px 14px; margin: 0 0 12px; }
+.roster-filter-group { display: inline-flex; flex-wrap: wrap; gap: 5px; }
+.roster-chip { padding: 5px 10px; border: 1px solid var(--line); background: rgba(7,15,25,.6); color: var(--muted); font-size: 11px; border-radius: 20px; cursor: pointer; }
+.roster-chip:hover { border-color: rgba(69,214,208,.4); color: #cfeceb; }
+.roster-chip.is-on { border-color: var(--cyan); background: rgba(69,214,208,.14); color: #cfeceb; font-weight: 700; }
+button.roster-cell { font: inherit; text-align: left; cursor: pointer; }
+button.roster-cell:hover:not(:disabled) { border-color: var(--cyan); background: rgba(69,214,208,.08); }
+button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
+.slot-pick { margin-top: 6px; padding: 6px 8px; width: 100%; border: 1px solid rgba(69,214,208,.28); background: rgba(69,214,208,.08); color: #cfeceb; font-size: 11px; font-weight: 700; border-radius: 6px; cursor: pointer; }
+.slot-pick:hover { background: rgba(69,214,208,.18); border-color: var(--cyan); }

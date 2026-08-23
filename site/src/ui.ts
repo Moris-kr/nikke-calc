@@ -406,8 +406,24 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       <div class="custom-modal" data-roster-modal hidden>
         <div class="custom-card roster-card" role="dialog" aria-label="지원 니케 목록">
           <div class="custom-head"><h2>지원 니케 <span data-roster-count></span></h2><button type="button" class="custom-close" data-roster-close aria-label="닫기">✕</button></div>
-          <p class="custom-desc">스킬까지 파싱되어 계산에 쓸 수 있는 니케입니다. 이름으로 걸러 볼 수 있습니다.</p>
+          <p class="custom-desc" data-roster-desc>스킬까지 파싱되어 계산에 쓸 수 있는 니케입니다. <b>카드를 누르면 편성에 들어갑니다.</b></p>
           <input type="search" class="roster-search" data-roster-search placeholder="이름 검색" autocomplete="off" aria-label="지원 니케 이름 검색" />
+          <div class="roster-filters" data-roster-filters>
+            <span class="roster-filter-group" data-filter-burst>
+              <button type="button" class="roster-chip is-on" data-burst="">전체</button>
+              <button type="button" class="roster-chip" data-burst="1">B1</button>
+              <button type="button" class="roster-chip" data-burst="2">B2</button>
+              <button type="button" class="roster-chip" data-burst="3">B3</button>
+            </span>
+            <span class="roster-filter-group" data-filter-code>
+              <button type="button" class="roster-chip is-on" data-code="">속성 전체</button>
+              <button type="button" class="roster-chip" data-code="작열">작열</button>
+              <button type="button" class="roster-chip" data-code="수냉">수냉</button>
+              <button type="button" class="roster-chip" data-code="풍압">풍압</button>
+              <button type="button" class="roster-chip" data-code="전격">전격</button>
+              <button type="button" class="roster-chip" data-code="철갑">철갑</button>
+            </span>
+          </div>
           <div class="roster-grid" data-roster-grid></div>
           <p class="roster-empty" data-roster-empty hidden>검색과 일치하는 니케가 없습니다.</p>
         </div>
@@ -436,6 +452,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           <div class="custom-head"><h2>렛츠도로 CSV 받는 법</h2><button type="button" class="custom-close" data-doro-close aria-label="닫기">✕</button></div>
           <p class="custom-desc">렛츠도로 <b>니케 정보</b> 페이지에서 목록 오른쪽 아래 <b>내려받기 아이콘</b>을 누르면 CSV가 저장됩니다. 그 파일을 <b>렛츠도로 CSV 불러오기</b>로 넣으면 보유 니케 설정이 한 번에 적용됩니다.</p>
           <p class="doro-link"><a href="https://letsdoro.com/mypage?tab=nikke" target="_blank" rel="noreferrer">letsdoro.com 니케 정보 열기 ↗</a></p>
+          <p class="field-note">CSV에는 <b>큐브와 호감도</b>가 들어 있지 않습니다 — 그 둘은 기본값(기본 큐브 · 돌파별 최대 호감도)으로 계산하며, 카드의 <b>개별 설정</b>에서 실제 값으로 고칠 수 있습니다.</p>
           <img class="doro-shot" src="${import.meta.env.BASE_URL}letsdoro-csv.png" alt="렛츠도로 니케 정보 페이지에서 CSV 내려받기 위치" loading="lazy" />
         </div>
       </div>
@@ -726,7 +743,14 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         char ? `B${char.burstStage} · ${char.elementCode} · ${char.weaponType}` : '빈 슬롯',
         'char-meta',
       );
-      identity.append(filterLabel, select, meta);
+      // 이름을 몰라도 초상화로 고를 수 있게, 슬롯마다 피커를 여는 길을 둔다.
+      const pick = document.createElement('button');
+      pick.type = 'button';
+      pick.className = 'slot-pick';
+      pick.dataset.slotPick = String(index);
+      pick.textContent = name ? '교체' : '니케 고르기';
+      pick.addEventListener('click', () => openRoster(index));
+      identity.append(filterLabel, select, pick, meta);
       top.append(portrait, identity);
       card.append(top);
       if (char) {
@@ -1120,17 +1144,39 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const rosterEmpty = element<HTMLElement>(root, '[data-roster-empty]');
   const rosterCount = element<HTMLElement>(root, '[data-roster-count]');
 
+  // 목록이자 **피커**다 — 카드를 누르면 지정한 슬롯(없으면 첫 빈 슬롯)에 들어간다.
+  // 슬롯마다 있던 드롭다운은 이름을 외워야 고를 수 있어서, 초상화로 고르는 길을 연다.
+  const rosterDesc = element<HTMLElement>(root, '[data-roster-desc]');
+  let pickerSlot: number | null = null;      // null이면 첫 빈 슬롯에 넣는다
+  let burstFilter = '';
+  let codeFilter = '';
+
   const renderRosterGrid = () => {
     // 직접 추가한 니케까지 포함해 지금 고를 수 있는 전체를 보여준다.
     const all = [...catalogByName.values()].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
     const query = rosterSearch.value.trim().toLowerCase();
-    const shown = query ? all.filter((char) => char.name.toLowerCase().includes(query)) : all;
-    rosterCount.textContent = query ? `${shown.length} / ${all.length}명` : `${all.length}명`;
+    const shown = all.filter((char) => {
+      if (query && !char.name.toLowerCase().includes(query)) return false;
+      if (burstFilter && char.burstStage !== burstFilter) return false;
+      if (codeFilter && char.elementCode !== codeFilter) return false;
+      return true;
+    });
+    rosterCount.textContent = shown.length === all.length
+      ? `${all.length}명` : `${shown.length} / ${all.length}명`;
+    const deck = activeDeck();
     rosterGrid.replaceChildren();
     for (const char of shown) {
-      const cell = document.createElement('article');
+      const cell = document.createElement('button');
+      cell.type = 'button';
       cell.className = 'roster-cell';
-      cell.dataset.rosterCell = '';
+      cell.dataset.rosterCell = char.name;
+      // 이미 이 덱에 있으면 중복 편성이 안 되므로 눌리지 않게 둔다.
+      const takenAt = deck.squad.indexOf(char.name);
+      if (takenAt >= 0 && takenAt !== pickerSlot) {
+        cell.disabled = true;
+        cell.classList.add('is-taken');
+        cell.title = `이미 덱 ${deck.id}의 ${takenAt + 1}번에 있습니다`;
+      }
       const portrait = document.createElement('div');
       portrait.className = 'roster-portrait';
       if (char.image) {
@@ -1149,22 +1195,75 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         createText('strong', char.name),
         createText('span', [char.elementCode, char.weaponType, char.className].filter(Boolean).join(' · ')),
       );
+      cell.addEventListener('click', () => pickCharacter(char.name));
       rosterGrid.append(cell);
     }
     rosterEmpty.hidden = shown.length > 0;
   };
 
-  const closeRosterModal = () => { rosterModal.hidden = true; };
-  element<HTMLButtonElement>(root, '[data-roster-open]').addEventListener('click', () => {
+  const pickCharacter = (name: string) => {
+    const deck = activeDeck();
+    const slot = pickerSlot ?? deck.squad.findIndex((member) => !member);
+    if (slot < 0) {
+      rosterDesc.textContent = `덱 ${deck.id}이 가득 찼습니다. 바꿀 자리의 «교체»를 눌러 주세요.`;
+      return;
+    }
+    const previous = deck.squad[slot] ?? '';
+    deck.squad[slot] = name;
+    if (previous && previous !== name) delete deck.characters[previous];
+    if (roster[name] && !deck.characters[name]) deck.characters[name] = cloneOverride(roster[name]!);
+    saveState();
+    renderDeckTabs();
+    renderSquad();
+    if (pickerSlot !== null) { closeRosterModal(); return; }
+    // 계속 고를 수 있게 열어 두고, 다음 빈 자리를 알려 준다.
+    const next = deck.squad.findIndex((member) => !member);
+    rosterDesc.textContent = next < 0
+      ? `덱 ${deck.id}을 다 채웠습니다.`
+      : `${name} → ${slot + 1}번에 넣었습니다. 다음은 ${next + 1}번입니다.`;
+    renderRosterGrid();
+  };
+
+  const openRoster = (slot: number | null) => {
+    pickerSlot = slot;
     rosterSearch.value = '';
+    burstFilter = '';
+    codeFilter = '';
+    for (const chip of root.querySelectorAll<HTMLElement>('.roster-chip')) {
+      chip.classList.toggle('is-on', !chip.dataset.burst && !chip.dataset.code);
+    }
+    rosterDesc.textContent = slot === null
+      ? '카드를 누르면 빈 자리부터 채웁니다.'
+      : `덱 ${activeDeck().id}의 ${slot + 1}번에 넣을 니케를 고르세요.`;
     renderRosterGrid();
     rosterModal.hidden = false;
-  });
+  };
+
+  const closeRosterModal = () => { rosterModal.hidden = true; };
+  element<HTMLButtonElement>(root, '[data-roster-open]').addEventListener('click', () => openRoster(null));
   element<HTMLButtonElement>(root, '[data-roster-close]').addEventListener('click', closeRosterModal);
   rosterModal.addEventListener('click', (event) => {
     if (event.target === rosterModal) closeRosterModal();
   });
   rosterSearch.addEventListener('input', renderRosterGrid);
+  element<HTMLElement>(root, '[data-filter-burst]').addEventListener('click', (event) => {
+    const chip = (event.target as HTMLElement).closest<HTMLElement>('.roster-chip');
+    if (!chip) return;
+    burstFilter = chip.dataset.burst ?? '';
+    for (const other of root.querySelectorAll<HTMLElement>('[data-filter-burst] .roster-chip')) {
+      other.classList.toggle('is-on', other === chip);
+    }
+    renderRosterGrid();
+  });
+  element<HTMLElement>(root, '[data-filter-code]').addEventListener('click', (event) => {
+    const chip = (event.target as HTMLElement).closest<HTMLElement>('.roster-chip');
+    if (!chip) return;
+    codeFilter = chip.dataset.code ?? '';
+    for (const other of root.querySelectorAll<HTMLElement>('[data-filter-code] .roster-chip')) {
+      other.classList.toggle('is-on', other === chip);
+    }
+    renderRosterGrid();
+  });
 
   // 완전 초기화 — 이 브라우저에 쌓인 저장 상태를 전부 버린다. 메모리 변수까지
   // 하나씩 되돌리는 대신 저장소를 비우고 페이지를 다시 띄워, 새로 방문한 것과
@@ -1230,7 +1329,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       renderDeckTabs();
       renderSquad();
       const skipped = unmatched.length > 0 ? ` · 미지원 ${unmatched.length}명 제외` : '';
-      updateRosterNote(`CSV 로스터 ${matched.length}명 적용${skipped}`);
+      updateRosterNote(`CSV 로스터 ${matched.length}명 적용${skipped}`
+        + ' · 큐브와 호감도는 CSV에 없어 기본값으로 계산합니다(카드의 개별 설정에서 수정)');
     } catch (error) {
       updateRosterNote(`CSV 불러오기 실패: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
