@@ -445,3 +445,14 @@ button.roster-cell:hover:not(:disabled) { border-color: var(--cyan); background:
 button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
 .slot-pick { margin-top: 6px; padding: 6px 8px; width: 100%; border: 1px solid rgba(69,214,208,.28); background: rgba(69,214,208,.08); color: #cfeceb; font-size: 11px; font-weight: 700; border-radius: 6px; cursor: pointer; }
 .slot-pick:hover { background: rgba(69,214,208,.18); border-color: var(--cyan); }
+
+/* 편성 프리셋 */
+.preset-row { display: flex; gap: 8px; }
+.preset-name { flex: 1; min-height: 34px; padding: 0 10px; background: rgba(3,9,16,.7); border: 1px solid var(--line); border-radius: 8px; color: var(--ink); font: inherit; font-size: 12px; }
+.preset-list { display: grid; gap: 6px; margin-top: 10px; }
+.preset-item { display: flex; align-items: center; gap: 8px; }
+.preset-load { flex: 1; text-align: left; padding: 8px 10px; border: 1px solid var(--line); background: rgba(7,15,25,.6); color: var(--ink); font: inherit; font-size: 12px; border-radius: 7px; cursor: pointer; }
+.preset-load:hover { border-color: var(--cyan); background: rgba(69,214,208,.1); }
+.preset-remove { padding: 6px 10px; border: 1px solid rgba(233,110,110,.3); background: rgba(233,110,110,.08); color: #f0c3c3; font-size: 11px; border-radius: 7px; cursor: pointer; }
+.preset-remove:hover { background: rgba(233,110,110,.18); }
+.preset-empty { margin: 0; color: var(--muted); font-size: 11px; }

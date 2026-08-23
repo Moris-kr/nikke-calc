@@ -391,6 +391,14 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <textarea class="custom-json" data-share-in rows="3" placeholder="받은 조합 코드나 공유 링크를 붙여넣으세요"></textarea>
             <div class="deck-copy-actions"><button type="button" class="deck-copy-apply" data-share-apply>이 조합 적용</button></div>
           </div>
+          <div class="squad-code-block">
+            <h4>이 브라우저에 저장</h4>
+            <div class="preset-row">
+              <input type="text" class="preset-name" data-preset-name placeholder="프리셋 이름 (예: 수냉 솔레 1덱)" maxlength="40" />
+              <button type="button" class="deck-copy-apply" data-preset-save>저장</button>
+            </div>
+            <div class="preset-list" data-preset-list></div>
+          </div>
           <p class="custom-msg" data-share-msg hidden></p>
         </div>
       </div>
@@ -932,6 +940,86 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     shareMsg.textContent = message;
     shareMsg.classList.toggle('is-ok', ok);
   };
+  // 편성 프리셋 — 자주 쓰는 조합을 이름 붙여 이 브라우저에 둔다. 담는 건 공유 코드
+  // 하나뿐이라(=편성만) 스펙이 바뀌어도 그대로 쓸 수 있고, 저장 용량도 거의 안 든다.
+  const PRESET_KEY = 'nikke-presets-v1';
+  const PRESET_MAX = 50;
+  interface Preset { name: string; code: string; at: string; }
+  const presetName = element<HTMLInputElement>(root, '[data-preset-name]');
+  const presetList = element<HTMLElement>(root, '[data-preset-list]');
+  let presets: Preset[] = (() => {
+    try {
+      const raw = resolveStorage()?.getItem(PRESET_KEY);
+      const parsed = raw ? (JSON.parse(raw) as Preset[]) : [];
+      return Array.isArray(parsed) ? parsed.filter((p) => p && p.name && p.code) : [];
+    } catch {
+      return [];
+    }
+  })();
+  const savePresets = () => {
+    try {
+      resolveStorage()?.setItem(PRESET_KEY, JSON.stringify(presets));
+    } catch {
+      /* 저장 실패는 무시 */
+    }
+  };
+  const renderPresets = () => {
+    presetList.replaceChildren();
+    if (presets.length === 0) {
+      presetList.append(createText('p', '저장된 프리셋이 없습니다.', 'preset-empty'));
+      return;
+    }
+    for (const preset of presets) {
+      const row = document.createElement('div');
+      row.className = 'preset-item';
+      row.dataset.preset = preset.name;
+      const load = document.createElement('button');
+      load.type = 'button';
+      load.className = 'preset-load';
+      load.textContent = preset.name;
+      load.title = `${preset.at.slice(0, 10)} 저장 · 눌러서 불러오기`;
+      load.addEventListener('click', () => {
+        applyShareText(preset.code);
+        refreshShareFields();
+      });
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'preset-remove';
+      remove.textContent = '삭제';
+      remove.setAttribute('aria-label', `${preset.name} 삭제`);
+      remove.addEventListener('click', () => {
+        presets = presets.filter((item) => item.name !== preset.name);
+        savePresets();
+        renderPresets();
+      });
+      row.append(load, remove);
+      presetList.append(row);
+    }
+  };
+  element<HTMLButtonElement>(root, '[data-preset-save]').addEventListener('click', () => {
+    const name = presetName.value.trim();
+    if (!name) {
+      showShareMsg('프리셋 이름을 적어 주세요.');
+      presetName.focus();
+      return;
+    }
+    if (!decks.some((deck) => deck.squad.some(Boolean))) {
+      showShareMsg('편성이 비어 있어 저장할 것이 없습니다.');
+      return;
+    }
+    if (presets.length >= PRESET_MAX && !presets.some((p) => p.name === name)) {
+      showShareMsg(`프리셋은 ${PRESET_MAX}개까지 저장합니다. 쓰지 않는 것을 지워 주세요.`);
+      return;
+    }
+    const code = encodeShareCode(decks, fiveDeckMode);
+    presets = [{ name, code, at: new Date().toISOString() },
+      ...presets.filter((item) => item.name !== name)];
+    savePresets();
+    renderPresets();
+    presetName.value = '';
+    showShareMsg(`«${name}» 으로 저장했습니다. 편성만 담기므로 스펙이 바뀌어도 그대로 씁니다.`, true);
+  });
+
   const refreshShareFields = () => {
     const code = encodeShareCode(decks, fiveDeckMode);
     shareOut.value = code;
@@ -940,6 +1028,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   };
   element<HTMLButtonElement>(root, '[data-share-open]').addEventListener('click', () => {
     refreshShareFields();
+    renderPresets();
     shareIn.value = '';
     showShareMsg('');
     shareModal.hidden = false;
@@ -1520,6 +1609,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     history.replaceState(null, '', location.pathname + location.search);
     applyShareText(linked);
     refreshShareFields();
+    renderPresets();
     shareIn.value = linked;
     shareModal.hidden = false;
   }
