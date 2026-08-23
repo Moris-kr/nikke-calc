@@ -258,8 +258,12 @@ def filter_bar() -> str:
         )
         return f"<b>{label}</b>{btns}"
 
+    def group_button(key: str, label: str) -> str:
+        active = ' class="on"' if key == "burst" else ""
+        return f'<button data-key="group" data-val="{key}"{active}>{label}</button>'
+
     group_btns = "".join(
-        f'<button data-key="group" data-val="{k}"{" class=\'on\'" if k == "burst" else ""}>{t}</button>'
+        group_button(k, t)
         for k, t in (("burst", "버스트"), ("element", "속성"), ("corp", "기업"), ("weapon", "무기군"), ("cls", "클래스"))
     )
     return (

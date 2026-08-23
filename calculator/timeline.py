@@ -651,6 +651,7 @@ class CharState:
                          lambda: bm.notify("core_hit", t, self.name))
 
         # hit_count: 발사 1회당 1회 (펠릿 수와 무관). pellet_hit은 루프 내 펠릿마다 발생
+        bm.notify(f"multi_hit:{hit_count}", t, self.name)
         bm.notify("hit_count", t, self.name)
         bm.notify("on_attack", t, self.name)
         bm.consume_bullet_buffs(self.name, t)
@@ -846,6 +847,8 @@ class CharState:
         bm.notify("hit_count", t, self.name)
         if is_full:
             bm.notify("full_charge_hit", t, self.name)
+        else:
+            bm.notify("non_full_charge_hit", t, self.name)
         body_ev = "squad_part_hit" if enemy.get("has_parts", False) else "squad_body_hit"
         core_frac = P_core if expected else (1.0 if is_core else 0.0)
         _notify_frac(bm, body_ev, self.name, 1.0 - core_frac,
@@ -1920,6 +1923,10 @@ class BurstController:
 
         bm.notify("burst_cast", t, name)
         bm.notify(f"squad_burst_cast:{stage}", t, name)
+        # "아군이 버스트 스킬 사용 시"는 실제 시전자 한 명의 개인 효과가 아니라
+        # 스쿼드원 각자의 리스너에 전달되는 사건이다. 자신도 아군에 포함한다.
+        for owner in self.squad_names:
+            bm.notify("event:ally_burst_cast", t, owner)
 
         is_reenter = self._phase.startswith("reenter:")
         event_label = f"reenter:{stage} 사용" if is_reenter else f"stage:{stage} 사용"
@@ -2054,6 +2061,12 @@ def _register_instant_handlers(bm, char_states: dict[str, "CharState"], burst_ct
             hp[name] = max(cur * (1.0 - val / 100.0), 0.0)
             bm.sync_hp(name)
 
+    def handle_cover_heal_pct(eff, caster, t, val):
+        # 엄폐 HP 자체는 현재 모델 밖이지만, "엄폐물 체력 회복 시" 후속 효과는
+        # 회복 instant가 적용된 대상 기준으로 같은 프레임에 발동해야 한다.
+        for name in _resolve_targets(eff, caster):
+            bm.notify("event:cover_healed", t, name)
+
     def handle_force_reload(eff, caster, t, val):
         target_names = _resolve_targets(eff, caster)
         for name in target_names:
@@ -2068,6 +2081,7 @@ def _register_instant_handlers(bm, char_states: dict[str, "CharState"], burst_ct
     bm.register_instant_handler("burst_cooldown_reduce", handle_burst_cooldown_reduce)
     bm.register_instant_handler("heal_hp_pct", handle_heal_hp_pct)
     bm.register_instant_handler("current_hp_reduce", handle_current_hp_reduce)
+    bm.register_instant_handler("cover_heal_pct", handle_cover_heal_pct)
     bm.register_instant_handler("force_reload", handle_force_reload)
 
 

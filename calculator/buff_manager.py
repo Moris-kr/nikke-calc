@@ -630,6 +630,13 @@ class BuffManager:
             return "received_hit"
         if timing.startswith("pellet_hit_count:") or timing.startswith("pellet_hit:"):
             return "pellet_hit"
+        if timing.startswith("multi_hit:"):
+            return "multi_hit"
+        if timing.startswith("non_full_charge_hit_count:"):
+            return "non_full_charge_hit"
+        if timing.startswith("charge_hold_count:"):
+            parts = timing.split(":")
+            return f"charge_hold:{parts[1]}" if len(parts) == 3 else timing
         if timing.startswith("hp_below_count:"):
             # "hp_below_count:T:N" → hp_below:T 이벤트에 반응
             parts = timing.split(":")
@@ -1308,7 +1315,8 @@ class BuffManager:
         current_count = counts[event]
 
         caster_idx = self._notify_index.get(caster, {})
-        candidates = caster_idx.get(event, [])
+        index_event = "multi_hit" if event.startswith("multi_hit:") else event
+        candidates = caster_idx.get(index_event, [])
 
         for eff, eff_caster in candidates:
             for timing in eff["trigger"]["timing"]:
@@ -1519,9 +1527,24 @@ class BuffManager:
         if timing.startswith("charge_hold:") and event.startswith("charge_hold:"):
             return timing == event
 
-        # multi_hit:N
+        # charge_hold_count:H:N — H초 이상 풀차지 유지를 N회 누적할 때마다
+        if timing.startswith("charge_hold_count:") and event.startswith("charge_hold:"):
+            parts = timing.split(":")
+            if len(parts) != 3 or event != f"charge_hold:{parts[1]}":
+                return False
+            raw = parts[2]
+            return raw.isdigit() and int(raw) > 0 and count % int(raw) == 0
+
+        # non_full_charge_hit_count:N — 비풀차지 발사 N회마다
+        if timing.startswith("non_full_charge_hit_count:") and event == "non_full_charge_hit":
+            raw = timing.split(":", 1)[1]
+            return raw.isdigit() and int(raw) > 0 and count % int(raw) == 0
+
+        # multi_hit:N — 단일 공격의 실제 명중 수가 문턱 이상이면 발동
         if timing.startswith("multi_hit:") and event.startswith("multi_hit:"):
-            return timing == event
+            need = timing.split(":", 1)[1]
+            actual = event.split(":", 1)[1]
+            return need.isdigit() and actual.isdigit() and int(actual) >= int(need)
 
         # squad_ammo_consume:N — 스쿼드 전체 탄환 소비 누적 N발마다 발동
         if timing.startswith("squad_ammo_consume:") and event == "squad_ammo_consume":
@@ -1806,10 +1829,17 @@ class BuffManager:
             for timing in eff["trigger"]["timing"]:
                 if timing.startswith("charge_hold:"):
                     raw = timing.split(":", 1)[1]
-                    try:
-                        found[raw] = float(raw)
-                    except ValueError:
+                elif timing.startswith("charge_hold_count:"):
+                    parts = timing.split(":")
+                    if len(parts) != 3:
                         continue
+                    raw = parts[1]
+                else:
+                    continue
+                try:
+                    found[raw] = float(raw)
+                except ValueError:
+                    continue
         result = sorted(((v, raw) for raw, v in found.items()))
         self._charge_hold_cache[caster] = result
         return result
@@ -1909,6 +1939,17 @@ class BuffManager:
 
         if prev_pct is not None:
             if new_pct < prev_pct:
+                # 자신의 HP 임계값 timing. 이 캐릭터가 실제로 등록한 문턱만 순회하고,
+                # 위에서 아래로 통과한 순간에 한 번 발동한다.
+                for event in self._notify_index.get(name, {}):
+                    if not event.startswith("hp_below:"):
+                        continue
+                    try:
+                        threshold = float(event.split(":", 1)[1])
+                    except ValueError:
+                        continue
+                    if prev_pct > threshold + _HP_EPS and new_pct <= threshold + _HP_EPS:
+                        self.notify(event, self._cur_t, name)
                 self._notify_adjacent_hp_below(name, prev_pct, new_pct)
             elif prev_pct < 100.0 - _HP_EPS <= new_pct:
                 self._notify_adjacent_hp_max(name)
@@ -3231,6 +3272,10 @@ class BuffManager:
         if target.startswith("allies_with_buff:"):
             buff_name = target.split(":", 1)[1]
             return [n for n in self.squad_names if self._has_self_state(n, buff_name)]
+        # "[버프명] 상태가 아닌 아군 전체" — 부여 시점 스냅샷(비lazy).
+        if target.startswith("allies_without_buff:"):
+            buff_name = target.split(":", 1)[1]
+            return [n for n in self.squad_names if not self._has_self_state(n, buff_name)]
         # "직전에 버스트 스킬을 사용한 [무기] 아군 전체" — burst_casted ∩ 무기유형.
         # burst_casted condition은 시전자 기준으로만 평가돼 대상 필터로 쓸 수 없어 target으로 둔다.
         if target.startswith("allies_burst_casted_weapon:"):

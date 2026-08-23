@@ -25938,5 +25938,2231 @@
       },
       "duration": 10.0
     }
+  ],
+  "루피 : 윈터 쇼퍼": [
+    {
+      "source": "스킬1",
+      "type": "buff",
+      "name": "윈터 프리미엄",
+      "trigger": {
+        "timing": [
+          "last_bullet"
+        ],
+        "condition": []
+      },
+      "target": "all_allies",
+      "stat": "def_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 10.46,
+        "2": 11.41,
+        "3": 12.36,
+        "4": 13.31,
+        "5": 14.26,
+        "6": 15.21,
+        "7": 16.17,
+        "8": 17.12,
+        "9": 18.07,
+        "10": 19.02
+      },
+      "duration": 5.0
+    },
+    {
+      "source": "스킬2",
+      "type": "buff",
+      "name": "쇼핑",
+      "trigger": {
+        "timing": [
+          "event:ally_burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "all_allies",
+      "stat": "def_pct",
+      "polarity": "beneficial",
+      "max_stack": 4,
+      "values": {
+        "1": 0.73,
+        "2": 0.8,
+        "3": 0.86,
+        "4": 0.93,
+        "5": 0.99,
+        "6": 1.06,
+        "7": 1.13,
+        "8": 1.2,
+        "9": 1.26,
+        "10": 1.33
+      },
+      "duration": 20.0
+    },
+    {
+      "source": "스킬2",
+      "type": "buff",
+      "name": "VIP 기프트",
+      "trigger": {
+        "timing": [
+          "full_burst_end"
+        ],
+        "condition": [
+          "self_stack_above:쇼핑:4"
+        ]
+      },
+      "target": "all_allies",
+      "stat": "burst_charge_speed_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 4.34,
+        "2": 4.74,
+        "3": 5.13,
+        "4": 5.53,
+        "5": 5.92,
+        "6": 6.32,
+        "7": 6.72,
+        "8": 7.11,
+        "9": 7.51,
+        "10": 7.9
+      },
+      "duration": 5.0
+    },
+    {
+      "source": "스킬3",
+      "type": "buff",
+      "name": "쇼퍼홀릭 데이트",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "taunt",
+      "polarity": "neutral",
+      "max_stack": 1,
+      "duration": 5.0
+    },
+    {
+      "source": "스킬3",
+      "type": "buff",
+      "name": "쇼퍼홀릭 데이트 2",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "lifesteal_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 33.94,
+        "2": 35.77,
+        "3": 37.61,
+        "4": 39.45,
+        "5": 41.28,
+        "6": 43.12,
+        "7": 44.96,
+        "8": 46.8,
+        "9": 48.63,
+        "10": 50.47
+      },
+      "duration": 10.0
+    },
+    {
+      "source": "스킬3",
+      "type": "buff",
+      "name": "쇼퍼홀릭 데이트 3",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "all_allies",
+      "stat": "reload_speed_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 20.74,
+        "2": 25.45,
+        "3": 30.17,
+        "4": 34.88,
+        "5": 39.6,
+        "6": 44.31,
+        "7": 49.02,
+        "8": 53.74,
+        "9": 58.45,
+        "10": 63.17
+      },
+      "duration": 10.0
+    },
+    {
+      "source": "스킬3",
+      "type": "buff",
+      "name": "쇼퍼홀릭 데이트 4",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "all_allies",
+      "stat": "burst_stage_override:reenter1",
+      "polarity": "neutral",
+      "max_stack": 1,
+      "duration": 10.0
+    }
+  ],
+  "메어리 : 베이 갓데스": [
+    {
+      "source": "스킬1",
+      "type": "instant",
+      "name": "해변의 햇살",
+      "trigger": {
+        "timing": [
+          "full_burst_start_count:1"
+        ],
+        "condition": []
+      },
+      "target": "all_allies",
+      "stat": "heal_hp_pct",
+      "values": {
+        "1": 0.62,
+        "2": 0.67,
+        "3": 0.72,
+        "4": 0.76,
+        "5": 0.81,
+        "6": 0.86,
+        "7": 0.91,
+        "8": 0.96,
+        "9": 1.0,
+        "10": 1.05
+      },
+      "duration": 5.0,
+      "tick_interval": 1.0,
+      "scaling": "max_hp"
+    },
+    {
+      "source": "스킬1",
+      "type": "instant",
+      "name": "해변의 햇살 2",
+      "trigger": {
+        "timing": [
+          "full_burst_start_count:2"
+        ],
+        "condition": []
+      },
+      "target": "all_allies",
+      "stat": "heal_hp_pct",
+      "values": {
+        "1": 2.18,
+        "2": 2.35,
+        "3": 2.52,
+        "4": 2.68,
+        "5": 2.85,
+        "6": 3.02,
+        "7": 3.19,
+        "8": 3.36,
+        "9": 3.52,
+        "10": 3.69
+      },
+      "duration": 5.0,
+      "tick_interval": 1.0,
+      "scaling": "max_hp"
+    },
+    {
+      "source": "스킬1",
+      "type": "instant",
+      "name": "해변의 햇살 3",
+      "trigger": {
+        "timing": [
+          "full_burst_start_count:3"
+        ],
+        "condition": []
+      },
+      "target": "all_allies",
+      "stat": "heal_hp_pct",
+      "values": {
+        "1": 4.05,
+        "2": 4.36,
+        "3": 4.68,
+        "4": 4.99,
+        "5": 5.3,
+        "6": 5.61,
+        "7": 5.92,
+        "8": 6.24,
+        "9": 6.55,
+        "10": 6.86
+      },
+      "duration": 5.0,
+      "tick_interval": 1.0,
+      "scaling": "max_hp"
+    },
+    {
+      "source": "스킬2",
+      "type": "buff",
+      "name": "발을 적시는 파도",
+      "trigger": {
+        "timing": [
+          "burst_cast_count:1"
+        ],
+        "condition": []
+      },
+      "target": "allies_code:수냉",
+      "stat": "element_bonus_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 3.43,
+        "2": 5.36,
+        "3": 7.3,
+        "4": 9.24,
+        "5": 11.17,
+        "6": 13.11,
+        "7": 15.04,
+        "8": 16.98,
+        "9": 18.92,
+        "10": 20.85
+      },
+      "duration": 3.0
+    },
+    {
+      "source": "스킬2",
+      "type": "buff",
+      "name": "발을 적시는 파도 2",
+      "trigger": {
+        "timing": [
+          "burst_cast_count:2"
+        ],
+        "condition": []
+      },
+      "target": "allies_code:수냉",
+      "stat": "element_bonus_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 3.43,
+        "2": 4.59,
+        "3": 5.75,
+        "4": 6.91,
+        "5": 8.07,
+        "6": 9.24,
+        "7": 10.4,
+        "8": 11.56,
+        "9": 12.72,
+        "10": 13.88
+      },
+      "duration": 5.0
+    },
+    {
+      "source": "스킬2",
+      "type": "buff",
+      "name": "발을 적시는 파도 3",
+      "trigger": {
+        "timing": [
+          "burst_cast_count:3"
+        ],
+        "condition": []
+      },
+      "target": "allies_code:수냉",
+      "stat": "element_bonus_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 2.97,
+        "2": 3.57,
+        "3": 4.17,
+        "4": 4.76,
+        "5": 5.36,
+        "6": 5.96,
+        "7": 6.56,
+        "8": 7.16,
+        "9": 7.76,
+        "10": 8.36
+      },
+      "duration": 10.0
+    },
+    {
+      "source": "스킬3",
+      "type": "buff",
+      "name": "고요한 수면",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "allies_code:수냉",
+      "stat": "atk_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 13.72,
+        "2": 14.78,
+        "3": 15.84,
+        "4": 16.89,
+        "5": 17.95,
+        "6": 19.0,
+        "7": 20.06,
+        "8": 21.12,
+        "9": 22.17,
+        "10": 23.23
+      },
+      "duration": 3.0
+    },
+    {
+      "source": "스킬3",
+      "type": "buff",
+      "name": "고요한 수면 2",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "all_allies",
+      "stat": "hp_caster_based_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 16.47,
+        "2": 17.74,
+        "3": 19.0,
+        "4": 20.27,
+        "5": 21.54,
+        "6": 22.8,
+        "7": 24.07,
+        "8": 25.34,
+        "9": 26.61,
+        "10": 27.87
+      },
+      "duration": 10.0
+    }
+  ],
+  "베스티 : 택티컬 업": [
+    {
+      "source": "스킬1",
+      "type": "buff",
+      "name": "미사일 가이드",
+      "trigger": {
+        "timing": [
+          "full_charge_hit"
+        ],
+        "condition": [
+          "not_self_state:미사일 가이드"
+        ]
+      },
+      "target": "self",
+      "stat": "charge_speed_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "fixed_value": 100.0,
+      "duration": -1,
+      "duration_bullets": 3
+    },
+    {
+      "source": "스킬1",
+      "type": "buff",
+      "name": "미사일 가이드 2",
+      "trigger": {
+        "timing": [
+          "full_charge_hit"
+        ],
+        "condition": [
+          "not_self_state:미사일 가이드"
+        ]
+      },
+      "target": "self",
+      "stat": "charge_dmg_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 34.56,
+        "2": 37.22,
+        "3": 39.88,
+        "4": 42.54,
+        "5": 45.2,
+        "6": 47.86,
+        "7": 50.52,
+        "8": 53.18,
+        "9": 55.84,
+        "10": 58.5
+      },
+      "duration": -1,
+      "duration_bullets": 3
+    },
+    {
+      "source": "스킬1",
+      "type": "instant",
+      "name": "미사일 가이드 해제",
+      "trigger": {
+        "timing": [
+          "event:full_reload"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "remove_named_buff",
+      "target_effect": "미사일 가이드"
+    },
+    {
+      "source": "스킬1",
+      "type": "instant",
+      "name": "미사일 가이드 2 해제",
+      "trigger": {
+        "timing": [
+          "event:full_reload"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "remove_named_buff",
+      "target_effect": "미사일 가이드 2"
+    },
+    {
+      "source": "스킬2",
+      "type": "damage",
+      "name": "몬스터 스테이지",
+      "trigger": {
+        "timing": [
+          "full_charge_hit"
+        ],
+        "condition": []
+      },
+      "target": "target",
+      "stat": "armor_break_damage",
+      "values": {
+        "1": 157.53,
+        "2": 169.65,
+        "3": 181.76,
+        "4": 193.88,
+        "5": 206.0,
+        "6": 218.12,
+        "7": 230.24,
+        "8": 242.36,
+        "9": 254.48,
+        "10": 266.6
+      }
+    },
+    {
+      "source": "스킬2",
+      "type": "buff",
+      "name": "몬스터 스테이지 2",
+      "trigger": {
+        "timing": [
+          "full_charge_hit"
+        ],
+        "condition": [
+          "self_state:전장 조성"
+        ]
+      },
+      "target": "self",
+      "stat": "atk_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 11.82,
+        "2": 12.73,
+        "3": 13.64,
+        "4": 14.54,
+        "5": 15.45,
+        "6": 16.36,
+        "7": 17.27,
+        "8": 18.18,
+        "9": 19.09,
+        "10": 20.0
+      },
+      "duration": 3.0
+    },
+    {
+      "source": "스킬2",
+      "type": "buff",
+      "name": "몬스터 스테이지 3",
+      "trigger": {
+        "timing": [
+          "full_charge_hit"
+        ],
+        "condition": [
+          "target_state:내부 폭발탄"
+        ]
+      },
+      "target": "self",
+      "stat": "projectile_explosion_dmg_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 11.82,
+        "2": 12.73,
+        "3": 13.64,
+        "4": 14.54,
+        "5": 15.45,
+        "6": 16.36,
+        "7": 17.27,
+        "8": 18.18,
+        "9": 19.09,
+        "10": 20.0
+      },
+      "duration": 3.0
+    },
+    {
+      "source": "스킬3",
+      "type": "buff",
+      "name": "미사일 컨테이너 온라인",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "explosion_range",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 59.09,
+        "2": 63.63,
+        "3": 68.18,
+        "4": 72.72,
+        "5": 77.27,
+        "6": 81.81,
+        "7": 86.36,
+        "8": 90.91,
+        "9": 95.45,
+        "10": 100.0
+      },
+      "duration": 10.0
+    },
+    {
+      "source": "스킬3",
+      "type": "buff",
+      "name": "미사일 컨테이너 온라인 2",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "armor_break_dmg_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 35.45,
+        "2": 38.18,
+        "3": 40.91,
+        "4": 43.63,
+        "5": 46.36,
+        "6": 49.09,
+        "7": 51.81,
+        "8": 54.54,
+        "9": 57.27,
+        "10": 60.0
+      },
+      "duration": 10.0
+    },
+    {
+      "source": "스킬3",
+      "type": "damage",
+      "name": "미사일 컨테이너 온라인 3",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "all_enemies",
+      "stat": "armor_break_damage",
+      "values": {
+        "1": 290.9,
+        "2": 313.28,
+        "3": 335.66,
+        "4": 358.04,
+        "5": 380.41,
+        "6": 402.79,
+        "7": 425.17,
+        "8": 447.55,
+        "9": 469.92,
+        "10": 492.3
+      },
+      "hits_parts": true,
+      "note": "원문은 방어력 무시 버스트 스킬 대미지. armor_break_damage로 방어 무시를 보존하고 burst 분류 검증은 시나리오 특수 케이스에 둔다"
+    }
+  ],
+  "에이드": [
+    {
+      "source": "스킬1",
+      "type": "buff",
+      "name": "완벽한 메이드",
+      "trigger": {
+        "timing": [
+          "battle_start"
+        ],
+        "condition": []
+      },
+      "target": "all_allies",
+      "stat": "debuff_immune",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "duration": -1
+    },
+    {
+      "source": "스킬1",
+      "type": "buff",
+      "name": "청소를 시작하겠습니다, 주인님.",
+      "trigger": {
+        "timing": [
+          "hp_below:90"
+        ],
+        "condition": []
+      },
+      "target": "all_allies",
+      "stat": "atk_caster_based_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 3.29,
+        "2": 3.5,
+        "3": 3.71,
+        "4": 3.92,
+        "5": 4.13,
+        "6": 4.35,
+        "7": 4.56,
+        "8": 4.77,
+        "9": 4.98,
+        "10": 5.19
+      },
+      "duration": 5.0
+    },
+    {
+      "source": "스킬2",
+      "type": "buff",
+      "name": "완벽한 메이드 2",
+      "trigger": {
+        "timing": [
+          "hit_count:420"
+        ],
+        "condition": []
+      },
+      "target": "all_allies",
+      "stat": "debuff_immune",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "duration": -1
+    },
+    {
+      "source": "스킬2",
+      "type": "buff",
+      "name": "잠시 쉬어갈 시간입니다, 주인님.",
+      "trigger": {
+        "timing": [
+          "hit_count:120"
+        ],
+        "condition": []
+      },
+      "target": "all_allies",
+      "stat": "hp_only_caster_based_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 8.78,
+        "2": 9.54,
+        "3": 10.3,
+        "4": 11.06,
+        "5": 11.82,
+        "6": 12.58,
+        "7": 13.34,
+        "8": 14.1,
+        "9": 14.86,
+        "10": 15.62
+      },
+      "duration": 5.0
+    },
+    {
+      "source": "스킬3",
+      "type": "buff",
+      "name": "식사 시간입니다, 주인님.",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "all_allies",
+      "stat": "hp_only_caster_based_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 16.88,
+        "2": 17.8,
+        "3": 18.72,
+        "4": 19.64,
+        "5": 20.56,
+        "6": 21.47,
+        "7": 22.39,
+        "8": 23.31,
+        "9": 24.23,
+        "10": 25.15
+      },
+      "duration": 10.0
+    },
+    {
+      "source": "스킬3",
+      "type": "buff",
+      "name": "식사 시간입니다, 주인님. 2",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "all_allies",
+      "stat": "atk_caster_based_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 6.58,
+        "2": 6.98,
+        "3": 7.38,
+        "4": 7.77,
+        "5": 8.17,
+        "6": 8.56,
+        "7": 8.96,
+        "8": 9.36,
+        "9": 9.75,
+        "10": 10.15
+      },
+      "duration": 10.0
+    }
+  ],
+  "크러스트": [
+    {
+      "source": "스킬1",
+      "type": "instant",
+      "name": "굽고, 데치고",
+      "trigger": {
+        "timing": [
+          "full_charge_hit"
+        ],
+        "condition": [
+          "self_state:마이야르"
+        ]
+      },
+      "target": "all_allies",
+      "stat": "named_buff_duration_extend",
+      "fixed_value": 2.5,
+      "target_effect": "마이야르"
+    },
+    {
+      "source": "스킬1",
+      "type": "instant",
+      "name": "굽고, 데치고 2",
+      "trigger": {
+        "timing": [
+          "full_charge_hit"
+        ],
+        "condition": [
+          "self_state:블렌칭"
+        ]
+      },
+      "target": "all_allies",
+      "stat": "named_buff_duration_extend",
+      "fixed_value": 2.5,
+      "target_effect": "블렌칭"
+    },
+    {
+      "source": "스킬1",
+      "type": "buff",
+      "name": "마이야르",
+      "trigger": {
+        "timing": [
+          "non_full_charge_hit_count:3"
+        ],
+        "condition": []
+      },
+      "target": "all_allies",
+      "stat": "atk_caster_based_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 5.9,
+        "2": 6.36,
+        "3": 6.81,
+        "4": 7.27,
+        "5": 7.72,
+        "6": 8.18,
+        "7": 8.63,
+        "8": 9.09,
+        "9": 9.54,
+        "10": 10.0
+      },
+      "duration": 10.0
+    },
+    {
+      "source": "스킬1",
+      "type": "instant",
+      "name": "블렌칭 제거",
+      "trigger": {
+        "timing": [
+          "non_full_charge_hit_count:3"
+        ],
+        "condition": []
+      },
+      "target": "all_allies",
+      "stat": "remove_named_buff",
+      "target_effect": "블렌칭"
+    },
+    {
+      "source": "스킬1",
+      "type": "buff",
+      "name": "블렌칭",
+      "trigger": {
+        "timing": [
+          "charge_hold_count:1:3"
+        ],
+        "condition": []
+      },
+      "target": "all_allies",
+      "stat": "atk_caster_based_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 5.9,
+        "2": 6.36,
+        "3": 6.81,
+        "4": 7.27,
+        "5": 7.72,
+        "6": 8.18,
+        "7": 8.63,
+        "8": 9.09,
+        "9": 9.54,
+        "10": 10.0
+      },
+      "duration": 10.0
+    },
+    {
+      "source": "스킬1",
+      "type": "instant",
+      "name": "마이야르 제거",
+      "trigger": {
+        "timing": [
+          "charge_hold_count:1:3"
+        ],
+        "condition": []
+      },
+      "target": "all_allies",
+      "stat": "remove_named_buff",
+      "target_effect": "마이야르"
+    },
+    {
+      "source": "스킬2",
+      "type": "buff",
+      "name": "든든한 요리",
+      "trigger": {
+        "timing": [
+          "non_full_charge_hit_count:3",
+          "charge_hold_count:1:3"
+        ],
+        "condition": []
+      },
+      "target": "allies_without_buff:든든한 요리",
+      "stat": "def_caster_based_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 5.91,
+        "2": 6.36,
+        "3": 6.82,
+        "4": 7.27,
+        "5": 7.73,
+        "6": 8.18,
+        "7": 8.64,
+        "8": 9.09,
+        "9": 9.55,
+        "10": 10.0
+      },
+      "duration": 10.0
+    },
+    {
+      "source": "스킬2",
+      "type": "instant",
+      "name": "든든한 요리 2",
+      "trigger": {
+        "timing": [
+          "non_full_charge_hit_count:3",
+          "charge_hold_count:1:3"
+        ],
+        "condition": []
+      },
+      "target": "allies_without_buff:든든한 요리",
+      "stat": "debuff_cleanse"
+    },
+    {
+      "source": "스킬2",
+      "type": "buff",
+      "name": "든든한 요리 3",
+      "trigger": {
+        "timing": [
+          "full_burst_start"
+        ],
+        "condition": []
+      },
+      "target": [
+        "allies_with_buff:마이야르",
+        "allies_with_buff:블렌칭"
+      ],
+      "stat": "atk_caster_based_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 11.81,
+        "2": 12.72,
+        "3": 13.63,
+        "4": 14.54,
+        "5": 15.45,
+        "6": 16.36,
+        "7": 17.27,
+        "8": 18.18,
+        "9": 19.09,
+        "10": 20.0
+      },
+      "duration": 10.0
+    },
+    {
+      "source": "스킬3",
+      "type": "buff",
+      "name": "진짜 맛",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "all_allies",
+      "stat": "atk_dmg_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 11.81,
+        "2": 12.72,
+        "3": 13.63,
+        "4": 14.54,
+        "5": 15.45,
+        "6": 16.36,
+        "7": 17.27,
+        "8": 18.18,
+        "9": 19.09,
+        "10": 20.0
+      },
+      "duration": 10.0
+    },
+    {
+      "source": "스킬3",
+      "type": "buff",
+      "name": "진짜 맛 2",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": [
+          "self_state:마이야르"
+        ]
+      },
+      "target": "all_allies",
+      "stat": "split_dmg_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 35.45,
+        "2": 38.18,
+        "3": 40.91,
+        "4": 43.64,
+        "5": 46.37,
+        "6": 49.09,
+        "7": 51.82,
+        "8": 54.55,
+        "9": 57.28,
+        "10": 60.0
+      },
+      "duration": 10.0
+    },
+    {
+      "source": "스킬3",
+      "type": "buff",
+      "name": "진짜 맛 3",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": [
+          "self_state:블렌칭"
+        ]
+      },
+      "target": "all_allies",
+      "stat": "dot_dmg_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 5.91,
+        "2": 6.36,
+        "3": 6.82,
+        "4": 7.27,
+        "5": 7.73,
+        "6": 8.18,
+        "7": 8.64,
+        "8": 9.09,
+        "9": 9.55,
+        "10": 10.0
+      },
+      "duration": 10.0
+    }
+  ],
+  "티아": [
+    {
+      "source": "스킬1",
+      "type": "buff",
+      "name": "파충류 애호가",
+      "trigger": {
+        "timing": [
+          "event:cover_healed"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "burst_cooldown",
+      "polarity": "beneficial",
+      "max_stack": 2,
+      "values": {
+        "1": 7.0,
+        "2": 7.0,
+        "3": 7.0,
+        "4": 10.0,
+        "5": 10.0,
+        "6": 10.0,
+        "7": 13.0,
+        "8": 13.0,
+        "9": 13.0,
+        "10": 13.0
+      },
+      "duration": 12.0
+    },
+    {
+      "source": "스킬1",
+      "type": "buff",
+      "name": "파충류 애호가 2",
+      "trigger": {
+        "timing": [
+          "event:cover_healed"
+        ],
+        "condition": []
+      },
+      "target": "all_allies",
+      "stat": "atk_dmg_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 17.46,
+        "2": 19.08,
+        "3": 20.71,
+        "4": 22.34,
+        "5": 23.97,
+        "6": 25.6,
+        "7": 27.23,
+        "8": 28.85,
+        "9": 30.48,
+        "10": 32.11
+      },
+      "duration": 10.0
+    },
+    {
+      "source": "스킬2",
+      "type": "buff",
+      "name": "카멜레온 은신술",
+      "trigger": {
+        "timing": [
+          "hit_count:5"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "cover_hp_caster_based_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 19.35,
+        "2": 20.84,
+        "3": 22.33,
+        "4": 23.82,
+        "5": 25.31,
+        "6": 26.79,
+        "7": 28.28,
+        "8": 29.77,
+        "9": 31.26,
+        "10": 32.75
+      },
+      "duration": 5.0
+    },
+    {
+      "source": "스킬2",
+      "type": "buff",
+      "name": "카멜레온 은신술 2",
+      "trigger": {
+        "timing": [
+          "hit_count:5"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "taunt",
+      "polarity": "neutral",
+      "max_stack": 1,
+      "duration": 5.0
+    },
+    {
+      "source": "스킬2",
+      "type": "instant",
+      "name": "카멜레온 은신술 3",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "cover_heal_pct",
+      "values": {
+        "1": 10.5,
+        "2": 11.71,
+        "3": 12.92,
+        "4": 14.14,
+        "5": 15.35,
+        "6": 16.56,
+        "7": 17.77,
+        "8": 18.98,
+        "9": 20.2,
+        "10": 21.41
+      }
+    },
+    {
+      "source": "스킬2",
+      "type": "buff",
+      "name": "카멜레온 은신술 4",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "lifesteal_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 18.03,
+        "2": 18.47,
+        "3": 18.91,
+        "4": 19.34,
+        "5": 19.78,
+        "6": 20.22,
+        "7": 20.65,
+        "8": 21.09,
+        "9": 21.53,
+        "10": 21.96
+      },
+      "duration": 10.0
+    },
+    {
+      "source": "스킬3",
+      "type": "buff",
+      "name": "도마뱀의 보호",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "shield_from_max_hp_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 20.72,
+        "2": 22.32,
+        "3": 23.91,
+        "4": 25.5,
+        "5": 27.1,
+        "6": 28.69,
+        "7": 30.29,
+        "8": 31.88,
+        "9": 33.48,
+        "10": 35.07
+      },
+      "duration": 10.0
+    },
+    {
+      "source": "스킬3",
+      "type": "buff",
+      "name": "도마뱀의 보호 2",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "all_allies_excl_self",
+      "stat": "shield_from_max_hp_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 6.03,
+        "2": 6.49,
+        "3": 6.96,
+        "4": 7.42,
+        "5": 7.89,
+        "6": 8.35,
+        "7": 8.81,
+        "8": 9.28,
+        "9": 9.74,
+        "10": 10.21
+      },
+      "duration": 10.0
+    },
+    {
+      "source": "스킬3",
+      "type": "buff",
+      "name": "도마뱀의 보호 3",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "all_allies",
+      "stat": "burst_stage_override:reenter1",
+      "polarity": "neutral",
+      "max_stack": 1,
+      "duration": 10.0
+    }
+  ],
+  "프리바티 : 언카인드 메이드": [
+    {
+      "source": "스킬1",
+      "type": "damage",
+      "name": "열정 충만 메이드",
+      "trigger": {
+        "timing": [
+          "pellet_hit_count:30"
+        ],
+        "condition": []
+      },
+      "target": "enemies_nearest:2",
+      "stat": "damage",
+      "values": {
+        "1": 119.86,
+        "2": 129.08,
+        "3": 138.3,
+        "4": 147.52,
+        "5": 156.74,
+        "6": 165.96,
+        "7": 175.18,
+        "8": 184.4,
+        "9": 193.62,
+        "10": 202.84
+      }
+    },
+    {
+      "source": "스킬2",
+      "type": "buff",
+      "name": "사랑 가득 메이드",
+      "trigger": {
+        "timing": [
+          "multi_hit:5"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "reload_speed_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 12.33,
+        "2": 13.28,
+        "3": 14.23,
+        "4": 15.18,
+        "5": 16.13,
+        "6": 17.08,
+        "7": 18.03,
+        "8": 18.98,
+        "9": 19.93,
+        "10": 20.88
+      },
+      "duration": 2.0
+    },
+    {
+      "source": "스킬2",
+      "type": "instant",
+      "name": "사랑 가득 메이드 2",
+      "trigger": {
+        "timing": [
+          "pellet_hit_count:30"
+        ],
+        "condition": [
+          "during_full_burst"
+        ]
+      },
+      "target": "self",
+      "stat": "ammo_charge_flat",
+      "fixed_value": 1.0
+    },
+    {
+      "source": "스킬2",
+      "type": "buff",
+      "name": "사랑 가득 메이드 3",
+      "trigger": {
+        "timing": [
+          "pellet_hit_count:30"
+        ],
+        "condition": [
+          "during_full_burst"
+        ]
+      },
+      "target": "self",
+      "stat": "atk_pct",
+      "polarity": "beneficial",
+      "max_stack": 5,
+      "values": {
+        "1": 6.63,
+        "2": 7.14,
+        "3": 7.65,
+        "4": 8.16,
+        "5": 8.67,
+        "6": 9.18,
+        "7": 9.69,
+        "8": 10.2,
+        "9": 10.71,
+        "10": 11.22
+      },
+      "duration": 2.0
+    },
+    {
+      "source": "스킬3",
+      "type": "buff",
+      "name": "부끄러운! 당신의 메이드",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "atk_dmg_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 6.24,
+        "2": 6.72,
+        "3": 7.2,
+        "4": 7.68,
+        "5": 8.16,
+        "6": 8.64,
+        "7": 9.12,
+        "8": 9.6,
+        "9": 10.08,
+        "10": 10.56
+      },
+      "duration": 10.0
+    },
+    {
+      "source": "스킬3",
+      "type": "buff",
+      "name": "부끄러운! 당신의 메이드 2",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "crit_dmg",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 52.1,
+        "2": 56.11,
+        "3": 60.12,
+        "4": 64.12,
+        "5": 68.13,
+        "6": 72.14,
+        "7": 76.15,
+        "8": 80.16,
+        "9": 84.16,
+        "10": 88.17
+      },
+      "duration": 10.0
+    },
+    {
+      "source": "스킬3",
+      "type": "damage",
+      "name": "부끄러운! 당신의 메이드 3",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "all_enemies",
+      "stat": "burst_damage",
+      "values": {
+        "1": 630.3,
+        "2": 678.78,
+        "3": 727.27,
+        "4": 775.75,
+        "5": 824.24,
+        "6": 872.72,
+        "7": 921.21,
+        "8": 969.69,
+        "9": 1018.18,
+        "10": 1066.66
+      }
+    }
+  ],
+  "네온 : 블루 오션": [
+    {
+      "source": "스킬1",
+      "type": "buff",
+      "name": "어퍼 웨이브",
+      "trigger": {
+        "timing": [
+          "burst_cast_count:1"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "part_dmg_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 5.2,
+        "2": 6.0,
+        "3": 6.8,
+        "4": 7.6,
+        "5": 8.4,
+        "6": 9.2,
+        "7": 10.0,
+        "8": 10.8,
+        "9": 11.6,
+        "10": 12.4
+      },
+      "duration": 20.0
+    },
+    {
+      "source": "스킬1",
+      "type": "buff",
+      "name": "어퍼 웨이브 2",
+      "trigger": {
+        "timing": [
+          "burst_cast_count:2"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "part_dmg_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 5.2,
+        "2": 6.0,
+        "3": 6.8,
+        "4": 7.6,
+        "5": 8.4,
+        "6": 9.2,
+        "7": 10.0,
+        "8": 10.8,
+        "9": 11.6,
+        "10": 12.4
+      },
+      "duration": 20.0
+    },
+    {
+      "source": "스킬1",
+      "type": "buff",
+      "name": "어퍼 웨이브 3",
+      "trigger": {
+        "timing": [
+          "burst_cast_count:3"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "part_dmg_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 5.2,
+        "2": 6.0,
+        "3": 6.8,
+        "4": 7.6,
+        "5": 8.4,
+        "6": 9.2,
+        "7": 10.0,
+        "8": 10.8,
+        "9": 11.6,
+        "10": 12.4
+      },
+      "duration": 20.0
+    },
+    {
+      "source": "스킬2",
+      "type": "buff",
+      "name": "워터 제트",
+      "trigger": {
+        "timing": [
+          "full_burst_start_count:1"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "element_bonus_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 8.32,
+        "2": 9.68,
+        "3": 11.04,
+        "4": 12.4,
+        "5": 13.76,
+        "6": 15.12,
+        "7": 16.48,
+        "8": 17.84,
+        "9": 19.2,
+        "10": 20.56
+      },
+      "duration": 10.0,
+      "note": "버스트 3단계 돌입은 현 전투 타임라인의 full_burst_start와 같은 시점이므로 누적 시작 횟수 표준 트리거를 사용"
+    },
+    {
+      "source": "스킬2",
+      "type": "buff",
+      "name": "워터 제트 2",
+      "trigger": {
+        "timing": [
+          "full_burst_start_count:2"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "element_bonus_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 8.32,
+        "2": 9.64,
+        "3": 10.96,
+        "4": 12.28,
+        "5": 13.6,
+        "6": 14.92,
+        "7": 16.24,
+        "8": 17.56,
+        "9": 18.88,
+        "10": 20.2
+      },
+      "duration": 10.0,
+      "note": "버스트 3단계 돌입은 현 전투 타임라인의 full_burst_start와 같은 시점이므로 누적 시작 횟수 표준 트리거를 사용"
+    },
+    {
+      "source": "스킬2",
+      "type": "buff",
+      "name": "워터 제트 3",
+      "trigger": {
+        "timing": [
+          "full_burst_start_count:3"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "element_bonus_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 8.32,
+        "2": 9.64,
+        "3": 10.96,
+        "4": 12.28,
+        "5": 13.6,
+        "6": 14.92,
+        "7": 16.24,
+        "8": 17.56,
+        "9": 18.88,
+        "10": 20.2
+      },
+      "duration": 10.0,
+      "note": "버스트 3단계 돌입은 현 전투 타임라인의 full_burst_start와 같은 시점이므로 누적 시작 횟수 표준 트리거를 사용"
+    },
+    {
+      "source": "스킬3",
+      "type": "weapon_change",
+      "name": "풀 하이드로 샷",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "duration": 7.0,
+      "weapon_type": "MG",
+      "damage_coeff": {
+        "1": 19.5,
+        "2": 21.0,
+        "3": 22.5,
+        "4": 24.0,
+        "5": 25.5,
+        "6": 27.0,
+        "7": 28.5,
+        "8": 30.0,
+        "9": 31.5,
+        "10": 33.0
+      },
+      "max_ammo": -1,
+      "note": "원문에 변경 무기 유형·연사·장탄이 없어 기존 MG 기본 동작을 적용. 추가 실측 필요"
+    },
+    {
+      "source": "스킬3",
+      "type": "damage",
+      "name": "풀 하이드로 샷 2",
+      "trigger": {
+        "timing": [
+          "hit_count:1"
+        ],
+        "condition": [
+          "self_state:풀 하이드로 샷",
+          "target_code:작열"
+        ]
+      },
+      "target": "target",
+      "stat": "bonus_damage",
+      "values": {
+        "1": 6.5,
+        "2": 7.0,
+        "3": 7.5,
+        "4": 8.0,
+        "5": 8.5,
+        "6": 9.0,
+        "7": 9.5,
+        "8": 10.0,
+        "9": 10.5,
+        "10": 11.0
+      }
+    }
+  ],
+  "시그널": [
+    {
+      "source": "스킬1",
+      "type": "buff",
+      "name": "어택 시그널",
+      "trigger": {
+        "timing": [
+          "hit_count:60"
+        ],
+        "condition": []
+      },
+      "target": "target",
+      "stat": "def_pct",
+      "polarity": "harmful",
+      "max_stack": 1,
+      "values": {
+        "1": -2.97,
+        "2": -3.3,
+        "3": -3.63,
+        "4": -3.96,
+        "5": -4.29,
+        "6": -4.62,
+        "7": -4.95,
+        "8": -5.28,
+        "9": -5.61,
+        "10": -5.94
+      },
+      "duration": 5.0
+    },
+    {
+      "source": "스킬1",
+      "type": "buff",
+      "name": "어택 시그널 2",
+      "trigger": {
+        "timing": [
+          "hit_count:60"
+        ],
+        "condition": []
+      },
+      "target": "target",
+      "stat": "atk_pct",
+      "polarity": "harmful",
+      "max_stack": 1,
+      "values": {
+        "1": -2.97,
+        "2": -3.3,
+        "3": -3.63,
+        "4": -3.96,
+        "5": -4.29,
+        "6": -4.62,
+        "7": -4.95,
+        "8": -5.28,
+        "9": -5.61,
+        "10": -5.94
+      },
+      "duration": 5.0
+    },
+    {
+      "source": "스킬2",
+      "type": "buff",
+      "name": "웨이팅 포 시그널",
+      "trigger": {
+        "timing": [
+          "full_burst_start"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "lifesteal_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 22.04,
+        "2": 24.48,
+        "3": 26.93,
+        "4": 29.38,
+        "5": 31.83,
+        "6": 34.28,
+        "7": 36.73,
+        "8": 39.18,
+        "9": 41.63,
+        "10": 44.08
+      },
+      "duration": 10.0
+    },
+    {
+      "source": "스킬3",
+      "type": "damage",
+      "name": "이머전시 시그널",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "enemies_in_range",
+      "stat": "damage",
+      "values": {
+        "1": 114.61,
+        "2": 127.34,
+        "3": 140.08,
+        "4": 152.81,
+        "5": 165.55,
+        "6": 178.28,
+        "7": 191.02,
+        "8": 203.75,
+        "9": 216.48,
+        "10": 229.22
+      }
+    },
+    {
+      "source": "스킬3",
+      "type": "buff",
+      "name": "이머전시 시그널 2",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "enemies_in_range",
+      "stat": "def_pct",
+      "polarity": "harmful",
+      "max_stack": 1,
+      "values": {
+        "1": -6.17,
+        "2": -6.85,
+        "3": -7.54,
+        "4": -8.22,
+        "5": -8.91,
+        "6": -9.6,
+        "7": -10.28,
+        "8": -10.97,
+        "9": -11.65,
+        "10": -12.34
+      },
+      "duration": 10.0
+    }
+  ],
+  "폴리": [
+    {
+      "source": "스킬1",
+      "type": "buff",
+      "name": "브레이브 콜",
+      "trigger": {
+        "timing": [
+          "hit_count:5"
+        ],
+        "condition": []
+      },
+      "target": "all_allies",
+      "stat": "atk_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 2.73,
+        "2": 3.03,
+        "3": 3.33,
+        "4": 3.64,
+        "5": 3.94,
+        "6": 4.25,
+        "7": 4.55,
+        "8": 4.85,
+        "9": 5.16,
+        "10": 5.46
+      },
+      "duration": 10.0
+    },
+    {
+      "source": "스킬1",
+      "type": "buff",
+      "name": "브레이브 콜",
+      "trigger": {
+        "timing": [
+          "hit_count:5"
+        ],
+        "condition": []
+      },
+      "target": "all_allies",
+      "favorite": 1,
+      "stat": "atk_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 2.73,
+        "2": 3.03,
+        "3": 3.33,
+        "4": 3.64,
+        "5": 3.94,
+        "6": 4.25,
+        "7": 4.55,
+        "8": 4.85,
+        "9": 5.16,
+        "10": 5.46
+      },
+      "duration": 10.0
+    },
+    {
+      "source": "스킬1",
+      "type": "buff",
+      "name": "폴리스 뱃지",
+      "trigger": {
+        "timing": [
+          "battle_start"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "favorite": 1,
+      "stat": "shield_from_max_hp_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 59.09,
+        "2": 63.64,
+        "3": 68.18,
+        "4": 72.73,
+        "5": 77.27,
+        "6": 81.82,
+        "7": 86.36,
+        "8": 90.91,
+        "9": 95.46,
+        "10": 100.0
+      },
+      "duration": 10.0
+    },
+    {
+      "source": "스킬2",
+      "type": "buff",
+      "name": "도그 테라피",
+      "trigger": {
+        "timing": [
+          "every:20s"
+        ],
+        "condition": []
+      },
+      "target": [
+        "self",
+        "allies_lowest_hp_excl:2"
+      ],
+      "stat": "def_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 11.75,
+        "2": 13.06,
+        "3": 14.36,
+        "4": 15.67,
+        "5": 16.97,
+        "6": 18.28,
+        "7": 19.59,
+        "8": 20.89,
+        "9": 22.2,
+        "10": 23.51
+      },
+      "duration": 10.0,
+      "note": "기본 원문에 timing이 없고 애장품 3단계 원문이 20초마다로 명시하므로 기본도 같은 주기를 적용"
+    },
+    {
+      "source": "스킬2",
+      "type": "buff",
+      "name": "도그 테라피 2",
+      "trigger": {
+        "timing": [
+          "every:20s"
+        ],
+        "condition": []
+      },
+      "target": [
+        "self",
+        "allies_lowest_hp_excl:2"
+      ],
+      "stat": "received_dmg_split",
+      "polarity": "neutral",
+      "max_stack": 1,
+      "duration": 10.0
+    },
+    {
+      "source": "스킬2",
+      "type": "buff",
+      "name": "도그 테라피",
+      "trigger": {
+        "timing": [
+          "every:20s"
+        ],
+        "condition": []
+      },
+      "target": [
+        "self",
+        "allies_lowest_hp_excl:2"
+      ],
+      "favorite": 3,
+      "stat": "def_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 11.75,
+        "2": 13.06,
+        "3": 14.36,
+        "4": 15.67,
+        "5": 16.97,
+        "6": 18.28,
+        "7": 19.59,
+        "8": 20.89,
+        "9": 22.2,
+        "10": 23.51
+      },
+      "duration": 10.0
+    },
+    {
+      "source": "스킬2",
+      "type": "buff",
+      "name": "도그 테라피 2",
+      "trigger": {
+        "timing": [
+          "every:20s"
+        ],
+        "condition": []
+      },
+      "target": [
+        "self",
+        "allies_lowest_hp_excl:2"
+      ],
+      "favorite": 3,
+      "stat": "received_dmg_split",
+      "polarity": "neutral",
+      "max_stack": 1,
+      "duration": 10.0
+    },
+    {
+      "source": "스킬2",
+      "type": "instant",
+      "name": "도그 테라피 3",
+      "trigger": {
+        "timing": [
+          "event:state_end:폴리스 뱃지"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "favorite": 3,
+      "stat": "heal_hp_pct",
+      "values": {
+        "1": 2.95,
+        "2": 3.18,
+        "3": 3.41,
+        "4": 3.64,
+        "5": 3.86,
+        "6": 4.09,
+        "7": 4.32,
+        "8": 4.55,
+        "9": 4.77,
+        "10": 5.0
+      },
+      "duration": 5.0,
+      "tick_interval": 1.0,
+      "scaling": "max_hp"
+    },
+    {
+      "source": "스킬3",
+      "type": "buff",
+      "name": "폴리스 라인",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "shared_shield_from_max_hp_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 11.13,
+        "2": 12.37,
+        "3": 13.61,
+        "4": 14.85,
+        "5": 16.08,
+        "6": 17.32,
+        "7": 18.56,
+        "8": 19.8,
+        "9": 21.03,
+        "10": 22.27
+      },
+      "duration": 10.0
+    },
+    {
+      "source": "스킬3",
+      "type": "buff",
+      "name": "폴리스 라인 2",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "all_allies",
+      "stat": "atk_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 22.27,
+        "2": 24.75,
+        "3": 27.22,
+        "4": 29.7,
+        "5": 32.17,
+        "6": 34.65,
+        "7": 37.12,
+        "8": 39.6,
+        "9": 42.07,
+        "10": 44.55
+      },
+      "duration": 10.0
+    },
+    {
+      "source": "스킬3",
+      "type": "buff",
+      "name": "폴리스 라인 폴리스 뱃지 불굴",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": [
+          "self_state:폴리스 뱃지"
+        ]
+      },
+      "target": "self",
+      "favorite": 2,
+      "stat": "undying",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "duration": 5.0
+    },
+    {
+      "source": "스킬3",
+      "type": "instant",
+      "name": "폴리스 뱃지 제거",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": [
+          "self_state:폴리스 뱃지"
+        ]
+      },
+      "target": "self",
+      "favorite": 2,
+      "stat": "remove_named_buff",
+      "target_effect": "폴리스 뱃지"
+    },
+    {
+      "source": "스킬3",
+      "type": "buff",
+      "name": "폴리스 라인",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "favorite": 2,
+      "stat": "shared_shield_from_max_hp_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 23.63,
+        "2": 25.45,
+        "3": 27.27,
+        "4": 29.09,
+        "5": 30.91,
+        "6": 32.73,
+        "7": 34.55,
+        "8": 36.36,
+        "9": 38.18,
+        "10": 40.0
+      },
+      "duration": 10.0
+    },
+    {
+      "source": "스킬3",
+      "type": "buff",
+      "name": "폴리스 라인 2",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "all_allies",
+      "favorite": 2,
+      "stat": "atk_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "1": 22.27,
+        "2": 24.75,
+        "3": 27.22,
+        "4": 29.7,
+        "5": 32.17,
+        "6": 34.65,
+        "7": 37.12,
+        "8": 39.6,
+        "9": 42.07,
+        "10": 44.55
+      },
+      "duration": 10.0
+    }
   ]
 }

@@ -282,9 +282,12 @@ template에 timing 키워드 없으면:
 | `분배 대미지 증가 효과 적용 시` | `"event:stat_applied:split_dmg_pct"` |
 | `버스트 N 사용 시` (스쿼드 버스트 단계) | `"squad_burst_cast:N"` |
 | `엄폐물 피격 시` | `"event:cover_hit"` |
+| `엄폐물 체력 회복 시` | `"event:cover_healed"` |
 | `N명 이상 동시 명중 시` | `"multi_hit:N"` |
 | `코어 명중 시` (횟수 없음) | `"core_hit_count:1"` |
 | `풀 차지 상태를 N초 이상 유지 시` | `"charge_hold:N"` |
+| `풀 차지 상태 N초 이상 유지를 M회 실행 시` | `"charge_hold_count:N:M"` |
+| `풀 차지 공격이 아닌 일반 공격 N회 공격 시` | `"non_full_charge_hit_count:N"` |
 | `마지막 탄환 공격 시` / `마지막 탄환 공격 후` | `"last_bullet_fire"` |
 | `펠릿 N회 명중 시` | `"pellet_hit_count:N"` |
 | `최대 장탄 재장전 완료 시` | `"event:full_reload"` |
@@ -429,6 +432,7 @@ template에 timing 키워드 없으면:
 | `동일 적 대상에게` | `"same_target"` — 연계 대상이 명시된 경우 `"same_target:[name]"` 형태로 기입. `[name]`은 연계 damage 항목의 `name` 값. calculator는 해당 항목이 명중한 대상마다 이 효과를 1회 적용한다. |
 | `대상과 주변의 적 N기에게` | `"target_and_nearby:N"` |
 | `자신의 엄폐물에게` | `"self_cover"` |
+| `[버프명] 상태가 아닌 아군 전체에게` | `"allies_without_buff:버프명"` |
 | `자신보다 최종 방어력이 낮은 아군 전체에게` | `"allies_below_def"` |
 | `기본 버스트 단계가 Step 3인 아군 전체에게` | `"allies_burst3"` |
 | `자신을 제외한 기본 버스트 단계가 Step3인 페르소나 상태 아군 전체에게` | `"allies_burst3_persona_excl_self"` — 페르소나 상태 = `persona_state` 마커 버프 보유 |
@@ -522,6 +526,7 @@ template에 timing 키워드 없으면:
 | `shield_dmg_pct` | 보호막 대미지 % ▲ |
 | `cover_def_pct` | 엄폐물 방어력 % ▲ |
 | `cover_hp_pct` | 엄폐물 최대 체력 % ▲ |
+| `cover_hp_caster_based_pct` | 시전자 최대 체력 N% 비례 엄폐물 최대 체력 ▲ |
 | `outgoing_heal_pct` | 주는 체력 회복량 % ▲ |
 | `shield_from_max_hp_pct` | 최대 체력 N%만큼 보호막 생성 |
 | `shared_shield_from_max_hp_pct` | `아군 공용 보호막` — 최대 체력 N%만큼 생성하되 **대상은 시전자 1인**(`target: "self"`). 대상 표기가 없어도 `all_allies`로 읽지 않는다 |
