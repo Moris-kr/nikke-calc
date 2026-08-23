@@ -325,6 +325,14 @@ python calculator/damage.py
 | `decoy_from_max_hp_pct` | — | — | ❌ | 시전자 최종 최대 체력 비례 분신. 분신 피격 모델 미구현 |
 | `decoy_heal_from_caster_max_hp_pct` | — | — | ❌ | 시전자 최종 최대 체력 비례 분신 회복. 분신 HP 모델 미구현 |
 | `cover_revive` | — | — | 🚫 | 파괴된 엄폐물 부활. 엄폐물 HP·파괴 모델 미구현 |
+| `cover_heal_from_caster_max_hp_pct` | — | — | 🚫 | 시전자 최대 체력 비례 엄폐물 회복. 엄폐물 HP 모델 미구현 |
+| `cover_max_hp_caster_based_pct` | — | — | 🚫 | 시전자 최대 체력 비례 엄폐물 최대 HP 증가. 엄폐물 HP 모델 미구현 |
+| `cover_received_dmg_split` | — | — | 🚫 | 엄폐물 받는 대미지 차등 분배. 엄폐 피격 모델 미구현 |
+| `element_received_dmg_pct` | — | — | ❌ | 특정 코드 적에게 받는 대미지 증감. 아군 피격 모델 미구현 |
+| `harmful_immune_count` | — | — | ❌ | 해로운 효과 면역 횟수 원문 보존. 적이 아군에게 거는 디버프 모델 없음 |
+| `heal_given_pct` | — | — | ❌ | 주는 회복량 증감. 현재 회복 handler에 미반영 |
+| `indomitable` | — | — | 🚫 | 불굴. 전투불능 모델 미구현 |
+| `shield_invincible` | — | — | ❌ | 자신이 설치한 보호막 무적. 보호막 피격 모델 미구현 |
 | `focus_fire` | — | — | ❌ | 사격 집중. 미구현 |
 | `enemy_movement_disable` | — | — | ❌ | 적 이동 불가. 적 이동 모델 없음 |
 | `debuff_immune` | `debuff_immune` | — | ✅ | `_activate()`에서 harmful 효과 차단 |
@@ -459,6 +467,8 @@ python calculator/damage.py
 | `event:part_destroy` | ⚠️ | 매칭 로직(`event:xxx`) 있음. 보스 sim에서 파츠는 실제로 파괴되지 않으므로 **기본은 무발동**이고, `config["part_break_interval"]`(초, 0/미지정이면 OFF)을 주면 `timeline.simulate`가 그 주기마다 스쿼드 전원에게 notify한다. 아크레인저 블랙 `배터리 충전`, 사쿠라 : 블룸 인 서머 스킬1 전체 |
 | `event:enemy_spawn` | ✅ | `battle_start()` 시점에 모든 스쿼드원에서 notify. 단일 보스 가정 — 전투 시작 시 적 등장 처리 |
 | `event:target_spawn` | ✅ | `battle_start()` 시점에 모든 스쿼드원에서 notify. 단일 보스 가정 — D `기습`의 타겟 출현 효과를 전투 중 1회 발동 |
+| `squad_part_break` | ❌ | 아군 누구든 파츠 파괴 시 스쿼드 단위 발동. 현재 전역 파츠 파괴 생산자 미구현 |
+| `fatal_hit` | 🚫 | 전투불능에 이르는 피격. 아군 피격·전투불능 모델 미구현 |
 | `event:heal_received` | ⚠️ | 매칭 로직(`event:xxx`) 있음. `heal_hp_pct` 핸들러에서만 notify 발생 |
 | `event:shield_applied` | ✅ | `shield_from_max_hp_pct` 활성/갱신 시 보호막을 받은 각 대상에게 통지 |
 | `event:shield_consumed` | ⚠️ | 매칭 로직(`event:xxx`) 있음. 아군 피격·보호막 소모 호출처 없음 |
@@ -505,6 +515,7 @@ python calculator/damage.py
 | `ally_hp_max` | — | ❌ | 미구현. 분기 없음 |
 | `during_charge` | 양쪽 모두 | ✅ | `state["charging"][caster]` |
 | `during_shield` | 양쪽 모두 | ✅ | 조건 평가 대상에게 만료 전 `shield_from_max_hp_pct` 보호막이 하나 이상 있으면 참 |
+| `self_cover_destroyed` | 켜질 때 | 🚫 | 자신의 엄폐물 파괴 상태. 엄폐물 HP·파괴 모델 미구현 |
 | `during_reload` | — | ❌ | 미구현. `state["reloading"]` 연동 필요 |
 | `burst_casted` | `_condition_ok` 전용 | ✅ | `state["burst_casted"][caster]` |
 | `burst_not_casted` | `_condition_ok` 전용 | ✅ | `state["burst_casted"][caster]` |
