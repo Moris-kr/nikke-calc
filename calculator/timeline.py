@@ -284,6 +284,7 @@ class CharState:
         self._reload_in_weapon_change: bool = False
         self._wc_shots: int = 0             # 현재 무기 변경 세션에서 실제 발사한 발수
         self._wc_new_session: bool = False  # 이번 tick이 세션 첫 진입인가
+        self._wc_dynamic_ammo: int | None = None  # 게이지 연동 변경 무기의 진입 시 장탄 스냅샷
         # `first_damage_coeff`(원문 `최초 대미지`)의 레벨 환산값. 세션 첫 발에만 쓴다.
         # 없으면 None. _tick_weapon_change()가 매 tick 세팅한다.
         self._wc_first_coeff: float | None = None
@@ -429,6 +430,7 @@ class CharState:
         # weapon_change 만료 직후: next_fire_time 리셋으로 과거 발사 빚 방지
         if self._in_weapon_change:
             self._in_weapon_change = False
+            self._wc_dynamic_ammo = None
             self.next_fire_time = t
             if self._wc_ammo_borrowed:
                 # 시한부 연사 모드가 duration으로 끝났다. 진입 시 덮어쓴 모드 장탄
@@ -936,6 +938,12 @@ class CharState:
         wc_mech = _MECHANICS["weapon_type_defaults"].get(wc_weapon_type, {})
         wc_fire_mode = wc_mech.get("type", "charge")
         wc_max_ammo = wc_eff.get("max_ammo", 1)
+        gauge_ref = wc_eff.get("max_ammo_gauge_ref")
+        if gauge_ref:
+            if self._wc_new_session or self._wc_dynamic_ammo is None:
+                held = bm.state.get("gauges", {}).get(self.name, {}).get(gauge_ref, 0.0)
+                self._wc_dynamic_ammo = min(int(wc_max_ammo), max(0, int(held)))
+            wc_max_ammo = self._wc_dynamic_ammo
         wc_charge_time = wc_eff.get("charge_time", 1.0)
         wc_full_charge_mult = wc_eff.get("full_charge_mult", 100.0)
         wc_reload_time = wc_eff.get("reload_time", self.weapon.get("reload_time", 1.5))
@@ -1055,7 +1063,9 @@ class CharState:
         duration_bullets = wc_eff.get("duration_bullets")
         if duration_bullets is not None:
             duration_bullets = int(duration_bullets)
-            if wc_max_ammo != -1 and duration_bullets == wc_max_ammo:
+            if gauge_ref:
+                duration_bullets = wc_ammo_full
+            elif wc_max_ammo != -1 and duration_bullets == wc_max_ammo:
                 # "모든 탄환 발사 시 제거" 형태 — 장탄 버프로 장탄이 늘면 발수도 함께 늘어난다
                 duration_bullets = wc_ammo_full
         if duration_bullets is not None and self._wc_shots >= duration_bullets:
@@ -1068,6 +1078,7 @@ class CharState:
                 self.next_fire_time = t
             self.ammo = orig_ammo if orig_ammo is not None else self.weapon["max_ammo"]
             self._wc_ammo_borrowed = False   # 여기서 이미 원복했다 (tick의 만료 처리와 중복 금지)
+            self._wc_dynamic_ammo = None
             # 장탄 원복이 끝난 뒤에 종료 이벤트를 쏜다 — event:state_end로 발동하는
             # 장탄 조작 효과(라플라스 `탄환 100% 제거`)가 원복에 덮이지 않도록.
             bm.end_weapon_change(self.name, t)

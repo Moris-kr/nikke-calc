@@ -3232,6 +3232,9 @@ class BuffManager:
             return [n for n in self.squad_names if not self.state.get("burst_casted", {}).get(n)]
         if target == "all_allies_excl_self":
             return [n for n in self.squad_names if n != caster]
+        if target == "allies_same_squad":
+            squad_id = _NIKKE.get(caster, {}).get("squad")
+            return [n for n in self.squad_names if _NIKKE.get(n, {}).get("squad") == squad_id]
         if target in ("enemy", "all_enemies", "target", "target_body", "same_target",
                       "enemies_in_range", "enemies_nearest_in_range"):
             # 적 대상: "__enemy__" 센티널 사용 (타임라인이 판단)
@@ -3318,6 +3321,7 @@ class BuffManager:
                     if casted.get(n) and _NIKKE[n]["weapon_type"] == wtype]
         if target.startswith("allies_class:"):
             cls = target.split(":")[1]
+            cls = {"공격": "화력형", "방어": "방어형", "지원": "지원형"}.get(cls, cls)
             return [n for n in self.squad_names if _NIKKE[n]["class"] == cls]
         if target.startswith("allies_code:"):
             code = target.split(":")[1]

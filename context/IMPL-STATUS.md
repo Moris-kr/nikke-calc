@@ -557,6 +557,7 @@ lazy resolve: 버프 반영 스탯 기준 정렬 필요 target → `_activate()`
 | `"self"` | ❌ | ✅ | |
 | `"all_allies"` | ❌ | ✅ | |
 | `"all_allies_excl_self"` | ❌ | ✅ | |
+| `"allies_same_squad"` | ❌ | ✅ | `parsed_nikke["squad"]`가 시전자와 같은 아군 전체. 엠마·은화 택티컬 업 `Absolute` 포메이션 |
 | `"all_allies_burst_casted"` | ❌ | ✅ | 직전에 버스트 사용한 아군 전체. `state["burst_casted"]`. 크라운 |
 | `"all_allies_burst_not_casted"` | ❌ | ✅ | 직전에 버스트 미사용 아군 전체. 크라운 |
 | `"[캐릭터명]"` (하드코딩) | ❌ | ✅ | target 값이 스쿼드 캐릭터 이름 리터럴이면 그 캐릭터 지정 (`target in squad_names`). 이사벨(아르카나 예외)·민트(프리카). **특정 캐릭 전용 — 코드 일반화는 범위 밖(memo)** |
@@ -572,7 +573,7 @@ lazy resolve: 버프 반영 스탯 기준 정렬 필요 target → `_activate()`
 | `"allies_weapon:무기유형"` | ❌ | ✅ | `parsed_nikke["weapon_type"]` 기준 |
 | `"allies_weapon_excl_self:SG"` | ❌ | ✅ | 자신 제외 샷건 소지 아군 전체. `_resolve_target()`에 `allies_weapon_excl_self:` 분기 추가. `allies_weapon:SG`와 별도 |
 | `"allies_weapon_top_atk:무기유형:N"` | ✅ | ✅ | 해당 무기 소지 아군 중 **최종 공격력 최고 N기**. `allies_weapon:X` ∩ `allies_top_atk:N`. 공격력 정렬이므로 `_LAZY_RESOLVE_PREFIXES` 등록 필수. 시전자 포함(자신 제외 표기 없음). 매칭 아군이 N보다 적으면 있는 만큼. 레오나 `용기있는 시선 2`(`SG:2`) |
-| `"allies_class:클래스"` | ❌ | ✅ | `parsed_nikke["class"]` 기준 |
+| `"allies_class:클래스"` | ❌ | ✅ | 파싱 키 `공격`·`방어`·`지원`을 로스터 값 `화력형`·`방어형`·`지원형`으로 정규화해 `parsed_nikke["class"]`와 비교 |
 | `"allies_code:코드"` | ❌ | ✅ | `parsed_nikke["element_code"]` 기준 |
 | `"allies_code_weapon:코드:무기유형"` | ❌ | ✅ | 코드+무기 복합 조건 아군 전체. `_code_weapon()` 헬퍼가 `element_code`·`weapon_type` 동시 필터. 트리나(`전격:AR`) |
 | `"allies_code_weapon_leftmost:코드:무기유형:N"` | ❌ | ✅ | 위 조건을 만족하는 아군 중 **스쿼드 입력 순서 앞 N명**. 고정 속성 기반이라 lazy resolve 불필요. 매칭 0명이면 빈 리스트. 트리나(`전격:AR:1`) |
@@ -587,6 +588,7 @@ lazy resolve: 버프 반영 스탯 기준 정렬 필요 target → `_activate()`
 | `"allies_burst_casted_weapon:무기유형"` | ❌ | ✅ | 직전에 버스트를 사용한 아군 중 해당 무기 소지자 전체. `all_allies_burst_casted`(`state["burst_casted"]`)와 `allies_weapon:X`(`parsed_nikke["weapon_type"]`)의 AND. 고정 속성 + 사이클 단위 플래그라 lazy resolve 불필요. 레이 (가칭) `정비 및 보급` |
 | `"target"` / `"target_body"` / `"same_target"` | ❌ | ✅ | `__enemy__` 센티널 반환. 타임라인이 실제 처리 |
 | `"all_enemies"` / `"enemies_in_range"` / `"enemies_nearest_in_range"` | ❌ | ✅ | `__enemy__` 센티널 반환 |
+| `"enemy"` | ❌ | ✅ | 단일 적 보스 센티널. 원문의 공격력·방어력·최대 체력 최상위 적 1기도 단일 적 모델에서는 이 대상으로 수렴 |
 | `"enemies_random:N"` | ❌ | ✅ | `__enemy__` 센티널 반환 |
 | `"enemies_nearest:N"` | ❌ | ✅ | `__enemy__` 센티널 반환 |
 | `"enemies_top_atk:N"` | ❌ | ✅ | `__enemy__` 센티널 반환 |

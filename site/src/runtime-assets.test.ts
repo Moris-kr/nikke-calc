@@ -13,7 +13,7 @@ describe('generated browser runtime', () => {
       readFileSync(join(publicDir, 'catalog.json'), 'utf8'),
     ) as CharacterMeta[];
 
-    expect(catalog).toHaveLength(106);
+    expect(catalog).toHaveLength(116);
     expect(catalog.every((char) => !char.name.startsWith('test_'))).toBe(true);
     // 프리뷰(출시 전 카드) 항목은 출시되면 정식 등록되며 사라진다. 지금은 전원 출시됐다.
     expect(catalog.filter((char) => char.preview).map((char) => char.name)).toEqual([]);

@@ -31,7 +31,7 @@ def _find(name, *, stat=None, effect_name=None, favorite=None):
 def test_batch02_all_ten_are_registered():
     skills = _skills()
     assert all(name in skills for name in BATCH)
-    assert len([name for name in skills if not name.startswith("test_")]) == 106
+    assert len([name for name in skills if not name.startswith("test_")]) >= 106
 
 
 def test_kiri_full_charge_and_defender_support_are_preserved():

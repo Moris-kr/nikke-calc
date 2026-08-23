@@ -74,6 +74,9 @@ STATUS_EXEMPT: dict[str, str] = {
     "armor_break_enabled": "소비측만 있다 — timeline이 `buffs.get(\"armor_break_enabled\")`로 "
                            "읽지만 buff_manager에 등록(`_STAT_TO_BUFF` 또는 boolean 플래그 분기)이 "
                            "없어 buffs에 절대 들어가지 않는다. 항상 False다. ❌가 맞다",
+    "burst_reentry": "데이터에 원문을 보존하지만 버스트 선택기 소비 경로는 아직 없어 ❌가 맞다",
+    "received_dmg_split": "데이터에 원문을 보존하지만 아군 피격·분배 모델은 없어 ❌가 맞다",
+    "revive": "데이터에 원문을 보존하지만 전투불능·부활 모델은 없어 🚫가 맞다",
 }
 
 # ── 검사 D: 선언된 사본 ↔ 정본 ─────────────────────────────────────────────
