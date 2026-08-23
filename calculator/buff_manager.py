@@ -1714,6 +1714,16 @@ class BuffManager:
                 state_name = cond[len("target_state:"):]
                 if not self._has_target_state(state_name):
                     return False
+            elif cond.startswith("target_stack_above:"):
+                parts = cond.split(":")
+                stack_name, threshold = parts[1], int(parts[2])
+                current = max(
+                    (ab.stack for ab in self._by_name(stack_name)
+                     if "__enemy__" in (ab.target_chars or [])),
+                    default=0,
+                )
+                if current < threshold:
+                    return False
             elif cond.startswith("not_target_state:"):
                 state_name = cond[len("not_target_state:"):]
                 if self._has_target_state(state_name):

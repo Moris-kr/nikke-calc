@@ -511,6 +511,7 @@ python calculator/damage.py
 | `target_state:상태명` | 양쪽 모두 | ✅ | 단일 적 가정: `"__enemy__"`가 target_chars에 있는 활성 효과로 확인 |
 | `not_target_state:상태명` | 양쪽 모두 | ✅ | `target_state:`의 부정형. `_has_target_state()` 단일 창구를 공유한다. **미구현 시 조용히 항상 통과**하므로(조건 미매칭은 `return True`로 빠진다) 부여 조건으로 쓰면 매 히트 재부여되어 루프가 폭주한다 — 팬텀 구현 전 실측 딜 비중 77%. 팬텀 `예고장`·`괴도의 단검` |
 | `target_stunned` | `_condition_ok` 전용 | ✅ | 대상이 기절 상태인지. `is_stunned("__enemy__")` — 버프 *이름*이 아니라 `stat == "stun"` 유무를 보므로 기절을 건 효과의 이름·주체와 무관하다. 기절은 이름 있는 상태가 아니므로 `target_state:`를 쓰지 않는다(프리바티 `LD 어설트 3` 기본 판본). `_RUNTIME_COND_PREFIXES`에 넣지 않는다 — 발동 시점 게이트다 |
+| `target_stack_above:버프명:N` | `_condition_ok` 전용 | ✅ | 단일 적 센티널에 활성인 지정 버프의 최대 스택이 N 이상인지 발동 순간 판정. 프림 애장품 `잠 옴` 5중첩 → `일어남` |
 | `target_code:[코드]` | `_condition_ok` 전용 | ✅ | 대상(적)의 속성 코드 확인. `self.state["enemy"]["code"]`와 비교. 코드 미설정(빈 문자열)이면 항상 통과 |
 | `self_stack_above:스택명:N` | 양쪽 모두 | ✅ | `_active`에서 스택 수 확인 |
 | `self_stat_above:stat키:N` | `_condition_ok` 전용 | ✅ | 자신에게 적용 중인 해당 stat의 **합이 N보다 클 때** 참. `self_state:`(버프 *이름* 판정)와 달리 **stat 값**을 본다 — 누가 준 버프인지 무관. `_STAT_TO_BUFF`로 buffs 키를 찾아 `get_buffs()` 값을 읽으므로 스택·scaling이 이미 반영된 값이 기준이다. 모더니아 `대도약 2`(`self_stat_above:accuracy_pct:0` = "자신이 명중률 증가 상태라면") |

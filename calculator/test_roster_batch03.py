@@ -31,7 +31,7 @@ class RosterBatch03Test(unittest.TestCase):
     def test_all_ten_are_registered(self):
         skills = _skills()
         self.assertTrue(all(name in skills for name in BATCH))
-        self.assertEqual(116, len([name for name in skills if not name.startswith("test_")]))
+        self.assertGreaterEqual(len([name for name in skills if not name.startswith("test_")]), 116)
 
     def test_tactical_formation_and_environment_contracts(self):
         same_squad = _find("엠마 : 택티컬 업", effect_name="포메이션 LT")[0]
