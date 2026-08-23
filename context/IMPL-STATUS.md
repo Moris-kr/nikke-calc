@@ -447,6 +447,7 @@ python calculator/damage.py
 | `burst_cast` | ✅ | `bm.notify("burst_cast", ...)` |
 | `burst_cast_count:N` | ✅ | `burst_cast` 이벤트의 N번째 발생 시 |
 | `conditional_burst_cast_count:그룹:N` | ✅ | 조건을 만족한 자기 `burst_cast`만 그룹별로 계수. N번째 이후 하위 단계가 반복 적용되며 같은 이벤트의 복수 단계 조회는 1회만 증가. 킬로 보호막 부재 사용 횟수 |
+| `conditional_hit_count:그룹:N` | ✅ | 조건을 만족한 자기 일반 공격 명중만 그룹별로 누적해 N회마다 발동. 쿠루미의 풀버스트 중 36회 명중 |
 | `squad_burst_cast:N` | ✅ | `bm.notify("squad_burst_cast:N", ...)` |
 | `hit_count:N` | ✅ | `bm.notify("hit_count", ...)`. `trigger_count_reduce` 버프로 N 감소 가능 |
 | `hit_count:[스킬명]:N` | ✅ | named damage effect 명중 N회마다 발동. `_timing_match()`에 분기 추가. 타임라인 `_handle_damage_eff()` hit 루프 안에서 `bm.notify("hit_count:{eff_name}", t, caster)` 호출 |
@@ -512,6 +513,8 @@ python calculator/damage.py
 |---|---|---|---|
 | `during_full_burst` | 양쪽 모두 | ✅ | `state["full_burst"]` |
 | `not_during_full_burst` | 양쪽 모두 | ✅ | `state["full_burst"]` |
+| `allies_cover_destroyed` | 켜질 때 | ✅ | `state["cover_destroyed"]`에서 파괴 엄폐 아군이 1명 이상 |
+| `no_allies_cover_destroyed` | 켜질 때 | ✅ | 위 조건의 반대. 자동 엄폐 파괴 모델이 없는 기본 시뮬에서는 참 |
 | `prob:N` | `_condition_ok` 전용 | ✅ | `get_buffs`에서 재판정 안 함. `prob:{0}` 자리표시자면 timing의 `hit_count:{0}`과 같은 규약으로 `trigger_values[스킬레벨]`에서 확률을 꺼낸다 — 확률이 레벨마다 다른 슬롯용(토브 `급조 탄환` 기본 판본). `trigger_values`가 없으면 발동하지 않는다. **기대값 모드(`rng_mode: "expected"`)에서는 난수 대신 확률을 (효과, 캐스터)별로 누적해 1.0을 넘길 때 발동**한다 — 기대 횟수는 같고 위상만 규칙적이다(`state["rng_expected"]`·`state["rng_acc"]`) |
 | `self_hp_above:N` | 양쪽 모두 | ✅ | `state["hp_pct"]` |
 | `self_hp_below:N` | 양쪽 모두 | ✅ | `state["hp_pct"]` |
@@ -608,7 +611,7 @@ lazy resolve: 버프 반영 스탯 기준 정렬 필요 target → `_activate()`
 | `"allies_with_buff:버프명"` | ❌ | ✅ | 해당 이름의 버프가 활성인 아군 전체. `enemies_with_buff:`의 아군판(그쪽은 `__enemy__` 센티널이라 실질 필터가 없다). **부여 시점 스냅샷(비lazy)으로 확정** — "부여 순간 조건을 만족한 아군에게 준다"는 게임 시맨틱에 가깝다. 판정은 `_has_self_state()`를 재사용해 weapon_change 모드도 상태로 인정. 레이 (가칭) `섬멸 지원 4~6` |
 | `"allies_random_debuffed:N"` | ❌ | ✅ | 발동 시점에 해로운 효과를 가진 아군 중 무작위 N기. 코코아 정화 대상 |
 | `"allies_named:캐릭터명"` | ❌ | ✅ | 콜론 포함 정식 이름도 지정 가능한 특정 아군 1기. 미편성 시 빈 대상 |
-| `"allies_random_cover_destroyed:N"` | ❌ | ❌ | 엄폐물이 파괴된 아군 중 무작위 N기. 엄폐물 파괴 모델이 없어 빈 대상 |
+| `"allies_random_cover_destroyed:N"` | ✅ | ✅ | `state["cover_destroyed"]`가 참인 아군 중 무작위 N기. 자동 파괴 생산자는 없어 기본은 빈 대상 |
 | `"allies_without_buff:버프명"` | ❌ | ✅ | 해당 named buff가 활성이지 않은 아군 전체. `allies_with_buff:`와 같은 부여 시점 스냅샷의 부정형. 크러스트 `든든한 요리` |
 | `"allies_burst3_persona_excl_self"` | ❌ | ✅ | 자신을 제외한 · 기본 버스트 단계 Step 3 · `persona_state` 보유 아군 전체. `allies_burst3` ∩ `persona_state` 보유 − 자신. 판정은 `allies_with_buff:`와 같은 부여 시점 스냅샷. 퀸(마코토) `배턴 터치`, 유키코 `추격` |
 | `"allies_burst_casted_burst3"` | ❌ | ✅ | 직전에 버스트를 사용한 아군 중 기본 버스트 단계 Step 3. `all_allies_burst_casted` ∩ `allies_burst3`. 아래 무기판과 같은 취지 — `burst_casted`를 condition으로 두면 시전자 기준이라 대상 필터가 안 된다. 에이다 `은밀한 지원 1~3` |

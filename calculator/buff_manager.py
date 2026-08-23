@@ -390,6 +390,7 @@ _LAZY_RESOLVE_PREFIXES = (
     "allies_top_def:",
     "allies_below_def",
     "allies_random:",
+    "allies_random_cover_destroyed:",
 )
 
 # 주기 대미지 만료 경계 비교용 여유. 1프레임(1/60초)보다 훨씬 작아
@@ -622,6 +623,8 @@ class BuffManager:
             return "burst_cast"
         if timing.startswith("conditional_burst_cast_count:"):
             return "burst_cast"
+        if timing.startswith("conditional_hit_count:"):
+            return "hit_count"
         if timing.startswith("full_burst_start_count:") or timing.startswith("full_burst_start_exact:"):
             return "full_burst_start"
         if timing.startswith("full_burst_end_count:"):
@@ -1439,6 +1442,21 @@ class BuffManager:
                 self._conditional_event_counts[key] = (count, conditional_count)
             return conditional_count >= int(parts[2])
 
+        # 조건을 만족한 일반 공격만 별도 계수한다. 쿠루미처럼 풀버스트 중
+        # 명중만 36회씩 세는 효과가 전체 전투 hit_count 위상을 물려받지 않게 한다.
+        if timing.startswith("conditional_hit_count:") and event == "hit_count":
+            parts = timing.split(":", 2)
+            if len(parts) != 3 or not parts[2].lstrip("-").isdigit():
+                return False
+            if not self._condition_ok(eff.get("trigger", {}).get("condition", []), caster, t, eff):
+                return False
+            key = (caster, f"hit:{parts[1]}")
+            last_base_count, conditional_count = self._conditional_event_counts.get(key, (-1, 0))
+            if last_base_count != count:
+                conditional_count += 1
+                self._conditional_event_counts[key] = (count, conditional_count)
+            return conditional_count % int(parts[2]) == 0
+
         # full_burst_start_count:N — N번째 이상 매번 발동 (>= N)
         if timing.startswith("full_burst_start_count:") and event == "full_burst_start":
             raw = timing.split(":")[1]
@@ -1612,6 +1630,14 @@ class BuffManager:
                     return False
             elif cond == "not_during_full_burst":
                 if self.state.get("full_burst"):
+                    return False
+            elif cond == "allies_cover_destroyed":
+                destroyed = self.state.get("cover_destroyed", {})
+                if not any(destroyed.get(name, False) for name in self.squad_names):
+                    return False
+            elif cond == "no_allies_cover_destroyed":
+                destroyed = self.state.get("cover_destroyed", {})
+                if any(destroyed.get(name, False) for name in self.squad_names):
                     return False
             elif cond == "trigger_hit_crit":
                 # 트리거를 발생시킨 그 히트가 크리티컬이었는가 — notify의 ctx로 전달된다.
@@ -3357,6 +3383,11 @@ class BuffManager:
                 if any(ab.effect.get("polarity") == "harmful" and x in (ab.target_chars or [])
                        for ab in self._active)
             ]
+            return random.sample(pool, min(n, len(pool)))
+        if target.startswith("allies_random_cover_destroyed:"):
+            n = int(target.split(":")[1])
+            destroyed = self.state.get("cover_destroyed", {})
+            pool = [x for x in self.squad_names if destroyed.get(x, False)]
             return random.sample(pool, min(n, len(pool)))
         if target.startswith("allies_adjacent:"):
             n = int(target.split(":")[1])
