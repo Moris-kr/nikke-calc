@@ -37,7 +37,7 @@ jobs:
       - name: Run Python engine regressions
         working-directory: .
         run: |
-          python3 -m unittest calculator.test_customization -v
+          python3 -m unittest discover -s calculator -p 'test_*.py' -v
           python3 calculator/damage.py
           python3 -m context.doclint
           python3 -m context.snapshot

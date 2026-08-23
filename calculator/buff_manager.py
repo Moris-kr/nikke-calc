@@ -1005,7 +1005,9 @@ class BuffManager:
                 if any(self._has_immune(c, "stack_change_immune") for c in affected):
                     continue
                 max_s = ab.effect.get("max_stack", 1)
-                cap = max_s if max_s != -1 else ab.stack + delta
+                cap = self._effective_stack_cap(ab.effect, caster, t)
+                if max_s == -1:
+                    cap = ab.stack + delta
                 prev_stack = ab.stack
                 ab.stack = max(1, min(ab.stack + delta, cap))
                 # 스택 부여는 "버프를 다시 붙이는" 동작이라 지속시간도 갱신한다
@@ -2213,7 +2215,11 @@ class BuffManager:
                     else:
                         existing.bullets_left = duration_bullets
             else:
-                cap = max_stack if max_stack != -1 else existing.stack + 1
+                recipients = existing.target_chars or targets or [caster]
+                cap = max(
+                    (self._effective_stack_cap(eff, recipient, t) for recipient in recipients),
+                    default=max_stack,
+                ) if max_stack != -1 else existing.stack + 1
                 prev_stack = existing.stack
                 existing.stack = min(existing.stack + 1, cap)
                 existing.activated_at = t
@@ -2228,7 +2234,7 @@ class BuffManager:
                         for c in targets:
                             if c in existing.bullets_per_target:
                                 cur = existing.per_char_stacks.get(c, existing.stack) if existing.per_char_stacks else existing.stack
-                                cap_c = max_stack if max_stack != -1 else cur + 1
+                                cap_c = self._effective_stack_cap(eff, c, t) if max_stack != -1 else cur + 1
                                 new_per_char[c] = min(cur + 1, cap_c)
                             else:
                                 new_per_char[c] = 1
@@ -2592,6 +2598,33 @@ class BuffManager:
         self._plan_cache.clear()
         self._stat_index.clear()
         self._name_index_cache.clear()
+
+    def _effective_stack_cap(self, eff: dict, recipient: str, t: float) -> int:
+        """대상에게 적용 중인 `buff_max_stack_add`를 포함한 중첩 상한.
+
+        원래부터 중첩형(`max_stack > 1`)인 이로운 효과에만 적용한다. 비중첩 버프를
+        임의로 중첩형으로 바꾸지 않으며, 무제한(`-1`) 버프도 그대로 유지한다.
+        """
+        base = int(eff.get("max_stack", 1))
+        if base <= 1:
+            return base
+
+        bonus = 0.0
+        for ab in self._by_stat("buff_max_stack_add"):
+            if t >= ab.expires_at or recipient not in (ab.target_chars or []):
+                continue
+            if ab.has_runtime_conditions and not self._runtime_condition_ok(
+                ab.effect["trigger"].get("condition", []),
+                ab.caster,
+                recipient,
+                recipient,
+                t,
+            ):
+                continue
+            value = self._get_value(ab.effect, ab, recipient)
+            if value is not None:
+                bonus += value
+        return base + max(0, int(bonus))
 
     # ── `_active` 인덱스 ──────────────────────────────────────────────────
     #
@@ -3501,9 +3534,12 @@ class BuffManager:
         """전투 시작 시 모든 캐릭터에 대해 battle_start 이벤트 발생."""
         for name in self.squad_names:
             self.notify("battle_start", t, name)
-        # 단일 보스 가정: 전투 시작 시 적 등장 이벤트 발생
+        # 단일 보스 가정: 전투 시작 시 일반 적 등장과 타겟(보스) 출현이
+        # 같은 시점에 각각 한 번 발생한다. 두 문구는 스킬 원문에서 별개라
+        # 이벤트 이름을 합치지 않는다(D `기습`).
         for name in self.squad_names:
             self.notify("event:enemy_spawn", t, name)
+            self.notify("event:target_spawn", t, name)
 
     def reset(self):
         """전투 초기화."""
