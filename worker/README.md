@@ -36,10 +36,18 @@ npx wrangler deploy
 
 1. 크롬에서 `blablalink.com`에 로그인하고 게임 계정을 연동한다.
 2. F12 → **Network** 탭을 연 채로 니케 도감(`/shiftyspad/nikke-list`) 같은 페이지를 연다.
-3. 목록에서 `api.blablalink.com` 요청 아무거나 고른다 → **Headers → Request Headers →
-   `Cookie:`** 의 값을 통째로 복사한다. `game_token` `game_openid` `game_gameid`가
-   들어 있어야 한다.
-4. 그 한 줄을 `wrangler secret put BLABLA_COOKIE`에 붙여넣는다.
+3. 목록에서 `api.blablalink.com` 요청 아무거나 **우클릭 → Copy → Copy as cURL (bash)**.
+4. 아무 텍스트 파일에 붙여넣고 저장한 뒤:
+
+```bash
+node worker/set-cookie.mjs curl.txt
+```
+
+스크립트가 `Cookie:` 헤더만 뽑아 쿠키 개수와 이름을 확인하고 wrangler에 바로 넘긴다.
+값은 화면에 찍히지 않는다. 다 되면 붙여넣은 파일은 지운다.
+
+직접 넣고 싶으면 `Cookie:` 헤더 값을 통째로 복사해
+`npx wrangler secret put BLABLA_COOKIE`에 붙여넣어도 된다.
 
 제대로 들어갔는지는 점검 엔드포인트로 확인한다 — 쿠키 값은 돌려주지 않고 모양만 센다.
 

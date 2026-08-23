@@ -132,11 +132,18 @@ async function collectArea(openid, area, cookie) {
  * 값은 절대 돌려주지 않고 길이와 키 유무만 센다.
  */
 async function health(cookie) {
-  const names = cookie.split(';').map((part) => part.trim().split('=')[0]).filter(Boolean);
+  const pairs = cookie.split(';').map((part) => part.trim()).filter(Boolean);
+  const names = pairs.map((part) => part.split('=')[0]);
+  // 값은 절대 내보내지 않는다. 길이만 보면 잘려 들어왔는지는 알 수 있다.
+  const valueLengths = Object.fromEntries(pairs.map((part) => {
+    const eq = part.indexOf('=');
+    return [part.slice(0, eq), part.length - eq - 1];
+  }));
   const shape = {
     length: cookie.length,
     cookies: names.length,
     names,
+    valueLengths,
     hasGameToken: names.includes('game_token'),
     hasGameOpenid: names.includes('game_openid'),
     // 붙여넣다 흔히 섞여 들어오는 것들
@@ -144,21 +151,31 @@ async function health(cookie) {
     hasNewline: cookie.split(String.fromCharCode(10)).length > 1 || cookie.split(String.fromCharCode(13)).length > 1,
   };
 
-  let upstream;
-  try {
-    const response = await fetch(API.replace('game/proxy/', 'ugc/proxy/standalonesite/')
-      + 'User/GetUserInfoNew', {
-      method: 'POST',
-      headers: upstreamHeaders(cookie),
-      body: '{}',
-    });
-    const payload = await response.json();
-    upstream = { status: response.status, code: payload.code, msg: payload.msg ?? '' };
-    // 로그인이 살아 있으면 내 openid가 온다. 뒤 4자리만 남겨 본인 확인만 되게 한다.
-    const openid = payload.data?.info?.intl_openid;
-    if (openid) upstream.openidTail = String(openid).slice(-4);
-  } catch (error) {
-    upstream = { error: String(error).slice(0, 120) };
+  // 엔드포인트마다 요구하는 게 다를 수 있으니 셋을 같이 찔러 본다. 전부 300001이면
+  // 쿠키 자체가 거절당하는 것이고, 하나만 다르면 그 엔드포인트의 문제다.
+  const base = API.replace('game/proxy/', '');
+  const probes = [
+    ['GetUserInfoNew', 'ugc/proxy/standalonesite/User/GetUserInfoNew', {}],
+    ['GetSavedRoleInfo', 'game/proxy/Game/GetSavedRoleInfo', {}],
+  ];
+  const upstream = {};
+  for (const [label, route, body] of probes) {
+    try {
+      const response = await fetch(base + route, {
+        method: 'POST',
+        headers: upstreamHeaders(cookie),
+        body: JSON.stringify(body),
+      });
+      const payload = await response.json();
+      upstream[label] = { status: response.status, code: payload.code, msg: payload.msg ?? '' };
+      // 로그인이 살아 있으면 내 식별자가 온다. 뒤 4자리만 남겨 본인 확인만 되게 한다.
+      const openid = payload.data?.info?.intl_openid;
+      const areaId = payload.data?.role_info?.area_id;
+      if (openid) upstream[label].openidTail = String(openid).slice(-4);
+      if (areaId) upstream[label].areaId = areaId;
+    } catch (error) {
+      upstream[label] = { error: String(error).slice(0, 120) };
+    }
   }
   return { shape, upstream };
 }
