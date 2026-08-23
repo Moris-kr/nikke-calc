@@ -7,3 +7,6 @@ site/public/runtime/
 site/public/characters/
 site/public/catalog.json
 site/public/settings.json
+
+# 로컬 개발용 환경 변수 (블라블라링크 프록시 주소 등)
+site/.env.local

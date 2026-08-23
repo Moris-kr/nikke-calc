@@ -118,6 +118,9 @@ export interface CharacterMeta {
   manufacturer: string;
   preview: boolean;
   image: string | null;
+  // 블라블라링크 API가 이 캐릭터를 부르는 번호. 사전에 없으면 null이고, 그러면
+  // 프로필 동기화가 이 캐릭터를 알아보지 못한다(`data/name_codes.json`).
+  nameCode: number | null;
 }
 
 export interface BurstCast {
@@ -176,6 +179,8 @@ export interface CubeLevelMeta {
 
 export interface CubeMeta {
   label: string;
+  // 게임 내부 id — 블라블라링크 응답의 `harmony_cube_tid`와 맞춘다.
+  id: number;
   stat: string;
   template: string;
   levels: Record<string, CubeLevelMeta>;
@@ -208,6 +213,8 @@ export interface SettingsCatalog {
   consoleCompanies: string[];
   overloadFields: Record<string, NumericFieldMeta>;
   manualStats: Record<string, NumericFieldMeta>;
+  // 소장품 id → 등급('R'|'SR'|'SSR'). SSR이면 애장품이라 레벨을 단계로 읽는다.
+  favoriteItems: Record<string, string>;
 }
 
 export interface DeckResultEntry {

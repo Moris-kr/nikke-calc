@@ -1,5 +1,12 @@
 import { ResultCache, type StorageLike, type StorageSource } from './cache';
 import { renderCharacterSettings } from './character-settings';
+import {
+  areaToOverrides,
+  consoleFrom,
+  looksLikeProfileUrl,
+  pickArea,
+  type RawProfile,
+} from './blablalink';
 import { parseRosterCsv } from './csv-import';
 import {
   buildAddPrompt,
@@ -173,6 +180,11 @@ function renderCharacterRows(container: HTMLElement, entry: DeckResultEntry): vo
   container.append(rows);
 }
 
+// 블라블라링크 조회 프록시. 빌드 때 `VITE_BLABLA_PROXY`로 박히고, 비어 있으면 연동 UI를
+// 그리지 않는다 — 프록시 없이 브라우저에서 직접 부르면 CORS와 로그인 세션 두 가지가 동시에
+// 막아 반드시 실패한다(`worker/README.md`).
+const BLABLA_PROXY = (import.meta.env.VITE_BLABLA_PROXY ?? '').trim().replace(/\/+$/, '');
+
 export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies): () => void {
   const { catalog, settings, version, client, storage, reload } = deps;
   const cache = new ResultCache(storage, version, 30);
@@ -313,6 +325,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
                 </label>
                 <button type="button" class="roster-info" data-doro-open aria-label="렛츠도로 CSV 받는 법" title="렛츠도로에서 CSV 받는 법">i</button>
               </span>
+              ${BLABLA_PROXY ? '<button type="button" class="roster-import" data-blabla-open title="블라블라링크 프로필 URL로 보유 니케의 육성을 한 번에 불러옵니다">블라블라링크 연동</button>' : ''}
               <button type="button" class="roster-import" data-add-nikke title="미출시·미등록 니케를 직접 추가">새 니케 추가</button>
               <button type="button" class="roster-import" data-share-open title="편성을 코드로 만들어 공유하거나, 받은 코드를 붙여넣어 5덱을 한 번에 적용">조합 공유</button>
               <button type="button" class="roster-import danger" data-reset-all title="편성·설정·CSV 로스터·추가한 니케·저장된 결과를 모두 지우고 처음 상태로 되돌립니다">완전 초기화</button>
@@ -468,6 +481,20 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         </div>
       </div>
 
+      ${BLABLA_PROXY ? `
+      <div class="custom-modal" data-blabla-modal hidden>
+        <div class="custom-card doro-card" role="dialog" aria-label="블라블라링크 연동">
+          <div class="custom-head"><h2>블라블라링크 연동</h2><button type="button" class="custom-close" data-blabla-close aria-label="닫기">✕</button></div>
+          <p class="custom-desc">블라블라링크에서 <b>내 프로필 주소</b>를 복사해 넣으면 보유 니케의 육성 상태를 한 번에 가져옵니다. 돌파·코강·스킬·오버로드·장비 강화에 더해, CSV에는 없는 <b>큐브와 소장품</b>까지 들어옵니다.</p>
+          <p class="custom-desc"><a href="https://www.blablalink.com/user" target="_blank" rel="noreferrer noopener">blablalink.com/user</a> 에 들어가면 주소창에 뜨는 주소가 그것입니다. 블라블라링크에서 <b>프로필과 니케 목록을 공개</b>로 바꿔야 조회됩니다 — 하나라도 비공개면 막힙니다. 전초기지까지 공개하면 콘솔(재활용 연구실) 레벨도 함께 들어옵니다.</p>
+          <div class="blabla-row">
+            <input type="url" class="blabla-url" data-blabla-url placeholder="https://www.blablalink.com/user?openid=..." spellcheck="false" />
+            <button type="button" class="roster-import" data-blabla-sync>동기화</button>
+          </div>
+          <p class="custom-desc blabla-status" data-blabla-status hidden></p>
+          <p class="custom-desc">받아 온 값은 이 브라우저에만 저장됩니다. 호감도는 계산기가 돌파 단계에서 끌어내므로 따로 반영하지 않습니다.</p>
+        </div>
+      </div>` : ''}
       <div class="custom-modal" data-doro-modal hidden>
         <div class="custom-card doro-card" role="dialog" aria-label="렛츠도로 CSV 받는 법">
           <div class="custom-head"><h2>렛츠도로 CSV 받는 법</h2><button type="button" class="custom-close" data-doro-close aria-label="닫기">✕</button></div>
@@ -1598,6 +1625,84 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       rosterInput.value = '';
     }
   });
+
+  // 블라블라링크 연동. 프록시가 설정된 빌드에서만 마크업이 있으므로 없으면 통째로 건너뛴다.
+  if (BLABLA_PROXY) {
+    const blablaModal = element<HTMLElement>(root, '[data-blabla-modal]');
+    const blablaUrl = element<HTMLInputElement>(root, '[data-blabla-url]');
+    const blablaSync = element<HTMLButtonElement>(root, '[data-blabla-sync]');
+    const blablaStatus = element<HTMLElement>(root, '[data-blabla-status]');
+
+    const setStatus = (message: string) => {
+      blablaStatus.textContent = message;
+      blablaStatus.hidden = message === '';
+    };
+
+    const runSync = async () => {
+      const url = blablaUrl.value.trim();
+      if (!looksLikeProfileUrl(url)) {
+        setStatus('블라블라링크 프로필 주소를 붙여넣어 주세요.');
+        return;
+      }
+      blablaSync.disabled = true;
+      setStatus('블라블라링크에서 받는 중… 니케가 많으면 몇 초 걸립니다.');
+      try {
+        const response = await fetch(`${BLABLA_PROXY}/sync`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ profileUrl: url }),
+        });
+        const payload = await response.json() as RawProfile & { error?: string };
+        if (!response.ok) throw new Error(payload.error ?? `동기화에 실패했습니다 (${response.status}).`);
+
+        const area = pickArea(payload);
+        if (!area) throw new Error('니케 목록이 비어 있습니다.');
+        const { overrides, matched, unmatched, notes } = areaToOverrides(area, settings, catalog);
+        if (matched.length === 0) {
+          setStatus('계산기가 다루는 니케를 찾지 못했습니다. 프로필이 공개인지 확인해 주세요.');
+          return;
+        }
+
+        roster = overrides;
+        saveRoster();
+        applyRosterToDecks();
+
+        // 콘솔은 계정 단위라 전투 설정 쪽에 있다. 전초기지가 비공개면 안 오고, 그때는
+        // 손대지 않는 게 맞다 — 0으로 덮으면 멀쩡하던 값이 사라진다.
+        const consoleLevels = consoleFrom(area);
+        if (consoleLevels) writeBattle({ ...readBattle(), console: consoleLevels });
+
+        saveState();
+        renderDeckTabs();
+        renderSquad();
+
+        const parts = [`블라블라링크 ${matched.length}명 적용`];
+        if (unmatched.length > 0) parts.push(`미지원 ${unmatched.length}명 제외`);
+        if (consoleLevels) parts.push('콘솔 레벨 함께 적용');
+        updateRosterNote(parts.join(' · '));
+        setStatus([`${matched.length}명을 불러왔습니다.`, ...notes].join(' '));
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : String(error));
+      } finally {
+        blablaSync.disabled = false;
+      }
+    };
+
+    element<HTMLButtonElement>(root, '[data-blabla-open]').addEventListener('click', () => {
+      blablaModal.hidden = false;
+      blablaUrl.focus();
+    });
+    element<HTMLButtonElement>(root, '[data-blabla-close]').addEventListener('click', () => {
+      blablaModal.hidden = true;
+    });
+    blablaModal.addEventListener('click', (event) => {
+      if (event.target === blablaModal) blablaModal.hidden = true;
+    });
+    blablaSync.addEventListener('click', () => { void runSync(); });
+    blablaUrl.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') { event.preventDefault(); void runSync(); }
+    });
+  }
 
   // 렛츠도로 CSV 받는 법 안내. 스크린샷이 아직 없으면 이미지만 숨긴다 — 링크·설명은 남는다.
   const doroModal = element<HTMLElement>(root, '[data-doro-modal]');

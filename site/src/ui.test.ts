@@ -16,12 +16,12 @@ import type {
 
 const names = ['리타', '크라운', '라피 : 레드 후드', '앨리스', '나가', '프리바티'];
 const catalog: CharacterMeta[] = [
-  { name: '리타', burstStage: '1', elementCode: '철갑', weaponType: 'SMG', className: '지원형', manufacturer: '미실리스', preview: false, image: 'characters/1.webp' },
-  { name: '크라운', burstStage: '2', elementCode: '철갑', weaponType: 'MG', className: '방어형', manufacturer: '필그림', preview: false, image: 'characters/2.webp' },
-  { name: '라피 : 레드 후드', burstStage: '3', elementCode: '작열', weaponType: 'MG', className: '화력형', manufacturer: '엘리시온', preview: false, image: 'characters/3.webp' },
-  { name: '앨리스', burstStage: '3', elementCode: '수냉', weaponType: 'SR', className: '화력형', manufacturer: '테트라', preview: false, image: 'characters/4.webp' },
-  { name: '나가', burstStage: '2', elementCode: '전격', weaponType: 'SG', className: '지원형', manufacturer: '미실리스', preview: false, image: 'characters/5.webp' },
-  { name: '프리바티', burstStage: '3', elementCode: '수냉', weaponType: 'AR', className: '화력형', manufacturer: '엘리시온', preview: false, image: 'characters/6.webp' },
+  { name: '리타', burstStage: '1', elementCode: '철갑', weaponType: 'SMG', className: '지원형', manufacturer: '미실리스', preview: false, image: 'characters/1.webp', nameCode: null },
+  { name: '크라운', burstStage: '2', elementCode: '철갑', weaponType: 'MG', className: '방어형', manufacturer: '필그림', preview: false, image: 'characters/2.webp', nameCode: null },
+  { name: '라피 : 레드 후드', burstStage: '3', elementCode: '작열', weaponType: 'MG', className: '화력형', manufacturer: '엘리시온', preview: false, image: 'characters/3.webp', nameCode: null },
+  { name: '앨리스', burstStage: '3', elementCode: '수냉', weaponType: 'SR', className: '화력형', manufacturer: '테트라', preview: false, image: 'characters/4.webp', nameCode: null },
+  { name: '나가', burstStage: '2', elementCode: '전격', weaponType: 'SG', className: '지원형', manufacturer: '미실리스', preview: false, image: 'characters/5.webp', nameCode: null },
+  { name: '프리바티', burstStage: '3', elementCode: '수냉', weaponType: 'AR', className: '화력형', manufacturer: '엘리시온', preview: false, image: 'characters/6.webp', nameCode: null },
 ];
 
 const cubeLevels = { '15': { atk: 2780, def: 552, hp: 83400, effect: 10, commonElement: 19.09 } };
@@ -54,12 +54,12 @@ const settings: SettingsCatalog = {
   consoleClasses: ['화력형', '방어형', '지원형'],
   consoleCompanies: ['엘리시온', '미실리스', '테트라', '필그림', '어브노말'],
   cubes: {
-    재장: { label: '재장', stat: 'reload_speed_pct', template: '재장전 {0}%', levels: cubeLevels },
-    탄충: { label: '탄충', stat: 'ammo_charge_flat', template: '10발마다 {0}발', levels: cubeLevels },
-    체력: { label: '체력', stat: 'max_hp_pct', template: '체력 {0}%', levels: cubeLevels },
-    차속: { label: '차속', stat: 'charge_speed_pct', template: '차속 {0}%', levels: cubeLevels },
-    파츠: { label: '파츠', stat: 'part_dmg_pct', template: '파츠 {0}%', levels: cubeLevels },
-    분배: { label: '분배', stat: 'split_dmg_pct', template: '분배 {0}%', levels: cubeLevels },
+    재장: { id: 0, label: '재장', stat: 'reload_speed_pct', template: '재장전 {0}%', levels: cubeLevels },
+    탄충: { id: 0, label: '탄충', stat: 'ammo_charge_flat', template: '10발마다 {0}발', levels: cubeLevels },
+    체력: { id: 0, label: '체력', stat: 'max_hp_pct', template: '체력 {0}%', levels: cubeLevels },
+    차속: { id: 0, label: '차속', stat: 'charge_speed_pct', template: '차속 {0}%', levels: cubeLevels },
+    파츠: { id: 0, label: '파츠', stat: 'part_dmg_pct', template: '파츠 {0}%', levels: cubeLevels },
+    분배: { id: 0, label: '분배', stat: 'split_dmg_pct', template: '분배 {0}%', levels: cubeLevels },
   },
   overloadFields: {
     element_bonus: { label: '우월 코드 대미지', unit: '%', min: 0, max: 1000 },
@@ -75,6 +75,7 @@ const settings: SettingsCatalog = {
   manualStats: {
     split_dmg_pct: { label: '분배 대미지', unit: '%', min: -1000, max: 10000 },
   },
+  favoriteItems: {},
 };
 
 const calculated: SimulationResult = {
@@ -688,6 +689,7 @@ describe('calculator UI', () => {
       manufacturer: '미상',
       preview: true,
       image: null,
+      nameCode: null,
     }];
     const previewSettings: SettingsCatalog = {
       ...settings,

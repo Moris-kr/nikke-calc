@@ -75,6 +75,13 @@ hash.update(bridgeContent);
 
 const nikke = readJson(join(repoRoot, 'data', 'parsed_nikke.json'));
 const skills = readJson(join(repoRoot, 'data', 'parsed_skills.json'));
+// 블라블라링크 응답은 캐릭터를 name_code로 부른다. 사전은 CDN에서 받아 커밋해 둔
+// `data/name_codes.json`이 정본이고(`scraper/blabla_ids_fetch.py`), 여기서 뒤집어
+// 카탈로그 항목에 붙인다 — 캐릭터 하나에 대한 메타데이터라 카탈로그가 제자리다.
+const nameCodeByCharacter = new Map();
+for (const [code, character] of Object.entries(readJson(join(repoRoot, 'data', 'name_codes.json')))) {
+  if (!nameCodeByCharacter.has(character)) nameCodeByCharacter.set(character, Number(code));
+}
 const imageIndex = new Map();
 for (const filename of readdirSync(join(repoRoot, 'image'))) {
   if (extname(filename).toLowerCase() !== '.webp') continue;
@@ -105,6 +112,7 @@ const catalog = names.map((name, index) => {
     manufacturer: String(meta.manufacturer ?? ''),
     preview: Boolean(meta.preview),
     image,
+    nameCode: nameCodeByCharacter.get(name) ?? null,
   };
 });
 
@@ -126,4 +134,5 @@ writeFileSync(join(publicDir, 'catalog.json'), `${JSON.stringify(catalog, null, 
 writeFileSync(join(publicDir, 'settings.json'), settings);
 
 
-console.log(`runtime ${manifest.files.length} files · catalog ${catalog.length} characters · settings exported · version ${manifest.version}`);
+const withNameCode = catalog.filter((entry) => entry.nameCode !== null).length;
+console.log(`runtime ${manifest.files.length} files · catalog ${catalog.length} characters (name_code ${withNameCode}) · settings exported · version ${manifest.version}`);

@@ -434,6 +434,12 @@ footer a { color: #93aabd; text-decoration: none; font-weight: 800; letter-spaci
 .doro-link a { color: var(--cyan); }
 .doro-shot { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
 
+/* 블라블라링크 연동 */
+.blabla-row { display: flex; gap: 8px; align-items: center; margin: 12px 0 4px; flex-wrap: wrap; }
+.blabla-url { flex: 1 1 320px; min-width: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: rgba(8,16,20,.6); color: inherit; font: inherit; }
+.blabla-url:focus { outline: none; border-color: var(--cyan); }
+.blabla-status { color: var(--cyan); font-weight: 700; }
+
 /* 니케 피커 */
 .roster-filters { display: flex; flex-wrap: wrap; gap: 10px 14px; margin: 0 0 12px; }
 .roster-filter-group { display: inline-flex; flex-wrap: wrap; gap: 5px; }

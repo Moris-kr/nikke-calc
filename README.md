@@ -13,6 +13,7 @@
 - `site/public/calculator.worker.js`: 계산을 UI와 분리해 순차 실행하는 Web Worker
 - `site/pybridge/bridge.py`: 웹 요청을 기존 Python 엔진 호출로 변환하는 브리지
 - `site/scripts/sync-runtime.mjs`: 엔진, 데이터, 캐릭터 목록과 이미지를 웹 런타임으로 동기화
+- `worker/`: 블라블라링크 조회 프록시 (Cloudflare Workers). 사이트와 따로 배포합니다
 - `.github/workflows/pages.yml`: 테스트, 빌드, GitHub Pages 배포 자동화
 
 ## 주요 기능
@@ -75,6 +76,14 @@ npm run check-runtime
 ## 배포
 
 `master` 브랜치에 푸시하면 GitHub Actions가 의존성을 잠금 파일대로 설치하고 테스트와 프로덕션 빌드를 통과한 `site/dist`만 GitHub Pages에 배포합니다. Vite의 배포 기본 경로는 `/nikke-calc/`입니다.
+
+### 블라블라링크 연동 (선택)
+
+프로필 URL로 육성 데이터를 받아 오는 기능은 프록시가 있어야 동작합니다 — 블라블라링크 API는
+CORS를 열어 두지 않고 조회에 로그인 세션을 요구하므로, 정적 사이트가 직접 부를 수 없습니다.
+배포 절차는 [worker/README.md](worker/README.md)에 있고, 배포한 주소를 리포지토리 변수
+`VITE_BLABLA_PROXY`에 넣으면 사이트에 **블라블라링크 연동** 버튼이 생깁니다. 변수를 비워 두면
+그 버튼을 아예 그리지 않고 렛츠도로 CSV만 남습니다.
 
 ## 라이선스
 

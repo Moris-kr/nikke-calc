@@ -85,6 +85,9 @@ def main() -> None:
             }
         cubes[name] = {
             "label": name,
+            # 게임 내부 id. 블라블라링크 응답의 `harmony_cube_tid`가 이 값이라
+            # 프로필 동기화가 큐브를 알아보려면 필요하다.
+            "id": int(entry["id"]),
             "stat": entry["stat"],
             "template": entry["template"],
             "levels": levels,
@@ -102,6 +105,11 @@ def main() -> None:
         "consoleCompanies": list(CONSOLE_COMPANIES),
         "overloadFields": OVERLOAD_FIELDS,
         "manualStats": MANUAL_STATS,
+        # 소장품 id → 등급. 블라블라링크는 `favorite_item_lv`를 R·SR에서는 강화 레벨로,
+        # SSR(애장품)에서는 단계로 쓰므로 등급을 알아야 그 숫자를 읽을 수 있다.
+        "favoriteItems": json.loads(
+            (ROOT / "data" / "favorite_items.json").read_text(encoding="utf-8")
+        ),
     }
     json.dump(payload, sys.stdout, ensure_ascii=False, indent=2, allow_nan=False)
     sys.stdout.write("\n")

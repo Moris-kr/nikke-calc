@@ -1,0 +1,10 @@
+name = "nikke-calc-blabla"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+
+# 사이트에서 부를 수 있는 오리진. 여기 없는 오리진에는 CORS 헤더를 주지 않는다.
+[vars]
+ALLOWED_ORIGINS = "https://moris-kr.github.io,http://localhost:5173,http://127.0.0.1:5173"
+
+# 세션 쿠키는 vars가 아니라 시크릿으로 넣는다:
+#   npx wrangler secret put BLABLA_COOKIE
