@@ -632,7 +632,8 @@ export function renderCharacterSettings(
     modeLabel.append(
       modeCheckbox,
       document.createTextNode('저격 모드로 변경 · 전투 시작 '),
-      makeInputUnit(modeDelay, '초 후부터 전환 시도'),
+      makeInputUnit(modeDelay, '초'),
+      document.createTextNode('후부터 전환 시도'),
     );
     controlGrid.append(modeLabel);
   }

@@ -225,6 +225,8 @@ describe('character settings editor', () => {
     expect(checkbox.checked).toBe(false);
     expect(delay.value).toBe('6');
     expect(delay.disabled).toBe(true);
+    expect(delay.parentElement?.querySelector('em')?.textContent).toBe('초');
+    expect(delay.closest('.weapon-mode-swap')?.textContent).toContain('후부터 전환 시도');
 
     checkbox.checked = true;
     checkbox.dispatchEvent(new Event('change'));
