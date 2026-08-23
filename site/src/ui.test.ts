@@ -115,24 +115,36 @@ class FakeClient implements CalculatorClientLike {
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-function filterCharacterSlot(root: HTMLElement, index: number, query: string): void {
-  const filter = root.querySelector<HTMLInputElement>(`#squad-filter-${index}`)!;
-  filter.value = query;
-  filter.dispatchEvent(new Event('input', { bubbles: true }));
+/** 판의 검색칸에 친다. 슬롯마다 있던 검색은 없어지고 덱에 하나만 남았다. */
+function searchRoster(root: HTMLElement, query: string): void {
+  const search = root.querySelector<HTMLInputElement>('[data-roster-search]')!;
+  search.value = query;
+  search.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
+/** 판에 지금 보이는 니케 이름을 순서대로. */
+function rosterNames(root: HTMLElement): string[] {
+  return [...root.querySelectorAll<HTMLButtonElement>('[data-roster-cell]')]
+    .map((cell) => cell.dataset.rosterCell!);
+}
+
+function focusSlot(root: HTMLElement, index: number): void {
+  root.querySelector<HTMLButtonElement>(`[data-slot-choose="${index}"]`)!.click();
+}
+
+/** 칸을 겨냥하고 판에서 골라 넣는다 — 실제 사용 흐름 그대로다. */
 function chooseCharacter(root: HTMLElement, index: number, name: string): void {
-  filterCharacterSlot(root, index, name);
-  const select = root.querySelector<HTMLSelectElement>(`#squad-${index}`)!;
-  expect(select.querySelector<HTMLOptionElement>(`option[value="${name}"]`)?.disabled).toBe(false);
-  select.value = name;
-  select.dispatchEvent(new Event('change', { bubbles: true }));
+  focusSlot(root, index);
+  searchRoster(root, name);
+  const cell = root.querySelector<HTMLButtonElement>(`[data-roster-cell="${name}"]`)!;
+  expect(cell.disabled).toBe(false);
+  cell.click();
+  searchRoster(root, '');
 }
 
 function clearCharacterSlot(root: HTMLElement, index: number): void {
-  const select = root.querySelector<HTMLSelectElement>(`#squad-${index}`)!;
-  select.value = '';
-  select.dispatchEvent(new Event('change', { bubbles: true }));
+  const card = root.querySelectorAll<HTMLElement>('[data-slot-card]')[index]!;
+  card.querySelector<HTMLButtonElement>('.slot-clear')!.click();
 }
 
 describe('calculator UI', () => {
@@ -170,94 +182,99 @@ describe('calculator UI', () => {
     root.remove();
   });
 
-  it('renders a local filter above each native dropdown and disables same-deck duplicates', () => {
+  it('gives each slot a target button instead of a dropdown, and one shared picker', () => {
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
-    const filters = [...root.querySelectorAll<HTMLInputElement>('[data-character-filter]')];
-    const slots = [...root.querySelectorAll<HTMLSelectElement>('[data-squad-slot]')];
+    const choosers = [...root.querySelectorAll<HTMLButtonElement>('[data-slot-choose]')];
 
-    expect(filters).toHaveLength(5);
-    expect(slots).toHaveLength(5);
-    expect(slots.every((slot) => slot.tagName === 'SELECT')).toBe(true);
-    expect(slots.map((slot) => slot.value)).toEqual(names.slice(0, 5));
-    expect(slots[1]!.querySelector<HTMLOptionElement>('option[value="리타"]')?.disabled).toBe(true);
-    expect(filters[0]!.compareDocumentPosition(slots[0]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(filters.map((filter) => filter.getAttribute('aria-label'))).toEqual([
-      '스쿼드 슬롯 1 캐릭터 필터',
-      '스쿼드 슬롯 2 캐릭터 필터',
-      '스쿼드 슬롯 3 캐릭터 필터',
-      '스쿼드 슬롯 4 캐릭터 필터',
-      '스쿼드 슬롯 5 캐릭터 필터',
-    ]);
-    expect(root.querySelector('#character-search')).toBeNull();
+    expect(choosers).toHaveLength(5);
+    expect(choosers.map((c) => c.querySelector('strong')!.textContent)).toEqual(names.slice(0, 5));
+    // 슬롯마다 있던 검색·드롭다운·교체 버튼은 판으로 옮겨 갔다.
+    expect(root.querySelectorAll('[data-character-filter]')).toHaveLength(0);
+    expect(root.querySelectorAll('[data-squad-slot]')).toHaveLength(0);
+    expect(root.querySelectorAll('[data-slot-pick]')).toHaveLength(0);
+    expect(root.querySelectorAll('[data-roster-search]')).toHaveLength(1);
     expect(root.querySelector<HTMLAnchorElement>('footer a')?.href).toBe('https://github.com/Moris-kr/nikke-calc');
   });
 
-  it('filters only the matching slot while preserving its current selection', () => {
+  it('marks the slot the picker is aiming at, and moves on after a pick', () => {
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
-    filterCharacterSlot(root, 0, '앨리스');
+    const aimed = () => [...root.querySelectorAll<HTMLButtonElement>('[data-slot-choose]')]
+      .findIndex((c) => c.getAttribute('aria-pressed') === 'true');
 
-    const first = root.querySelector<HTMLSelectElement>('#squad-0')!;
-    const second = root.querySelector<HTMLSelectElement>('#squad-1')!;
-    expect([...first.options].map((option) => option.value)).toEqual(['', '리타', '앨리스']);
-    expect(first.value).toBe('리타');
-    expect([...second.options].map((option) => option.value)).toEqual(['', ...names]);
+    clearCharacterSlot(root, 2);
+    expect(aimed()).toBe(2);
+
+    // 프리바티만 초기 편성 밖이라 눌린다 — 나머지는 중복이라 막혀 있다.
+    searchRoster(root, '프리바티');
+    root.querySelector<HTMLButtonElement>('[data-roster-cell="프리바티"]')!.click();
+
+    const saved = JSON.parse(localStorage.getItem('nikke-state-v1')!);
+    expect(saved.decks[0].squad[2]).toBe('프리바티');
+    // 다 찼으므로 방금 넣은 칸에 머문다.
+    expect(aimed()).toBe(2);
   });
 
+  it('blocks a nikke already in this deck, except in the slot being replaced', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    focusSlot(root, 1);
+
+    expect(root.querySelector<HTMLButtonElement>('[data-roster-cell="리타"]')!.disabled).toBe(true);
+
+    // 리타가 앉아 있는 칸을 겨냥하면 그 칸에 한해 다시 고를 수 있다.
+    focusSlot(root, 0);
+    expect(root.querySelector<HTMLButtonElement>('[data-roster-cell="리타"]')!.disabled).toBe(false);
+  });
+
+  // 곁가지(속성·무기·클래스·기업)로 걸린 것끼리는 짧은 이름이 앞이다.
   it.each([
-    ['B2', ['', '리타', '크라운', '나가']],
-    ['수냉', ['', '리타', '앨리스', '프리바티']],
-    ['mg', ['', '리타', '크라운', '라피 : 레드 후드']],
-    ['화력형', ['', '리타', '라피 : 레드 후드', '앨리스', '프리바티']],
-    ['엘리시온', ['', '리타', '라피 : 레드 후드', '프리바티']],
-    ['sR', ['', '리타', '앨리스']],
-  ])('filters by character metadata query %s case-insensitively', (query, expected) => {
+    ['B2', ['나가', '크라운']],
+    ['수냉', ['앨리스', '프리바티']],
+    ['mg', ['리타', '크라운', '라피 : 레드 후드']],
+    ['화력형', ['앨리스', '프리바티', '라피 : 레드 후드']],
+    ['엘리시온', ['프리바티', '라피 : 레드 후드']],
+    ['sR', ['앨리스']],
+  ])('narrows the picker by character metadata query %s case-insensitively', (query, expected) => {
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
-    filterCharacterSlot(root, 0, query);
-
-    const values = [...root.querySelector<HTMLSelectElement>('#squad-0')!.options]
-      .map((option) => option.value);
-    expect(values).toEqual(expected);
+    searchRoster(root, query);
+    expect(rosterNames(root)).toEqual(expected);
   });
 
-  it('preserves independent filter text across selection rerenders, slots, and decks', () => {
+  it('puts the typed name first, and reads 초성 and names without separators', () => {
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
-    chooseCharacter(root, 0, '프리바티');
-    filterCharacterSlot(root, 1, '리타');
 
+    searchRoster(root, 'ㄹㅍ');
+    // 「라피 : 레드 후드」와 「리타」가 함께 걸려도 이름 첫머리가 앞선다.
+    expect(rosterNames(root)[0]).toBe('라피 : 레드 후드');
+
+    searchRoster(root, '라피레드');
+    expect(rosterNames(root)).toEqual(['라피 : 레드 후드']);
+  });
+
+  it('keeps the aimed slot when the deck changes, and aims at that deck first empty', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
     const mode = root.querySelector<HTMLInputElement>('#squad-mode')!;
     mode.checked = true;
     mode.dispatchEvent(new Event('change'));
-    root.querySelector<HTMLButtonElement>('[data-deck-tab="2"]')!.click();
-    filterCharacterSlot(root, 0, '앨리스');
-
-    root.querySelector<HTMLButtonElement>('[data-deck-tab="1"]')!.click();
-    expect(root.querySelector<HTMLInputElement>('#squad-filter-0')!.value).toBe('프리바티');
-    expect(root.querySelector<HTMLSelectElement>('#squad-0')!.value).toBe('프리바티');
-    expect(root.querySelector<HTMLInputElement>('#squad-filter-1')!.value).toBe('리타');
 
     root.querySelector<HTMLButtonElement>('[data-deck-tab="2"]')!.click();
-    expect(root.querySelector<HTMLInputElement>('#squad-filter-0')!.value).toBe('앨리스');
-    expect(root.querySelector<HTMLInputElement>('#squad-filter-1')!.value).toBe('');
+    const aimed = [...root.querySelectorAll<HTMLButtonElement>('[data-slot-choose]')]
+      .findIndex((c) => c.getAttribute('aria-pressed') === 'true');
+    expect(aimed).toBe(0);   // 빈 덱이니 첫 칸
   });
 
-  it('swaps a nikke with the neighbouring slot, carrying its filter text along', () => {
+  it('swaps a nikke with the neighbouring slot', () => {
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
-    const slots = () => [...root.querySelectorAll<HTMLSelectElement>('[data-squad-slot]')].map((s) => s.value);
+    const slots = () => [...root.querySelectorAll<HTMLButtonElement>('[data-slot-choose]')]
+      .map((c) => c.querySelector('strong')!.textContent);
     const before = slots();
-    filterCharacterSlot(root, 0, '리타');
 
-    // 0번을 오른쪽으로 → 1번과 자리를 맞바꾼다.
     root.querySelector<HTMLButtonElement>('[data-slot-move="0:1"]')!.click();
 
     const after = slots();
     expect(after[0]).toBe(before[1]);
     expect(after[1]).toBe(before[0]);
     expect(after.slice(2)).toEqual(before.slice(2));
-    // 슬롯에 매인 검색어도 같이 따라간다.
-    expect(root.querySelector<HTMLInputElement>('#squad-filter-1')!.value).toBe('리타');
-    expect(root.querySelector<HTMLInputElement>('#squad-filter-0')!.value).toBe('');
 
-    // 되돌리면 원래대로.
     root.querySelector<HTMLButtonElement>('[data-slot-move="1:-1"]')!.click();
     expect(slots()).toEqual(before);
   });
@@ -273,7 +290,8 @@ describe('calculator UI', () => {
 
   it('keeps per-character settings with the nikke, not with the slot', () => {
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
-    const moved = root.querySelector<HTMLSelectElement>('#squad-0')!.value;
+    const moved = root.querySelector<HTMLButtonElement>('[data-slot-choose="0"]')!
+      .querySelector('strong')!.textContent!;
     // 0번 캐릭터에 개별 설정을 준다.
     const toggle = root.querySelector<HTMLInputElement>('[data-slot-card="0"] [data-custom-toggle]')!;
     toggle.checked = true;
@@ -332,40 +350,34 @@ describe('calculator UI', () => {
     expect(root.querySelector<HTMLElement>('[data-deck-copy-panel]')!.hidden).toBe(false);
   });
 
-  it('drops the AI/no-server badges and turns the supported count into a roster button', () => {
+  it('drops the AI/no-server badges and states the supported count plainly', () => {
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
     const trust = root.querySelector<HTMLElement>('.trust-row')!;
 
     expect(trust.textContent).not.toContain('AI 없음');
     expect(trust.textContent).not.toContain('서버 전송 없음');
-    const open = trust.querySelector<HTMLButtonElement>('[data-roster-open]')!;
-    expect(open.textContent).toBe(`${catalog.length}명 지원`);
+    expect(trust.textContent).toContain(`${catalog.length}명 지원`);
+    // 판이 늘 펼쳐져 있으니 열 버튼이 없다.
+    expect(root.querySelector('[data-roster-open]')).toBeNull();
   });
 
-  it('opens a searchable grid of every supported nikke', () => {
+  it('keeps the picker grid open under the squad, with no modal to dismiss', () => {
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
-    const modal = root.querySelector<HTMLElement>('[data-roster-modal]')!;
-    expect(modal.hidden).toBe(true);
 
-    root.querySelector<HTMLButtonElement>('[data-roster-open]')!.click();
-    expect(modal.hidden).toBe(false);
+    expect(root.querySelector('[data-roster-modal]')).toBeNull();
     expect(root.querySelectorAll('[data-roster-cell]')).toHaveLength(catalog.length);
     expect(root.querySelector('[data-roster-count]')!.textContent).toBe(`${catalog.length}명`);
 
-    const search = root.querySelector<HTMLInputElement>('[data-roster-search]')!;
-    search.value = '라피';
-    search.dispatchEvent(new Event('input', { bubbles: true }));
-    expect([...root.querySelectorAll<HTMLElement>('[data-roster-cell] strong')].map((n) => n.textContent))
-      .toEqual(['라피 : 레드 후드']);
+    searchRoster(root, '라피');
+    expect(rosterNames(root)).toEqual(['라피 : 레드 후드']);
     expect(root.querySelector('[data-roster-count]')!.textContent).toBe(`1 / ${catalog.length}명`);
 
-    search.value = '없는이름';
-    search.dispatchEvent(new Event('input', { bubbles: true }));
+    searchRoster(root, '없는이름');
     expect(root.querySelectorAll('[data-roster-cell]')).toHaveLength(0);
     expect(root.querySelector<HTMLElement>('[data-roster-empty]')!.hidden).toBe(false);
 
-    root.querySelector<HTMLButtonElement>('[data-roster-close]')!.click();
-    expect(modal.hidden).toBe(true);
+    searchRoster(root, '');
+    expect(root.querySelectorAll('[data-roster-cell]')).toHaveLength(catalog.length);
   });
 
   it('wipes every stored key and reloads only after the reset is confirmed', () => {

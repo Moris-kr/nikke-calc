@@ -105,6 +105,40 @@ export function renderCharacterSettings(
   onChange: (next: CharacterOverrides | undefined) => void,
 ): void {
   const advancedWasOpen = container.querySelector<HTMLInputElement>('[data-advanced-toggle]')?.checked ?? false;
+  // 펼침 상태는 다시 그려도 유지한다. 값을 하나 바꿀 때마다 접히면 쓸 수 없다.
+  // 기본값은 **접힘**이다 — 카드 다섯 장이 한 화면에 서니, 켜 두기만 한 설정까지
+  // 늘 펼쳐져 있으면 편성 자체가 안 보인다.
+  const wasOpen = (flag: string): boolean =>
+    container.querySelector<HTMLElement>(`[${flag}]`)?.getAttribute('aria-expanded') === 'true';
+  const bodyWasOpen = wasOpen('data-settings-open');
+  const controlWasOpen = wasOpen('data-control-open');
+
+  /** 눌러서 펼치는 머리. 접힌 채로 시작하고, 무엇이 들었는지 이름으로 알린다. */
+  const disclosure = (label: string, flag: string, open: boolean) => {
+    const head = document.createElement('button');
+    head.type = 'button';
+    head.className = 'disclosure';
+    head.setAttribute(flag, '');
+    head.setAttribute('aria-expanded', String(open));
+    const title = document.createElement('span');
+    title.className = 'disclosure-label';
+    title.textContent = label;
+    const hint = document.createElement('span');
+    hint.className = 'disclosure-hint';
+    hint.textContent = open ? '접기' : '펼치기';
+    head.append(title, hint);
+    const panel = document.createElement('div');
+    panel.className = 'disclosure-panel';
+    panel.hidden = !open;
+    head.addEventListener('click', () => {
+      const next = head.getAttribute('aria-expanded') !== 'true';
+      head.setAttribute('aria-expanded', String(next));
+      panel.hidden = !next;
+      const hint = head.querySelector('.disclosure-hint');
+      if (hint) hint.textContent = next ? '접기' : '펼치기';
+    });
+    return { head, panel };
+  };
   container.replaceChildren();
   container.className = 'character-settings';
 
@@ -454,8 +488,6 @@ export function renderCharacterSettings(
 
   const controlEditor = document.createElement('section');
   controlEditor.className = 'control-editor';
-  const controlHeading = document.createElement('h4');
-  controlHeading.textContent = '컨트롤';
   const controlMode = document.createElement('div');
   controlMode.className = 'control-mode';
   const isAutomatic = current.control === undefined;
@@ -641,7 +673,10 @@ export function renderCharacterSettings(
   const controlWarning = document.createElement('p');
   controlWarning.className = 'field-note warning';
   controlWarning.textContent = '여러 캐릭터 동시 컨트롤은 실제 한 명 조작보다 유리한 상한일 수 있습니다.';
-  controlEditor.append(controlHeading, controlMode, recommendation, controlGrid, controlWarning);
+  // 컨트롤은 따로 접는다. 손대는 사람은 적은데 자리는 가장 많이 먹는다.
+  const controlFold = disclosure('컨트롤', 'data-control-open', controlWasOpen);
+  controlFold.panel.append(controlMode, recommendation, controlGrid, controlWarning);
+  controlEditor.append(controlFold.head, controlFold.panel);
   body.append(controlEditor);
 
   const advancedLabel = document.createElement('label');
@@ -734,5 +769,7 @@ export function renderCharacterSettings(
     advanced.hidden = !advancedToggle.checked;
   });
   body.append(advanced);
-  container.append(body);
+  const bodyFold = disclosure('돌파 · 스킬 · 오버로드 · 큐브', 'data-settings-open', bodyWasOpen);
+  bodyFold.panel.append(body);
+  container.append(bodyFold.head, bodyFold.panel);
 }

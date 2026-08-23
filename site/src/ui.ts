@@ -8,6 +8,7 @@ import {
   type RawProfile,
 } from './blablalink';
 import { parseRosterCsv } from './csv-import';
+import { buildIndex, filterByQuery } from './nikke-search';
 import {
   buildAddPrompt,
   CUSTOM_KEY,
@@ -190,9 +191,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const cache = new ResultCache(storage, version, 30);
   const catalogByName = new Map(catalog.map((char) => [char.name, char]));
   const decks = Array.from({ length: 5 }, (_, index) => emptyDeck(index + 1));
-  const characterFilters = Array.from({ length: 5 }, () => Array<string>(5).fill(''));
   decks[0]!.squad = initialSquad(catalog);
   let activeDeckId = 1;
+  let activeSlot = 0;
   let fiveDeckMode = false;
   let activity: 'preparing' | 'ready' | 'running' | 'complete' | 'cached' | 'error' = 'preparing';
 
@@ -308,7 +309,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           <p class="eyebrow">BROWSER SIM <span>·</span> 60 FPS TIMELINE</p>
           <h1><span>NIKKE</span> 스쿼드 계산기</h1>
           <p class="hero-lede">캐릭터별 오버로드와 큐브, 전투 조건을 반영해 프레임 단위 예상 대미지를 계산합니다.</p>
-          <div class="trust-row" aria-label="서비스 특징"><button type="button" class="roster-open" data-roster-open title="지원하는 니케 전체 보기">${catalog.length}명 지원</button></div>
+          <div class="trust-row" aria-label="서비스 특징"><span>${catalog.length}명 지원</span></div>
         </div>
         <div class="hero-orbit" aria-hidden="true"><span>01</span><strong>LOCAL<br />SIM</strong></div>
       </header>
@@ -348,6 +349,35 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           </div>
           <p class="deck-note" data-deck-note hidden>덱 사이에는 같은 캐릭터를 다시 편성할 수 있습니다.</p>
           <div class="squad-grid" data-squad-grid></div>
+
+          <!-- 니케 고르기. 창을 띄우지 않고 늘 펼쳐 두고, 검색은 이 판을 거른다.
+               「이름을 쳤는데 아무 일도 안 일어난다」가 지적된 지점이라, 결과를
+               감추는 자리를 없앴다. -->
+          <section class="picker" aria-label="니케 고르기">
+            <div class="picker-head">
+              <h3>니케 고르기 <span data-roster-count></span></h3>
+              <p class="picker-target" data-roster-desc></p>
+            </div>
+            <input type="search" class="roster-search" data-roster-search placeholder="이름 · 초성 · 속성으로 찾기 (ㄹㅍ, 라피레드, 전격)" autocomplete="off" aria-label="니케 이름 검색" />
+            <div class="roster-filters" data-roster-filters>
+              <span class="roster-filter-group" data-filter-burst>
+                <button type="button" class="roster-chip is-on" data-burst="">전체</button>
+                <button type="button" class="roster-chip" data-burst="1">B1</button>
+                <button type="button" class="roster-chip" data-burst="2">B2</button>
+                <button type="button" class="roster-chip" data-burst="3">B3</button>
+              </span>
+              <span class="roster-filter-group" data-filter-code>
+                <button type="button" class="roster-chip is-on" data-code="">속성 전체</button>
+                <button type="button" class="roster-chip" data-code="작열">작열</button>
+                <button type="button" class="roster-chip" data-code="수냉">수냉</button>
+                <button type="button" class="roster-chip" data-code="풍압">풍압</button>
+                <button type="button" class="roster-chip" data-code="전격">전격</button>
+                <button type="button" class="roster-chip" data-code="철갑">철갑</button>
+              </span>
+            </div>
+            <div class="picker-scroll"><div class="roster-grid" data-roster-grid></div></div>
+            <p class="roster-empty" data-roster-empty hidden>검색과 일치하는 니케가 없습니다.</p>
+          </section>
         </section>
 
         <section class="panel settings-panel" aria-labelledby="settings-heading">
@@ -435,32 +465,6 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <button type="button" class="deck-copy-apply" data-report-copy>이미지 복사</button>
             <button type="button" class="deck-copy-cancel" data-report-save>PNG 저장</button>
           </div>
-        </div>
-      </div>
-
-      <div class="custom-modal" data-roster-modal hidden>
-        <div class="custom-card roster-card" role="dialog" aria-label="지원 니케 목록">
-          <div class="custom-head"><h2>지원 니케 <span data-roster-count></span></h2><button type="button" class="custom-close" data-roster-close aria-label="닫기">✕</button></div>
-          <p class="custom-desc" data-roster-desc>스킬까지 파싱되어 계산에 쓸 수 있는 니케입니다. <b>카드를 누르면 편성에 들어갑니다.</b></p>
-          <input type="search" class="roster-search" data-roster-search placeholder="이름 검색" autocomplete="off" aria-label="지원 니케 이름 검색" />
-          <div class="roster-filters" data-roster-filters>
-            <span class="roster-filter-group" data-filter-burst>
-              <button type="button" class="roster-chip is-on" data-burst="">전체</button>
-              <button type="button" class="roster-chip" data-burst="1">B1</button>
-              <button type="button" class="roster-chip" data-burst="2">B2</button>
-              <button type="button" class="roster-chip" data-burst="3">B3</button>
-            </span>
-            <span class="roster-filter-group" data-filter-code>
-              <button type="button" class="roster-chip is-on" data-code="">속성 전체</button>
-              <button type="button" class="roster-chip" data-code="작열">작열</button>
-              <button type="button" class="roster-chip" data-code="수냉">수냉</button>
-              <button type="button" class="roster-chip" data-code="풍압">풍압</button>
-              <button type="button" class="roster-chip" data-code="전격">전격</button>
-              <button type="button" class="roster-chip" data-code="철갑">철갑</button>
-            </span>
-          </div>
-          <div class="roster-grid" data-roster-grid></div>
-          <p class="roster-empty" data-roster-empty hidden>검색과 일치하는 니케가 없습니다.</p>
         </div>
       </div>
 
@@ -587,6 +591,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       button.textContent = `덱 ${deck.id}${count ? ` · ${count}` : ''}`;
       button.addEventListener('click', () => {
         activeDeckId = deck.id;
+        // 덱을 옮기면 판이 겨냥하는 칸도 그 덱 기준으로 다시 잡는다.
+        const empty = deck.squad.findIndex((member) => !member);
+        activeSlot = empty < 0 ? 0 : empty;
         // 패널은 '현재 덱' 기준이라 덱을 옮기면 닫는다 (열린 채로 두면 대상이 헷갈린다).
         closeDeckCopy();
         saveState();
@@ -645,8 +652,6 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       );
     }
     // 슬롯별 캐릭터 필터는 화면 상태일 뿐이라 같이 옮겨 검색어가 남지 않게 한다.
-    const sourceFilters = characterFilters[source.id - 1]!;
-    for (const id of targets) characterFilters[id - 1] = [...sourceFilters];
 
     closeDeckCopy();
     showErrors([]);
@@ -703,9 +708,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         const target = index + delta;
         move.disabled = target < 0 || target > 4;
         move.addEventListener('click', () => {
-          const filters = characterFilters[deck.id - 1]!;
           [deck.squad[index], deck.squad[target]] = [deck.squad[target] ?? '', deck.squad[index] ?? ''];
-          [filters[index], filters[target]] = [filters[target] ?? '', filters[index] ?? ''];
           showErrors([]);
           saveState();
           renderDeckTabs();
@@ -724,82 +727,44 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       const identity = document.createElement('div');
       identity.className = 'slot-identity';
 
-      const filterLabel = document.createElement('label');
-      filterLabel.className = 'slot-filter';
-      filterLabel.htmlFor = `squad-filter-${index}`;
-      filterLabel.append(createText('span', '필터'));
-      const filter = document.createElement('input');
-      filter.id = `squad-filter-${index}`;
-      filter.type = 'search';
-      filter.placeholder = '이름 검색';
-      filter.autocomplete = 'off';
-      filter.ariaLabel = `스쿼드 슬롯 ${index + 1} 캐릭터 필터`;
-      filter.dataset.characterFilter = '';
-      filter.value = characterFilters[deck.id - 1]![index] ?? '';
-      filterLabel.append(filter);
-
-      const taken = new Set(deck.squad.filter((member, slot) => slot !== index && member));
-      const select = document.createElement('select');
-      select.id = `squad-${index}`;
-      select.dataset.squadSlot = '';
-      select.ariaLabel = `스쿼드 슬롯 ${index + 1}`;
-
-      const populateOptions = () => {
-        const query = filter.value.trim().toLocaleLowerCase('ko');
-        select.replaceChildren();
-        const empty = document.createElement('option');
-        empty.value = '';
-        empty.textContent = '— 비움 —';
-        select.append(empty);
-        for (const candidate of catalog) {
-          const searchable = [
-            candidate.name,
-            `B${candidate.burstStage}`,
-            candidate.elementCode,
-            candidate.weaponType,
-            candidate.className,
-            candidate.manufacturer,
-          ].join(' ').toLocaleLowerCase('ko');
-          if (query && !searchable.includes(query) && candidate.name !== name) continue;
-          const option = document.createElement('option');
-          option.value = candidate.name;
-          option.textContent = `${candidate.name} · B${candidate.burstStage}`;
-          option.disabled = taken.has(candidate.name);
-          select.append(option);
-        }
-        select.value = name;
-      };
-
-      populateOptions();
-      filter.addEventListener('input', () => {
-        characterFilters[deck.id - 1]![index] = filter.value;
-        populateOptions();
+      // 이름 검색과 드롭다운, 교체 버튼을 걷어냈다. 카드는 «지금 채울 칸»을 정하는
+      // 역할만 하고, 고르는 일은 아래 상시 판이 맡는다. 검색 결과가 어디에도 숨지
+      // 않게 하는 것이 이 화면의 요점이다.
+      const choose = document.createElement('button');
+      choose.type = 'button';
+      choose.className = 'slot-choose';
+      choose.dataset.slotChoose = String(index);
+      choose.setAttribute('aria-pressed', String(activeSlot === index));
+      choose.append(createText('strong', char ? char.name : '빈 칸'));
+      choose.append(createText(
+        'span',
+        char ? `B${char.burstStage} · ${char.elementCode} · ${char.weaponType}` : '눌러서 이 칸에 넣기',
+      ));
+      choose.addEventListener('click', () => {
+        activeSlot = index;
+        renderSquad();
+        renderRosterGrid();
       });
-      select.addEventListener('change', () => {
-        const previous = deck.squad[index] ?? '';
-        deck.squad[index] = select.value;
-        if (previous && previous !== select.value) delete deck.characters[previous];
-        if (select.value && roster[select.value] && !deck.characters[select.value]) {
-          deck.characters[select.value] = cloneOverride(roster[select.value]!);
-        }
+
+      const clear = document.createElement('button');
+      clear.type = 'button';
+      clear.className = 'slot-clear';
+      clear.textContent = '✕';
+      clear.title = `${index + 1}번 칸 비우기`;
+      clear.ariaLabel = `${index + 1}번 칸 비우기`;
+      clear.hidden = !name;
+      clear.addEventListener('click', () => {
+        if (name) delete deck.characters[name];
+        deck.squad[index] = '';
+        activeSlot = index;
         showErrors([]);
         saveState();
         renderDeckTabs();
         renderSquad();
+        renderRosterGrid();
       });
-      const meta = createText(
-        'p',
-        char ? `B${char.burstStage} · ${char.elementCode} · ${char.weaponType}` : '빈 슬롯',
-        'char-meta',
-      );
-      // 이름을 몰라도 초상화로 고를 수 있게, 슬롯마다 피커를 여는 길을 둔다.
-      const pick = document.createElement('button');
-      pick.type = 'button';
-      pick.className = 'slot-pick';
-      pick.dataset.slotPick = String(index);
-      pick.textContent = name ? '교체' : '니케 고르기';
-      pick.addEventListener('click', () => openRoster(index));
-      identity.append(filterLabel, select, pick, meta);
+
+      identity.append(choose, clear);
       top.append(portrait, identity);
       card.append(top);
       if (char) {
@@ -1440,30 +1405,26 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     saveState();
     showErrors([]);
   });
-  // 지원 니케 목록 — 카탈로그(파싱까지 끝난 실제 캐릭터)를 그리드로 보여준다.
-  const rosterModal = element<HTMLElement>(root, '[data-roster-modal]');
+  // 니케 고르기 판. 창이 아니라 편성 바로 아래 늘 펼쳐져 있고, 검색은 이 판을 거른다.
   const rosterGrid = element<HTMLElement>(root, '[data-roster-grid]');
   const rosterSearch = element<HTMLInputElement>(root, '[data-roster-search]');
   const rosterEmpty = element<HTMLElement>(root, '[data-roster-empty]');
   const rosterCount = element<HTMLElement>(root, '[data-roster-count]');
-
-  // 목록이자 **피커**다 — 카드를 누르면 지정한 슬롯(없으면 첫 빈 슬롯)에 들어간다.
-  // 슬롯마다 있던 드롭다운은 이름을 외워야 고를 수 있어서, 초상화로 고르는 길을 연다.
   const rosterDesc = element<HTMLElement>(root, '[data-roster-desc]');
-  let pickerSlot: number | null = null;      // null이면 첫 빈 슬롯에 넣는다
   let burstFilter = '';
   let codeFilter = '';
 
   const renderRosterGrid = () => {
     // 직접 추가한 니케까지 포함해 지금 고를 수 있는 전체를 보여준다.
     const all = [...catalogByName.values()].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
-    const query = rosterSearch.value.trim().toLowerCase();
-    const shown = all.filter((char) => {
-      if (query && !char.name.toLowerCase().includes(query)) return false;
+    const narrowed = all.filter((char) => {
       if (burstFilter && char.burstStage !== burstFilter) return false;
       if (codeFilter && char.elementCode !== codeFilter) return false;
       return true;
     });
+    // 칩으로 먼저 좁히고 검색어로 세운다. 검색은 초성과 구분자까지 받아
+    // 「ㅋㄹㅇ」·「라피레드」가 걸리고, 친 이름이 맨 앞에 온다.
+    const shown = filterByQuery(narrowed, rosterSearch.value, buildIndex);
     rosterCount.textContent = shown.length === all.length
       ? `${all.length}명` : `${shown.length} / ${all.length}명`;
     const deck = activeDeck();
@@ -1475,7 +1436,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       cell.dataset.rosterCell = char.name;
       // 이미 이 덱에 있으면 중복 편성이 안 되므로 눌리지 않게 둔다.
       const takenAt = deck.squad.indexOf(char.name);
-      if (takenAt >= 0 && takenAt !== pickerSlot) {
+      if (takenAt >= 0 && takenAt !== activeSlot) {
         cell.disabled = true;
         cell.classList.add('is-taken');
         cell.title = `이미 덱 ${deck.id}의 ${takenAt + 1}번에 있습니다`;
@@ -1502,52 +1463,36 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       rosterGrid.append(cell);
     }
     rosterEmpty.hidden = shown.length > 0;
+    updatePickerTarget();
   };
 
   const pickCharacter = (name: string) => {
     const deck = activeDeck();
-    const slot = pickerSlot ?? deck.squad.findIndex((member) => !member);
-    if (slot < 0) {
-      rosterDesc.textContent = `덱 ${deck.id}이 가득 찼습니다. 바꿀 자리의 «교체»를 눌러 주세요.`;
-      return;
-    }
+    const slot = activeSlot;
     const previous = deck.squad[slot] ?? '';
     deck.squad[slot] = name;
     if (previous && previous !== name) delete deck.characters[previous];
     if (roster[name] && !deck.characters[name]) deck.characters[name] = cloneOverride(roster[name]!);
+    // 연달아 채울 수 있게 다음 빈 칸으로 옮겨 간다. 다 찼으면 방금 넣은 칸에 머문다.
+    const next = deck.squad.findIndex((member) => !member);
+    activeSlot = next < 0 ? slot : next;
+    showErrors([]);
     saveState();
     renderDeckTabs();
     renderSquad();
-    if (pickerSlot !== null) { closeRosterModal(); return; }
-    // 계속 고를 수 있게 열어 두고, 다음 빈 자리를 알려 준다.
-    const next = deck.squad.findIndex((member) => !member);
-    rosterDesc.textContent = next < 0
-      ? `덱 ${deck.id}을 다 채웠습니다.`
-      : `${name} → ${slot + 1}번에 넣었습니다. 다음은 ${next + 1}번입니다.`;
     renderRosterGrid();
   };
 
-  const openRoster = (slot: number | null) => {
-    pickerSlot = slot;
-    rosterSearch.value = '';
-    burstFilter = '';
-    codeFilter = '';
-    for (const chip of root.querySelectorAll<HTMLElement>('.roster-chip')) {
-      chip.classList.toggle('is-on', !chip.dataset.burst && !chip.dataset.code);
-    }
-    rosterDesc.textContent = slot === null
-      ? '카드를 누르면 빈 자리부터 채웁니다.'
-      : `덱 ${activeDeck().id}의 ${slot + 1}번에 넣을 니케를 고르세요.`;
-    renderRosterGrid();
-    rosterModal.hidden = false;
+  /** 판이 어느 칸을 겨냥하는지 알려 준다. 창이 없으니 이 한 줄이 유일한 안내다. */
+  const updatePickerTarget = () => {
+    const deck = activeDeck();
+    const filled = deck.squad.filter(Boolean).length;
+    const current = deck.squad[activeSlot];
+    rosterDesc.textContent = current
+      ? `${activeSlot + 1}번 칸을 ${current} 대신 채웁니다 · ${filled}/5명`
+      : `${activeSlot + 1}번 빈 칸을 채웁니다 · ${filled}/5명`;
   };
 
-  const closeRosterModal = () => { rosterModal.hidden = true; };
-  element<HTMLButtonElement>(root, '[data-roster-open]').addEventListener('click', () => openRoster(null));
-  element<HTMLButtonElement>(root, '[data-roster-close]').addEventListener('click', closeRosterModal);
-  rosterModal.addEventListener('click', (event) => {
-    if (event.target === rosterModal) closeRosterModal();
-  });
   rosterSearch.addEventListener('input', renderRosterGrid);
   element<HTMLElement>(root, '[data-filter-burst]').addEventListener('click', (event) => {
     const chip = (event.target as HTMLElement).closest<HTMLElement>('.roster-chip');
@@ -1864,6 +1809,11 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   updateRosterNote();
   renderDeckTabs();
   renderSquad();
+  // 판은 창이 아니라 늘 펼쳐져 있으므로 처음부터 그려 둔다.
+  const firstEmpty = activeDeck().squad.findIndex((member) => !member);
+  activeSlot = firstEmpty < 0 ? 0 : firstEmpty;
+  renderSquad();
+  renderRosterGrid();
 
   // 공유 링크로 들어왔으면 저장 상태 위에 그 편성을 얹는다 — 순서가 반대면
   // applySavedState가 링크로 넣은 편성을 도로 덮어쓴다. 주소는 정리해 두어

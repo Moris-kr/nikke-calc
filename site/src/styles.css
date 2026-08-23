@@ -87,8 +87,14 @@ h2 { margin: 0; font-size: 24px; letter-spacing: -.035em; }
 .roster-import.danger:hover { background: rgba(233,110,110,.17); }
 
 /* 지원 니케 목록 모달 */
-.roster-card { width: min(880px, 100%); }
-.roster-search { width: 100%; margin: 12px 0 14px; padding: 9px 11px; background: rgba(3,9,16,.7); border: 1px solid var(--line); border-radius: 8px; color: var(--ink); font: inherit; font-size: 12px; }
+/* 니케 고르기 판 — 창이 아니라 편성 바로 아래 늘 펼쳐져 있다. */
+.picker { margin-top: 14px; padding: 12px; border: 1px solid var(--line); background: rgba(7,15,25,.5); }
+.picker-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; }
+.picker-head h3 { margin: 0; font-size: 12px; font-weight: 800; letter-spacing: .04em; }
+.picker-head h3 span { color: var(--muted); font-weight: 600; }
+.picker-target { margin: 0; color: var(--cyan); font: 700 11px ui-monospace, monospace; }
+.picker-scroll { max-height: 300px; overflow-y: auto; padding-right: 2px; }
+.roster-search { width: 100%; margin: 10px 0 10px; padding: 9px 11px; background: rgba(3,9,16,.7); border: 1px solid var(--line); border-radius: 8px; color: var(--ink); font: inherit; font-size: 12px; }
 .roster-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 10px; }
 .roster-cell { display: flex; flex-direction: column; gap: 4px; padding: 8px; background: rgba(7,15,25,.6); border: 1px solid var(--line); border-radius: 10px; }
 .roster-portrait { position: relative; aspect-ratio: 1; overflow: hidden; border-radius: 7px; background: rgba(3,9,16,.75); }
@@ -201,13 +207,26 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .slot-move { width: 24px; height: 24px; padding: 0; display: grid; place-items: center; border: 1px solid rgba(146,176,201,.28); background: rgba(3,10,17,.72); color: #cfeceb; font: 700 14px/1 ui-monospace, monospace; border-radius: 5px; cursor: pointer; }
 .slot-move:hover:not(:disabled) { background: rgba(69,214,208,.22); border-color: var(--cyan); }
 .slot-move:disabled { opacity: .3; cursor: default; }
-.slot-filter { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 7px; margin-bottom: 7px; color: var(--muted); font-size: 9px; font-weight: 800; letter-spacing: .06em; }
-.slot-filter input { min-height: 34px; padding-inline: 9px; background: rgba(2,9,16,.72); font-size: 11px; }
-.squad-slot select { min-height: 40px; font-size: 12px; font-weight: 700; text-overflow: ellipsis; }
-.char-meta { min-height: 16px; margin: 8px 2px 0; color: var(--muted); font: 600 10px ui-monospace, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 칸을 누르면 아래 판이 그 칸을 겨냥한다. 검색·드롭다운·교체 버튼은 판으로 옮겼다. */
+.slot-identity { position: relative; }
+.slot-choose { display: grid; gap: 3px; width: 100%; min-height: 46px; padding: 8px 26px 8px 9px; border: 1px solid rgba(146,176,201,.22); background: rgba(2,9,16,.72); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.slot-choose strong { font-size: 12px; font-weight: 800; line-height: 1.3; word-break: keep-all; }
+.slot-choose span { color: var(--muted); font: 600 9.5px ui-monospace, monospace; }
+.slot-choose:hover { border-color: rgba(69,214,208,.45); }
+.slot-choose[aria-pressed="true"] { border-color: var(--cyan); background: rgba(69,214,208,.12); box-shadow: inset 0 0 0 1px rgba(69,214,208,.28); }
+.slot-choose[aria-pressed="true"] span { color: #cfeceb; }
+.slot-clear { position: absolute; top: 7px; right: 6px; width: 20px; height: 20px; padding: 0; display: grid; place-items: center; border: 0; background: none; color: var(--muted); font-size: 12px; line-height: 1; cursor: pointer; border-radius: 4px; }
+.slot-clear:hover { background: rgba(255,119,135,.16); color: var(--danger); }
 .squad-slot.is-preview::after { content: "PREVIEW"; position: absolute; top: 8px; right: 8px; z-index: 3; padding: 3px 5px; background: var(--danger); color: #21050a; font-size: 8px; font-weight: 900; }
 
 .character-settings { margin-top: 10px; border-top: 1px solid rgba(146,176,201,.12); padding-top: 9px; }
+/* 접이식 머리 — 개별 설정과 컨트롤은 기본이 접힘이고 여는 건 별도 동작이다. */
+.disclosure { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; margin-top: 8px; padding: 7px 9px; border: 1px solid rgba(146,176,201,.2); background: rgba(2,9,16,.5); color: var(--ink); font: inherit; cursor: pointer; }
+.disclosure:hover { border-color: rgba(69,214,208,.42); }
+.disclosure[aria-expanded="true"] { border-color: rgba(69,214,208,.42); background: rgba(69,214,208,.08); }
+.disclosure-label { font-size: 11px; font-weight: 800; letter-spacing: .03em; }
+.disclosure-hint { color: var(--muted); font: 700 9.5px ui-monospace, monospace; }
+.disclosure-panel[hidden] { display: none; }
 .loadout-summary { margin: 0 0 8px; min-height: 30px; color: #9eafbd; font: 600 9px/1.55 ui-monospace, monospace; word-break: keep-all; }
 .inline-check { display: flex; align-items: center; gap: 7px; color: #b9c8d4; font-size: 11px; font-weight: 750; cursor: pointer; }
 .inline-check input { width: 15px; min-height: 15px; height: 15px; accent-color: var(--amber); }
