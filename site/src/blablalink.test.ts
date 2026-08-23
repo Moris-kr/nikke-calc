@@ -94,8 +94,9 @@ describe('areaToOverrides', () => {
         torso_equip_option1_id: 7000514,   // 같은 옵션이 두 부위에 — 두 번 더해야 한다
       })],
       // 응답은 옵션 id로 중복 제거돼 온다: 같은 옵션이 2부위여도 한 번만 등장한다.
+      // 상류는 옵션 id를 **문자열**로 준다. 장비 슬롯 쪽은 숫자다.
       stateEffects: [
-        { id: 7000514, function_details: [{ function_type: 'StatAtk', function_value: 1802 }] },
+        { id: '7000514', function_details: [{ function_type: 'StatAtk', function_value: 1802 }] },
         { id: 7001209, function_details: [{ function_type: 'StatChargeTime', function_value: -1015 }] },
       ],
     }), settings, catalog);
@@ -200,10 +201,10 @@ describe('consoleFrom', () => {
     const result = consoleFrom(area({
       outpost: {
         recycle_room_researches: [
-          { tid: 1001, level: 12 },
-          { tid: 1101, level: 8 },
-          { tid: 1204, level: 5 },
-          { tid: 9999, level: 3 },   // 모르는 항목은 무시
+          { tid: 1001, lv: 12 },
+          { tid: 1101, lv: 8 },
+          { tid: 1204, lv: 5 },
+          { tid: 9999, lv: 3 },   // 모르는 항목은 무시
         ],
       },
     }));

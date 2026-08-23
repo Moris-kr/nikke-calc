@@ -12,10 +12,9 @@
 //
 // 쿠키 값은 stdout에 절대 찍지 않고 wrangler에 바로 넘긴다.
 
-import { readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // 파일 경로를 주면 그 파일을, 안 주면 클립보드를 읽는다. "Copy as cURL" 직후에
 // 인자 없이 돌리는 게 가장 짧고, 파일을 남기지 않아 지울 것도 없다.
@@ -93,18 +92,21 @@ if (probe.code !== 0) {
 const openid = probe.data?.info?.intl_openid;
 console.log(`[+] 로그인 확인 — openid …${String(openid ?? '').slice(-4)}`);
 
-// wrangler는 stdin으로 값을 받는다. 임시 파일에 담아 넘기고 바로 지운다.
-const temp = join(tmpdir(), `blabla-cookie-${process.pid}`);
-writeFileSync(temp, cookie, { encoding: 'utf8' });
-try {
-  const result = spawnSync(
-    process.platform === 'win32' ? 'npx.cmd' : 'npx',
-    ['wrangler', 'secret', 'put', 'BLABLA_COOKIE'],
-    { cwd: new URL('.', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'),
-      stdio: [readFileSync(temp) ? 'pipe' : 'inherit', 'inherit', 'inherit'],
-      input: cookie },
-  );
-  process.exit(result.status ?? 1);
-} finally {
-  try { unlinkSync(temp); } catch { /* 이미 없으면 그만 */ }
+// wrangler는 stdin으로 값을 받으므로 값을 그대로 넘긴다 — 디스크에 남기지 않는다.
+// Windows에서는 `npx`가 배치 파일이라 shell 없이는 실행되지 않는다.
+const workerDir = fileURLToPath(new URL('.', import.meta.url));
+const result = spawnSync('npx wrangler secret put BLABLA_COOKIE', {
+  cwd: workerDir,
+  shell: true,
+  input: cookie,
+  stdio: ['pipe', 'inherit', 'inherit'],
+});
+if (result.error) {
+  console.error('[!] wrangler를 실행하지 못했습니다:', result.error.message);
+  process.exit(1);
 }
+if (result.status !== 0) {
+  console.error(`[!] wrangler가 ${result.status}로 끝났습니다.`);
+  process.exit(result.status ?? 1);
+}
+console.log('[+] BLABLA_COOKIE 저장 완료');

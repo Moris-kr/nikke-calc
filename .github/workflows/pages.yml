@@ -44,11 +44,9 @@ jobs:
       - name: Run browser-site tests
         run: npm test -- --run
       - name: Build production site
-        # 블라블라링크 조회 프록시 주소(`worker/README.md`). 리포지토리 변수에 없으면 빈
-        # 값이 되고, 그러면 사이트가 연동 UI를 아예 그리지 않는다 — 프록시 없이는 브라우저가
-        # 블라블라링크를 부를 수 없어 버튼만 있고 항상 실패하는 상태가 되기 때문이다.
-        env:
-          VITE_BLABLA_PROXY: ${{ vars.VITE_BLABLA_PROXY }}
+        # 블라블라링크 프록시 주소는 `site/.env.production`에 있다(`worker/README.md`).
+        # 리포지토리 변수로 덮고 싶으면 여기 env를 되살리면 되지만, 빈 변수가 파일을
+        # 덮어써 연동이 조용히 꺼지는 사고가 나기 쉬워 기본은 파일 쪽으로 뒀다.
         run: npm run build
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

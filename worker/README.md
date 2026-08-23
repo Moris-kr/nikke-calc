@@ -24,9 +24,9 @@ npx wrangler secret put BLABLA_COOKIE   # 아래 "쿠키 얻기" 참고
 npx wrangler deploy
 ```
 
-배포하면 `https://nikke-calc-blabla.<계정>.workers.dev` 주소가 나온다. 그 주소를 사이트
-빌드의 `VITE_BLABLA_PROXY` 환경변수에 넣는다 (GitHub Actions는 리포지토리 variable).
-값이 비어 있으면 사이트는 프로필 URL 칸을 아예 그리지 않는다 — CSV만 남는다.
+배포하면 `https://nikke-calc-blabla.<계정>.workers.dev` 주소가 나온다. 그 주소를
+`site/.env.production`의 `VITE_BLABLA_PROXY`에 적는다. 값이 비어 있으면 사이트는 프로필
+URL 칸을 아예 그리지 않는다 — CSV만 남는다.
 
 ### 쿠키 얻기
 

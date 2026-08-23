@@ -21,10 +21,13 @@ export interface RawArea {
   characters: Array<{ name_code: number; grade?: number; core?: number; lv?: number }>;
   details: Array<Record<string, number>>;
   stateEffects: Array<{
-    id: number;
+    // 옵션 id는 여기서 **문자열**로 오고 장비 슬롯에서는 숫자로 온다(실측 2026-08-23).
+    // 그대로 맞대면 하나도 안 맞아 오버로드가 통째로 0이 된다.
+    id: number | string;
     function_details?: Array<{ function_type?: string; function_value?: number }>;
   }>;
-  outpost: { recycle_room_researches?: Array<{ tid: number; level: number }> } | null;
+  // 재활용 연구실 레벨 필드는 `lv`다(`level`이 아니다 — 실측 2026-08-23).
+  outpost: { recycle_room_researches?: Array<{ tid: number; lv: number }> } | null;
 }
 
 export interface RawProfile {
@@ -87,13 +90,15 @@ export function looksLikeProfileUrl(text: string): boolean {
 function buildOptionMap(effects: RawArea['stateEffects']): Map<number, [string, number]> {
   const map = new Map<number, [string, number]>();
   for (const effect of effects) {
+    const id = Number(effect.id);
+    if (!Number.isFinite(id)) continue;
     // 상세를 배치로 나눠 받으므로 같은 옵션이 여러 번 온다. 먼저 온 것만 쓰면 된다.
-    if (map.has(effect.id)) continue;
+    if (map.has(id)) continue;
     const detail = effect.function_details?.[0];
     const key = detail?.function_type ? FUNCTION_TO_OVERLOAD[detail.function_type] : undefined;
     if (!key) continue;
     // 차지 시간 감소만 음수로 오고 나머지는 양수다. 우리 표는 전부 양수 퍼센트다.
-    map.set(effect.id, [key, Math.abs(Number(detail?.function_value ?? 0)) / 100]);
+    map.set(id, [key, Math.abs(Number(detail?.function_value ?? 0)) / 100]);
   }
   return map;
 }
@@ -108,7 +113,7 @@ function overloadOf(
   for (const field of fields) total[field] = 0;
   for (const [prefix] of PARTS) {
     for (const slot of [1, 2, 3]) {
-      const id = detail[`${prefix}_equip_option${slot}_id`];
+      const id = Number(detail[`${prefix}_equip_option${slot}_id`] ?? 0);
       const hit = id ? options.get(id) : undefined;
       if (!hit) continue;
       const [key, value] = hit;
@@ -276,7 +281,7 @@ export function consoleFrom(area: RawArea): ConsoleImport | null {
     const slot = CONSOLE_TIDS[Number(entry.tid)];
     if (!slot) continue;
     seen = true;
-    const level = Math.max(0, Math.trunc(Number(entry.level) || 0));
+    const level = Math.max(0, Math.trunc(Number(entry.lv) || 0));
     if (slot[0] === 'common') result.common_level = level;
     else if (slot[0] === 'class') result.class_level[slot[1]] = level;
     else result.company_level[slot[1]] = level;

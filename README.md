@@ -81,9 +81,10 @@ npm run check-runtime
 
 프로필 URL로 육성 데이터를 받아 오는 기능은 프록시가 있어야 동작합니다 — 블라블라링크 API는
 CORS를 열어 두지 않고 조회에 로그인 세션을 요구하므로, 정적 사이트가 직접 부를 수 없습니다.
-배포 절차는 [worker/README.md](worker/README.md)에 있고, 배포한 주소를 리포지토리 변수
-`VITE_BLABLA_PROXY`에 넣으면 사이트에 **블라블라링크 연동** 버튼이 생깁니다. 변수를 비워 두면
-그 버튼을 아예 그리지 않고 렛츠도로 CSV만 남습니다.
+배포 절차는 [worker/README.md](worker/README.md)에 있고, 배포한 주소를
+[site/.env.production](site/.env.production)의 `VITE_BLABLA_PROXY`에 적으면 사이트에
+**블라블라링크 연동** 버튼이 생깁니다. 값을 비우면 그 버튼을 아예 그리지 않고 렛츠도로
+CSV만 남습니다.
 
 ## 라이선스
 
