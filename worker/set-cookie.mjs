@@ -49,6 +49,38 @@ if (names.length <= 2) {
   process.exit(1);
 }
 
+// 넣기 전에 이 컴퓨터에서 먼저 확인한다. 워커에 넣고 나서 실패하면 "쿠키가 틀렸나
+// 워커가 문제인가"를 가릴 수 없는데, 여기서 통과하면 쿠키는 확실히 살아 있는 것이다.
+const COMMON = { game_id: '29080', area_id: 'global', source: 'pc_web',
+                 intl_game_id: '29080', language: 'ko', env: 'prod' };
+const probe = await fetch(
+  'https://api.blablalink.com/api/ugc/proxy/standalonesite/User/GetUserInfoNew',
+  {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json, text/plain, */*',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/151.0.0.0 Safari/537.36',
+      Origin: 'https://www.blablalink.com',
+      Referer: 'https://www.blablalink.com/',
+      'X-Channel-Type': '2',
+      'X-Language': 'ko',
+      'X-Common-Params': JSON.stringify(COMMON),
+      Cookie: cookie,
+    },
+    body: '{}',
+  },
+).then((r) => r.json()).catch((error) => ({ code: -1, msg: String(error).slice(0, 100) }));
+
+if (probe.code !== 0) {
+  console.error(`[!] 이 쿠키로는 로그인이 안 됩니다 (${probe.code} ${probe.msg}).`);
+  console.error('    블라블라링크에 로그인된 상태에서 api.blablalink.com 요청을 다시 '
+    + '"Copy as cURL"로 복사해 주세요. 넣지 않고 멈춥니다.');
+  process.exit(1);
+}
+const openid = probe.data?.info?.intl_openid;
+console.log(`[+] 로그인 확인 — openid …${String(openid ?? '').slice(-4)}`);
+
 // wrangler는 stdin으로 값을 받는다. 임시 파일에 담아 넘기고 바로 지운다.
 const temp = join(tmpdir(), `blabla-cookie-${process.pid}`);
 writeFileSync(temp, cookie, { encoding: 'utf8' });

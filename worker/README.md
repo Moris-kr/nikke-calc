@@ -43,8 +43,11 @@ npx wrangler deploy
 node worker/set-cookie.mjs curl.txt
 ```
 
-스크립트가 `Cookie:` 헤더만 뽑아 쿠키 개수와 이름을 확인하고 wrangler에 바로 넘긴다.
-값은 화면에 찍히지 않는다. 다 되면 붙여넣은 파일은 지운다.
+스크립트가 `Cookie:` 헤더만 뽑아 **이 컴퓨터에서 먼저 로그인이 되는지 확인한 뒤에만**
+wrangler에 넘긴다. 값은 화면에 찍히지 않는다. 다 되면 붙여넣은 파일은 지운다.
+
+여기서 `로그인이 안 됩니다 (300001 game not login)`가 뜨면 쿠키가 잘못된 것이다 —
+워커 문제가 아니므로 3단계를 다시 한다.
 
 직접 넣고 싶으면 `Cookie:` 헤더 값을 통째로 복사해
 `npx wrangler secret put BLABLA_COOKIE`에 붙여넣어도 된다.
