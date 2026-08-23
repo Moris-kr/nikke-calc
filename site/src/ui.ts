@@ -747,7 +747,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       });
       // 좁은 화면에서는 슬롯 줄이 옆으로 밀린다. 겨냥한 칸이 화면 밖에 있으면
       // 판이 어디를 채우는지 알 수 없으므로 끌어다 보여 준다.
-      if (activeSlot === index) {
+      // jsdom에는 scrollIntoView가 없다. 없다고 렌더가 깨질 일은 아니므로 건너뛴다.
+      if (activeSlot === index && typeof choose.scrollIntoView === 'function') {
         requestAnimationFrame(() => choose.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
       }
 
