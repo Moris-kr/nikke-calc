@@ -151,43 +151,21 @@ async function health(cookie) {
     hasNewline: cookie.split(String.fromCharCode(10)).length > 1 || cookie.split(String.fromCharCode(13)).length > 1,
   };
 
-  // 저장된 쿠키에 빠지기 쉬운 것들을 덧대 가며 찔러 본다. 여기서 더하는 값은 전부
-  // 공개 상수라 시크릿이 아니다 — 무엇이 모자란지 유저를 여러 번 왕복시키지 않고
-  // 여기서 가른다.
-  const EXTRA = 'game_gameid=29080';
-  const SITE = '__ss_storage_cookie_cache_game_id__=29080; __ss_storage_cookie_cache_lang__=ko';
-  const variants = [
-    ['asIs', cookie],
-    ['plusGameId', `${cookie}; ${EXTRA}`],
-    ['plusSiteCookies', `${cookie}; ${EXTRA}; ${SITE}`],
-  ];
-  const base = API.replace('game/proxy/', '');
-  const routes = [
-    ['GetUserInfoNew', 'ugc/proxy/standalonesite/User/GetUserInfoNew'],
-    ['GetSavedRoleInfo', 'game/proxy/Game/GetSavedRoleInfo'],
-  ];
-
-  const upstream = {};
-  for (const [variant, value] of variants) {
-    for (const [label, route] of routes) {
-      const key = `${variant}.${label}`;
-      try {
-        const response = await fetch(base + route, {
-          method: 'POST',
-          headers: upstreamHeaders(value),
-          body: '{}',
-        });
-        const payload = await response.json();
-        upstream[key] = { code: payload.code, msg: payload.msg ?? '' };
-        // 로그인이 살아 있으면 내 식별자가 온다. 뒤 4자리만 남겨 본인 확인만 되게 한다.
-        const openid = payload.data?.info?.intl_openid;
-        const areaId = payload.data?.role_info?.area_id;
-        if (openid) upstream[key].openidTail = String(openid).slice(-4);
-        if (areaId) upstream[key].areaId = areaId;
-      } catch (error) {
-        upstream[key] = { error: String(error).slice(0, 100) };
-      }
-    }
+  // 세션이 살아 있는지 한 번만 확인한다. 쿠키 조합 실험은 셋업 때 끝났다 —
+  // 무엇이 모자라도 결론은 "쿠키를 다시 넣어라"라서 갈래를 늘릴 이유가 없다.
+  let upstream;
+  try {
+    const response = await fetch(
+      API.replace('game/proxy/', 'ugc/proxy/standalonesite/') + 'User/GetUserInfoNew',
+      { method: 'POST', headers: upstreamHeaders(cookie), body: '{}' },
+    );
+    const payload = await response.json();
+    upstream = { code: payload.code, msg: payload.msg ?? '' };
+    // 로그인이 살아 있으면 내 식별자가 온다. 뒤 4자리만 남겨 본인 확인만 되게 한다.
+    const openid = payload.data?.info?.intl_openid;
+    if (openid) upstream.openidTail = String(openid).slice(-4);
+  } catch (error) {
+    upstream = { error: String(error).slice(0, 100) };
   }
   return { shape, upstream };
 }
