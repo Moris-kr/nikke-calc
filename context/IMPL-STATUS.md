@@ -303,7 +303,7 @@ python calculator/damage.py
 | `shield_from_max_hp_pct` | — | timeline | ✅ | 시전자의 유효 최대 체력 N%만큼 대상별 보호막 생성. 지속시간 동안 `during_shield` 활성, 적용 대상에게 `event:shield_applied` 통지 |
 | `shared_shield_from_max_hp_pct` | — | timeline | ✅ | 아군 공용 보호막. 시전자의 유효 최대 체력 N%만큼 생성하되 **부여 대상은 시전자 1인**(텍스트에 대상 표기가 없어도 `all_allies`가 아니다). `_SHIELD_STATS`로 `shield_from_max_hp_pct`와 같은 경로를 타 `during_shield`·`event:shield_applied`도 동일하게 성립한다. 블랑 `럭키 가드` |
 | `shield_heal_from_caster_max_hp_pct` | — | timeline | ✅ | 시전자 유효 최대 체력 N%만큼 대상의 활성 보호막을 최초 생성량 상한까지 회복. 주기 instant로 처리. 아군 피격 모델이 없는 기본 시뮬에서는 보호막이 줄지 않아 수치 변화는 없지만 경로와 상한은 구현됨. 라푼젤 : 퓨어 그레이스 `프레이 3` |
-| `next_shield_hp_pct` | — | — | ❌ | 다음 보호막 체력 N% ▲. 다음 1회 증폭·소모 경로 미구현 |
+| `next_shield_hp_pct` | — | buff_manager | ✅ | `consume_next_shield: true`인 신규 효과는 다음 개인 보호막 생성량 N% ▲ 후 1회 소비. 킬로는 스킬 서술 순서상 이번 재생성 뒤에 다음 회차 증폭을 쌓음. 기존 스냅샷 캐릭터는 명시 플래그가 없어 종전 동작 유지 |
 | `accumulate_max_scale_pct` | — | — | ❌ | 특정 효과의 최대 누적량 N% ▲. `target_effect` 필수. 미구현 |
 | `heal_overcharge_store` | — | — | ❌ | 초과 회복 저장. 미구현 |
 | `heal_overcharge_store_atk_pct` | — | — | ❌ | ATK N%까지 받는 회복량 저장. 힐 모델 없음 |
@@ -431,6 +431,7 @@ python calculator/damage.py
 | `burst_enter:N` | ✅ | `bm.notify("burst_enter:N", ...)` |
 | `burst_cast` | ✅ | `bm.notify("burst_cast", ...)` |
 | `burst_cast_count:N` | ✅ | `burst_cast` 이벤트의 N번째 발생 시 |
+| `conditional_burst_cast_count:그룹:N` | ✅ | 조건을 만족한 자기 `burst_cast`만 그룹별로 계수. N번째 이후 하위 단계가 반복 적용되며 같은 이벤트의 복수 단계 조회는 1회만 증가. 킬로 보호막 부재 사용 횟수 |
 | `squad_burst_cast:N` | ✅ | `bm.notify("squad_burst_cast:N", ...)` |
 | `hit_count:N` | ✅ | `bm.notify("hit_count", ...)`. `trigger_count_reduce` 버프로 N 감소 가능 |
 | `hit_count:[스킬명]:N` | ✅ | named damage effect 명중 N회마다 발동. `_timing_match()`에 분기 추가. 타임라인 `_handle_damage_eff()` hit 루프 안에서 `bm.notify("hit_count:{eff_name}", t, caster)` 호출 |
@@ -586,6 +587,7 @@ lazy resolve: 버프 반영 스탯 기준 정렬 필요 target → `_activate()`
 | `"allies_top_base_charge_time:N"` | ❌ | ✅ | 기본(버프 제외) 차지 시간이 가장 긴 아군 N기. `parsed_nikke["charge_time"]` 기준 고정 속성이라 lazy resolve 불필요. 차지 무기 아군이 없으면 빈 리스트, 동률이면 스쿼드 입력 순서. 마나 `매터 시그마 4` |
 | `"allies_down_top_atk_excl:N"` | ❌ | ❌ | 자신을 제외한 전투불능 아군 중 최종 공격력 최고 N기. **전투불능 모델이 없어 분기를 두지 않는다** — 기본 경로가 빈 리스트를 돌려주고, 짝인 `revive`(🚫)·`event:ally_down`(⚠️)과 같은 클래스다. 마나 `매터 감마 3` |
 | `"allies_with_buff:버프명"` | ❌ | ✅ | 해당 이름의 버프가 활성인 아군 전체. `enemies_with_buff:`의 아군판(그쪽은 `__enemy__` 센티널이라 실질 필터가 없다). **부여 시점 스냅샷(비lazy)으로 확정** — "부여 순간 조건을 만족한 아군에게 준다"는 게임 시맨틱에 가깝다. 판정은 `_has_self_state()`를 재사용해 weapon_change 모드도 상태로 인정. 레이 (가칭) `섬멸 지원 4~6` |
+| `"allies_random_debuffed:N"` | ❌ | ✅ | 발동 시점에 해로운 효과를 가진 아군 중 무작위 N기. 코코아 정화 대상 |
 | `"allies_without_buff:버프명"` | ❌ | ✅ | 해당 named buff가 활성이지 않은 아군 전체. `allies_with_buff:`와 같은 부여 시점 스냅샷의 부정형. 크러스트 `든든한 요리` |
 | `"allies_burst3_persona_excl_self"` | ❌ | ✅ | 자신을 제외한 · 기본 버스트 단계 Step 3 · `persona_state` 보유 아군 전체. `allies_burst3` ∩ `persona_state` 보유 − 자신. 판정은 `allies_with_buff:`와 같은 부여 시점 스냅샷. 퀸(마코토) `배턴 터치`, 유키코 `추격` |
 | `"allies_burst_casted_burst3"` | ❌ | ✅ | 직전에 버스트를 사용한 아군 중 기본 버스트 단계 Step 3. `all_allies_burst_casted` ∩ `allies_burst3`. 아래 무기판과 같은 취지 — `burst_casted`를 condition으로 두면 시전자 기준이라 대상 필터가 안 된다. 에이다 `은밀한 지원 1~3` |

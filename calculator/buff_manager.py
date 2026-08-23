@@ -492,6 +492,7 @@ class BuffManager:
 
         # 이벤트별 발동 횟수 (hit_count, burst_cast_count 등 추적용)
         self._event_counts: dict[str, dict[str, int]] = {}  # caster → {event_key: count}
+        self._conditional_event_counts: dict[tuple[str, str], tuple[int, int]] = {}
 
         # max_trigger 추적: id(effect) → 발동 횟수 (buff/instant/damage/weapon_change 공통)
         self._trigger_counts: dict[int, int] = {}
@@ -614,6 +615,8 @@ class BuffManager:
         if timing.startswith("every:"):
             return None
         if timing.startswith("burst_cast_count:"):
+            return "burst_cast"
+        if timing.startswith("conditional_burst_cast_count:"):
             return "burst_cast"
         if timing.startswith("full_burst_start_count:") or timing.startswith("full_burst_start_exact:"):
             return "full_burst_start"
@@ -1417,6 +1420,21 @@ class BuffManager:
             if not raw.lstrip("-").isdigit(): return False
             return count >= int(raw)
 
+        # 조건을 만족한 자기 버스트만 별도 계수한다. 같은 group의 단계별 효과가
+        # 한 이벤트에서 각각 조회돼도 base event count를 표식으로 한 번만 증가한다.
+        if timing.startswith("conditional_burst_cast_count:") and event == "burst_cast":
+            parts = timing.split(":", 2)
+            if len(parts) != 3 or not parts[2].lstrip("-").isdigit():
+                return False
+            if not self._condition_ok(eff.get("trigger", {}).get("condition", []), caster, t, eff):
+                return False
+            key = (caster, parts[1])
+            last_base_count, conditional_count = self._conditional_event_counts.get(key, (-1, 0))
+            if last_base_count != count:
+                conditional_count += 1
+                self._conditional_event_counts[key] = (count, conditional_count)
+            return conditional_count >= int(parts[2])
+
         # full_burst_start_count:N — N번째 이상 매번 발동 (>= N)
         if timing.startswith("full_burst_start_count:") and event == "full_burst_start":
             raw = timing.split(":")[1]
@@ -1949,6 +1967,31 @@ class BuffManager:
             ab.shield_per_target[name] = current + gain
             remain -= gain
 
+    def consume_next_shield_multiplier(self, name: str) -> float:
+        """대상의 `다음 보호막 체력 ▲`을 합산해 1회 소비한다.
+
+        킬로는 보호막이 없는 버스트에서 S1 보호막을 먼저 만들고 S2가 다음 회차용
+        증폭을 뒤이어 쌓는다. 따라서 보호막 생성 시점에 이미 활성인 항목만 소비하면
+        원문의 실행 순서도 그대로 보존된다.
+        """
+        consumed = []
+        bonus = 0.0
+        for ab in self._active:
+            if (ab.effect.get("stat") != "next_shield_hp_pct"
+                    or not ab.effect.get("consume_next_shield")):
+                continue
+            targets = ab.target_chars or self._resolve_target(ab.effect.get("target", "self"), ab.caster)
+            if name not in targets:
+                continue
+            val = self._get_value(ab.effect, ab, ab.caster)
+            if val is not None:
+                bonus += val
+            consumed.append(ab)
+        if consumed:
+            self._active = [ab for ab in self._active if ab not in consumed]
+            self._invalidate_buffs_cache()
+        return 1.0 + bonus / 100.0
+
     def sync_hp(self, name: str):
         """state['hp']를 기준으로 state['hp_pct']를 재계산한다.
 
@@ -2346,6 +2389,8 @@ class BuffManager:
             if ab_ref is not None:
                 val = self._get_value(eff, ab_ref, caster)
                 amount = self.effective_max_hp(caster) * val / 100.0 if val is not None else 0.0
+                if stat == "shield_from_max_hp_pct":
+                    amount *= self.consume_next_shield_multiplier(caster)
                 ab_ref.shield_per_target = {
                     tgt: amount for tgt in (ab_ref.target_chars or []) if tgt != "__enemy__"
                 }
@@ -3298,6 +3343,14 @@ class BuffManager:
             n = int(target.split(":")[1])
             pool = [x for x in self.squad_names if x != caster]
             return random.sample(pool, min(n, len(pool)))
+        if target.startswith("allies_random_debuffed:"):
+            n = int(target.split(":")[1])
+            pool = [
+                x for x in self.squad_names
+                if any(ab.effect.get("polarity") == "harmful" and x in (ab.target_chars or [])
+                       for ab in self._active)
+            ]
+            return random.sample(pool, min(n, len(pool)))
         if target.startswith("allies_adjacent:"):
             n = int(target.split(":")[1])
             idx = self.squad_names.index(caster)
@@ -3583,6 +3636,7 @@ class BuffManager:
         self._instant_timers.clear()
         self._lazy_target_cache.clear()
         self._event_counts.clear()
+        self._conditional_event_counts.clear()
         self._trigger_counts.clear()
         self._buffs_cache.clear()
         self._plan_cache.clear()

@@ -2348,6 +2348,13 @@ def simulate(
         is_normal = eff.get("damage_formula") == "normal_attack"
         buffs = bm.get_buffs(caster, "__enemy__", t)
         buffs["is_element_match"] = cs.element_match(bm)
+        damage_base_atk = cs.base_atk
+        # 킬로처럼 "최종 최대 체력 N%를 공격력으로 환산"하는 스킬은 캐릭터의
+        # 공격력과 공격력 버프를 전혀 쓰지 않는다. 환산값 자체가 이 1회의 공격력이다.
+        if eff.get("scaling") == "max_hp_conversion":
+            hp_pct = float(eff.get("scaling_hp_pct", 0.0))
+            damage_base_atk = bm.effective_max_hp(caster) * hp_pct / 100.0
+            buffs = {**buffs, "atk_pct": 0.0, "atk_flat": 0.0}
         is_full_burst = bm.state.get("full_burst", False)
         stat = eff.get("stat", "damage")
         stat_parts = stat.split(":")
@@ -2412,9 +2419,9 @@ def simulate(
 
         for _ in range(hit_count):
             if in_debug_window:
-                print(f"t={t:.3f}s  [{eff.get('name', stat)}]  base_atk={cs.base_atk:,}  enemy_def={enm.get('def', 31784):,}")
+                print(f"t={t:.3f}s  [{eff.get('name', stat)}]  base_atk={damage_base_atk:,}  enemy_def={enm.get('def', 31784):,}")
             res = calc_damage(
-                base_atk=cs.base_atk, buffs=buffs, weapon=cs.weapon,
+                base_atk=damage_base_atk, buffs=buffs, weapon=cs.weapon,
                 hit_type=ht, enemy_def=enm.get("def", 31784),
                 expected=(cfg.get("rng_mode") == "expected"),
             )

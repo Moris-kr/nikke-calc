@@ -133,7 +133,7 @@ print(json.dumps(data['캐릭터명'], ensure_ascii=False, indent=2))
 | `core_dmg_mult` | 선택 | weapon_change | 코어 대미지. 미명시 시 생략 |
 | `charge_time` | 선택 | weapon_change | 차지 시간(초). SR/RL 전용, 미명시 시 생략 |
 | `full_charge_mult` | 선택 | weapon_change | 풀 차지 대미지. SR/RL 전용, 미명시 시 생략 |
-| `scaling` | 선택 | damage, instant, buff | 특수 스케일링 기준. 단일 문자열 또는 복수 적용 시 배열. `"max_hp"`: 최대 체력 비례. `"stack_count"`: 지정 스택/게이지 수 비례 (실제값 = values[level] × 현재 스택 수). `"max_hp_additive"`: 최대 체력 N%를 공격력에 합산 후 대미지 계산 (`scaling_hp_pct` 필드에 N 기입). `"lost_hp_pct"`: 잃은 체력 % 비례 (실제값 = values[level] × 잃은 체력%). 복수 사용 예: `"scaling": ["max_hp_additive", "stack_count"]` |
+| `scaling` | 선택 | damage, instant, buff | 특수 스케일링 기준. 단일 문자열 또는 복수 적용 시 배열. `"max_hp"`: 최대 체력 비례. `"stack_count"`: 지정 스택/게이지 수 비례 (실제값 = values[level] × 현재 스택 수). `"max_hp_additive"`: 최대 체력 N%를 공격력에 합산 후 대미지 계산 (`scaling_hp_pct` 필드에 N 기입). `"max_hp_conversion"`: 최종 최대 체력 N%를 해당 스킬의 공격력으로 환산하며 공격력/공격력 버프는 무시 (`scaling_hp_pct` 필드에 N 기입). `"lost_hp_pct"`: 잃은 체력 % 비례 (실제값 = values[level] × 잃은 체력%). 복수 사용 예: `"scaling": ["max_hp_additive", "stack_count"]` |
 | `scaling_ref` | 선택 | damage, instant, buff | `scaling: "stack_count"` 사용 시 기준이 되는 버프/스택/게이지의 `name`. 생략 시 해당 효과 자신의 스택 기준 |
 | `scaling_hp_pct` | 선택 | damage, instant | `scaling: "max_hp_additive"` 사용 시 합산할 최대 체력 비율(%) |
 | `target_effect` | 선택 | buff, instant | 효과가 작용할 대상 효과의 `name`. `effect_interval`·`remove_named_buff` stat에서 필수 |
@@ -251,6 +251,7 @@ template에 timing 키워드 없으면:
 | `버스트 N단계 진입 시` | `"burst_enter:N"` |
 | `버스트 스킬 사용 시` | `"burst_cast"` |
 | `버스트 스킬 N회 사용 시` | `"burst_cast_count:N"` |
+| 특정 조건을 만족한 버스트 스킬 N회 사용 시 | `"conditional_burst_cast_count:그룹:N"` — 조건 불충족 버스트는 계수하지 않음 |
 | `마지막 탄환 명중 시` | `"last_bullet"` |
 | `일반 공격 N회 명중 시` | `"hit_count:N"` |
 | `[스킬명] N회 명중 시` / `[스킬명] 명중 시` (named damage effect) | `"hit_count:[스킬명]:N"` (N=1이면 매 명중마다) |
