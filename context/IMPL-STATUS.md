@@ -302,6 +302,7 @@ python calculator/damage.py
 | `outgoing_heal_pct` | — | — | ❌ | 주는 회복량 ▲. 힐 모델 없음 |
 | `shield_from_max_hp_pct` | — | timeline | ✅ | 시전자의 유효 최대 체력 N%만큼 대상별 보호막 생성. 지속시간 동안 `during_shield` 활성, 적용 대상에게 `event:shield_applied` 통지 |
 | `shared_shield_from_max_hp_pct` | — | timeline | ✅ | 아군 공용 보호막. 시전자의 유효 최대 체력 N%만큼 생성하되 **부여 대상은 시전자 1인**(텍스트에 대상 표기가 없어도 `all_allies`가 아니다). `_SHIELD_STATS`로 `shield_from_max_hp_pct`와 같은 경로를 타 `during_shield`·`event:shield_applied`도 동일하게 성립한다. 블랑 `럭키 가드` |
+| `shield_heal_from_caster_max_hp_pct` | — | timeline | ✅ | 시전자 유효 최대 체력 N%만큼 대상의 활성 보호막을 최초 생성량 상한까지 회복. 주기 instant로 처리. 아군 피격 모델이 없는 기본 시뮬에서는 보호막이 줄지 않아 수치 변화는 없지만 경로와 상한은 구현됨. 라푼젤 : 퓨어 그레이스 `프레이 3` |
 | `next_shield_hp_pct` | — | — | ❌ | 다음 보호막 체력 N% ▲. 다음 1회 증폭·소모 경로 미구현 |
 | `accumulate_max_scale_pct` | — | — | ❌ | 특정 효과의 최대 누적량 N% ▲. `target_effect` 필수. 미구현 |
 | `heal_overcharge_store` | — | — | ❌ | 초과 회복 저장. 미구현 |
@@ -314,11 +315,13 @@ python calculator/damage.py
 | `skill_cooldown` | — | — | ❌ | 개별 스킬 쿨타임 초 감소. 미구현. `target_effect` 필요 |
 | `skill_cooldown_pct` | `skill_cooldown_pct` | — | ⚠️ | 스킬 쿨타임 % 감소. `tick()`의 `every:Ns` interval에 반영. `target_effect` 미지원 — target 캐릭터의 모든 `every:Ns` 스킬에 일괄 적용 |
 | `stun` | — | — | ✅ | 기절. `bm.is_stunned(name)`: `_active`에서 `stat=="stun"` 버프 유무로 판별. 일반공격(`CharState.tick()`)·버스트 사용(`BurstController._try_use_stage()`) 차단. 기절 중 버스트 단계는 만료까지 매 프레임 재시도 |
+| `damage_accumulate` | — | timeline | ✅ | 유지 중 스쿼드가 실제로 입힌 대미지를 누적하고 만료 시 `release_stat` 대미지로 방출. 상한은 부여 시점 시전자 최종 공격력 × values%. 도로시 `낙인`은 `split_damage`로 방출 |
+| `max_ammo_infinite` | `max_ammo_infinite` | timeline | ✅ | 활성 중 탄약을 소비하지 않고 마지막 탄환 이벤트·재장전을 발생시키지 않는 boolean 버프. 스노우 화이트 : 이노센트 데이즈 `세븐스 드워프 III 3` |
+| `infinite_ammo` | — | — | ❌ | 기존 그레이브·나유타 파싱 키. 이번 신규 일반 무기 버프 구현은 `max_ammo_infinite`로 분리해 기존 스냅샷을 바꾸지 않는다 |
 | `invincible` | — | — | ❌ | 무적. 피격 모델 없음 |
 | `undying` | — | — | ❌ | 불굴. 피격 모델 없음 |
 | `stealth` | — | — | ❌ | 은신. 타겟팅 모델 없음 |
 | `decoy` | — | — | ❌ | 분신 생성. 미구현 |
-| `infinite_ammo` | — | — | ❌ | 장탄 무한. 미구현 |
 | `focus_fire` | — | — | ❌ | 사격 집중. 미구현 |
 | `enemy_movement_disable` | — | — | ❌ | 적 이동 불가. 적 이동 모델 없음 |
 | `debuff_immune` | `debuff_immune` | — | ✅ | `_activate()`에서 harmful 효과 차단 |

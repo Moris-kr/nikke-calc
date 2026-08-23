@@ -145,6 +145,7 @@ _BUFFS_ZERO: dict[str, Any] = {
     "stack_change_immune": False,
     "max_ammo_pct":     0.0,
     "max_ammo_flat":    0.0,
+    "max_ammo_infinite": False,
     "accuracy_pct":     0.0,
     "normal_atk_dmg_pct": 0.0,
     "reload_speed_pct": 0.0,
@@ -210,6 +211,7 @@ _STAT_TO_BUFF: dict[str, str] = {
     "stack_change_immune":  "stack_change_immune",
     "max_ammo_pct":         "max_ammo_pct",
     "max_ammo_flat":        "max_ammo_flat",
+    "max_ammo_infinite":    "max_ammo_infinite",
     "accuracy_pct":         "accuracy_pct",
     "normal_atk_dmg_pct":   "normal_atk_dmg_pct",
     "reload_speed_pct":     "reload_speed_pct",
@@ -284,7 +286,7 @@ def _equip_option_groups(stat: str, val) -> list[float]:
 _BOOL_BUFF_KEYS = frozenset([
     "charge_time_fixed", "charge_speed_buff_immune", "charge_speed_debuff_immune",
     "debuff_immune", "stun_immune", "stack_change_immune", "taunt",
-    "pierce_enabled", "armor_break_enabled", "persona_state",
+    "pierce_enabled", "armor_break_enabled", "persona_state", "max_ammo_infinite",
 ])
 
 # get_buffs 실행 계획의 스텝 종류 (`BuffManager._build_plan` 참고)
@@ -420,6 +422,8 @@ class ActiveBuff:
                                       # (None = 미고정 → 조회 시점 값 사용). _capture_scaling_stack() 참고
     shield_per_target: dict[str, float] = field(default_factory=dict)
                                       # shield_from_max_hp_pct의 대상별 보호막량.
+    shield_max_per_target: dict[str, float] = field(default_factory=dict)
+                                      # 보호막 회복 상한(최초 생성량).
                                       # 수명은 ActiveBuff와 같아 별도 만료 상태를 두지 않는다.
 
     uid: int = field(default_factory=lambda: next(_AB_SEQ))
@@ -1931,6 +1935,20 @@ class BuffManager:
             if ab.effect.get("stat") in _SHIELD_STATS
         )
 
+    def heal_shield(self, name: str, amount: float):
+        """name의 활성 보호막을 생성량 상한까지 회복한다."""
+        remain = max(0.0, amount)
+        for ab in reversed(self._active):
+            if remain <= 0.0 or ab.effect.get("stat") not in _SHIELD_STATS:
+                continue
+            if name not in ab.shield_per_target:
+                continue
+            current = ab.shield_per_target[name]
+            cap = ab.shield_max_per_target.get(name, current)
+            gain = min(remain, max(0.0, cap - current))
+            ab.shield_per_target[name] = current + gain
+            remain -= gain
+
     def sync_hp(self, name: str):
         """state['hp']를 기준으로 state['hp_pct']를 재계산한다.
 
@@ -2331,6 +2349,7 @@ class BuffManager:
                 ab_ref.shield_per_target = {
                     tgt: amount for tgt in (ab_ref.target_chars or []) if tgt != "__enemy__"
                 }
+                ab_ref.shield_max_per_target = dict(ab_ref.shield_per_target)
                 for tgt in ab_ref.shield_per_target:
                     self.notify("event:shield_applied", t, tgt)
 

@@ -559,7 +559,8 @@ class CharState:
     def _fire(self, t: float, bm: BuffManager, enemy: dict, cfg: dict) -> list[HitEvent]:
         events = []
         self._apply_wc_first_coeff()
-        is_last = (self.ammo == 1)
+        infinite_ammo = bool(bm.get_buffs(self.name, "__enemy__", t).get("max_ammo_infinite", False))
+        is_last = (self.ammo == 1 and not infinite_ammo)
         if is_last:
             bm.notify("last_bullet_fire", t, self.name)
 
@@ -574,10 +575,12 @@ class CharState:
             # `ammo_charge_pct` 같은 장탄 조작 효과에 오염되므로 발사 시점에 직접 센다.
             self._wc_shots += 1
 
-        self.ammo -= 1
+        if not infinite_ammo:
+            self.ammo -= 1
         if self._sim_log is not None:
             self._sim_log.ammo_log.append(AmmoLogEntry(t=t, caster=self.name, ammo=self.ammo))
-        bm.notify("squad_ammo_consume", t, self.name)
+        if not infinite_ammo:
+            bm.notify("squad_ammo_consume", t, self.name)
         buffs = bm.get_buffs(self.name, "__enemy__", t)
         buffs["is_element_match"] = self.element_match(bm)
         is_optimal = self.weapon_type in enemy.get("optimal_range_weapons", [])
@@ -2056,7 +2059,12 @@ def _register_instant_handlers(bm, char_states: dict[str, "CharState"], burst_ct
         for name in target_names:
             base_hp = bm.state["base_stats"].get(name, {}).get("hp", 0.0)
             max_hp = bm.effective_max_hp(name)
-            heal_base = max_hp if eff.get("scaling") == "max_hp" else base_hp
+            if eff.get("scaling") == "max_hp":
+                heal_base = max_hp
+            elif eff.get("scaling") == "caster_max_hp":
+                heal_base = bm.effective_max_hp(caster)
+            else:
+                heal_base = base_hp
             hp[name] = min(hp.get(name, base_hp) + heal_base * val / 100.0, max_hp)
             bm.sync_hp(name)
             bm.notify("event:heal_received", t, name)
@@ -2078,6 +2086,11 @@ def _register_instant_handlers(bm, char_states: dict[str, "CharState"], burst_ct
         for name in _resolve_targets(eff, caster):
             bm.notify("event:cover_healed", t, name)
 
+    def handle_shield_heal_from_caster_max_hp_pct(eff, caster, t, val):
+        amount = bm.effective_max_hp(caster) * val / 100.0
+        for name in _resolve_targets(eff, caster):
+            bm.heal_shield(name, amount)
+
     def handle_force_reload(eff, caster, t, val):
         target_names = _resolve_targets(eff, caster)
         for name in target_names:
@@ -2093,6 +2106,7 @@ def _register_instant_handlers(bm, char_states: dict[str, "CharState"], burst_ct
     bm.register_instant_handler("heal_hp_pct", handle_heal_hp_pct)
     bm.register_instant_handler("current_hp_reduce", handle_current_hp_reduce)
     bm.register_instant_handler("cover_heal_pct", handle_cover_heal_pct)
+    bm.register_instant_handler("shield_heal_from_caster_max_hp_pct", handle_shield_heal_from_caster_max_hp_pct)
     bm.register_instant_handler("force_reload", handle_force_reload)
 
 
@@ -2203,6 +2217,51 @@ def simulate(
         cs._sim_log = sim_log
     result = SimResult(duration=duration, log=sim_log)
     result.char_total = {c["name"]: 0 for c in squad}
+
+    # 도로시 `낙인` 계열: 유지 시간 동안 스쿼드가 실제로 입힌 대미지를 모아 두었다가
+    # 만료 시 적 전체 분배 대미지로 방출한다. ActiveBuff 인스턴스를 키로 삼아 재시전은
+    # 별도 누적으로 취급하고, 상한은 부여 시점 시전자 최종 공격력으로 고정한다.
+    damage_accumulators: dict[int, dict] = {}
+
+    def _sync_damage_accumulators(t: float):
+        for ab in bm._active:
+            eff = ab.effect
+            if eff.get("stat") != "damage_accumulate" or id(ab) in damage_accumulators:
+                continue
+            caster = ab.caster
+            cs = char_states.get(caster)
+            if cs is None:
+                continue
+            val = bm._get_value(eff, ab, caster) or 0.0
+            buffs = bm.get_buffs(caster, "__enemy__", t)
+            final_atk = cs.base_atk * (1.0 + buffs.get("atk_pct", 0.0) / 100.0) + buffs.get("atk_flat", 0.0)
+            damage_accumulators[id(ab)] = {
+                "caster": caster, "expires": ab.expires_at, "damage": 0.0,
+                "cap": max(0.0, final_atk * val / 100.0), "effect": eff,
+            }
+
+    def _accumulate_damage(events: list[HitEvent], t: float):
+        _sync_damage_accumulators(t)
+        total = sum(ev.damage for ev in events)
+        if total <= 0.0:
+            return
+        for acc in damage_accumulators.values():
+            if t < acc["expires"]:
+                acc["damage"] = min(acc["cap"], acc["damage"] + total)
+
+    def _release_damage_accumulators(t: float) -> list[HitEvent]:
+        released = []
+        for key, acc in list(damage_accumulators.items()):
+            if t < acc["expires"]:
+                continue
+            if acc["damage"] > 0.0:
+                released.append(HitEvent(
+                    t=t, caster=acc["caster"], damage=acc["damage"], is_crit=False,
+                    hit_tag=acc["effect"].get("release_stat", "split_damage"),
+                    skill_name=acc["effect"].get("name", "damage_accumulate"),
+                ))
+            del damage_accumulators[key]
+        return released
 
     # damage 핸들러: bm.tick()/_activate()에서 호출되는 damage 효과를 처리
     _dot_events: list[HitEvent] = []
@@ -2431,26 +2490,37 @@ def simulate(
     t = 0.0
     while t <= duration:
         bm.tick(t)
+        _sync_damage_accumulators(t)
+
+        for ev in _release_damage_accumulators(t):
+            result.hits.append(ev)
+            result.char_total[ev.caster] += ev.damage
+            _apply_lifesteal(ev, bm, base_stats, t)
 
         if t >= _next_part_break:
             for char in squad:
                 bm.notify("event:part_destroy", t, char["name"])
             _next_part_break += _part_break_interval
 
+        _accumulate_damage(_dot_events, t)
         for ev in _dot_events:
             result.hits.append(ev)
             result.char_total[ev.caster] += ev.damage
             _apply_lifesteal(ev, bm, base_stats, t)
         _dot_events.clear()
 
-        for ev in burst_ctrl.tick(t, bm, state):
+        burst_events = burst_ctrl.tick(t, bm, state)
+        _accumulate_damage(burst_events, t)
+        for ev in burst_events:
             result.hits.append(ev)
             result.char_total[ev.caster] += ev.damage
             _apply_lifesteal(ev, bm, base_stats, t)
 
         for char in squad:
             name = char["name"]
-            for ev in char_states[name].tick(t, bm, enm, cfg):
+            char_events = char_states[name].tick(t, bm, enm, cfg)
+            _accumulate_damage(char_events, t)
+            for ev in char_events:
                 result.hits.append(ev)
                 result.char_total[name] += ev.damage
                 _apply_lifesteal(ev, bm, base_stats, t)

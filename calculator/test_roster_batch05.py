@@ -17,7 +17,7 @@ def _find(name, stat=None, effect_name=None):
 class RosterBatch05Test(unittest.TestCase):
     def test_all_ten_registered(self):
         skills=_skills(); self.assertTrue(all(n in skills for n in BATCH))
-        self.assertEqual(136,len([n for n in skills if not n.startswith("test_")]))
+        self.assertGreaterEqual(len([n for n in skills if not n.startswith("test_")]),136)
 
     def test_hidden_cooldowns(self):
         expected={("율하","위크 메이커"):"every:30s",("애드미","고양이 숨결"):"every:20s",

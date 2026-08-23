@@ -530,6 +530,7 @@ template에 timing 키워드 없으면:
 | `outgoing_heal_pct` | 주는 체력 회복량 % ▲ |
 | `shield_from_max_hp_pct` | 최대 체력 N%만큼 보호막 생성 |
 | `shared_shield_from_max_hp_pct` | `아군 공용 보호막` — 최대 체력 N%만큼 생성하되 **대상은 시전자 1인**(`target: "self"`). 대상 표기가 없어도 `all_allies`로 읽지 않는다 |
+| `shield_heal_from_caster_max_hp_pct` | 시전자 최종 최대 체력 N% 비례 보호막 체력 회복. `instant` + `tick_interval` 사용 |
 | `next_shield_hp_pct` | 다음 보호막 체력 N% ▲ |
 | `accumulate_max_scale_pct` | 특정 효과의 최대 누적량 N% ▲ (`target_effect` 필수) |
 | `effect_target_count_add` | 특정 효과의 타격 대상 수 N ▲ (`target_effect` 필수, `fixed_value`). 텍스트: `[효과명] 적용 대상 N ▲` |
@@ -537,6 +538,8 @@ template에 timing 키워드 없으면:
 | `heal_overcharge_store` | 시전자 기준 최대 체력 N%까지 초과 받는 체력 회복량 저장 |
 | `heal_overcharge_store_atk_pct` | 시전자 최종 공격력 N%까지 받는 체력 회복량 저장 (ATK 비례 한도) |
 | `shield_restore_pct` | 보호막 회복 % ▲ |
+| `damage_accumulate` | 유지 중 받은 대미지 누적 후 만료 시 방출. `release_stat`, `release_target`, `scaling`, `duration` 필수 |
+| `max_ammo_infinite` | 장탄 수 무한. 수치 없이 boolean buff, 지속시간 필수 |
 | `burst_dmg_single_pct` | 단일 대상 버스트 스킬 대미지 % ▲ |
 | `burst_dmg_aoe_pct` | 전체 대상 버스트 스킬 대미지 % ▲ |
 | `burst_cooldown` | 자신의 버스트 스킬 재사용 시간 N초 ▼ (buff 상태로 지속. named 상태 참조 가능) — **`burst_cooldown_reduce`(instant)와 혼동 주의**: 이쪽은 지속시간 있는 buff, `burst_cooldown_reduce`는 즉시 1회 감소 instant |
