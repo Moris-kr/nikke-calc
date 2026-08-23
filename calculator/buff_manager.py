@@ -3306,6 +3306,9 @@ class BuffManager:
             return [n for n in self.squad_names if not self.state.get("burst_casted", {}).get(n)]
         if target == "all_allies_excl_self":
             return [n for n in self.squad_names if n != caster]
+        if target.startswith("allies_named:"):
+            name = target[len("allies_named:"):]
+            return [name] if name in self.squad_names else []
         if target == "allies_same_squad":
             squad_id = _NIKKE.get(caster, {}).get("squad")
             return [n for n in self.squad_names if _NIKKE.get(n, {}).get("squad") == squad_id]

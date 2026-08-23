@@ -322,6 +322,9 @@ python calculator/damage.py
 | `undying` | — | — | ❌ | 불굴. 피격 모델 없음 |
 | `stealth` | — | — | ❌ | 은신. 타겟팅 모델 없음 |
 | `decoy` | — | — | ❌ | 분신 생성. 미구현 |
+| `decoy_from_max_hp_pct` | — | — | ❌ | 시전자 최종 최대 체력 비례 분신. 분신 피격 모델 미구현 |
+| `decoy_heal_from_caster_max_hp_pct` | — | — | ❌ | 시전자 최종 최대 체력 비례 분신 회복. 분신 HP 모델 미구현 |
+| `cover_revive` | — | — | 🚫 | 파괴된 엄폐물 부활. 엄폐물 HP·파괴 모델 미구현 |
 | `focus_fire` | — | — | ❌ | 사격 집중. 미구현 |
 | `enemy_movement_disable` | — | — | ❌ | 적 이동 불가. 적 이동 모델 없음 |
 | `debuff_immune` | `debuff_immune` | — | ✅ | `_activate()`에서 harmful 효과 차단 |
@@ -588,6 +591,8 @@ lazy resolve: 버프 반영 스탯 기준 정렬 필요 target → `_activate()`
 | `"allies_down_top_atk_excl:N"` | ❌ | ❌ | 자신을 제외한 전투불능 아군 중 최종 공격력 최고 N기. **전투불능 모델이 없어 분기를 두지 않는다** — 기본 경로가 빈 리스트를 돌려주고, 짝인 `revive`(🚫)·`event:ally_down`(⚠️)과 같은 클래스다. 마나 `매터 감마 3` |
 | `"allies_with_buff:버프명"` | ❌ | ✅ | 해당 이름의 버프가 활성인 아군 전체. `enemies_with_buff:`의 아군판(그쪽은 `__enemy__` 센티널이라 실질 필터가 없다). **부여 시점 스냅샷(비lazy)으로 확정** — "부여 순간 조건을 만족한 아군에게 준다"는 게임 시맨틱에 가깝다. 판정은 `_has_self_state()`를 재사용해 weapon_change 모드도 상태로 인정. 레이 (가칭) `섬멸 지원 4~6` |
 | `"allies_random_debuffed:N"` | ❌ | ✅ | 발동 시점에 해로운 효과를 가진 아군 중 무작위 N기. 코코아 정화 대상 |
+| `"allies_named:캐릭터명"` | ❌ | ✅ | 콜론 포함 정식 이름도 지정 가능한 특정 아군 1기. 미편성 시 빈 대상 |
+| `"allies_random_cover_destroyed:N"` | ❌ | ❌ | 엄폐물이 파괴된 아군 중 무작위 N기. 엄폐물 파괴 모델이 없어 빈 대상 |
 | `"allies_without_buff:버프명"` | ❌ | ✅ | 해당 named buff가 활성이지 않은 아군 전체. `allies_with_buff:`와 같은 부여 시점 스냅샷의 부정형. 크러스트 `든든한 요리` |
 | `"allies_burst3_persona_excl_self"` | ❌ | ✅ | 자신을 제외한 · 기본 버스트 단계 Step 3 · `persona_state` 보유 아군 전체. `allies_burst3` ∩ `persona_state` 보유 − 자신. 판정은 `allies_with_buff:`와 같은 부여 시점 스냅샷. 퀸(마코토) `배턴 터치`, 유키코 `추격` |
 | `"allies_burst_casted_burst3"` | ❌ | ✅ | 직전에 버스트를 사용한 아군 중 기본 버스트 단계 Step 3. `all_allies_burst_casted` ∩ `allies_burst3`. 아래 무기판과 같은 취지 — `burst_casted`를 condition으로 두면 시전자 기준이라 대상 필터가 안 된다. 에이다 `은밀한 지원 1~3` |

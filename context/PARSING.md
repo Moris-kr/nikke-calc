@@ -551,6 +551,9 @@ template에 timing 키워드 없으면:
 | `undying` | 불굴 (`values`/`fixed_value` 없음) |
 | `stealth` | 은신 (`values`/`fixed_value` 없음) |
 | `decoy` | 디코이 : 시전자의 최종 최대 체력 비례 {1}% 분신 |
+| `decoy_from_max_hp_pct` | 시전자 최종 최대 체력 비례 분신 생성 |
+| `decoy_heal_from_caster_max_hp_pct` | 시전자 최종 최대 체력 비례 분신 회복 |
+| `cover_revive` | 파괴된 엄폐물 체력 N%로 부활 |
 | `infinite_ammo` | 장탄수 무한 (`values`/`fixed_value` 없음) |
 | `focus_fire` | 사격 집중 (`values`/`fixed_value` 없음, `duration` 필수) |
 | `enemy_movement_disable` | 적 이동 불가 (`values`/`fixed_value` 없음, `duration` 필수) |
