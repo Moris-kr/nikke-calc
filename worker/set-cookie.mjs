@@ -17,19 +17,31 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+// 파일 경로를 주면 그 파일을, 안 주면 클립보드를 읽는다. "Copy as cURL" 직후에
+// 인자 없이 돌리는 게 가장 짧고, 파일을 남기지 않아 지울 것도 없다.
 const source = process.argv[2];
-if (!source) {
+let text;
+if (source) {
+  text = readFileSync(source, 'utf8');
+} else if (process.platform === 'win32') {
+  const clip = spawnSync('powershell.exe',
+    ['-NoProfile', '-Command', 'Get-Clipboard -Raw'], { encoding: 'utf8', maxBuffer: 4 << 20 });
+  if (clip.status !== 0) {
+    console.error('[!] 클립보드를 읽지 못했습니다. 파일 경로를 인자로 주세요.');
+    process.exit(1);
+  }
+  text = clip.stdout;
+} else {
   console.error('사용법: node worker/set-cookie.mjs <Copy as cURL을 붙여넣은 파일>');
   process.exit(1);
 }
-
-const text = readFileSync(source, 'utf8');
 // -H 'Cookie: …' / -H "Cookie: …" / -b '…' 어느 형태로 나오든 받는다.
 const match = text.match(/-H\s+(['"])cookie:\s*([\s\S]*?)\1/i)
   ?? text.match(/-b\s+(['"])([\s\S]*?)\1/);
 if (!match) {
   console.error('[!] Cookie 헤더를 찾지 못했습니다. api.blablalink.com 요청을 '
     + '"Copy as cURL"로 복사했는지 확인해 주세요.');
+  console.error(`    (읽은 내용 ${text.length}자, 앞부분: ${JSON.stringify(text.slice(0, 60))})`);
   process.exit(1);
 }
 

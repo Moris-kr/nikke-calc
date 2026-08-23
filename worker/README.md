@@ -37,14 +37,16 @@ npx wrangler deploy
 1. 크롬에서 `blablalink.com`에 로그인하고 게임 계정을 연동한다.
 2. F12 → **Network** 탭을 연 채로 니케 도감(`/shiftyspad/nikke-list`) 같은 페이지를 연다.
 3. 목록에서 `api.blablalink.com` 요청 아무거나 **우클릭 → Copy → Copy as cURL (bash)**.
-4. 아무 텍스트 파일에 붙여넣고 저장한 뒤:
+4. 복사한 채로 그대로 실행한다 — 인자가 없으면 클립보드를 읽는다.
 
 ```bash
-node worker/set-cookie.mjs curl.txt
+node worker/set-cookie.mjs
 ```
 
+파일로 넘기고 싶으면 붙여넣어 저장한 뒤 `node worker/set-cookie.mjs curl.txt`.
+
 스크립트가 `Cookie:` 헤더만 뽑아 **이 컴퓨터에서 먼저 로그인이 되는지 확인한 뒤에만**
-wrangler에 넘긴다. 값은 화면에 찍히지 않는다. 다 되면 붙여넣은 파일은 지운다.
+wrangler에 넘긴다. 값은 화면에 찍히지 않는다. 파일로 넘겼다면 그 파일은 지운다.
 
 여기서 `로그인이 안 됩니다 (300001 game not login)`가 뜨면 쿠키가 잘못된 것이다 —
 워커 문제가 아니므로 3단계를 다시 한다.
