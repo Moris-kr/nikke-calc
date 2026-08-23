@@ -76,6 +76,19 @@ npm run check-runtime
 
 `master` 브랜치에 푸시하면 GitHub Actions가 의존성을 잠금 파일대로 설치하고 테스트와 프로덕션 빌드를 통과한 `site/dist`만 GitHub Pages에 배포합니다. Vite의 배포 기본 경로는 `/nikke-calc/`입니다.
 
+## 라이선스
+
+계산 엔진의 원본은 <https://github.com/Jgaram/nikke-calc>이며 MIT 라이선스로 공개돼 있습니다.
+이 저장소는 그 포크이므로 같은 MIT 라이선스를 따르고, 원 저작권 고지를 [LICENSE](LICENSE)에 그대로 싣습니다.
+
+    Copyright (c) 2026 Jgaram
+    MIT License
+
 ## 고지
 
-이 저장소와 서비스는 비공식 팬 도구이며 SHIFT UP 또는 Level Infinite와 제휴하거나 이들의 승인을 받은 서비스가 아닙니다. 게임 명칭, 캐릭터 이미지 및 관련 자산의 권리는 각 권리자에게 있습니다. 공개 운영 전에는 사용 중인 자산과 데이터의 배포 권한을 별도로 확인하세요.
+이 저장소와 서비스는 비공식 팬 도구이며 SHIFT UP 또는 Level Infinite와 제휴하거나 이들의 승인을 받은 서비스가 아닙니다.
+『승리의 여신: NIKKE』의 게임 데이터·캐릭터·이미지 및 관련 저작물에 대한 권리는 SHIFT UP CORP. 및 Level Infinite에 있습니다.
+위 라이선스는 계산기 코드에만 적용되며 게임 저작물에는 적용되지 않습니다.
+공개 운영 전에는 사용 중인 자산과 데이터의 배포 권한을 별도로 확인하세요.
+
+계산 결과는 참고용입니다 — 버그나 아직 확인되지 않은 게임 메커니즘이 남아 있을 수 있습니다.
