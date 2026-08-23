@@ -310,12 +310,21 @@ def normalize_character_overrides(
         raise ValueError("캐릭터 설정은 객체여야 한다")
     unknown_sections = set(raw) - {
         "growthStage", "overload", "cube", "manualStats", "skillLevels", "control",
-        "burst", "equipLevels", "collection",
+        "burst", "equipLevels", "collection", "weaponModeSwapAt",
     }
     if unknown_sections:
         raise ValueError(f"지원하지 않는 캐릭터 설정: {sorted(unknown_sections)}")
 
     result: dict[str, Any] = {}
+    if "weaponModeSwapAt" in raw:
+        if character_name is not None and character_name != "신데렐라 : 크리스탈 웨이브":
+            raise ValueError("저격 모드 변경은 신데렐라 : 크리스탈 웨이브만 지원합니다")
+        swap_at = raw["weaponModeSwapAt"]
+        if isinstance(swap_at, bool) or not isinstance(swap_at, (int, float)) \
+                or not math.isfinite(swap_at) or not 0 <= swap_at <= 180:
+            raise ValueError("저격 모드 변경 시점은 0~180초 숫자여야 합니다")
+        result["weapon_mode_swap"] = True
+        result["weapon_mode_swap_at"] = float(swap_at)
     if "control" in raw:
         result["_control_override"] = _normalize_control(raw["control"])
     burst = raw.get("burst")

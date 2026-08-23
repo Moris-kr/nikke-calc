@@ -164,6 +164,15 @@ describe('request normalization', () => {
       characters: { 리타: { growthStage: 3, equipLevels: { 머리: 3 } } },
     };
     expect(cacheKey(base, 'v1')).not.toBe(cacheKey(equipChanged, 'v1'));
+
+    const modeSwapBase = { ...valid, squad: ['신데렐라 : 크리스탈 웨이브'] };
+    const modeSwapChanged = {
+      ...modeSwapBase,
+      characters: { '신데렐라 : 크리스탈 웨이브': { growthStage: 3, weaponModeSwapAt: 6 } },
+    };
+    expect(normalizeRequest(modeSwapChanged).characters?.['신데렐라 : 크리스탈 웨이브']
+      ?.weaponModeSwapAt).toBe(6);
+    expect(cacheKey(modeSwapBase, 'v1')).not.toBe(cacheKey(modeSwapChanged, 'v1'));
   });
 });
 

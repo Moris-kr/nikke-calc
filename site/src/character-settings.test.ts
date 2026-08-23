@@ -80,6 +80,30 @@ const settings: SettingsCatalog = {
       cube: { name: '재장', level: 15 },
       collection: { stage: 'SR15', favorite: 0 },
     },
+    '신데렐라 : 크리스탈 웨이브': {
+      weaponType: 'MG',
+      recommendedControl: {},
+      hasConditionalControl: false,
+      growthStage: 3,
+      rarity: 'SSR',
+      maxGrowthStage: 10,
+      growthOptions: Array.from({ length: 11 }, (_, value) => ({
+        value,
+        label: value === 0 ? '명함' : value <= 3 ? `${value}돌` : `코강 ${value - 3}`,
+        affinity: value === 0 ? 10 : value === 1 ? 20 : 30,
+      })),
+      skillLevels: { '1': 10, '2': 10, '3': 10 },
+      skillLevelsLocked: false,
+      overload: {
+        element_bonus: 88.6,
+        atk_pct: 22.22,
+        max_ammo_pct: 129.64,
+        crit_rate: 0,
+        crit_dmg: 0,
+      },
+      cube: { name: '재장', level: 15 },
+      collection: { stage: 'SR15', favorite: 0 },
+    },
   },
   collectionStages: ['없음', 'SR0', 'SR5', 'SR15'],
   consoleClasses: ['화력형', '방어형', '지원형'],
@@ -113,7 +137,7 @@ const settings: SettingsCatalog = {
 describe('character settings editor', () => {
   let root: HTMLElement;
   let value: CharacterOverrides | undefined;
-  let characterName: '리타' | '라피' | '아마기 유키코';
+  let characterName: '리타' | '라피' | '아마기 유키코' | '신데렐라 : 크리스탈 웨이브';
 
   const render = () => renderCharacterSettings(root, characterName, settings, value, (next) => {
     value = next;
@@ -188,6 +212,41 @@ describe('character settings editor', () => {
     arm.value = '2';
     arm.dispatchEvent(new Event('change'));
     expect(value?.equipLevels).toEqual({ 머리: 5, 몸통: 5, 팔: 2, 다리: 5 });
+  });
+
+  it('offers Crystal Wave sniper mode with a six-second default delay', () => {
+    characterName = '신데렐라 : 크리스탈 웨이브';
+    render();
+    setToggle('[data-custom-toggle]', true);
+
+    const checkbox = root.querySelector<HTMLInputElement>('[data-weapon-mode-swap]')!;
+    const delay = root.querySelector<HTMLInputElement>('[data-weapon-mode-swap-at]')!;
+    expect(checkbox).not.toBeNull();
+    expect(checkbox.checked).toBe(false);
+    expect(delay.value).toBe('6');
+    expect(delay.disabled).toBe(true);
+
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new Event('change'));
+    expect(value?.weaponModeSwapAt).toBe(6);
+
+    const enabledDelay = root.querySelector<HTMLInputElement>('[data-weapon-mode-swap-at]')!;
+    expect(enabledDelay.disabled).toBe(false);
+    enabledDelay.focus();
+    enabledDelay.value = '8';
+    enabledDelay.dispatchEvent(new Event('input'));
+    expect(document.activeElement).toBe(enabledDelay);
+    enabledDelay.value = '8.5';
+    enabledDelay.dispatchEvent(new Event('input'));
+    expect(value?.weaponModeSwapAt).toBe(8.5);
+
+    setToggle('[data-weapon-mode-swap]', false);
+    expect(value?.weaponModeSwapAt).toBeUndefined();
+  });
+
+  it('does not show the sniper mode control for other characters', () => {
+    setToggle('[data-custom-toggle]', true);
+    expect(root.querySelector('[data-weapon-mode-swap]')).toBeNull();
   });
 
   it('selects a legal growth stage and applies its maximum bond rank', () => {

@@ -298,6 +298,7 @@ class CharState:
         # 모드 지정 플래그: 수동 재장전으로 진입하는 weapon_change 모드를 쓰는가.
         # 진입에 필요한 재장전만 삽입하고 진입 후에는 삽입하지 않아 모드를 유지한다.
         self.weapon_mode_swap: bool = bool(char.get("weapon_mode_swap", False))
+        self.weapon_mode_swap_at: float = float(char.get("weapon_mode_swap_at", 0.0))
 
         # ── 컨트롤 (유저 조작 재현). 정본: context/CONTROL.md ─────────────
         control = char.get("control") or {}
@@ -456,6 +457,7 @@ class CharState:
         # 모드 지정 플래그: 진입 조건이 충족된 순간 수동 재장전을 삽입해 모드로 들어간다.
         # (실전의 수동컨을 재현. 자연 재장전만으로는 진입 조건이 성립하지 않는 모드가 있다)
         if (self.weapon_mode_swap
+                and t >= self.weapon_mode_swap_at
                 and self.reloading_until <= 0
                 and self._post_reload_end_t <= 0
                 and bm.manual_swap_ready(self.name, t)):

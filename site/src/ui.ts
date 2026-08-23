@@ -327,6 +327,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
               </span>
               ${BLABLA_PROXY ? '<button type="button" class="roster-import" data-blabla-open title="블라블라링크 프로필 URL로 보유 니케의 육성을 한 번에 불러옵니다">블라블라링크 연동</button>' : ''}
               <button type="button" class="roster-import" data-add-nikke title="미출시·미등록 니케를 직접 추가">새 니케 추가</button>
+              <button type="button" class="roster-import" data-preset-open title="현재 편성을 저장하거나 저장한 편성을 불러옵니다. 개인 스펙과 전투 조건은 저장하지 않습니다">편성 프리셋</button>
               <button type="button" class="roster-import" data-share-open title="편성을 코드로 만들어 공유하거나, 받은 코드를 붙여넣어 5덱을 한 번에 적용">조합 공유</button>
               <button type="button" class="roster-import danger" data-reset-all title="편성·설정·CSV 로스터·추가한 니케·저장된 결과를 모두 지우고 처음 상태로 되돌립니다">완전 초기화</button>
               <label class="toggle-field mode-toggle"><input id="squad-mode" type="checkbox" /><span class="toggle"></span><span>5덱 모드</span></label>
@@ -954,6 +955,13 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         || custom.cube.level < 1 || custom.cube.level > 15)) {
         messages.push(`덱 ${deck.id} · ${name}: 큐브 설정을 확인해 주세요.`);
       }
+      if (custom.weaponModeSwapAt !== undefined && (
+        !Number.isFinite(custom.weaponModeSwapAt)
+        || custom.weaponModeSwapAt < 0
+        || custom.weaponModeSwapAt > 180
+      )) {
+        messages.push(`덱 ${deck.id} · ${name}: 저격 모드 변경 시점은 0~180초여야 합니다.`);
+      }
       for (const [key, value] of Object.entries(custom.manualStats ?? {})) {
         const meta = settings.manualStats[key];
         if (!meta || !Number.isFinite(value) || value < meta.min || value > meta.max) {
@@ -1164,12 +1172,19 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     // 코드가 짧아져 링크로도 무리가 없다 — 받는 쪽은 열기만 하면 적용된다.
     shareUrl.value = `${location.origin}${location.pathname}#deck=${encodeURIComponent(code)}`;
   };
-  element<HTMLButtonElement>(root, '[data-share-open]').addEventListener('click', () => {
+  const openShareModal = (focusPreset = false) => {
     refreshShareFields();
     renderPresets();
     shareIn.value = '';
     showShareMsg('');
     shareModal.hidden = false;
+    if (focusPreset) presetName.focus();
+  };
+  element<HTMLButtonElement>(root, '[data-share-open]').addEventListener('click', () => {
+    openShareModal();
+  });
+  element<HTMLButtonElement>(root, '[data-preset-open]').addEventListener('click', () => {
+    openShareModal(true);
   });
   element<HTMLButtonElement>(root, '[data-share-close]').addEventListener('click', () => {
     shareModal.hidden = true;

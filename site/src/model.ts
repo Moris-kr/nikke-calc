@@ -89,6 +89,8 @@ function normalizeCharacters(
       ...(value.equipLevels && Object.keys(value.equipLevels).length > 0
         ? { equipLevels: { ...value.equipLevels } } : {}),
       ...(value.control !== undefined ? { control: value.control } : {}),
+      ...(value.weaponModeSwapAt !== undefined
+        ? { weaponModeSwapAt: value.weaponModeSwapAt } : {}),
     };
     if (Object.keys(normalized).length > 0) result[name] = normalized;
   }

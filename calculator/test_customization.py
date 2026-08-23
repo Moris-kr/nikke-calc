@@ -12,6 +12,63 @@ from context.spec import _nikke as parsed_nikke
 
 
 class CharacterCustomizationTest(unittest.TestCase):
+    def test_weapon_mode_swap_delay_is_normalized_and_validated(self):
+        self.assertEqual(
+            normalize_character_overrides(
+                {"weaponModeSwapAt": 6},
+                character_name="신데렐라 : 크리스탈 웨이브",
+            ),
+            {"weapon_mode_swap": True, "weapon_mode_swap_at": 6.0},
+        )
+        for bad in (-0.1, 180.1, True, "6"):
+            with self.subTest(bad=bad):
+                with self.assertRaises(ValueError):
+                    normalize_character_overrides({"weaponModeSwapAt": bad})
+        with self.assertRaises(ValueError):
+            normalize_character_overrides(
+                {"weaponModeSwapAt": 6}, character_name="리타"
+            )
+
+    def test_legacy_weapon_mode_swap_keeps_zero_second_eligibility(self):
+        name = "신데렐라 : 크리스탈 웨이브"
+
+        def first_swap(overrides):
+            squad = build_squad([name], {name: overrides})
+            result = simulate(
+                squad,
+                config=build_config(squad, {"duration": 25.0}),
+                verbose=True,
+                seed=1,
+            )
+            return next(
+                event.t for event in result.log.buff_events
+                if event.kind == "activate" and event.caster == name
+                and event.name == "디스트로이"
+            )
+
+        self.assertEqual(
+            first_swap({"weapon_mode_swap": True}),
+            first_swap({"weapon_mode_swap": True, "weapon_mode_swap_at": 0.0}),
+        )
+
+    def test_weapon_mode_swap_waits_until_requested_battle_time(self):
+        name = "신데렐라 : 크리스탈 웨이브"
+        squad = build_squad([name], {
+            name: {"weapon_mode_swap": True, "weapon_mode_swap_at": 20.0},
+        })
+        result = simulate(
+            squad,
+            config=build_config(squad, {"duration": 30.0}),
+            verbose=True,
+            seed=1,
+        )
+        swaps = [
+            event for event in result.log.buff_events
+            if event.kind == "activate" and event.caster == name and event.name == "디스트로이"
+        ]
+        self.assertTrue(swaps)
+        self.assertGreaterEqual(swaps[0].t, 20.0)
+
     def test_all_nine_overload_options_are_browser_safe(self):
         self.assertEqual(set(OVERLOAD_FIELDS), {
             "atk_pct", "def_pct", "element_bonus", "max_ammo_pct",

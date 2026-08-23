@@ -144,6 +144,28 @@ describe('calculator UI', () => {
     localStorage.clear();
   });
 
+  it('exposes composition-only presets as a first-class squad action', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+
+    const open = root.querySelector<HTMLButtonElement>('[data-preset-open]')!;
+    expect(open).not.toBeNull();
+    expect(open.textContent).toContain('프리셋');
+    open.click();
+
+    const modal = root.querySelector<HTMLElement>('[data-share-modal]')!;
+    expect(modal.hidden).toBe(false);
+    expect(root.querySelector<HTMLInputElement>('[data-preset-name]')).toBe(document.activeElement);
+    expect(modal.textContent).toContain('개인 스펙과 전투 조건은 코드에 담기지 않습니다');
+
+    const name = root.querySelector<HTMLInputElement>('[data-preset-name]')!;
+    name.value = '솔레 1군';
+    root.querySelector<HTMLButtonElement>('[data-preset-save]')!.click();
+    const stored = JSON.parse(localStorage.getItem('nikke-presets-v1')!) as Array<Record<string, unknown>>;
+    expect(stored).toHaveLength(1);
+    expect(Object.keys(stored[0]!).sort()).toEqual(['at', 'code', 'name']);
+    expect(stored[0]?.name).toBe('솔레 1군');
+  });
+
   afterEach(() => {
     root.remove();
   });

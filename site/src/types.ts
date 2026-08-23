@@ -55,6 +55,8 @@ export interface CharacterOverrides {
   manualStats?: Record<string, number>;
   burst?: BurstAssignment;
   equipLevels?: Partial<Record<EquipPart, number>>;
+  /** 전투 시작 후 이 시각부터 수동 재장전 기반 무기 모드 전환을 시도한다. */
+  weaponModeSwapAt?: number;
 }
 
 export interface GrowthOption {

@@ -15,6 +15,7 @@ import type {
 // CONTROL.md는 실질 범위를 3.0~4.2로 적는다. 여기는 직접 켤 때의 출발값이라 별개다.
 const TAP_FIRE_DEFAULT = 4.4;
 const TAP_FIRE_HARD_LIMIT = 4.5;
+const WEAPON_MODE_SWAP_DEFAULT = 6;
 
 const EQUIP_PARTS: EquipPart[] = ['머리', '몸통', '팔', '다리'];
 // 내부 부위 키는 '팔'이지만 UI·CSV 표기는 '장갑'이다.
@@ -44,6 +45,7 @@ const cloneOverrides = (value: CharacterOverrides): CharacterOverrides => ({
   ...(value.manualStats ? { manualStats: { ...value.manualStats } } : {}),
   ...(value.burst ? { burst: value.burst } : {}),
   ...(value.equipLevels ? { equipLevels: { ...value.equipLevels } } : {}),
+  ...(value.weaponModeSwapAt !== undefined ? { weaponModeSwapAt: value.weaponModeSwapAt } : {}),
 });
 
 export function defaultCharacterOverrides(
@@ -598,6 +600,42 @@ export function renderCharacterSettings(
   });
   reloadLabel.append(reloadPolicy);
   addControlToggle('cover', '버스트 엄폐 컨트롤', { policy: 'own_full_burst' });
+
+  if (name === '신데렐라 : 크리스탈 웨이브') {
+    const modeLabel = document.createElement('label');
+    modeLabel.className = 'inline-check control-toggle weapon-mode-swap';
+    const modeCheckbox = document.createElement('input');
+    modeCheckbox.type = 'checkbox';
+    modeCheckbox.dataset.weaponModeSwap = '';
+    modeCheckbox.checked = current.weaponModeSwapAt !== undefined;
+    const modeDelay = document.createElement('input');
+    modeDelay.type = 'number';
+    modeDelay.dataset.weaponModeSwapAt = '';
+    modeDelay.min = '0';
+    modeDelay.max = '180';
+    modeDelay.step = '0.1';
+    modeDelay.value = String(current.weaponModeSwapAt ?? WEAPON_MODE_SWAP_DEFAULT);
+    modeDelay.disabled = current.weaponModeSwapAt === undefined;
+    modeCheckbox.addEventListener('change', () => {
+      const next = cloneOverrides(current);
+      if (modeCheckbox.checked) next.weaponModeSwapAt = WEAPON_MODE_SWAP_DEFAULT;
+      else delete next.weaponModeSwapAt;
+      commit(next);
+    });
+    modeDelay.addEventListener('input', () => {
+      const at = Number(modeDelay.value);
+      if (!Number.isFinite(at) || at < 0 || at > 180) return;
+      const next = cloneOverrides(current);
+      next.weaponModeSwapAt = at;
+      emitNumericChange(next);
+    });
+    modeLabel.append(
+      modeCheckbox,
+      document.createTextNode('저격 모드로 변경 · 전투 시작 '),
+      makeInputUnit(modeDelay, '초 후부터 전환 시도'),
+    );
+    controlGrid.append(modeLabel);
+  }
 
   const controlWarning = document.createElement('p');
   controlWarning.className = 'field-note warning';
