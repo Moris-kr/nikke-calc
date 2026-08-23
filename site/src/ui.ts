@@ -306,10 +306,13 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           <div class="section-heading">
             <div><p class="step">01 / SQUAD</p><h2 id="squad-heading">편성 및 캐릭터 설정</h2></div>
             <div class="squad-tools">
-              <label class="roster-import" title="렛츠도로 니케정보 CSV를 불러와 모든 니케 설정에 적용">
-                <input id="roster-csv" type="file" accept=".csv,text/csv" hidden />
-                <span>렛츠도로 CSV 불러오기</span>
-              </label>
+              <span class="roster-import-group">
+                <label class="roster-import" title="렛츠도로 니케정보 CSV를 불러와 모든 니케 설정에 적용">
+                  <input id="roster-csv" type="file" accept=".csv,text/csv" hidden />
+                  <span>렛츠도로 CSV 불러오기</span>
+                </label>
+                <button type="button" class="roster-info" data-doro-open aria-label="렛츠도로 CSV 받는 법" title="렛츠도로에서 CSV 받는 법">i</button>
+              </span>
               <button type="button" class="roster-import" data-add-nikke title="미출시·미등록 니케를 직접 추가">새 니케 추가</button>
               <button type="button" class="roster-import" data-share-open title="편성을 코드로 만들어 공유하거나, 받은 코드를 붙여넣어 5덱을 한 번에 적용">조합 공유</button>
               <button type="button" class="roster-import danger" data-reset-all title="편성·설정·CSV 로스터·추가한 니케·저장된 결과를 모두 지우고 처음 상태로 되돌립니다">완전 초기화</button>
@@ -425,6 +428,15 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <button type="button" class="deck-copy-apply danger" data-reset-confirm>초기화</button>
             <button type="button" class="deck-copy-cancel" data-reset-cancel>취소</button>
           </div>
+        </div>
+      </div>
+
+      <div class="custom-modal" data-doro-modal hidden>
+        <div class="custom-card doro-card" role="dialog" aria-label="렛츠도로 CSV 받는 법">
+          <div class="custom-head"><h2>렛츠도로 CSV 받는 법</h2><button type="button" class="custom-close" data-doro-close aria-label="닫기">✕</button></div>
+          <p class="custom-desc">렛츠도로 <b>니케 정보</b> 페이지에서 목록 오른쪽 아래 <b>내려받기 아이콘</b>을 누르면 CSV가 저장됩니다. 그 파일을 <b>렛츠도로 CSV 불러오기</b>로 넣으면 보유 니케 설정이 한 번에 적용됩니다.</p>
+          <p class="doro-link"><a href="https://letsdoro.com/mypage?tab=nikke" target="_blank" rel="noreferrer">letsdoro.com 니케 정보 열기 ↗</a></p>
+          <img class="doro-shot" src="${import.meta.env.BASE_URL}letsdoro-csv.png" alt="렛츠도로 니케 정보 페이지에서 CSV 내려받기 위치" loading="lazy" />
         </div>
       </div>
 
@@ -1224,6 +1236,20 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     } finally {
       rosterInput.value = '';
     }
+  });
+
+  // 렛츠도로 CSV 받는 법 안내. 스크린샷이 아직 없으면 이미지만 숨긴다 — 링크·설명은 남는다.
+  const doroModal = element<HTMLElement>(root, '[data-doro-modal]');
+  const doroShot = element<HTMLImageElement>(root, '.doro-shot');
+  doroShot.addEventListener('error', () => { doroShot.hidden = true; });
+  element<HTMLButtonElement>(root, '[data-doro-open]').addEventListener('click', () => {
+    doroModal.hidden = false;
+  });
+  element<HTMLButtonElement>(root, '[data-doro-close]').addEventListener('click', () => {
+    doroModal.hidden = true;
+  });
+  doroModal.addEventListener('click', (event) => {
+    if (event.target === doroModal) doroModal.hidden = true;
   });
 
   const customModal = element<HTMLElement>(root, '[data-custom-modal]');

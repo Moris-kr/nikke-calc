@@ -424,3 +424,12 @@ footer a { color: #93aabd; text-decoration: none; font-weight: 800; letter-spaci
 .site-notice { margin: 0 0 4px; padding: 10px 14px; background: rgba(69,214,208,.08); border: 1px solid rgba(69,214,208,.24); border-radius: 8px; text-align: center; font-size: 13px; font-weight: 700; }
 .site-notice a { color: #cfeceb; text-decoration: none; }
 .site-notice a:hover { color: var(--cyan); text-decoration: underline; }
+
+/* 렛츠도로 CSV 안내 */
+.roster-import-group { display: inline-flex; align-items: center; gap: 6px; }
+.roster-info { width: 22px; height: 22px; padding: 0; border: 1px solid rgba(69,214,208,.35); background: rgba(69,214,208,.08); color: #cfeceb; font: 700 12px/1 ui-serif, Georgia, serif; border-radius: 50%; cursor: pointer; }
+.roster-info:hover { background: rgba(69,214,208,.2); border-color: var(--cyan); }
+.doro-card { width: min(900px, 100%); }
+.doro-link { margin: 12px 0 10px; font-size: 13px; font-weight: 700; }
+.doro-link a { color: var(--cyan); }
+.doro-shot { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
