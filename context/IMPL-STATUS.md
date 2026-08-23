@@ -257,6 +257,7 @@ python calculator/damage.py
 | `split_dmg_pct` | `split_dmg_pct` | ⑥ | ✅ | `is_split=True` 히트에서 ⑥에 합산 |
 | `charge_dmg_pct` | `charge_dmg_pct` | ④ | ✅ | |
 | `charge_dmg_mag_pct` | `charge_dmg_mag_pct` | ④ | ✅ | ④ 승수. `(1+mag%) × full_charge_mult% × (1+charge_dmg%)` |
+| `charge_dmg_per_max_ammo_pct` | `charge_dmg_per_max_ammo_pct` | ④ | ✅ | 차지 발사 시 최종 최대 장탄 수를 곱해 `charge_dmg_pct`에 합산. 에밀리아 |
 | `sequential_dmg_pct` | `sequential_dmg_pct` | ⑤ | ✅ | `is_sequential=True` 히트에만 가산 |
 | `optimal_range_dmg_pct` | — | ③ | ❌ | 적정거리 대미지 ▲. 미구현. ③의 고정 +30%와 별도 버프 항목 |
 | `received_dmg_pct` | `received_dmg` | ⑥ | ✅ | 음수 저장 시 감소 효과 |
@@ -315,7 +316,9 @@ python calculator/damage.py
 | `skill_cooldown` | — | — | ❌ | 개별 스킬 쿨타임 초 감소. 미구현. `target_effect` 필요 |
 | `skill_cooldown_pct` | `skill_cooldown_pct` | — | ⚠️ | 스킬 쿨타임 % 감소. `tick()`의 `every:Ns` interval에 반영. `target_effect` 미지원 — target 캐릭터의 모든 `every:Ns` 스킬에 일괄 적용 |
 | `stun` | — | — | ✅ | 기절. `bm.is_stunned(name)`: `_active`에서 `stat=="stun"` 버프 유무로 판별. 일반공격(`CharState.tick()`)·버스트 사용(`BurstController._try_use_stage()`) 차단. 기절 중 버스트 단계는 만료까지 매 프레임 재시도 |
-| `damage_accumulate` | — | timeline | ✅ | 유지 중 스쿼드가 실제로 입힌 대미지를 누적하고 만료 시 `release_stat` 대미지로 방출. 상한은 부여 시점 시전자 최종 공격력 × values%. 도로시 `낙인`은 `split_damage`로 방출 |
+| `damage_accumulate` | — | timeline | ✅ | 유지 중 스쿼드가 실제로 입힌 대미지를 누적하고 만료 시 `release_stat` 대미지로 방출. 상한은 부여 시점 시전자 최종 공격력 × values%. `accumulate_ratio_pct`가 있으면 실피해의 해당 비율만 누적. 도로시 `낙인`·트로니 `T.Rony 봄버` |
+| `damage_accumulate_ratio_pct` | `damage_accumulate_ratio_pct` | timeline | ✅ | 누적 폭발의 기본 누적 비율을 곱연산으로 증가시키며 누적기 생성 시 스냅샷. 트로니 |
+| `fixed_damage_from_dealt_pct` | — | timeline | ✅ | 직전 풀차지 일반 공격의 실제 피해량 × N%. 방어력·공격력·크리 공식을 다시 적용하지 않는 본체 고정 피해. 에밀리아 |
 | `max_ammo_infinite` | `max_ammo_infinite` | timeline | ✅ | 활성 중 탄약을 소비하지 않고 마지막 탄환 이벤트·재장전을 발생시키지 않는 boolean 버프. 스노우 화이트 : 이노센트 데이즈 `세븐스 드워프 III 3` |
 | `infinite_ammo` | — | — | ❌ | 기존 그레이브·나유타 파싱 키. 이번 신규 일반 무기 버프 구현은 `max_ammo_infinite`로 분리해 기존 스냅샷을 바꾸지 않는다 |
 | `invincible` | — | — | ❌ | 무적. 피격 모델 없음 |
@@ -331,6 +334,7 @@ python calculator/damage.py
 | `element_received_dmg_pct` | — | — | ❌ | 특정 코드 적에게 받는 대미지 증감. 아군 피격 모델 미구현 |
 | `harmful_immune_count` | — | — | ❌ | 해로운 효과 면역 횟수 원문 보존. 적이 아군에게 거는 디버프 모델 없음 |
 | `heal_given_pct` | — | — | ❌ | 주는 회복량 증감. 현재 회복 handler에 미반영 |
+| `heal_equal_split` | — | — | ❌ | 시전자의 회복을 지정 아군에게 균등 분배. 수령자별 회복 라우팅 모델이 없어 상태 계약만 보존. 렘 |
 | `indomitable` | — | — | 🚫 | 불굴. 전투불능 모델 미구현 |
 | `shield_invincible` | — | — | ❌ | 자신이 설치한 보호막 무적. 보호막 피격 모델 미구현 |
 | `focus_fire` | — | — | ❌ | 사격 집중. 미구현 |
@@ -450,6 +454,7 @@ python calculator/damage.py
 | `full_charge` | ✅ | `bm.notify("full_charge", ...)` |
 | `full_charge_hit` | ✅ | `bm.notify("full_charge_hit", ...)` |
 | `full_charge_count:N` | ✅ | `full_charge_hit` 이벤트의 N번째 발생 시. `trigger_count_reduce` 버프로 N 감소 가능 |
+| `core_hit` | ✅ | `bm.notify("core_hit", ...)`. 코어 크기·명중률에 따른 실제/기대 코어 명중 이벤트 |
 | `core_hit_count:1` | ✅ | `bm.notify("core_hit", ...)` (횟수 없는 형태, `timing == event`로 처리) |
 | `core_hit_count:N` | ✅ | `bm.notify("core_hit", ...)`. `trigger_count_reduce` 버프로 N 감소 가능 |
 | `pellet_hit_count:N` | ✅ | `bm.notify("pellet_hit", ...)`. `trigger_count_reduce` 버프로 N 감소 가능 |

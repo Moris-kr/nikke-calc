@@ -3489,6 +3489,7 @@
     "burst_stage": "1",
     "burst_cooldown": 40.0,
     "weapon_type": "RL",
+    "fire_mode": "auto",
     "max_ammo": 6,
     "reload_time": 2.5,
     "fire_rate": 1.5,

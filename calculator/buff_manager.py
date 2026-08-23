@@ -127,6 +127,8 @@ _BUFFS_ZERO: dict[str, Any] = {
     "sequential_dmg_pct":           0.0,
     "charge_dmg_pct":   0.0,
     "charge_dmg_mag_pct": 0.0,
+    "charge_dmg_per_max_ammo_pct": 0.0,
+    "damage_accumulate_ratio_pct": 0.0,
     "split_dmg_pct":    0.0,
     "part_dmg_pct":     0.0,
     "received_dmg":     0.0,
@@ -190,6 +192,8 @@ _STAT_TO_BUFF: dict[str, str] = {
     "sequential_dmg_pct":           "sequential_dmg_pct",
     "charge_dmg_pct":       "charge_dmg_pct",
     "charge_dmg_mag_pct":   "charge_dmg_mag_pct",  # 차지 대미지 배율 ▲ (④ 승수)
+    "charge_dmg_per_max_ammo_pct": "charge_dmg_per_max_ammo_pct",
+    "damage_accumulate_ratio_pct": "damage_accumulate_ratio_pct",
     "split_dmg_pct":        "split_dmg_pct",        # 분배 대미지 ▲ (⑥에 합산)
     "part_dmg_pct":         "part_dmg_pct",         # 파츠 대미지 ▲ (⑤ 선택 합산)
     "part_dmg":             "part_dmg_pct",         # 파츠 큐브 테이블 stat명

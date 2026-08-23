@@ -214,7 +214,9 @@ class CharState:
 
         mech = _MECHANICS["weapon_type_defaults"][self.weapon_type]
         self.mech = mech
-        self.fire_mode: str = mech["type"]  # "auto" / "auto_warmup" / "charge"
+        # 파스칼처럼 무기군은 RL이지만 차지할 수 없는 예외는 캐릭터 데이터가
+        # 무기군 기본 발사 모드를 덮어쓴다.
+        self.fire_mode: str = weapon_data.get("fire_mode", mech["type"])
 
         self.ammo: int = weapon_data["max_ammo"]
         self.reloading_until: float = -1.0
@@ -792,6 +794,12 @@ class CharState:
             self._force_full_charge = False
             bm.notify("full_charge", t, self.name)
         buffs = bm.get_buffs(self.name, "__enemy__", t)
+        # 에밀리아 `미정령의 축복`: 최종 최대 장탄 수 1발마다 차지 대미지 증가.
+        # 장탄 버프까지 반영된 실제 재장전 상한을 사용한다.
+        per_ammo_charge = buffs.get("charge_dmg_per_max_ammo_pct", 0.0)
+        if per_ammo_charge:
+            buffs = dict(buffs)
+            buffs["charge_dmg_pct"] += per_ammo_charge * self._full_ammo(bm, t)
         buffs["is_element_match"] = self.element_match(bm)
         if enemy.get("core_px", 0) > 0:
             P_core = _core_hit_prob(
@@ -840,6 +848,9 @@ class CharState:
             tag = "core" if is_core else "normal"
         events.append(HitEvent(t=t, caster=self.name, damage=res["damage"],
                                is_crit=res["is_crit"], hit_tag=tag))
+        # 명중 직후 파생되는 "자신이 가한 피해량 비례 고정 대미지"의 기준값.
+        # notify(full_charge_hit) 동안만 소비되며 방어력·공격 버프를 다시 적용하지 않는다.
+        bm.state.setdefault("last_normal_hit_damage", {})[self.name] = res["damage"]
         is_last = (self.ammo == 1)
         if self._in_weapon_change:
             # weapon_change의 duration_bullets 카운트 (_fire()와 동일 취지).
@@ -2238,6 +2249,8 @@ def simulate(
             damage_accumulators[id(ab)] = {
                 "caster": caster, "expires": ab.expires_at, "damage": 0.0,
                 "cap": max(0.0, final_atk * val / 100.0), "effect": eff,
+                "ratio": max(0.0, float(eff.get("accumulate_ratio_pct", 100.0))
+                             * (1.0 + buffs.get("damage_accumulate_ratio_pct", 0.0) / 100.0)),
             }
 
     def _accumulate_damage(events: list[HitEvent], t: float):
@@ -2247,7 +2260,9 @@ def simulate(
             return
         for acc in damage_accumulators.values():
             if t < acc["expires"]:
-                acc["damage"] = min(acc["cap"], acc["damage"] + total)
+                acc["damage"] = min(
+                    acc["cap"], acc["damage"] + total * acc["ratio"] / 100.0
+                )
 
     def _release_damage_accumulators(t: float) -> list[HitEvent]:
         released = []
@@ -2324,6 +2339,17 @@ def simulate(
         stat = eff.get("stat", "")
         timings = eff.get("trigger", {}).get("timing", [])
         target_field = eff.get("target", "")
+        # 에밀리아 `대정령의 철퇴`: 직전 풀차지 공격이 실제로 가한 피해량의
+        # 일정 비율을 본체 고정 피해로 준다. 일반 스킬 공식으로 재계산하지 않는다.
+        if stat == "fixed_damage_from_dealt_pct":
+            dealt = bm.state.get("last_normal_hit_damage", {}).get(caster, 0.0)
+            if dealt > 0.0:
+                _dot_events.append(HitEvent(
+                    t=t, caster=caster, damage=dealt * coeff / 100.0,
+                    is_crit=False, hit_tag=stat,
+                    skill_name=eff.get("name", stat),
+                ))
+            return
         is_burst3 = str(_NIKKE.get(caster, {}).get("burst_stage", "")) == "3"
         if stat == "bonus_damage" and "burst_cast" in timings and is_burst3:
             # same_target:X → 짝이 되는 sequential 효과의 hit_count만큼 반복 발동
