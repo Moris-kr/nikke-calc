@@ -745,6 +745,11 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         renderSquad();
         renderRosterGrid();
       });
+      // 좁은 화면에서는 슬롯 줄이 옆으로 밀린다. 겨냥한 칸이 화면 밖에 있으면
+      // 판이 어디를 채우는지 알 수 없으므로 끌어다 보여 준다.
+      if (activeSlot === index) {
+        requestAnimationFrame(() => choose.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
+      }
 
       const clear = document.createElement('button');
       clear.type = 'button';

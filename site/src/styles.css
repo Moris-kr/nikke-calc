@@ -76,10 +76,13 @@ a:focus-visible {
 /* 스크롤을 따라다니지 않는다 — 결과와 같이 흘러야 어느 조건의 결과인지 헷갈리지 않는다. */
 .settings-panel { padding: 28px; }
 .result-panel { min-height: 520px; padding: 28px; overflow: hidden; }
-.section-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
+.section-heading { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 16px 24px; margin-bottom: 24px; }
+/* 제목은 짓눌리지 않는다. 도구가 여섯 개라 자리가 모자라면 제목이 먼저 한 글자씩
+   쪼개졌다(«편성 / 및 캐 / 릭터 / 설정»). 최소 폭을 주고 모자라면 도구를 아래로 접는다. */
+.section-heading > div:first-child { flex: 1 1 260px; min-width: 0; }
 .section-heading.compact { margin-bottom: 20px; }
 h2 { margin: 0; font-size: 24px; letter-spacing: -.035em; }
-.squad-tools { display: flex; align-items: center; gap: 14px; }
+.squad-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
 .mode-toggle { grid-column: auto; white-space: nowrap; padding-bottom: 2px; }
 .roster-import { display: inline-flex; align-items: center; padding: 8px 12px; border: 1px solid rgba(69,214,208,.3); background: rgba(69,214,208,.08); color: #cfeceb; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; border-radius: 7px; }
 .roster-import:hover { background: rgba(69,214,208,.16); }
@@ -416,7 +419,13 @@ footer a { color: #93aabd; text-decoration: none; font-weight: 800; letter-spaci
   .hero { min-height: 210px; padding-inline: 4px; }
   .hero-orbit { display: none; }
   .calculator-layout { grid-template-columns: 1fr; }
-  .squad-grid { grid-template-columns: repeat(5, minmax(220px, 1fr)); }
+  /* 좁아지면 다섯 칸을 옆으로 밀지 않고 접는다. 미는 쪽은 지금 겨냥한 칸이
+     화면 밖으로 나가기 쉬운데, 그 칸이 어디인지가 이 화면의 요점이다. */
+  .squad-grid { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); overflow-x: visible; }
+  /* 한 줄에 제목과 도구를 같이 두기엔 좁다 — 도구를 통째로 아래로 내린다. */
+  .section-heading { align-items: stretch; }
+  .squad-tools { width: 100%; }
+  .panel { padding: 22px; }
 }
 
 @media (max-width: 600px) {
@@ -428,6 +437,12 @@ footer a { color: #93aabd; text-decoration: none; font-weight: 800; letter-spaci
   .section-heading { align-items: stretch; flex-direction: column; gap: 16px; }
   .squad-tools { align-items: stretch; flex-direction: column; gap: 12px; }
   .deck-tabs { grid-template-columns: repeat(5, minmax(72px, 1fr)); overflow-x: auto; }
+  /* 폰에서는 슬롯을 가로로 밀지 않고 두 줄로 접는다. 밀어서 보면 지금 겨냥한 칸이
+     화면 밖에 있기 쉬운데, 그 칸이 어디인지가 이 화면의 전부다. 번호(01~05)가
+     카드에 찍혀 있어 순서는 접혀도 읽힌다. */
+  .squad-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); overflow-x: visible; }
+  .picker-scroll { max-height: 240px; }
+  .picker { padding: 10px; }
   .field-grid { grid-template-columns: 1fr; }
   .toggle-field { grid-column: auto; }
   .result-header { align-items: start; flex-direction: column; }
