@@ -372,6 +372,14 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       </section>
       <footer><p>비공식 팬 제작 도구 · 실제 전투 환경과 차이가 있을 수 있습니다.</p><a href="https://github.com/Moris-kr/nikke-calc" target="_blank" rel="noreferrer">SOURCE / GITHUB ↗</a></footer>
 
+      <div class="custom-modal" data-history-modal hidden>
+        <div class="custom-card roster-card" role="dialog" aria-label="계산 기록">
+          <div class="custom-head"><h2>계산 기록</h2><button type="button" class="custom-close" data-history-close aria-label="닫기">✕</button></div>
+          <p class="custom-desc">결과에서 «결과 기록»을 누른 시점의 편성과 수치가 이 브라우저에 남습니다. 편성을 되살려 그때 조합으로 돌아갈 수 있습니다. <b>수치는 그때의 스펙·전투 조건으로 낸 값</b>이라, 지금 설정과 다르면 다시 계산해야 맞습니다.</p>
+          <div class="history-list" data-history-list></div>
+        </div>
+      </div>
+
       <div class="custom-modal" data-share-modal hidden>
         <div class="custom-card" role="dialog" aria-label="조합 공유">
           <div class="custom-head"><h2>조합 공유</h2><button type="button" class="custom-close" data-share-close aria-label="닫기">✕</button></div>
@@ -1020,6 +1028,109 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     showShareMsg(`«${name}» 으로 저장했습니다. 편성만 담기므로 스펙이 바뀌어도 그대로 씁니다.`, true);
   });
 
+  // 계산 기록 — 그때의 편성(공유 코드)과 수치·조건을 남긴다. 편성만 되살릴 수 있게
+  // 코드로 담아, 스펙이 바뀌어도 조합은 그대로 복원된다.
+  const HISTORY_KEY = 'nikke-history-v1';
+  const HISTORY_MAX = 30;
+  interface HistoryEntry {
+    at: string; code: string; total: number; duration: number;
+    decks: Array<{ id: number; total: number; squad: string[] }>;
+    conditions: string;
+  }
+  const historyModal = element<HTMLElement>(root, '[data-history-modal]');
+  const historyList = element<HTMLElement>(root, '[data-history-list]');
+  let calcHistory: HistoryEntry[] = (() => {
+    try {
+      const raw = resolveStorage()?.getItem(HISTORY_KEY);
+      const parsed = raw ? (JSON.parse(raw) as HistoryEntry[]) : [];
+      return Array.isArray(parsed) ? parsed.filter((item) => item && item.code) : [];
+    } catch {
+      return [];
+    }
+  })();
+  const persistHistory = () => {
+    try {
+      resolveStorage()?.setItem(HISTORY_KEY, JSON.stringify(calcHistory));
+    } catch {
+      /* 저장 실패는 무시 */
+    }
+  };
+  const saveHistory = (batch: BatchResult) => {
+    const battle = readBattle();
+    const entry: HistoryEntry = {
+      at: new Date().toISOString(),
+      code: encodeShareCode(decks, fiveDeckMode),
+      total: batch.total,
+      duration: batch.decks[0]?.result.duration ?? 0,
+      decks: batch.decks.map((deck) => ({
+        id: deck.deckId,
+        total: deck.result.squadTotal,
+        squad: deck.request.squad.filter(Boolean),
+      })),
+      conditions: `${battle.duration}초 · 방어력 ${battle.enemyDef.toLocaleString('en-US')}`
+        + `${battle.enemyCode ? ` · ${battle.enemyCode}` : ' · 코드 없음'}`
+        + `${battle.coreEnabled ? ` · 코어 ${battle.corePx}px` : ''} · 시드 ${battle.seed}`,
+    };
+    calcHistory = [entry, ...calcHistory].slice(0, HISTORY_MAX);
+    persistHistory();
+    renderHistory();
+    historyModal.hidden = false;
+  };
+  const renderHistory = () => {
+    historyList.replaceChildren();
+    if (calcHistory.length === 0) {
+      historyList.append(createText('p', '아직 기록이 없습니다. 결과에서 «결과 기록»을 눌러 주세요.', 'preset-empty'));
+      return;
+    }
+    for (const entry of calcHistory) {
+      const row = document.createElement('article');
+      row.className = 'history-item';
+      row.dataset.historyItem = entry.at;
+      const head = document.createElement('div');
+      head.className = 'history-head';
+      head.append(
+        createText('strong', formatDamage(entry.total)),
+        createText('span', new Date(entry.at).toLocaleString('ko-KR')),
+      );
+      row.append(head, createText('p', entry.conditions, 'history-cond'));
+      for (const deck of entry.decks) {
+        row.append(createText(
+          'p',
+          `덱 ${deck.id} · ${formatDamage(deck.total)} — ${deck.squad.join(', ') || '빈 덱'}`,
+          'history-deck',
+        ));
+      }
+      const actions = document.createElement('div');
+      actions.className = 'history-actions';
+      const restore = document.createElement('button');
+      restore.type = 'button';
+      restore.className = 'preset-load';
+      restore.textContent = '이 편성 되살리기';
+      restore.addEventListener('click', () => {
+        applyShareText(entry.code);
+        historyModal.hidden = true;
+      });
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'preset-remove';
+      remove.textContent = '삭제';
+      remove.addEventListener('click', () => {
+        calcHistory = calcHistory.filter((item) => item.at !== entry.at);
+        persistHistory();
+        renderHistory();
+      });
+      actions.append(restore, remove);
+      row.append(actions);
+      historyList.append(row);
+    }
+  };
+  element<HTMLButtonElement>(root, '[data-history-close]').addEventListener('click', () => {
+    historyModal.hidden = true;
+  });
+  historyModal.addEventListener('click', (event) => {
+    if (event.target === historyModal) historyModal.hidden = true;
+  });
+
   const refreshShareFields = () => {
     const code = encodeShareCode(decks, fiveDeckMode);
     shareOut.value = code;
@@ -1187,8 +1298,26 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     reportButton.textContent = '보고서 이미지 만들기';
     reportButton.title = '결과를 한 장짜리 PNG로 만들어 복사하거나 저장합니다';
     reportButton.addEventListener('click', () => { void openReport(); });
-    reportTools.append(reportButton);
+    const historySave = document.createElement('button');
+    historySave.type = 'button';
+    historySave.className = 'report-open';
+    historySave.dataset.historySave = '';
+    historySave.textContent = '결과 기록';
+    historySave.title = '이때의 편성과 수치를 이 브라우저에 남깁니다';
+    historySave.addEventListener('click', () => saveHistory(batch));
+    const historyOpen = document.createElement('button');
+    historyOpen.type = 'button';
+    historyOpen.className = 'report-open';
+    historyOpen.dataset.historyOpen = '';
+    historyOpen.textContent = '기록 보기';
+    historyOpen.addEventListener('click', () => { renderHistory(); historyModal.hidden = false; });
+    reportTools.append(historySave, historyOpen, reportButton);
     resultPanel.append(reportTools);
+
+    // 덱 순위 — 딜 내림차순. 표시는 편성 순서를 지키고 등수만 얹는다.
+    const ordered = [...batch.decks].sort((a, b) => b.result.squadTotal - a.result.squadTotal);
+    const ranking = new Map(ordered.map((entry, index) => [entry.deckId, index + 1]));
+    const best = ordered[0]?.result.squadTotal ?? 0;
 
     for (const entry of batch.decks) {
       const section = document.createElement('section');
@@ -1202,6 +1331,21 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         createText('small', formatDps(entry.result.squadTotal / entry.result.duration)),
       );
       section.append(deckHeader);
+      // 덱이 둘 이상이면 «어느 쪽이 얼마나 센가»가 알고 싶은 전부다 — 순위와 1위 대비 차이를 붙인다.
+      if (ranking.size > 1) {
+        const rank = ranking.get(entry.deckId)!;
+        const gap = best > 0 ? (entry.result.squadTotal / best - 1) * 100 : 0;
+        const badge = createText(
+          'p',
+          rank === 1
+            ? '1위 · 기준'
+            : `${rank}위 · 1위 대비 ${gap.toFixed(1)}% (${formatDamage(entry.result.squadTotal - best)})`,
+          'deck-rank',
+        );
+        badge.dataset.deckRank = String(rank);
+        if (rank === 1) badge.classList.add('is-best');
+        section.append(badge);
+      }
       if (entry.result.previewNote) section.append(createText('p', entry.result.previewNote, 'preview-warning'));
       renderCharacterRows(section, entry);
       const facts = document.createElement('div');
