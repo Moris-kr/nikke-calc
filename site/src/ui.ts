@@ -382,8 +382,13 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <div class="deck-copy-actions"><button type="button" class="deck-copy-apply" data-share-copy>코드 복사</button></div>
           </div>
           <div class="squad-code-block">
+            <h4>공유 링크</h4>
+            <textarea class="custom-json" data-share-url rows="2" readonly></textarea>
+            <div class="deck-copy-actions"><button type="button" class="deck-copy-apply" data-share-url-copy>링크 복사</button></div>
+          </div>
+          <div class="squad-code-block">
             <h4>받은 코드 적용</h4>
-            <textarea class="custom-json" data-share-in rows="3" placeholder="받은 조합 코드를 붙여넣으세요 (NIKKE1-...)"></textarea>
+            <textarea class="custom-json" data-share-in rows="3" placeholder="받은 조합 코드나 공유 링크를 붙여넣으세요"></textarea>
             <div class="deck-copy-actions"><button type="button" class="deck-copy-apply" data-share-apply>이 조합 적용</button></div>
           </div>
           <p class="custom-msg" data-share-msg hidden></p>
@@ -920,14 +925,21 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const shareModal = element<HTMLElement>(root, '[data-share-modal]');
   const shareOut = element<HTMLTextAreaElement>(root, '[data-share-out]');
   const shareIn = element<HTMLTextAreaElement>(root, '[data-share-in]');
+  const shareUrl = element<HTMLTextAreaElement>(root, '[data-share-url]');
   const shareMsg = element<HTMLElement>(root, '[data-share-msg]');
   const showShareMsg = (message: string, ok = false) => {
     shareMsg.hidden = message === '';
     shareMsg.textContent = message;
     shareMsg.classList.toggle('is-ok', ok);
   };
+  const refreshShareFields = () => {
+    const code = encodeShareCode(decks, fiveDeckMode);
+    shareOut.value = code;
+    // 코드가 짧아져 링크로도 무리가 없다 — 받는 쪽은 열기만 하면 적용된다.
+    shareUrl.value = `${location.origin}${location.pathname}#deck=${encodeURIComponent(code)}`;
+  };
   element<HTMLButtonElement>(root, '[data-share-open]').addEventListener('click', () => {
-    shareOut.value = encodeShareCode(decks, fiveDeckMode);
+    refreshShareFields();
     shareIn.value = '';
     showShareMsg('');
     shareModal.hidden = false;
@@ -947,10 +959,15 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       showShareMsg('자동 복사가 막혀 코드를 선택해 뒀습니다. Ctrl+C로 복사해 주세요.');
     }
   });
-  element<HTMLButtonElement>(root, '[data-share-apply]').addEventListener('click', () => {
+  // 링크째 붙여넣어도 되게, #deck= 뒤의 코드만 뽑아 쓴다.
+  const shareCodeFrom = (text: string): string => {
+    const hit = text.match(/#deck=([^&\s]+)/);
+    return hit ? decodeURIComponent(hit[1]!) : text;
+  };
+  const applyShareText = (text: string) => {
     try {
       // 카탈로그 이름을 넘겨야 해시에서 캐릭터를 되찾는다(커스텀 니케도 카탈로그에 있다).
-      const payload = decodeShareCode(shareIn.value, catalog.map((char) => char.name));
+      const payload = decodeShareCode(shareCodeFrom(text), catalog.map((char) => char.name));
       // 스펙은 내 것을 쓴다 — CSV 로스터를 넣어 뒀으면 그대로 얹힌다.
       const { applied, skipped } = applyShareToDecks(
         payload, decks,
@@ -973,8 +990,19 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     } catch (error) {
       showShareMsg(error instanceof Error ? error.message : String(error));
     }
+  };
+  element<HTMLButtonElement>(root, '[data-share-apply]').addEventListener('click', () => {
+    applyShareText(shareIn.value);
   });
-
+  element<HTMLButtonElement>(root, '[data-share-url-copy]').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl.value);
+      showShareMsg('링크를 복사했습니다. 받는 사람은 열기만 하면 편성이 들어갑니다.', true);
+    } catch {
+      shareUrl.select();
+      showShareMsg('자동 복사가 막혀 링크를 선택해 뒀습니다. Ctrl+C로 복사해 주세요.');
+    }
+  });
   // ── 보고서 이미지 ────────────────────────────────────────────────────────
   let lastBatch: BatchResult | null = null;
   let reportBlob: Blob | null = null;
@@ -1483,6 +1511,18 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   updateRosterNote();
   renderDeckTabs();
   renderSquad();
+
+  // 공유 링크로 들어왔으면 저장 상태 위에 그 편성을 얹는다 — 순서가 반대면
+  // applySavedState가 링크로 넣은 편성을 도로 덮어쓴다. 주소는 정리해 두어
+  // 새로고침할 때마다 다시 덮어쓰지 않게 한다.
+  if (location.hash.startsWith('#deck=')) {
+    const linked = location.hash;
+    history.replaceState(null, '', location.pathname + location.search);
+    applyShareText(linked);
+    refreshShareFields();
+    shareIn.value = linked;
+    shareModal.hidden = false;
+  }
 
   const prepared = client.prepare()
     .then(() => {
