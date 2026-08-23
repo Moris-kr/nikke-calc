@@ -30,18 +30,34 @@ npx wrangler deploy
 
 ### 쿠키 얻기
 
+**Application > Cookies 패널에서 긁지 말 것.** 거기서는 필요한 쿠키가 다 보이지 않아
+`game_token`과 `game_uid`만 담기고, 그러면 상류가 `300001 game not login`으로 거절한다.
+반드시 **실제로 나간 요청의 `Cookie:` 헤더**를 통째로 복사한다.
+
 1. 크롬에서 `blablalink.com`에 로그인하고 게임 계정을 연동한다.
-2. F12 → Application → Cookies → `https://www.blablalink.com`.
-3. `game_token`과 `game_openid`를 포함한 쿠키 전부를 `이름=값; 이름=값` 한 줄로 잇는다.
+2. F12 → **Network** 탭을 연 채로 니케 도감(`/shiftyspad/nikke-list`) 같은 페이지를 연다.
+3. 목록에서 `api.blablalink.com` 요청 아무거나 고른다 → **Headers → Request Headers →
+   `Cookie:`** 의 값을 통째로 복사한다. `game_token` `game_openid` `game_gameid`가
+   들어 있어야 한다.
 4. 그 한 줄을 `wrangler secret put BLABLA_COOKIE`에 붙여넣는다.
 
-쿠키는 만료된다. 만료되면 사이트가 "프록시 세션이 만료됐습니다"를 띄우므로 3~4단계를
+제대로 들어갔는지는 점검 엔드포인트로 확인한다 — 쿠키 값은 돌려주지 않고 모양만 센다.
+
+```bash
+curl -X POST https://<워커주소>/health   -H "Content-Type: application/json" -H "Origin: https://moris-kr.github.io"
+```
+
+`upstream.code`가 `0`이면 세션이 살아 있는 것이고, `300001`이면 아직 거절당하는 중이다.
+`shape.hasGameOpenid`가 `false`면 3단계를 잘못 복사한 것이다.
+
+쿠키는 만료된다. 만료되면 사이트가 "프록시 세션이 만료됐습니다"를 띄우므로 2~4단계를
 다시 하면 된다. 이 계정 명의로 조회가 나가니 부계정을 쓰는 편이 낫다.
 
 ## API
 
 ```
-POST /sync   {"profileUrl": "https://www.blablalink.com/user?openid=..."}
+POST /sync     {"profileUrl": "https://www.blablalink.com/user?openid=..."}
+POST /health   {}      세션 점검 — 쿠키 값은 절대 돌려주지 않고 모양과 상류 응답만 낸다
 ```
 
 성공하면 이렇게 돌려준다. 지역이 여러 개 걸린 계정은 `areas`가 여러 개다.

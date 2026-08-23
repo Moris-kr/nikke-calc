@@ -127,6 +127,42 @@ async function collectArea(openid, area, cookie) {
   return { area, characters, details, stateEffects, outpost };
 }
 
+/**
+ * 세션 점검. 쿠키가 왜 거부되는지 알려면 값이 아니라 **모양**을 봐야 한다 —
+ * 값은 절대 돌려주지 않고 길이와 키 유무만 센다.
+ */
+async function health(cookie) {
+  const names = cookie.split(';').map((part) => part.trim().split('=')[0]).filter(Boolean);
+  const shape = {
+    length: cookie.length,
+    cookies: names.length,
+    names,
+    hasGameToken: names.includes('game_token'),
+    hasGameOpenid: names.includes('game_openid'),
+    // 붙여넣다 흔히 섞여 들어오는 것들
+    looksLikeHeader: /^\s*cookie\s*:/i.test(cookie),
+    hasNewline: cookie.split(String.fromCharCode(10)).length > 1 || cookie.split(String.fromCharCode(13)).length > 1,
+  };
+
+  let upstream;
+  try {
+    const response = await fetch(API.replace('game/proxy/', 'ugc/proxy/standalonesite/')
+      + 'User/GetUserInfoNew', {
+      method: 'POST',
+      headers: upstreamHeaders(cookie),
+      body: '{}',
+    });
+    const payload = await response.json();
+    upstream = { status: response.status, code: payload.code, msg: payload.msg ?? '' };
+    // 로그인이 살아 있으면 내 openid가 온다. 뒤 4자리만 남겨 본인 확인만 되게 한다.
+    const openid = payload.data?.info?.intl_openid;
+    if (openid) upstream.openidTail = String(openid).slice(-4);
+  } catch (error) {
+    upstream = { error: String(error).slice(0, 120) };
+  }
+  return { shape, upstream };
+}
+
 async function sync(profileUrl, cookie) {
   const openid = openidFrom(profileUrl);
   if (!openid) {
@@ -178,11 +214,14 @@ export default {
     });
 
     const url = new URL(request.url);
-    if (request.method !== 'POST' || url.pathname !== '/sync') {
+    if (request.method !== 'POST' || !['/sync', '/health'].includes(url.pathname)) {
       return json({ error: 'POST /sync 만 받습니다.', reason: 'badurl' }, 404);
     }
     if (!env.BLABLA_COOKIE) {
       return json({ error: '프록시에 세션이 설정돼 있지 않습니다.', reason: 'session' }, 503);
+    }
+    if (url.pathname === '/health') {
+      return json(await health(env.BLABLA_COOKIE), 200);
     }
 
     let body;
