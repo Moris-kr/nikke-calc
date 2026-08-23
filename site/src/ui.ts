@@ -309,7 +309,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           <p class="eyebrow">BROWSER SIM <span>·</span> 60 FPS TIMELINE</p>
           <h1><span>NIKKE</span> 스쿼드 계산기</h1>
           <p class="hero-lede">캐릭터별 오버로드와 큐브, 전투 조건을 반영해 프레임 단위 예상 대미지를 계산합니다.</p>
-          <div class="trust-row" aria-label="서비스 특징"><span>${catalog.length}명 지원</span></div>
+          <div class="trust-row" aria-label="서비스 특징"><span>${catalog.length}명 지원</span><a class="credit-link" href="https://github.com/Jgaram/nikke-calc" target="_blank" rel="noreferrer noopener" title="이 계산기의 원본 저장소">원본 알고리즘 개발자에게 무한한 감사를</a></div>
         </div>
         <div class="hero-orbit" aria-hidden="true"><span>01</span><strong>LOCAL<br />SIM</strong></div>
       </header>

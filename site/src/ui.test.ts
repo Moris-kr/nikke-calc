@@ -361,6 +361,17 @@ describe('calculator UI', () => {
     expect(root.querySelector('[data-roster-open]')).toBeNull();
   });
 
+  it('credits the upstream algorithm next to the supported count', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const credit = root.querySelector<HTMLAnchorElement>('.trust-row .credit-link')!;
+
+    expect(credit.textContent).toBe('원본 알고리즘 개발자에게 무한한 감사를');
+    expect(credit.href).toBe('https://github.com/Jgaram/nikke-calc');
+    // 새 탭으로 열되 opener를 넘기지 않는다.
+    expect(credit.target).toBe('_blank');
+    expect(credit.rel).toContain('noopener');
+  });
+
   it('keeps the picker grid open under the squad, with no modal to dismiss', () => {
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
 

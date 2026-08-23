@@ -64,6 +64,10 @@ a:focus-visible {
 .trust-row span, .trust-row .roster-open { border: 1px solid var(--line); padding: 7px 11px; color: #b9c7d3; background: rgba(7, 15, 25, .55); font-size: 12px; }
 .trust-row .roster-open { font-family: inherit; cursor: pointer; border-color: rgba(69,214,208,.35); color: #cfeceb; }
 .trust-row .roster-open:hover { background: rgba(69,214,208,.14); border-color: var(--cyan); }
+/* 원본 저장소로 보내는 감사 문구. 지원 수와 같은 칩 모양으로 나란히 선다. */
+.trust-row .credit-link { border: 1px solid rgba(69,214,208,.3); padding: 7px 11px; background: rgba(69,214,208,.07); color: #cfeceb; font-size: 12px; text-decoration: none; }
+.trust-row .credit-link:hover { background: rgba(69,214,208,.16); border-color: var(--cyan); }
+.trust-row .credit-link:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 .hero-orbit { width: 150px; aspect-ratio: 1; border: 1px solid rgba(69,214,208,.35); border-radius: 50%; display: grid; place-items: center; position: relative; color: var(--cyan); }
 .hero-orbit::before, .hero-orbit::after { content: ""; position: absolute; inset: 13px; border: 1px dashed rgba(255,191,60,.3); border-radius: 50%; transform: rotate(25deg); }
 .hero-orbit::after { inset: -8px 66px; border-radius: 0; border-width: 0 1px; }
