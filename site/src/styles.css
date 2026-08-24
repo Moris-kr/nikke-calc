@@ -225,6 +225,19 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .slot-clear { position: absolute; top: 7px; right: 6px; width: 20px; height: 20px; padding: 0; display: grid; place-items: center; border: 0; background: none; color: var(--muted); font-size: 12px; line-height: 1; cursor: pointer; border-radius: 4px; }
 .slot-clear:hover { background: rgba(255,119,135,.16); color: var(--danger); }
 .squad-slot.is-preview::after { content: "PREVIEW"; position: absolute; top: 8px; right: 8px; z-index: 3; padding: 3px 5px; background: var(--danger); color: #21050a; font-size: 8px; font-weight: 900; }
+/* 돌파·코어 강화 스테퍼 — 초상화 우측하단. 별 + 진화 숫자로 명함~풀코를 보이고 −/+로 조절. */
+.growth-stepper { position: absolute; z-index: 2; right: 7px; bottom: 7px; display: flex; align-items: center; gap: 4px; padding: 3px; border: 1px solid rgba(146,176,201,.22); border-radius: 7px; background: rgba(3,10,17,.78); backdrop-filter: blur(2px); }
+.growth-step { width: 20px; height: 20px; padding: 0; display: grid; place-items: center; border: 1px solid rgba(146,176,201,.28); background: rgba(3,10,17,.6); color: #cfeceb; font: 800 13px/1 ui-monospace, monospace; border-radius: 5px; cursor: pointer; }
+.growth-step:hover:not(:disabled) { background: rgba(69,214,208,.22); border-color: var(--cyan); }
+.growth-step:disabled { opacity: .28; cursor: default; }
+.growth-stars { display: flex; align-items: center; gap: 1px; padding: 0 1px; }
+/* 별 아이콘은 blablalink 도감 스프라이트(3000×120, 25프레임)를 그대로 쓴다.
+   한 프레임 = 120px → background-size 2500%. 빈 별 = 마지막 프레임(100%),
+   채워진 별 = 골드 프레임(62.5%). blablalink와 같은 그림이라 통일감이 있다. */
+.growth-star { width: 15px; height: 15px; background-image: url('./assets/upgrade-star.webp'); background-repeat: no-repeat; background-size: 2500% 100%; background-position: 100% 0; }
+.growth-star.is-on { background-position: 62.5% 0; }
+/* 진화(코강) 숫자 — 별 옆 동그라미 */
+.growth-core { display: grid; place-items: center; width: 16px; height: 16px; margin-left: 3px; border-radius: 50%; background: var(--amber); color: #1b1200; font: 900 9.5px/1 ui-monospace, monospace; }
 
 .character-settings { margin-top: 10px; border-top: 1px solid rgba(146,176,201,.12); padding-top: 9px; }
 /* 접이식 머리 — 개별 설정과 컨트롤은 기본이 접힘이고 여는 건 별도 동작이다. */

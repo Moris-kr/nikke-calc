@@ -182,6 +182,37 @@ describe('calculator UI', () => {
     root.remove();
   });
 
+  it('sets breakthrough from the portrait star stepper and keeps the dropdown in sync', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const stepper = root.querySelector<HTMLElement>('[data-slot-card="0"] [data-growth-stepper]')!;
+    const minus = stepper.querySelector<HTMLButtonElement>('[data-growth-step="minus"]')!;
+    const plus = stepper.querySelector<HTMLButtonElement>('[data-growth-step="plus"]')!;
+    const filled = () => stepper.querySelectorAll('.growth-star.is-on').length;
+    const core = () => stepper.querySelector('.growth-core')?.textContent ?? null;
+
+    // 기본값 3돌: 별 3개, 진화 배지 없음. 아직 오버라이드가 없어 드롭다운도 없다.
+    expect(filled()).toBe(3);
+    expect(core()).toBeNull();
+    expect(root.querySelector('[data-slot-card="0"] [data-growth-stage]')).toBeNull();
+
+    // + 한 번 → 코강 1. 별 3개 + 동그라미 "1", 개별 설정 드롭다운이 생겨 값이 맞는다.
+    plus.click();
+    expect(filled()).toBe(3);
+    expect(core()).toBe('1');
+    expect(root.querySelector<HTMLSelectElement>('[data-slot-card="0"] [data-growth-stage]')!.value).toBe('4');
+
+    // 바닥까지 내리면 명함(0): 채워진 별 0개, − 비활성.
+    for (let i = 0; i < 6; i += 1) minus.click();
+    expect(filled()).toBe(0);
+    expect(core()).toBeNull();
+    expect(minus.disabled).toBe(true);
+
+    // 기본값(3돌)으로 되돌리면 오버라이드가 사라져 드롭다운도 없어진다.
+    for (let i = 0; i < 3; i += 1) plus.click();
+    expect(filled()).toBe(3);
+    expect(root.querySelector('[data-slot-card="0"] [data-growth-stage]')).toBeNull();
+  });
+
   it('gives each slot a target button instead of a dropdown, and one shared picker', () => {
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
     const choosers = [...root.querySelectorAll<HTMLButtonElement>('[data-slot-choose]')];

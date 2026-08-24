@@ -776,11 +776,84 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       card.append(top);
       if (char) {
         const editor = document.createElement('div');
-        renderCharacterSettings(editor, char.name, settings, deck.characters[char.name], (next) => {
-          if (next) deck.characters[char.name] = next;
-          else delete deck.characters[char.name];
+        const cname = char.name;
+        const renderEditor = () => {
+          renderCharacterSettings(editor, cname, settings, deck.characters[cname], (next) => {
+            if (next) deck.characters[cname] = next;
+            else delete deck.characters[cname];
+            saveState();
+            // 개별 설정 안 드롭다운으로 돌파를 바꿔도 초상화의 별이 따라가게 한다.
+            renderGrowthStepper();
+          });
+        };
+
+        // 초상화 우측하단의 돌파·코어 강화 스테퍼. blablalink 도감처럼 별 + 진화 숫자로
+        // 명함~풀코를 한눈에 보이고, 좌우 −/+로 바로 조절한다. 개별 설정을 펼치지 않아도
+        // 손이 닿는 자리다. R(성장 없음)은 조절할 게 없으니 아예 그리지 않는다.
+        const growthDefaults = settings.characters[cname];
+        const maxStage = growthDefaults?.maxGrowthStage ?? 0;
+        const defStage = growthDefaults?.growthStage ?? 0;
+        const stepper = document.createElement('div');
+        stepper.className = 'growth-stepper';
+        stepper.dataset.growthStepper = String(index);
+        const stars = document.createElement('div');
+        stars.className = 'growth-stars';
+        const minus = document.createElement('button');
+        minus.type = 'button';
+        minus.className = 'growth-step';
+        minus.dataset.growthStep = 'minus';
+        minus.textContent = '−';
+        const plus = document.createElement('button');
+        plus.type = 'button';
+        plus.className = 'growth-step';
+        plus.dataset.growthStep = 'plus';
+        plus.textContent = '+';
+        const stageOf = (): number => deck.characters[cname]?.growthStage ?? defStage;
+        const labelOf = (stage: number): string =>
+          growthDefaults?.growthOptions.find((option) => option.value === stage)?.label
+          ?? `단계 ${stage}`;
+        function renderGrowthStepper(): void {
+          const stage = stageOf();
+          const slots = Math.min(maxStage, 3);
+          const core = Math.max(0, stage - 3);
+          stars.replaceChildren();
+          for (let i = 0; i < slots; i += 1) {
+            // 별 그림은 blablalink 도감의 스프라이트(25프레임)를 그대로 쓴다 — CSS에서
+            // 채워진 별/빈 별 프레임을 background-position으로 고른다.
+            const star = document.createElement('span');
+            star.className = i < Math.min(stage, 3) ? 'growth-star is-on' : 'growth-star';
+            stars.append(star);
+          }
+          if (core > 0) stars.append(createText('span', String(core), 'growth-core'));
+          minus.disabled = stage <= 0;
+          plus.disabled = stage >= maxStage;
+          const text = labelOf(stage);
+          minus.ariaLabel = `${cname} 돌파 한 단계 낮추기 (현재 ${text})`;
+          plus.ariaLabel = `${cname} 돌파 한 단계 높이기 (현재 ${text})`;
+          stepper.title = `돌파·코어 강화 · ${text}`;
+        }
+        const setStage = (next: number) => {
+          const clamped = Math.max(0, Math.min(maxStage, next));
+          if (clamped === stageOf()) return;
+          const base = deck.characters[cname];
+          const override = base ? cloneOverride(base) : {};
+          if (clamped === defStage) delete override.growthStage;
+          else override.growthStage = clamped;
+          if (Object.keys(override).length === 0) delete deck.characters[cname];
+          else deck.characters[cname] = override;
           saveState();
-        });
+          renderGrowthStepper();
+          renderEditor();
+        };
+        minus.addEventListener('click', () => setStage(stageOf() - 1));
+        plus.addEventListener('click', () => setStage(stageOf() + 1));
+        if (maxStage > 0) {
+          stepper.append(minus, stars, plus);
+          renderGrowthStepper();
+          portrait.append(stepper);
+        }
+
+        renderEditor();
         card.append(editor);
       }
       squadGrid.append(card);
