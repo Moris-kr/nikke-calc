@@ -106,6 +106,7 @@ const settings: SettingsCatalog = {
     },
   },
   collectionStages: ['없음', 'SR0', 'SR5', 'SR15'],
+  weaponTypes: ['AR', 'SMG', 'SG', 'MG', 'SR', 'RL'],
   consoleClasses: ['화력형', '방어형', '지원형'],
   consoleCompanies: ['엘리시온', '미실리스', '테트라', '필그림', '어브노말'],
   cubes: {

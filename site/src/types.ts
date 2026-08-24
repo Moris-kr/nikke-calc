@@ -91,6 +91,8 @@ export interface SimulationRequest {
   corePx: number;
   hasParts: boolean;
   seed: number;
+  // 적정거리로 둘 무기군. 그 무기군의 **일반 공격**에만 ③ 보너스 +30%.
+  optimalRangeWeapons?: string[];
   console?: ConsoleLevels;
   // 버스트 게이지 충전 시간(초). 게이지 누적 대신 쓰는 고정 시간이다.
   burstRegenTime?: number;
@@ -104,6 +106,7 @@ export interface BattleSettings {
   corePx: number;
   hasParts: boolean;
   seed: number;
+  optimalRangeWeapons: string[];
   console: ConsoleLevels;
   burstRegenTime: number;
 }
@@ -214,6 +217,7 @@ export interface SettingsCatalog {
   characters: Record<string, CharacterSettingsDefaults>;
   cubes: Record<CubeName, CubeMeta>;
   collectionStages: string[];
+  weaponTypes: string[];
   consoleClasses: string[];
   consoleCompanies: string[];
   overloadFields: Record<string, NumericFieldMeta>;

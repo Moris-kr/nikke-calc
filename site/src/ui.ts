@@ -411,6 +411,11 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <label data-core-size><span>코어 직경</span><div class="input-unit"><input id="core-px" type="number" min="0" max="1000" step="1" value="52" disabled /><em>px</em></div></label>
             <label class="toggle-field"><input id="has-parts" type="checkbox" /><span class="toggle"></span><span>파괴 가능 파츠</span></label>
           </div>
+          <fieldset class="range-field">
+            <legend>적정거리</legend>
+            <div class="range-options" data-optimal-range></div>
+            <p class="field-note">고른 무기군의 <b>일반 공격</b>에만 대미지 보너스 +30%가 붙습니다 — 스킬 대미지에는 붙지 않습니다. 적과의 거리에 달린 조건이라 무기군 단위로 켭니다.</p>
+          </fieldset>
           <section class="console-editor">
             <h3>콘솔 <span>전초기지 재활용 연구실</span></h3>
             <div class="console-grid" data-console-grid></div>
@@ -964,6 +969,38 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     }
   };
 
+  // ── 적정거리 ────────────────────────────────────────────────────────────
+  // 무기군마다 적과의 적정 사거리가 달라, 같은 전투에서도 어떤 무기군은 적정거리에
+  // 들고 어떤 무기군은 못 든다 → 여럿을 함께 켤 수 있어야 한다.
+  // 목록 정본은 `data/weapon_mechanics.json`(설정으로 내려온다). 콘솔과 같은 이유로
+  // 선택자 대신 Map으로 들고 읽고 쓴다.
+  const rangeInputs = new Map<string, HTMLInputElement>();
+
+  const renderOptimalRange = () => {
+    const box = element<HTMLElement>(root, '[data-optimal-range]');
+    box.replaceChildren();
+    rangeInputs.clear();
+    for (const weapon of settings.weaponTypes) {
+      const label = document.createElement('label');
+      label.className = 'range-option';
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.dataset.optimalRangeWeapon = weapon;
+      label.append(input, createText('span', weapon));
+      box.append(label);
+      rangeInputs.set(weapon, input);
+    }
+  };
+  renderOptimalRange();
+
+  const readOptimalRange = (): string[] =>
+    [...rangeInputs].filter(([, input]) => input.checked).map(([weapon]) => weapon);
+
+  const writeOptimalRange = (weapons: string[]) => {
+    const on = new Set(weapons);
+    for (const [weapon, input] of rangeInputs) input.checked = on.has(weapon);
+  };
+
   const readBattle = (): BattleSettings => ({
     duration: Number(element<HTMLInputElement>(root, '#duration').value),
     enemyDef: Number(element<HTMLInputElement>(root, '#enemy-def').value),
@@ -972,6 +1009,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     corePx: Number(corePxInput.value),
     hasParts: element<HTMLInputElement>(root, '#has-parts').checked,
     seed: Number(element<HTMLInputElement>(root, '#seed').value),
+    optimalRangeWeapons: readOptimalRange(),
     burstRegenTime: Number(element<HTMLInputElement>(root, '#burst-regen').value),
     console: {
       common_level: Number(consoleCommon.value),
@@ -989,6 +1027,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     corePxInput.disabled = !battle.coreEnabled;
     element<HTMLInputElement>(root, '#has-parts').checked = battle.hasParts;
     element<HTMLInputElement>(root, '#seed').value = String(battle.seed);
+    writeOptimalRange(battle.optimalRangeWeapons ?? []);
     if (battle.burstRegenTime !== undefined) {
       element<HTMLInputElement>(root, '#burst-regen').value = String(battle.burstRegenTime);
     }

@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from calculator.customization import (  # noqa: E402
-    COLLECTION_STAGES, CONSOLE_CLASSES, CONSOLE_COMPANIES, CUBE_NAMES,
+    COLLECTION_STAGES, CONSOLE_CLASSES, CONSOLE_COMPANIES, CUBE_NAMES, WEAPON_TYPES,
     MANUAL_STATS, OVERLOAD_FIELDS,
 )
 from context.growth import growth_options, growth_profile  # noqa: E402
@@ -101,6 +101,7 @@ def main() -> None:
         "cubes": cubes,
         "collectionStages": list(COLLECTION_STAGES),
         # 콘솔 소속. 엔진이 빠진 소속을 에러로 끊으므로 목록의 정본을 넘긴다.
+        "weaponTypes": list(WEAPON_TYPES),
         "consoleClasses": list(CONSOLE_CLASSES),
         "consoleCompanies": list(CONSOLE_COMPANIES),
         "overloadFields": OVERLOAD_FIELDS,

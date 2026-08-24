@@ -24,6 +24,9 @@ export function normalizeRequest(request: SimulationRequest): SimulationRequest 
     corePx: Math.trunc(request.corePx),
     hasParts: Boolean(request.hasParts),
     seed: Math.trunc(request.seed),
+    // 고른 순서가 달라도 같은 설정이다 — 정렬해 캐시 키가 갈리지 않게 한다.
+    ...(request.optimalRangeWeapons?.length
+      ? { optimalRangeWeapons: [...request.optimalRangeWeapons].sort() } : {}),
     ...(request.burstRegenTime !== undefined
       ? { burstRegenTime: request.burstRegenTime } : {}),
     ...(request.console ? { console: {
@@ -185,6 +188,7 @@ export function requestForDeck(
     corePx: battle.coreEnabled ? battle.corePx : 0,
     hasParts: battle.hasParts,
     seed: battle.seed,
+    optimalRangeWeapons: battle.optimalRangeWeapons,
     console: battle.console,
     burstRegenTime: battle.burstRegenTime,
   });

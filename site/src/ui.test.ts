@@ -51,6 +51,7 @@ const settings: SettingsCatalog = {
     collection: { stage: 'SR15', favorite: 0 },
   }])),
   collectionStages: ['없음', 'SR0', 'SR5', 'SR15'],
+  weaponTypes: ['AR', 'SMG', 'SG', 'MG', 'SR', 'RL'],
   consoleClasses: ['화력형', '방어형', '지원형'],
   consoleCompanies: ['엘리시온', '테트라', '미실리스', '필그림', '어브노말'],
   cubes: {
@@ -247,6 +248,44 @@ describe('calculator UI', () => {
     expect(iconOf('라피 : 레드 후드')).toContain('is-fire');     // 작열
     expect(iconOf('앨리스')).toContain('is-water');              // 수냉
     expect(iconOf('나가')).toContain('is-electronic');           // 전격
+  });
+
+  it('sends the optimal-range weapon types and restores them on reload', async () => {
+    const client = new FakeClient();
+    mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });
+
+    // 기본은 아무 무기군도 적정거리가 아니다 — 요청에서 아예 빠진다.
+    const boxes = [...root.querySelectorAll<HTMLInputElement>('[data-optimal-range-weapon]')];
+    expect(boxes.map((box) => box.dataset.optimalRangeWeapon))
+      .toEqual(['AR', 'SMG', 'SG', 'MG', 'SR', 'RL']);
+    expect(boxes.every((box) => !box.checked)).toBe(true);
+
+    root.querySelector<HTMLFormElement>('form')!.requestSubmit();
+    await flush();
+    expect(client.lastRequest?.optimalRangeWeapons).toBeUndefined();
+
+    // 여러 개를 함께 켤 수 있다.
+    const check = (weapon: string) => {
+      const box = root.querySelector<HTMLInputElement>(`[data-optimal-range-weapon="${weapon}"]`)!;
+      box.checked = true;
+      box.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    check('SG');
+    check('AR');
+    root.querySelector<HTMLFormElement>('form')!.requestSubmit();
+    await flush();
+    // 고른 순서와 무관하게 정렬돼 실린다 — 같은 설정이 다른 캐시 키를 만들지 않게.
+    expect(client.lastRequest?.optimalRangeWeapons).toEqual(['AR', 'SG']);
+
+    // 새로고침해도 남는다.
+    root.remove();
+    root = document.createElement('main');
+    document.body.append(root);
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const restored = [...root.querySelectorAll<HTMLInputElement>('[data-optimal-range-weapon]')]
+      .filter((box) => box.checked)
+      .map((box) => box.dataset.optimalRangeWeapon);
+    expect(restored).toEqual(['AR', 'SG']);
   });
 
   it('gives each slot a target button instead of a dropdown, and one shared picker', () => {

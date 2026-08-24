@@ -546,5 +546,49 @@ class CharacterCustomizationTest(unittest.TestCase):
         self.assertNotIn("라플라스 버스터", modes)
 
 
+    def test_optimal_range_is_normalized_and_validated(self):
+        """적정거리 무기군 — 정본 순서로 세우고, 모르는 무기군은 막는다."""
+        from calculator.customization import WEAPON_TYPES, normalize_optimal_range
+
+        # 정본은 data/weapon_mechanics.json이고 순서가 곧 인게임 표기 순서다.
+        self.assertEqual(WEAPON_TYPES, ("AR", "SMG", "SG", "MG", "SR", "RL"))
+
+        self.assertEqual(normalize_optimal_range(None), [])
+        self.assertEqual(normalize_optimal_range([]), [])
+        # 고른 순서가 달라도 같은 설정이라 정본 순서로 세운다 (캐시 키가 갈리지 않게).
+        self.assertEqual(normalize_optimal_range(["RL", "AR", "SG"]), ["AR", "SG", "RL"])
+        self.assertEqual(normalize_optimal_range(["SMG", "SMG"]), ["SMG"])
+
+        with self.assertRaises(ValueError):
+            normalize_optimal_range(["활"])
+        with self.assertRaises(ValueError):
+            normalize_optimal_range("SMG")
+
+    def test_optimal_range_lifts_only_that_weapon_and_only_normal_attacks(self):
+        """적정거리는 ③에 +30% **가산**이고 일반 공격에만 붙는다.
+
+        곱연산이 아니라 가산이라, 크리·풀버스트가 이미 들어간 합에서는 실제
+        상승폭이 30%보다 작다 — 그 성질까지 함께 잠근다.
+        """
+        from calculator.damage import calc_damage, default_hit_type
+
+        weapon = {"damage_coeff": 100.0, "core_dmg_mult": 200.0}
+        common = dict(base_atk=100_000, buffs={}, weapon=weapon, enemy_def=0, expected=True)
+
+        off = calc_damage(hit_type=default_hit_type(), **common)["damage"]
+        on = calc_damage(hit_type=default_hit_type(is_optimal_range=True), **common)["damage"]
+        # 크리 기대값이 섞인 ③ 합에 0.3이 더해진다 — 곱이면 정확히 1.30이었을 것이다.
+        self.assertGreater(on, off)
+        self.assertLess(on / off, 1.30)
+
+        # 스킬 대미지(is_normal_atk=False)에는 안 붙는다.
+        skill_off = calc_damage(
+            hit_type=default_hit_type(is_normal_atk=False), **common)["damage"]
+        skill_on = calc_damage(
+            hit_type=default_hit_type(is_normal_atk=False, is_optimal_range=True),
+            **common)["damage"]
+        self.assertEqual(skill_on, skill_off)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -24,6 +24,7 @@ const valid: SimulationRequest = {
 
 const battle: BattleSettings = {
   burstRegenTime: 2,
+  optimalRangeWeapons: [],
   console: { common_level: 180, class_level: { 화력형: 100, 방어형: 100, 지원형: 100 }, company_level: { 엘리시온: 100, 미실리스: 100, 테트라: 100, 필그림: 100, 어브노말: 100 } },
   duration: 180,
   enemyDef: 31_784,

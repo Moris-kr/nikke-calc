@@ -288,6 +288,41 @@ def normalize_burst_regen(raw: Any) -> float | None:
     return value
 
 
+def _load_weapon_types() -> tuple[str, ...]:
+    """무기군 목록. 정본은 `data/weapon_mechanics.json`의 `weapon_type_defaults`다.
+
+    키 순서가 곧 인게임 표기 순서(AR·SMG·SG·MG·SR·RL)라 그대로 쓴다.
+    """
+    root = Path(__file__).resolve().parent.parent
+    table = json.loads(
+        (root / "data" / "weapon_mechanics.json").read_text(encoding="utf-8")
+    )
+    return tuple(table["weapon_type_defaults"])
+
+
+WEAPON_TYPES = _load_weapon_types()
+
+
+def normalize_optimal_range(raw: Any) -> list[str]:
+    """적정거리로 둘 무기군 목록 → 엔진 `enemy["optimal_range_weapons"]`.
+
+    적정거리는 캐릭터가 아니라 **적과의 거리** 문제라 전투 조건에 속한다. 켜진
+    무기군의 **일반 공격**에만 ③ 보너스 +30%가 가산된다(`damage._factor3`) —
+    스킬 대미지에는 붙지 않는다.
+
+    안 주면 빈 목록(아무 무기군도 적정거리가 아님)이다.
+    """
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        raise ValueError("적정거리 무기군은 배열이어야 한다")
+    unknown = [w for w in raw if w not in WEAPON_TYPES]
+    if unknown:
+        raise ValueError(f"지원하지 않는 무기군: {sorted(unknown)}")
+    # 순서가 흔들려도 같은 설정이다 — 정본 순서로 세워 캐시 키가 갈리지 않게 한다.
+    return [w for w in WEAPON_TYPES if w in set(raw)]
+
+
 def normalize_console(raw: Any) -> dict[str, Any]:
     """계정 콘솔(전초기지 재활용 연구실) 레벨 → 엔진 `console` dict.
 

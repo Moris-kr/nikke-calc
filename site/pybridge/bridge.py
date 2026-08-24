@@ -9,6 +9,7 @@ from calculator.customization import (
     normalize_burst_regen,
     normalize_character_overrides,
     normalize_console,
+    normalize_optimal_range,
 )
 # `_is_normal`은 히트 태그로 일반공격을 가려내는 엔진 정본이다. 포크에서 다시
 # 구현하면 태그가 늘어날 때 조용히 어긋나므로 그대로 빌려 쓴다 (이름이 바뀌면
@@ -187,6 +188,10 @@ def run_request(raw: str) -> str:
         "code": str(payload.get("enemyCode") or ""),
         "core_px": float(payload.get("corePx") or 0),
         "has_parts": bool(payload.get("hasParts")),
+        # 적정거리는 무기군 단위로 켜진다 — 그 무기군의 일반 공격에만 ③ +30%.
+        "optimal_range_weapons": normalize_optimal_range(
+            payload.get("optimalRangeWeapons")
+        ),
     }
     result = simulate(
         squad,
