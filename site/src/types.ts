@@ -133,6 +133,8 @@ export interface CharacterMeta {
   // 블라블라링크 API가 이 캐릭터를 부르는 번호. 사전에 없으면 null이고, 그러면
   // 프로필 동기화가 이 캐릭터를 알아보지 못한다(`data/name_codes.json`).
   nameCode: number | null;
+  // enikk이 캐릭터를 부르는 번호(`resource_id`). 우리 스크랩 데이터의 `id`와 같다.
+  resourceId: number | null;
 }
 
 export interface BurstCast {

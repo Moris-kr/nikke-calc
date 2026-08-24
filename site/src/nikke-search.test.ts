@@ -11,7 +11,7 @@ const meta = (name: string, over: Partial<CharacterMeta> = {}): CharacterMeta =>
   manufacturer: '엘리시온',
   preview: false,
   image: null,
-  nameCode: null,
+  nameCode: null, resourceId: null,
   ...over,
 });
 

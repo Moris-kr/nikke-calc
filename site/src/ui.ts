@@ -8,6 +8,13 @@ import {
   type RawProfile,
 } from './blablalink';
 import { parseRosterCsv } from './csv-import';
+import {
+  formatEok,
+  loadEnikkComps,
+  WEAKNESS_KO,
+  type EnikkComp,
+  type EnikkImport,
+} from './enikk';
 import { buildIndex, filterByQuery } from './nikke-search';
 import {
   buildAddPrompt,
@@ -330,7 +337,28 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         <div class="hero-orbit" aria-hidden="true"><span>01</span><strong>LOCAL<br />SIM</strong></div>
       </header>
 
-      <form class="calculator-layout" novalidate>
+      <nav class="view-tabs" aria-label="화면 전환">
+        <button type="button" class="view-tab is-on" data-view-tab="calc" aria-pressed="true">계산기</button>
+        <button type="button" class="view-tab" data-view-tab="enikk" aria-pressed="false">ENIKK 조합 가져오기</button>
+      </nav>
+
+      <section class="panel enikk-panel" data-view="enikk" aria-labelledby="enikk-heading" hidden>
+        <div class="section-heading">
+          <div><p class="step">ENIKK</p><h2 id="enikk-heading">ENIKK 조합 가져오기</h2></div>
+        </div>
+        <p class="enikk-lede">enikk.app 솔로레이드 랭킹에서 <b>실제로 쓰인 조합</b>을 가져옵니다. 최신 시즌 상위 <b>300명</b>(KR·JP·GLOBAL·NA·TW-HK·SEA 각 50명)의 1~5덱을 모두 읽어 같은 편성끼리 묶습니다.</p>
+        <p class="enikk-warn" data-enikk-warn>불러오는 데 <b>5~10초쯤</b> 걸립니다 — enikk에서 300명분을 한 번에 받아오기 때문입니다. 받아온 뒤에는 이 브라우저에 저장해 두고 다시 받지 않습니다.</p>
+        <div class="enikk-actions">
+          <button type="button" class="roster-import" data-enikk-load>조합 가져오기</button>
+          <button type="button" class="roster-import" data-enikk-refresh hidden>다시 받기</button>
+          <span class="enikk-status" data-enikk-status></span>
+        </div>
+        <div class="enikk-summary" data-enikk-summary hidden></div>
+        <div class="enikk-compare" data-enikk-compare hidden></div>
+        <div class="enikk-list" data-enikk-list hidden></div>
+      </section>
+
+      <form class="calculator-layout" data-view="calc" novalidate>
         <section class="panel squad-panel" aria-labelledby="squad-heading">
           <div class="section-heading">
             <div><p class="step">01 / SQUAD</p><h2 id="squad-heading">편성 및 캐릭터 설정</h2></div>
@@ -437,7 +465,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         </section>
       </form>
 
-      <section class="panel timeline-panel" aria-labelledby="timeline-heading" data-timeline-panel hidden>
+      <section class="panel timeline-panel" data-view="calc" aria-labelledby="timeline-heading" data-timeline-panel hidden>
         <div class="section-heading compact"><div><p class="step">04 / TIMELINE</p><h2 id="timeline-heading">전투 타임라인</h2></div></div>
         <div data-timeline-body></div>
       </section>
@@ -593,6 +621,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const submit = element<HTMLButtonElement>(root, 'button[type="submit"]');
   const resultPanel = element<HTMLElement>(root, '[data-result-panel]');
   const timelinePanel = element<HTMLElement>(root, '[data-timeline-panel]');
+  // 타임라인은 «계산 결과가 있는가»와 «지금 계산기 화면인가» 둘 다 만족할 때만 보인다.
+  let timelineHasContent = false;
   const timelineBody = element<HTMLElement>(root, '[data-timeline-body]');
   const coreToggle = element<HTMLInputElement>(root, '#has-core');
   const corePxInput = element<HTMLInputElement>(root, '#core-px');
@@ -1577,7 +1607,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       timelineBody.append(timelineBlock);
       timelineCount += 1;
     }
-    timelinePanel.hidden = timelineCount === 0;
+    timelineHasContent = timelineCount > 0;
+    timelinePanel.hidden = !timelineHasContent || currentView !== 'calc';
   };
 
   element<HTMLInputElement>(root, '#squad-mode').addEventListener('change', (event) => {
@@ -1865,6 +1896,242 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     blablaUrl.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') { event.preventDefault(); void runSync(); }
     });
+  }
+
+  // ── ENIKK 조합 가져오기 ─────────────────────────────────────────────────
+  // enikk.app 솔로레이드 랭킹 상위 300명(서버당 50명 × 6서버)의 1~5덱을 받아
+  // 같은 편성끼리 묶는다. 페이지를 넘길 필요가 없다 — GraphQL이 한 번에 다 준다.
+  const ENIKK_KEY = 'nikke-enikk-v1';
+  const enikkStatus = element<HTMLElement>(root, '[data-enikk-status]');
+  const enikkSummary = element<HTMLElement>(root, '[data-enikk-summary]');
+  const enikkList = element<HTMLElement>(root, '[data-enikk-list]');
+  const enikkCompare = element<HTMLElement>(root, '[data-enikk-compare]');
+  const enikkLoad = element<HTMLButtonElement>(root, '[data-enikk-load]');
+  const enikkRefresh = element<HTMLButtonElement>(root, '[data-enikk-refresh]');
+  let enikkData: EnikkImport | null = null;
+  let currentView: 'calc' | 'enikk' = 'calc';
+
+  const readEnikkCache = (): EnikkImport | null => {
+    try {
+      const raw = resolveStorage()?.getItem(ENIKK_KEY);
+      return raw ? JSON.parse(raw) as EnikkImport : null;
+    } catch { return null; }
+  };
+  const writeEnikkCache = (data: EnikkImport) => {
+    try { resolveStorage()?.setItem(ENIKK_KEY, JSON.stringify(data)); } catch { /* 용량 초과면 그냥 안 남긴다 */ }
+  };
+
+  /** 초상화 다섯 장. 이름을 모르는 사람도 눈으로 알아보게. */
+  const enikkPortraits = (squad: string[]): HTMLElement => {
+    const box = document.createElement('div');
+    box.className = 'enikk-faces';
+    for (const name of squad) {
+      const char = catalogByName.get(name);
+      const cell = document.createElement('span');
+      cell.className = 'enikk-face';
+      cell.title = name;
+      if (char?.image) {
+        const img = document.createElement('img');
+        img.src = `${import.meta.env.BASE_URL}${char.image}`;
+        img.alt = name;
+        img.loading = 'lazy';
+        cell.append(img);
+      }
+      cell.append(createText('em', name));
+      box.append(cell);
+    }
+    return box;
+  };
+
+  const applyCompToDeck = (comp: EnikkComp) => {
+    const deck = activeDeck();
+    for (const member of deck.squad) if (member) delete deck.characters[member];
+    deck.squad = [...comp.squad];
+    for (const name of comp.squad) {
+      if (roster[name] && !deck.characters[name]) deck.characters[name] = cloneOverride(roster[name]!);
+    }
+    activeSlot = 0;
+    showErrors([]);
+    saveState();
+    renderDeckTabs();
+    renderSquad();
+    renderRosterGrid();
+    switchView('calc');
+    squadGrid.scrollIntoView({ block: 'start' });
+  };
+
+  const renderEnikk = (data: EnikkImport) => {
+    enikkData = data;
+    const weakness = WEAKNESS_KO[data.season.weakness] ?? data.season.weakness;
+    enikkSummary.hidden = false;
+    enikkSummary.replaceChildren();
+    enikkSummary.append(createText('strong', `시즌 ${data.season.raid} · ${data.season.boss}`));
+    enikkSummary.append(createText('span',
+      `약점 ${weakness} · 플레이어 ${data.players}명 · 덱 ${data.decks.toLocaleString('ko-KR')}개 · 조합 ${data.comps.length.toLocaleString('ko-KR')}가지`));
+    if (data.unknownNames.length > 0) {
+      enikkSummary.append(createText('span',
+        `계산기가 모르는 니케 ${data.unknownNames.length}종은 건너뛰었습니다 — ${data.unknownNames.slice(0, 5).join(', ')}`, 'enikk-note'));
+    }
+
+    enikkList.hidden = false;
+    enikkList.replaceChildren();
+    const head = document.createElement('div');
+    head.className = 'enikk-list-head';
+    head.append(createText('h3', `조합 ${data.comps.length}가지 · 사용 횟수 순`));
+    const compareBtn = document.createElement('button');
+    compareBtn.type = 'button';
+    compareBtn.className = 'roster-import';
+    compareBtn.textContent = `상위 ${COMPARE_TOP}개 대조판 만들기`;
+    compareBtn.title = '실사용 조합을 우리 계산기로 돌려 enikk 실측과 나란히 놓습니다 — 10개라 시간이 걸립니다';
+    compareBtn.addEventListener('click', () => {
+      compareBtn.disabled = true;
+      void renderCompare().finally(() => { compareBtn.disabled = false; });
+    });
+    head.append(compareBtn);
+    enikkList.append(head);
+
+    for (const [index, comp] of data.comps.entries()) {
+      const row = document.createElement('article');
+      row.className = 'enikk-row';
+      const rank = createText('span', `${index + 1}`, 'enikk-rank');
+      const stats = document.createElement('div');
+      stats.className = 'enikk-stats';
+      stats.append(createText('b', `${comp.uses}회`));
+      stats.append(createText('span', `평균 ${formatEok(comp.averageDamage)}`));
+      stats.append(createText('span', `최고 ${formatEok(comp.maxDamage)}`));
+      const use = document.createElement('button');
+      use.type = 'button';
+      use.className = 'enikk-use';
+      use.textContent = '이 조합 쓰기';
+      use.addEventListener('click', () => applyCompToDeck(comp));
+      row.append(rank, enikkPortraits(comp.squad), stats, use);
+      enikkList.append(row);
+    }
+  };
+
+  const setEnikkStatus = (message: string) => { enikkStatus.textContent = message; };
+
+  // ── 상위 10 대조판 ──────────────────────────────────────────────────────
+  // 실사용 조합을 우리 시뮬로 돌려 enikk 실측 평균과 나란히 놓는다. 계산기가 어느
+  // 조합에서 얼마나 어긋나는지가 표본 열 개로 한눈에 보인다.
+  //
+  // **같은 잣대가 아니다.** enikk 평균은 사람마다 다른 육성·조작이 섞인 값이고 우리
+  // 시뮬은 지금 화면의 전투 조건과 스펙으로 돈다. 배율은 «얼마나 다른가»를 보는
+  // 눈금이지 정답과의 오차가 아니다 — 그 사실을 표에 적어 둔다.
+  const COMPARE_TOP = 10;
+
+  const renderCompare = async () => {
+    if (!enikkData) return;
+    const targets = enikkData.comps.slice(0, COMPARE_TOP);
+    if (targets.length === 0) return;
+
+    enikkCompare.hidden = false;
+    enikkCompare.replaceChildren();
+    enikkCompare.append(createText('h3', `상위 ${targets.length}개 대조판`));
+    enikkCompare.append(createText('p',
+      'enikk 평균은 여러 사람의 육성·조작이 섞인 실측이고, 시뮬은 지금 전투 조건과 스펙으로 돈 값입니다. 배율은 «얼마나 다른가»를 보는 눈금입니다.',
+      'enikk-note'));
+
+    const table = document.createElement('div');
+    table.className = 'enikk-table';
+    enikkCompare.append(table);
+
+    const battle = readBattle();
+    const custom = customPayload();
+    await prepared;
+    for (const [index, comp] of targets.entries()) {
+      setEnikkStatus(`대조 계산 중 · ${index + 1}/${targets.length}`);
+      const deck: DeckState = { id: 1, squad: [...comp.squad], characters: {} };
+      for (const name of comp.squad) {
+        if (roster[name]) deck.characters[name] = cloneOverride(roster[name]!);
+      }
+      const request = requestForDeck(deck, battle, Object.keys(custom).length > 0 ? custom : undefined);
+      const key = cacheKey(request, version);
+      let result = cache.get(key);
+      if (!result) {
+        result = await client.simulate(request);
+        cache.set(key, result);
+      }
+      const ratio = comp.averageDamage > 0 ? result.squadTotal / comp.averageDamage : 0;
+
+      const row = document.createElement('div');
+      row.className = 'enikk-trow';
+      row.append(createText('span', `${index + 1}`, 'enikk-rank'));
+      row.append(enikkPortraits(comp.squad));
+      const nums = document.createElement('div');
+      nums.className = 'enikk-nums';
+      nums.append(createText('span', `${comp.uses}회`, 'enikk-uses'));
+      nums.append(createText('span', `enikk 평균 ${formatEok(comp.averageDamage)}`));
+      nums.append(createText('span', `시뮬 ${formatEok(result.squadTotal)}`, 'enikk-sim'));
+      if (ratio > 0) {
+        const tag = createText('b', `${ratio.toFixed(2)}배`, 'enikk-ratio');
+        tag.classList.add(ratio > 1.15 || ratio < 0.85 ? 'is-off' : 'is-near');
+        nums.append(tag);
+      }
+      row.append(nums);
+      table.append(row);
+    }
+    setEnikkStatus(`상위 ${targets.length}개 대조 완료.`);
+  };
+
+  const loadEnikk = async (force: boolean) => {
+    if (!force) {
+      const cached = readEnikkCache();
+      if (cached) {
+        renderEnikk(cached);
+        setEnikkStatus('저장해 둔 결과입니다. 새로 받으려면 «다시 받기»를 누르세요.');
+        enikkLoad.hidden = true;
+        enikkRefresh.hidden = false;
+        return;
+      }
+    }
+    enikkLoad.disabled = true;
+    enikkRefresh.disabled = true;
+    try {
+      const supported = new Set(catalog.map((char) => char.name));
+      const data = await loadEnikkComps(catalog, supported, setEnikkStatus);
+      writeEnikkCache(data);
+      renderEnikk(data);
+      setEnikkStatus(`${data.players}명에서 조합 ${data.comps.length}가지를 읽었습니다.`);
+      enikkLoad.hidden = true;
+      enikkRefresh.hidden = false;
+    } catch (error) {
+      setEnikkStatus(error instanceof Error ? error.message : String(error));
+    } finally {
+      enikkLoad.disabled = false;
+      enikkRefresh.disabled = false;
+    }
+  };
+
+  enikkLoad.addEventListener('click', () => { void loadEnikk(false); });
+  enikkRefresh.addEventListener('click', () => { void loadEnikk(true); });
+
+  // ── 화면 전환 ───────────────────────────────────────────────────────────
+  function switchView(view: 'calc' | 'enikk') {
+    currentView = view;
+    for (const section of root.querySelectorAll<HTMLElement>('[data-view]')) {
+      const mine = section.dataset.view === view;
+      // 타임라인은 계산 결과가 있을 때만 보이므로 여기서 켜지 않는다.
+      if (section === timelinePanel) { section.hidden = !mine || !timelineHasContent; continue; }
+      section.hidden = !mine;
+    }
+    for (const tab of root.querySelectorAll<HTMLButtonElement>('[data-view-tab]')) {
+      const on = tab.dataset.viewTab === view;
+      tab.classList.toggle('is-on', on);
+      tab.setAttribute('aria-pressed', String(on));
+    }
+    if (view === 'enikk' && !enikkData) {
+      const cached = readEnikkCache();
+      if (cached) {
+        renderEnikk(cached);
+        setEnikkStatus('저장해 둔 결과입니다. 새로 받으려면 «다시 받기»를 누르세요.');
+        enikkLoad.hidden = true;
+        enikkRefresh.hidden = false;
+      }
+    }
+  }
+  for (const tab of root.querySelectorAll<HTMLButtonElement>('[data-view-tab]')) {
+    tab.addEventListener('click', () => switchView(tab.dataset.viewTab as 'calc' | 'enikk'));
   }
 
   // 렛츠도로 CSV 받는 법 안내. 스크린샷이 아직 없으면 이미지만 숨긴다 — 링크·설명은 남는다.

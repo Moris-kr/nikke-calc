@@ -197,8 +197,9 @@ export function customToMeta(custom: CustomCharacter): CharacterMeta {
     manufacturer: String(n.manufacturer ?? ''),
     preview: false,
     image: null,
-    // 직접 추가한 니케는 블라블라링크 사전에 없다 — 프로필 동기화가 건너뛴다.
+    // 직접 추가한 니케는 블라블라링크·enikk 사전에 없다 — 그쪽 가져오기가 건너뛴다.
     nameCode: null,
+    resourceId: null,
   };
 }
 
