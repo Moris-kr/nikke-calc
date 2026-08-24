@@ -410,5 +410,59 @@ class CharacterCustomizationTest(unittest.TestCase):
         self.assertEqual(events, [8.0])
 
 
+    def test_nayuta_burst_mode_shots_do_not_eat_bullet_buffs(self):
+        """나유타 `기억 연소` 사격은 스킬 대미지라 발수 소모 버프를 먹지 않는다.
+
+        미란다 `웨이크업! 4`는 `duration_bullets: 1`이라 한 발만 쏘면 사라진다.
+        변신 사격이 일반 공격으로 잡히던 때는 변신 첫 발이 이걸 먹어 버렸다
+        (유저 인게임 확인 — GAMEPLAY.md §무기 메카닉).
+        """
+        deck = ["아니스 : 스타", "나유타", "미란다", "홍련 : 흑영", "리버렐리오"]
+        # 미란다 버프는 자신 제외 공격력 1위에게 간다 — 나유타가 받도록 올린다.
+        squad = build_squad(deck, {"나유타": {"equip_skills": {"atk_pct": 300.0}}})
+        result = simulate(
+            squad, config=build_config(squad, {"duration": 60, "first_burst_time": 3.0}),
+            enemy={"def": 31_784, "code": "", "core_px": 52, "has_parts": False},
+            seed=42, verbose=True,
+        )
+        events = [e for e in result.log.buff_events if e.name.startswith("웨이크업! 4")]
+        grants = [e for e in events if e.kind == "activate" and e.target == "나유타"]
+        expiries = [e for e in events if e.kind == "expire"]
+        self.assertTrue(grants, "나유타가 `웨이크업! 4`를 받아야 한다")
+
+        first = grants[0]
+        after = [e for e in expiries if e.t >= first.t]
+        self.assertTrue(after, "만료 이벤트가 있어야 한다")
+        # 변신은 10초다. 첫 발에 먹혔다면 1초 안에 사라진다.
+        self.assertGreater(
+            after[0].t - first.t, 5.0,
+            "변신 사격이 발수 버프를 먹었다 — 스킬 대미지 예외가 풀렸다",
+        )
+
+        # 변신 사격은 `기본 공격`이 아니라 모드 이름으로 잡힌다.
+        modes = {h.skill_name for h in result.hits if h.caster == "나유타"}
+        self.assertIn("기억 연소", modes)
+
+        # 발사 태그(`full_charge_hit`)를 그대로 달고 있어도 평타로 새면 안 된다 —
+        # 집계는 이름을 우선해야 한다.
+        from calculator.sim_result import _is_normal
+        mode_hits = [h for h in result.hits
+                     if h.caster == "나유타" and h.skill_name == "기억 연소"]
+        self.assertTrue(mode_hits)
+        self.assertFalse(any(_is_normal(h) for h in mode_hits))
+
+    def test_other_weapon_change_modes_stay_normal_attacks(self):
+        """예외는 나유타뿐이다 — 표시 없는 모드는 종전대로 일반 공격으로 잡힌다."""
+        squad = build_squad(["라플라스"])
+        result = simulate(
+            squad, config=build_config(squad, {"duration": 60, "first_burst_time": 3.0}),
+            enemy={"def": 31_784, "code": "", "core_px": 52, "has_parts": False},
+            seed=42,
+        )
+        modes = {h.skill_name for h in result.hits if h.caster == "라플라스"}
+        self.assertIn("기본 공격", modes)
+        self.assertNotIn("라플라스 버스터", modes)
+
+
 if __name__ == "__main__":
     unittest.main()
