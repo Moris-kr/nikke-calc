@@ -225,6 +225,12 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     const source = typeof storage === 'function' ? storage() : storage;
     return source ?? null;
   };
+  // jsdom에는 scrollIntoView가 없다. 화면을 끌어오는 건 편의라, 없는 환경에서는
+  // 건너뛰어도 렌더가 깨지지 않는다 — 직접 부르면 테스트가 처리되지 않은 오류로 끊긴다.
+  const scrollTo = (el: HTMLElement) => {
+    if (typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'start' });
+  };
+
   const cloneOverride = (value: object): CharacterOverrides =>
     JSON.parse(JSON.stringify(value)) as CharacterOverrides;
   // 예전 판(육성 프로필 불러오기)이 저장한 오버로드는 값이 **줄별 배열**일 수 있다.
@@ -1978,7 +1984,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     renderSquad();
     renderRosterGrid();
     switchView('calc');
-    squadGrid.scrollIntoView({ block: 'start' });
+    scrollTo(squadGrid);
   };
 
   const renderEnikk = (data: EnikkImport) => {
@@ -2069,7 +2075,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         drawCards();
         drawPager(pagerTop);
         drawPager(pagerBottom);
-        enikkList.scrollIntoView({ block: 'start' });
+        scrollTo(enikkList);
       };
       const step = (label: string, page: number, disabled: boolean) => {
         const b = document.createElement('button');

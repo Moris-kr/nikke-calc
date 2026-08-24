@@ -632,7 +632,7 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
 .enikk-deck + .enikk-deck { border-top: 1px solid rgba(146,176,201,.07); }
 .enikk-deckno { font: 700 10px ui-monospace, monospace; color: var(--dim, #5d6f82); text-align: center; }
 /* 덱 딜은 이 카드에서 가장 먼저 읽히는 숫자다 — 초상화 옆에서 눈에 바로 들어와야 한다. */
-.enikk-deckdmg { font: 800 clamp(24px, 6vw, 32px)/1.1 ui-monospace, monospace; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.enikk-deckdmg { font: 800 clamp(20px, 5vw, 26px)/1.1 ui-monospace, monospace; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .enikk-deck.is-blocked { opacity: .45; }
 .enikk-deck.is-blocked .enikk-deckdmg::after { content: ' 미지원'; color: var(--amber); font-size: 11px; }
 .enikk-who { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); }
