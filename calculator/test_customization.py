@@ -451,6 +451,24 @@ class CharacterCustomizationTest(unittest.TestCase):
         self.assertTrue(mode_hits)
         self.assertFalse(any(_is_normal(h) for h in mode_hits))
 
+    def test_charge_multiplier_is_additive(self):
+        """④는 풀차지 배율 + 차지 대미지 버프 — 곱이 아니다 (인게임 335% 확인).
+
+        곱연산이면 차지 무기 전체가 부푼다: 250 × 1.8705 = 468%.
+        """
+        from calculator.damage import calc_damage, default_hit_type
+
+        weapon = {"damage_coeff": 100.0, "core_dmg_mult": 200.0, "full_charge_mult": 250.0}
+        # expected=True로 고정한다 — 치명타 판정이 난수라 그대로 두면 ①이 흔들린다.
+        common = dict(base_atk=100_000, weapon=weapon, enemy_def=0, expected=True,
+                      hit_type=default_hit_type(is_full_charge=True))
+
+        plain = calc_damage(buffs={}, **common)["damage"]
+        buffed = calc_damage(buffs={"charge_dmg_pct": 87.05}, **common)["damage"]
+
+        # 2.50 → 3.3705 (가산). 곱연산이면 4.68이 된다.
+        self.assertAlmostEqual(buffed / plain, 3.3705 / 2.50, places=4)
+
     def test_other_weapon_change_modes_stay_normal_attacks(self):
         """예외는 나유타뿐이다 — 표시 없는 모드는 종전대로 일반 공격으로 잡힌다."""
         squad = build_squad(["라플라스"])
