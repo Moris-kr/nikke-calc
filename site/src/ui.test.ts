@@ -442,6 +442,29 @@ describe('calculator UI', () => {
     expect(css).toMatch(/\[hidden\]\s*\{\s*display:\s*none\s*!important;/);
   });
 
+  it('sends the burst gauge charge time and restores it on reload', async () => {
+    const client = new FakeClient();
+    mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });
+
+    root.querySelector<HTMLInputElement>('#duration')!.value = '10';
+    root.querySelector<HTMLFormElement>('form')!.requestSubmit();
+    await flush();
+    expect(client.lastRequest?.burstRegenTime).toBe(2);
+
+    const regen = root.querySelector<HTMLInputElement>('#burst-regen')!;
+    regen.value = '2.8';
+    regen.dispatchEvent(new Event('change', { bubbles: true }));
+    root.querySelector<HTMLFormElement>('form')!.requestSubmit();
+    await flush();
+    expect(client.lastRequest?.burstRegenTime).toBe(2.8);
+
+    root.remove();
+    root = document.createElement('main');
+    document.body.append(root);
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    expect(root.querySelector<HTMLInputElement>('#burst-regen')!.value).toBe('2.8');
+  });
+
   it('lays the console out in the in-game order', () => {
     // 인게임·블라블라링크가 «공통 → 기업 → 클래스» 순으로 보여준다. 화면을 그대로
     // 훑으며 옮겨 적을 수 있어야 하므로 순서 자체가 뜻을 갖는다.

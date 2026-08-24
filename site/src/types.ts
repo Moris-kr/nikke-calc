@@ -92,6 +92,8 @@ export interface SimulationRequest {
   hasParts: boolean;
   seed: number;
   console?: ConsoleLevels;
+  // 버스트 게이지 충전 시간(초). 게이지 누적 대신 쓰는 고정 시간이다.
+  burstRegenTime?: number;
 }
 
 export interface BattleSettings {
@@ -103,6 +105,7 @@ export interface BattleSettings {
   hasParts: boolean;
   seed: number;
   console: ConsoleLevels;
+  burstRegenTime: number;
 }
 
 export interface DeckState {

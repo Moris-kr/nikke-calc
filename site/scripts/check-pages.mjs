@@ -39,8 +39,10 @@ assert.ok(commands.includes('npm run build'), 'build job must create the product
 const engineStep = buildSteps.find((step) => step.name === 'Run Python engine regressions');
 assert.ok(engineStep, 'Python engine regression step is required');
 assert.equal(engineStep['working-directory'], '.', 'engine regressions must run from the repository root');
+// 개별 테스트 모듈이 아니라 discover를 요구한다 — 모듈을 하나씩 적으면 새 테스트
+// 파일이 CI에서 조용히 빠진다(실제로 로스터 배치 12개가 그럴 뻔했다).
 for (const command of [
-  'python3 -m unittest calculator.test_customization -v',
+  "python3 -m unittest discover -s calculator -p 'test_*.py' -v",
   'python3 calculator/damage.py',
   'python3 -m context.doclint',
   'python3 -m context.snapshot',

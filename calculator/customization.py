@@ -267,6 +267,27 @@ def _console_number(value: Any, label: str) -> int:
     return value
 
 
+# 버스트 게이지 충전 시간(초). 계산기는 게이지 누적을 실제로 세지 않고 고정 시간으로
+# 모델링한다(`context/GAMEPLAY.md` §사이클 주기의 구성). 기본 2.0초에 단계 전환 0.3초와
+# 쿨 여유가 더해져 실측 공백은 2.9초 안팎이 된다.
+BURST_REGEN_DEFAULT = 2.0
+BURST_REGEN_MIN = 0.0
+BURST_REGEN_MAX = 20.0
+
+
+def normalize_burst_regen(raw: Any) -> float | None:
+    """버스트 게이지 충전 시간 → 엔진 `burst_regen_time`. 안 주면 기본값을 쓴다."""
+    if raw is None:
+        return None
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        raise ValueError("버스트 게이지 충전 시간은 숫자여야 한다")
+    value = float(raw)
+    if not BURST_REGEN_MIN <= value <= BURST_REGEN_MAX:
+        raise ValueError(
+            f"버스트 게이지 충전 시간은 {BURST_REGEN_MIN}~{BURST_REGEN_MAX}초여야 한다")
+    return value
+
+
 def normalize_console(raw: Any) -> dict[str, Any]:
     """계정 콘솔(전초기지 재활용 연구실) 레벨 → 엔진 `console` dict.
 

@@ -23,6 +23,7 @@ const valid: SimulationRequest = {
 };
 
 const battle: BattleSettings = {
+  burstRegenTime: 2,
   console: { common_level: 180, class_level: { 화력형: 100, 방어형: 100, 지원형: 100 }, company_level: { 엘리시온: 100, 미실리스: 100, 테트라: 100, 필그림: 100, 어브노말: 100 } },
   duration: 180,
   enemyDef: 31_784,
@@ -305,5 +306,19 @@ describe('formatDamage', () => {
       .toContain('기업(테트라) 콘솔 레벨은 0~1000 사이의 정수여야 합니다.');
     expect(validateRequest({ ...valid, console: { common_level: 0, class_level: { 화력형: 0, 방어형: 0, 지원형: 0 }, company_level: { 엘리시온: 0, 미실리스: 0, 테트라: 0, 필그림: 0, 어브노말: 0 } } }))
       .toEqual([]);
+  });
+
+  it('carries the burst gauge charge time and keeps caches apart', () => {
+    const fast = { ...valid, burstRegenTime: 2 };
+    const slow = { ...valid, burstRegenTime: 2.8 };
+    expect(normalizeRequest(slow).burstRegenTime).toBe(2.8);
+    // 충전 시간이 다르면 사이클이 달라져 결과도 달라진다.
+    expect(cacheKey(fast, 'v1')).not.toBe(cacheKey(slow, 'v1'));
+
+    expect(validateRequest({ ...valid, burstRegenTime: -1 }))
+      .toContain('버스트 게이지 충전 시간은 0~20초여야 합니다.');
+    expect(validateRequest({ ...valid, burstRegenTime: 21 }))
+      .toContain('버스트 게이지 충전 시간은 0~20초여야 합니다.');
+    expect(validateRequest({ ...valid, burstRegenTime: 2.8 })).toEqual([]);
   });
 });

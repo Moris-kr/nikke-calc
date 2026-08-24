@@ -24,6 +24,8 @@ export function normalizeRequest(request: SimulationRequest): SimulationRequest 
     corePx: Math.trunc(request.corePx),
     hasParts: Boolean(request.hasParts),
     seed: Math.trunc(request.seed),
+    ...(request.burstRegenTime !== undefined
+      ? { burstRegenTime: request.burstRegenTime } : {}),
     ...(request.console ? { console: {
       common_level: Math.trunc(request.console.common_level),
       class_level: normalizeBuckets(request.console.class_level),
@@ -121,6 +123,11 @@ export function validateRequest(request: SimulationRequest): string[] {
   if (!integerInRange(request.seed, 0, 2_147_483_647)) {
     errors.push('시드는 0~2147483647 사이의 정수여야 합니다.');
   }
+  if (request.burstRegenTime !== undefined
+      && !(Number.isFinite(request.burstRegenTime)
+        && request.burstRegenTime >= 0 && request.burstRegenTime <= 20)) {
+    errors.push('버스트 게이지 충전 시간은 0~20초여야 합니다.');
+  }
   if (request.console) {
     const levels: Array<[number, string]> = [
       [request.console.common_level, '공통'],
@@ -179,6 +186,7 @@ export function requestForDeck(
     hasParts: battle.hasParts,
     seed: battle.seed,
     console: battle.console,
+    burstRegenTime: battle.burstRegenTime,
   });
 }
 
