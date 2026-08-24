@@ -451,6 +451,33 @@ class CharacterCustomizationTest(unittest.TestCase):
         self.assertTrue(mode_hits)
         self.assertFalse(any(_is_normal(h) for h in mode_hits))
 
+    def test_weapon_mode_skill_drops_normal_atk_bonus_but_keeps_core_and_charge(self):
+        """모드 스킬 사격의 항목별 처리 (유저 실측 대조 — GAMEPLAY.md §무기 메카닉).
+
+        ① 「일반 공격 대미지 ▲」만 빠지고, ③ 코어와 ④ 차지 대미지는 그대로 붙는다.
+        """
+        from calculator.damage import calc_damage, default_hit_type
+
+        weapon = {"damage_coeff": 275.18, "core_dmg_mult": 200.0, "full_charge_mult": 250.0}
+        buffs = {"normal_atk_dmg_pct": 9.46, "charge_dmg_pct": 87.05, "core_dmg_pct": 0.0}
+        common = dict(is_core=True, is_full_charge=True)
+
+        def dmg(**ht):
+            # expected=True로 고정 — 치명타 판정이 난수라 그대로 두면 비교가 흔들린다.
+            return calc_damage(base_atk=100_000, buffs=buffs, weapon=weapon, enemy_def=0,
+                               expected=True, hit_type=default_hit_type(**ht))["damage"]
+
+        as_normal = dmg(is_normal_atk=True, **common)
+        as_mode = dmg(is_normal_atk=False, is_weapon_mode_skill=True, **common)
+
+        # 차이는 ① 일반 공격 대미지 9.46%뿐 — ④ 차지는 양쪽 다 받는다.
+        self.assertAlmostEqual(as_normal / as_mode, 1.0946, places=4)
+
+        # ③ 코어는 남아 있어야 한다 — 같은 모드 사격에서 코어만 끄면 줄어든다.
+        body_hit = dmg(is_normal_atk=False, is_weapon_mode_skill=True,
+                       is_core=False, is_full_charge=True)
+        self.assertGreater(as_mode, body_hit)
+
     def test_charge_multiplier_is_additive(self):
         """④는 풀차지 배율 + 차지 대미지 버프 — 곱이 아니다 (인게임 335% 확인).
 
@@ -468,6 +495,43 @@ class CharacterCustomizationTest(unittest.TestCase):
 
         # 2.50 → 3.3705 (가산). 곱연산이면 4.68이 된다.
         self.assertAlmostEqual(buffed / plain, 3.3705 / 2.50, places=4)
+
+    def test_projectile_explosion_follows_base_weapon(self):
+        """「투사체 폭발 대미지 ▲」는 모드 무기가 아니라 기본 무기로 판정한다 (유저 확인).
+
+        나유타는 기본 SMG라 RL 모드로 변신해도 못 받는다. 같은 스쿼드의 아니스 : 스타는
+        기본이 RL이라 받는다 — 이 대비가 곧 규칙이다 (GAMEPLAY.md §무기 메카닉).
+        """
+        from unittest import mock
+        import calculator.timeline as tl
+
+        import json
+        with open("data/parsed_nikke.json", encoding="utf-8") as f:
+            self.assertEqual(json.load(f)["나유타"]["weapon_type"], "SMG")
+
+        seen: list[dict] = []
+        orig = tl.calc_damage
+
+        def spy(**kw):
+            seen.append(kw["hit_type"])
+            return orig(**kw)
+
+        squad = build_squad(["아니스 : 스타", "나유타", "벨벳", "홍련 : 흑영", "리버렐리오"])
+        with mock.patch.object(tl, "calc_damage", spy):
+            simulate(
+                squad, config=build_config(squad, {"duration": 60, "first_burst_time": 3.0}),
+                enemy={"def": 31_784, "code": "", "core_px": 52, "has_parts": False},
+                seed=42,
+            )
+
+        mode_shots = [h for h in seen if h.get("is_weapon_mode_skill")]
+        self.assertTrue(mode_shots, "나유타 모드 사격이 있어야 한다")
+        self.assertFalse(
+            any(h.get("is_projectile_explosion") for h in mode_shots),
+            "기본 무기가 SMG인데 RL 모드라고 투사체 폭발이 붙었다",
+        )
+        # 대조: 기본이 RL인 사격은 그대로 받는다.
+        self.assertTrue(any(h.get("is_projectile_explosion") for h in seen))
 
     def test_other_weapon_change_modes_stay_normal_attacks(self):
         """예외는 나유타뿐이다 — 표시 없는 모드는 종전대로 일반 공격으로 잡힌다."""
