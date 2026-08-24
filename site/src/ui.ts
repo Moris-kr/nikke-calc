@@ -1911,6 +1911,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const enikkLoad = element<HTMLButtonElement>(root, '[data-enikk-load]');
   const enikkRefresh = element<HTMLButtonElement>(root, '[data-enikk-refresh]');
   let enikkData: EnikkImport | null = null;
+  // 300명을 한 줄로 늘어놓으면 스크롤이 끝없다 — 열 명씩 끊어 쪽으로 넘긴다.
+  const ENIKK_PER_PAGE = 10;
+  let enikkPage = 0;
   let currentView: 'calc' | 'enikk' = 'calc';
 
   const readEnikkCache = (): EnikkImport | null => {
@@ -1980,6 +1983,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
   const renderEnikk = (data: EnikkImport) => {
     enikkData = data;
+    enikkPage = 0;
     const weakness = WEAKNESS_KO[data.season.weakness] ?? data.season.weakness;
     enikkSummary.hidden = false;
     enikkSummary.replaceChildren();
@@ -2009,7 +2013,21 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     head.append(compareBtn);
     enikkList.append(head);
 
-    for (const [index, player] of data.players.entries()) {
+    const pagerTop = document.createElement('div');
+    pagerTop.className = 'enikk-pager';
+    const cards = document.createElement('div');
+    const pagerBottom = document.createElement('div');
+    pagerBottom.className = 'enikk-pager';
+    enikkList.append(pagerTop, cards, pagerBottom);
+
+    const pages = Math.max(1, Math.ceil(data.players.length / ENIKK_PER_PAGE));
+    if (enikkPage >= pages) enikkPage = 0;
+
+    const drawCards = () => {
+      cards.replaceChildren();
+      const from = enikkPage * ENIKK_PER_PAGE;
+      for (const [offset, player] of data.players.slice(from, from + ENIKK_PER_PAGE).entries()) {
+        const index = from + offset;
       const card = document.createElement('article');
       card.className = 'enikk-player';
 
@@ -2039,8 +2057,55 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         row.append(createText('span', formatEok(deck.damage), 'enikk-deckdmg'));
         card.append(row);
       }
-      enikkList.append(card);
-    }
+      cards.append(card);
+      }
+    };
+
+    /** 페이지 이동 줄. 위·아래 양쪽에 둔다 — 열 명을 훑고 나면 아래가 가깝다. */
+    const drawPager = (box: HTMLElement) => {
+      box.replaceChildren();
+      const jump = (page: number) => {
+        enikkPage = Math.max(0, Math.min(pages - 1, page));
+        drawCards();
+        drawPager(pagerTop);
+        drawPager(pagerBottom);
+        enikkList.scrollIntoView({ block: 'start' });
+      };
+      const step = (label: string, page: number, disabled: boolean) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'enikk-page-step';
+        b.textContent = label;
+        b.disabled = disabled;
+        b.addEventListener('click', () => jump(page));
+        box.append(b);
+      };
+      step('‹ 이전', enikkPage - 1, enikkPage === 0);
+
+      // 번호는 현재 쪽 둘레만 편다. 서른 개를 다 늘어놓으면 폰에서 줄이 넘친다.
+      const window_ = new Set<number>([0, pages - 1]);
+      for (let i = enikkPage - 1; i <= enikkPage + 1; i += 1) {
+        if (i >= 0 && i < pages) window_.add(i);
+      }
+      let previous = -1;
+      for (const page of [...window_].sort((a, b) => a - b)) {
+        if (previous >= 0 && page - previous > 1) box.append(createText('span', '…', 'enikk-page-gap'));
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'enikk-page' + (page === enikkPage ? ' is-on' : '');
+        b.textContent = String(page + 1);
+        b.setAttribute('aria-current', page === enikkPage ? 'page' : 'false');
+        b.addEventListener('click', () => jump(page));
+        box.append(b);
+        previous = page;
+      }
+      step('다음 ›', enikkPage + 1, enikkPage === pages - 1);
+      box.append(createText('span', `${pages}쪽 중 ${enikkPage + 1}쪽`, 'enikk-page-info'));
+    };
+
+    drawCards();
+    drawPager(pagerTop);
+    drawPager(pagerBottom);
   };
 
   const setEnikkStatus = (message: string) => { enikkStatus.textContent = message; };

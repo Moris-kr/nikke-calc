@@ -626,18 +626,33 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
 .enikk-player { margin-bottom: 8px; border: 1px solid var(--line); background: rgba(7,15,25,.5); }
 .enikk-player-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 10px; border-bottom: 1px solid rgba(146,176,201,.12); }
 .enikk-server { padding: 2px 7px; border: 1px solid rgba(69,214,208,.35); color: #cfeceb; font: 800 10px ui-monospace, monospace; }
-.enikk-total { color: var(--ink); font: 800 12px ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.enikk-total { color: var(--amber); font: 800 20px/1.1 ui-monospace, monospace; font-variant-numeric: tabular-nums; }
 .enikk-player-head .enikk-use { margin-left: auto; }
-.enikk-deck { display: grid; grid-template-columns: 20px minmax(0,1fr) auto; align-items: center; gap: 8px; padding: 6px 10px; }
+.enikk-deck { display: grid; grid-template-columns: 20px minmax(0,1fr) auto; align-items: center; gap: 10px; padding: 8px 10px; }
 .enikk-deck + .enikk-deck { border-top: 1px solid rgba(146,176,201,.07); }
 .enikk-deckno { font: 700 10px ui-monospace, monospace; color: var(--dim, #5d6f82); text-align: center; }
-.enikk-deckdmg { font: 700 11px ui-monospace, monospace; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* 덱 딜은 이 카드에서 가장 먼저 읽히는 숫자다 — 초상화 옆에서 눈에 바로 들어와야 한다. */
+.enikk-deckdmg { font: 800 clamp(24px, 6vw, 32px)/1.1 ui-monospace, monospace; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .enikk-deck.is-blocked { opacity: .45; }
-.enikk-deck.is-blocked .enikk-deckdmg::after { content: ' · 미지원'; color: var(--amber); }
+.enikk-deck.is-blocked .enikk-deckdmg::after { content: ' 미지원'; color: var(--amber); font-size: 11px; }
 .enikk-who { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); }
 
 @media (max-width: 700px) {
   .enikk-player-head .enikk-use { margin-left: 0; width: 100%; }
   .enikk-deck { grid-template-columns: 20px minmax(0,1fr); row-gap: 4px; }
   .enikk-deckdmg { grid-column: 2; }
+}
+
+/* 쪽 넘기기 — 위·아래 양쪽에 둔다. 폰에서는 접히되 번호가 손끝에 맞게 크다. */
+.enikk-pager { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin: 8px 0; }
+.enikk-page, .enikk-page-step { min-width: 36px; min-height: 36px; padding: 0 9px; border: 1px solid var(--line); background: rgba(4,12,21,.72); color: var(--muted); font: 700 12px ui-monospace, monospace; cursor: pointer; }
+.enikk-page:hover:not(:disabled), .enikk-page-step:hover:not(:disabled) { border-color: rgba(69,214,208,.45); color: var(--ink); }
+.enikk-page.is-on { border-color: var(--amber); background: rgba(255,191,60,.12); color: var(--amber); }
+.enikk-page-step:disabled { opacity: .35; cursor: default; }
+.enikk-page:focus-visible, .enikk-page-step:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.enikk-page-gap { color: var(--muted); font: 700 12px ui-monospace, monospace; padding: 0 2px; }
+.enikk-page-info { margin-left: auto; color: var(--muted); font: 700 11px ui-monospace, monospace; }
+
+@media (max-width: 700px) {
+  .enikk-page-info { margin-left: 0; width: 100%; }
 }
