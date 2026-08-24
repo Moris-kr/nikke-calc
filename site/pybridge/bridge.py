@@ -9,6 +9,7 @@ from calculator.customization import (
     normalize_burst_regen,
     normalize_character_overrides,
     normalize_console,
+    normalize_normal_hit_coeff,
     normalize_optimal_range,
 )
 # `_is_normal`은 히트 태그로 일반공격을 가려내는 엔진 정본이다. 포크에서 다시
@@ -183,6 +184,11 @@ def run_request(raw: str) -> str:
     if burst_pattern:
         config_in["burst_pattern"] = burst_pattern
     config = char_spec.build_config(squad, config_in)
+    # 평타 계수는 적이 아니라 **우리 쪽 명중**의 문제라 config에 둔다.
+    hit_coeff = normalize_normal_hit_coeff(payload.get("normalHitCoeff"))
+    if hit_coeff:
+        config["normal_hit_coeff"] = hit_coeff
+
     enemy = {
         "def": int(payload["enemyDef"]),
         "code": str(payload.get("enemyCode") or ""),

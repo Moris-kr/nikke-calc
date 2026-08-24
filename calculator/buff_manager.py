@@ -2928,12 +2928,6 @@ class BuffManager:
             if not buff_key:
                 continue
 
-            # runtime condition 재평가: 플래그가 없는 버프(정적 조건 전용)는 건너뜀
-            if ab.has_runtime_conditions:
-                conditions = eff["trigger"].get("condition", [])
-                if not self._runtime_condition_ok(conditions, ab.caster, caster, target, t):
-                    continue
-
             # 지연 resolve: 활성화 시점 직후 첫 조회 때 1회 결정하고 캐싱.
             # (같은 프레임에 simultaneous 발동된 다른 버프들이 정착된 후 순위 평가.
             #  이후엔 고정 — 대상의 ATK/HP 등이 변해도 타겟이 바뀌지 않음.)
@@ -2964,6 +2958,17 @@ class BuffManager:
 
             # caster_based 환산을 위해 실제 버프 수령자를 특정
             actual_recipient = caster if applies_to_caster else target
+
+            # runtime condition 재평가: 플래그가 없는 버프(정적 조건 전용)는 건너뜀.
+            # **수령자를 확정한 뒤에** 본다 — 딜 계산 경로에서 `target`은 대개
+            # `__enemy__` 센티널이라, 그걸 넘기면 `ally_hp_below:N` 같은 «받는 아군의
+            # 상태» 조건이 hp_pct 맵에 없는 키를 읽어 영원히 거짓이 된다.
+            if ab.has_runtime_conditions:
+                conditions = eff["trigger"].get("condition", [])
+                if not self._runtime_condition_ok(
+                    conditions, ab.caster, caster, actual_recipient, t
+                ):
+                    continue
 
             # boolean 플래그 스탯: 수치 없이 True만 세팅
             if buff_key in _BOOL_BUFF_KEYS:
@@ -3006,9 +3011,10 @@ class BuffManager:
             )
             if caster not in target_chars:
                 continue
+            # 위 검사를 지났으므로 이 버프의 수령자는 caster로 확정이다.
             if ab.has_runtime_conditions:
                 conditions = ab.effect["trigger"].get("condition", [])
-                if not self._runtime_condition_ok(conditions, ab.caster, caster, target, t):
+                if not self._runtime_condition_ok(conditions, ab.caster, caster, caster, t):
                     continue
             val = self._get_value(ab.effect, ab, caster)
             if val is None:
@@ -3027,9 +3033,10 @@ class BuffManager:
             )
             if caster not in target_chars:
                 continue
+            # 위 검사를 지났으므로 이 버프의 수령자는 caster로 확정이다.
             if ab.has_runtime_conditions:
                 conditions = ab.effect["trigger"].get("condition", [])
-                if not self._runtime_condition_ok(conditions, ab.caster, caster, target, t):
+                if not self._runtime_condition_ok(conditions, ab.caster, caster, caster, t):
                     continue
             val = self._get_value(ab.effect, ab, ab.caster)
             if val is None:

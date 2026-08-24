@@ -416,6 +416,11 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <div class="range-options" data-optimal-range></div>
             <p class="field-note">고른 무기군의 <b>일반 공격</b>에만 대미지 보너스 +30%가 붙습니다 — 스킬 대미지에는 붙지 않습니다. 적과의 거리에 달린 조건이라 무기군 단위로 켭니다.</p>
           </fieldset>
+          <fieldset class="range-field">
+            <legend>평타 계수</legend>
+            <div class="coeff-options" data-hit-coeff></div>
+            <p class="field-note">실전에서 탄퍼짐으로 빗나가는 탄을 보정합니다. <b>평타에만</b> 곱하며 스킬·버스트와 변신 모드 사격은 조준 판정이라 손대지 않습니다. 기본값은 실측 대조로 뽑은 값이고(SG 0.90), 1.00이면 보정 없음입니다.</p>
+          </fieldset>
           <section class="console-editor">
             <h3>콘솔 <span>전초기지 재활용 연구실</span></h3>
             <div class="console-grid" data-console-grid></div>
@@ -993,6 +998,46 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   };
   renderOptimalRange();
 
+  // ── 평타 계수 ───────────────────────────────────────────────────────────
+  // 시뮬은 쏜 탄이 전부 맞는다고 보지만 인게임은 탄퍼짐으로 빗나간다. 무기군마다
+  // 퍼짐이 다르므로 무기군 단위로 받고, 기본값은 설정(데이터)에서 내려온다.
+  const coeffInputs = new Map<string, HTMLInputElement>();
+
+  const renderHitCoeff = () => {
+    const box = element<HTMLElement>(root, '[data-hit-coeff]');
+    box.replaceChildren();
+    coeffInputs.clear();
+    for (const weapon of settings.weaponTypes) {
+      const label = document.createElement('label');
+      label.className = 'coeff-option';
+      label.append(createText('span', weapon));
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.min = '0';
+      input.max = '2';
+      input.step = '0.01';
+      input.dataset.hitCoeffWeapon = weapon;
+      input.value = String(settings.normalHitCoeff?.[weapon] ?? 1);
+      label.append(input);
+      box.append(label);
+      coeffInputs.set(weapon, input);
+    }
+  };
+  renderHitCoeff();
+
+  const readHitCoeff = (): Record<string, number> => {
+    const out: Record<string, number> = {};
+    for (const [weapon, input] of coeffInputs) out[weapon] = Number(input.value);
+    return out;
+  };
+
+  const writeHitCoeff = (values: Record<string, number> | undefined) => {
+    for (const [weapon, input] of coeffInputs) {
+      const v = values?.[weapon] ?? settings.normalHitCoeff?.[weapon] ?? 1;
+      input.value = String(v);
+    }
+  };
+
   const readOptimalRange = (): string[] =>
     [...rangeInputs].filter(([, input]) => input.checked).map(([weapon]) => weapon);
 
@@ -1010,6 +1055,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     hasParts: element<HTMLInputElement>(root, '#has-parts').checked,
     seed: Number(element<HTMLInputElement>(root, '#seed').value),
     optimalRangeWeapons: readOptimalRange(),
+    normalHitCoeff: readHitCoeff(),
     burstRegenTime: Number(element<HTMLInputElement>(root, '#burst-regen').value),
     console: {
       common_level: Number(consoleCommon.value),
@@ -1028,6 +1074,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     element<HTMLInputElement>(root, '#has-parts').checked = battle.hasParts;
     element<HTMLInputElement>(root, '#seed').value = String(battle.seed);
     writeOptimalRange(battle.optimalRangeWeapons ?? []);
+    writeHitCoeff(battle.normalHitCoeff);
     if (battle.burstRegenTime !== undefined) {
       element<HTMLInputElement>(root, '#burst-regen').value = String(battle.burstRegenTime);
     }

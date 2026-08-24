@@ -21,6 +21,9 @@ def main() -> None:
     nikke = json.loads((ROOT / "data" / "parsed_nikke.json").read_text(encoding="utf-8"))
     skills = json.loads((ROOT / "data" / "parsed_skills.json").read_text(encoding="utf-8"))
     raw = json.loads((ROOT / "scraper" / "nikke_scraped.json").read_text(encoding="utf-8"))
+    mechanics = json.loads(
+        (ROOT / "data" / "weapon_mechanics.json").read_text(encoding="utf-8")
+    )
     cube_table = json.loads(
         (ROOT / "data" / "base_stat_tables" / "cube.json").read_text(encoding="utf-8")
     )
@@ -102,6 +105,12 @@ def main() -> None:
         "collectionStages": list(COLLECTION_STAGES),
         # 콘솔 소속. 엔진이 빠진 소속을 에러로 끊으므로 목록의 정본을 넘긴다.
         "weaponTypes": list(WEAPON_TYPES),
+        # 무기군별 평타 계수 기본값. 값이 없는 무기군은 1.0(보정 없음)으로 채워
+        # 브라우저가 무기군 목록만 보고 입력칸을 다 그릴 수 있게 한다.
+        "normalHitCoeff": {
+            weapon: float(mechanics.get("normal_hit_coeff", {}).get(weapon, 1.0))
+            for weapon in WEAPON_TYPES
+        },
         "consoleClasses": list(CONSOLE_CLASSES),
         "consoleCompanies": list(CONSOLE_COMPANIES),
         "overloadFields": OVERLOAD_FIELDS,

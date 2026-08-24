@@ -27,6 +27,10 @@ export function normalizeRequest(request: SimulationRequest): SimulationRequest 
     // 고른 순서가 달라도 같은 설정이다 — 정렬해 캐시 키가 갈리지 않게 한다.
     ...(request.optimalRangeWeapons?.length
       ? { optimalRangeWeapons: [...request.optimalRangeWeapons].sort() } : {}),
+    // 평타 계수도 캐시 키에 실린다 — 값이 다른 결과가 섞이면 안 된다. 키 순서가
+    // 흔들려도 같은 설정이므로 정렬해 싣는다.
+    ...(normalizeRecord(request.normalHitCoeff)
+      ? { normalHitCoeff: normalizeRecord(request.normalHitCoeff)! } : {}),
     ...(request.burstRegenTime !== undefined
       ? { burstRegenTime: request.burstRegenTime } : {}),
     ...(request.console ? { console: {
@@ -189,6 +193,7 @@ export function requestForDeck(
     hasParts: battle.hasParts,
     seed: battle.seed,
     optimalRangeWeapons: battle.optimalRangeWeapons,
+    normalHitCoeff: battle.normalHitCoeff,
     console: battle.console,
     burstRegenTime: battle.burstRegenTime,
   });

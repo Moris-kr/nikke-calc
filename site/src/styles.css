@@ -363,6 +363,10 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .range-field { margin-top: 16px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: rgba(7,15,25,.4); }
 .range-field legend { padding: 0 6px; font-size: 12px; font-weight: 800; color: var(--ink); }
 .range-options { display: flex; flex-wrap: wrap; gap: 8px; }
+/* 평타 계수 — 적정거리와 같은 줄 모양이되 값을 직접 넣는다. */
+.coeff-options { display: flex; flex-wrap: wrap; gap: 8px 10px; }
+.coeff-option { display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px; border: 1px solid var(--line); background: rgba(7,15,25,.6); font-size: 11px; font-weight: 700; color: var(--muted); }
+.coeff-option input { width: 60px; min-height: 30px; padding-inline: 6px; font-size: 11px; text-align: right; font-variant-numeric: tabular-nums; }
 .range-option { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid rgba(146,176,201,.24); border-radius: 999px; color: var(--muted); font: 700 11px ui-monospace, monospace; cursor: pointer; }
 .range-option:hover { border-color: rgba(69,214,208,.45); }
 .range-option input { width: 14px; height: 14px; min-height: 14px; margin: 0; accent-color: var(--amber); cursor: pointer; }

@@ -49,6 +49,21 @@ _PARSED_SKILLS = _load(os.path.join(_DATA_DIR, "parsed_skills.json"))
 _DELAYS       = _load(os.path.join(_DATA_DIR, "weapon_delays.json"))
 
 _ACCURACY_DATA: dict = _MECHANICS.get("accuracy", {})
+_NORMAL_HIT_COEFF: dict = _MECHANICS.get("normal_hit_coeff", {})
+
+
+def normal_hit_coeff(cfg: dict, weapon_type: str) -> float:
+    """평타에 곱할 계수. 실전에서 탄퍼짐으로 빗나가는 탄을 보정한다.
+
+    시뮬은 쏜 탄이 전부 맞는다고 보지만 인게임은 그렇지 않다. 무기군마다 탄퍼짐이
+    달라 무기군 단위로 잡고, `config["normal_hit_coeff"]`로 전투마다 덮을 수 있다.
+    **평타에만 붙는다** — 스킬·버스트와 변신 모드 사격은 조준 판정이라 보정하지 않는다.
+    """
+    over = cfg.get("normal_hit_coeff") or {}
+    if weapon_type in over:
+        return max(0.0, float(over[weapon_type]))
+    base = _NORMAL_HIT_COEFF.get(weapon_type, 1.0)
+    return max(0.0, float(base)) if isinstance(base, (int, float)) else 1.0
 _MODEL_N: float      = float(_ACCURACY_DATA.get("_model_n", 2.55))
 
 DT = 1 / 60  # 시뮬레이션 스텝 (초)
@@ -167,6 +182,17 @@ def _core_hit_prob(weapon_type: str, accuracy_pct: float, core_px: float) -> flo
     return min(1.0, (r_c / R) ** _MODEL_N)
 
 
+def _apply_hit_coeff(damage, cfg: dict, weapon_type: str, is_skill_shot: bool):
+    """평타 대미지에 무기군 계수를 태운다. 계수가 1이면 값을 손대지 않는다 —
+    보정이 없는 무기군까지 부동소수로 바꿔 기존 결과의 표시가 흔들리지 않게 한다."""
+    if is_skill_shot:
+        return damage
+    k = normal_hit_coeff(cfg, weapon_type)
+    # 히트 단위로 반올림해 정수로 남긴다 — 인게임 대미지가 정수이고, 실수로 두면
+    # 타임라인 버킷(정수)과 캐릭터 합계가 어긋난다.
+    return damage if k == 1.0 else round(damage * k)
+
+
 def _notify_frac(bm, key: str, name: str, frac: float, fire) -> None:
     """확률적으로 일어나는 히트 이벤트를 소수 누적으로 발화한다.
 
@@ -236,6 +262,10 @@ class CharState:
         _delay_exc = _DELAYS["_exceptions"].get(self.name, {})
         _delay_wt  = _DELAYS["_defaults_by_weapon_type"].get(self.weapon_type, {})
         self.post_reload_delay: float = _delay_exc.get("post_reload_delay", _delay_wt.get("post_reload_delay", 0.0))
+        # 탄을 비워 자동으로 걸리는 재장전은 «마지막 발 → 장전 시작»에도 지연이 있다.
+        # 미리 엄폐해 시작한 재장전에는 붙지 않는다.
+        self.reload_start_delay: float = _delay_exc.get(
+            "reload_start_delay", _delay_wt.get("reload_start_delay", 0.0))
         # 엄폐 니케: 재장 ≥100%일 때 post_fire_delay 중 자동재장전 (장탄 유지)
         self.cover_during_delay: bool = _delay_exc.get("cover_during_delay", False)
         self._pending_auto_reload: bool = False
@@ -517,7 +547,7 @@ class CharState:
             self._cool_warmup(t, bm)
         while t >= self.next_fire_time:
             if self.ammo <= 0:
-                self._start_reload(t, bm)
+                self._start_reload(t, bm, from_empty=True)
                 break
             fire_rate = self._current_fire_rate(bm, t)
             events.extend(self._fire(t, bm, enemy, cfg))
@@ -653,7 +683,10 @@ class CharState:
             # (코어 배율은 이미 이 히트의 damage에 확률로 반영돼 있다)
             tag = (f"core:pellet:{i}" if is_core else f"pellet:{i}") if hit_count > 1 \
                   else ("core" if is_core else "normal")
-            events.append(HitEvent(t=t, caster=self.name, damage=res["damage"],
+            # 변신 모드 사격은 스킬 대미지 취급이라 평타 계수를 태우지 않는다.
+            shot_damage = _apply_hit_coeff(res["damage"], cfg, self.weapon_type,
+                                           self._wc_is_skill_damage())
+            events.append(HitEvent(t=t, caster=self.name, damage=shot_damage,
                                    is_crit=res["is_crit"], hit_tag=tag,
                                    **({"skill_name": self._wc_name}
                                       if self._wc_is_skill_damage() else {})))
@@ -699,7 +732,7 @@ class CharState:
 
         if self._charge_phase == "ready":
             if self.ammo <= 0:
-                self._start_reload(t, bm)
+                self._start_reload(t, bm, from_empty=True)
                 return events
             # `charge_hold_after_fb`: 정책이 잡은 차지 시작 시각을 기다린다. 다만 **한 발
             # 사이클보다 멀면 기다리지 않는다** — 실제 조작도 그때까지는 평소대로 쏘다가,
@@ -858,7 +891,9 @@ class CharState:
         else:
             # 논차지 샷은 일반 발사와 같은 취급 (차지 배율 없음)
             tag = "core" if is_core else "normal"
-        events.append(HitEvent(t=t, caster=self.name, damage=res["damage"],
+        shot_damage = _apply_hit_coeff(res["damage"], cfg, self.weapon_type,
+                                       self._wc_is_skill_damage())
+        events.append(HitEvent(t=t, caster=self.name, damage=shot_damage,
                                is_crit=res["is_crit"], hit_tag=tag,
                                **({"skill_name": self._wc_name}
                                   if self._wc_is_skill_damage() else {})))
@@ -1460,8 +1495,12 @@ class CharState:
         clips = math.ceil(max(0, full - self.ammo) / self._clip_gain(full))
         return one * max(1, clips)
 
-    def _start_reload(self, t: float, bm: BuffManager, label: str = "재장전 시작"):
-        self.reloading_until = t + self._reload_duration(bm, t)
+    def _start_reload(self, t: float, bm: BuffManager, label: str = "재장전 시작",
+                      from_empty: bool = False):
+        # 탄을 비워 자동으로 걸린 재장전만 시작 지연을 얹는다. 지연 동안은 쏘지도
+        # 장전하지도 않으므로 장전 완료 시각을 그만큼 미루는 것으로 같아진다.
+        lead = self.reload_start_delay if from_empty else 0.0
+        self.reloading_until = t + lead + self._reload_duration(bm, t)
         self._reload_in_weapon_change = bm.get_weapon_change(self.name) is not None
         # 차지 중에 재장전이 걸리면 차지는 무효다. 재장전 후에는 처음부터 다시 차지한다
         # (초기화하지 않으면 남아 있던 _charge_start_t로 재장전 직후 즉시 발사된다).
@@ -2589,6 +2628,20 @@ def simulate(
                 _apply_lifesteal(ev, bm, base_stats, t)
 
         t += DT
+
+    # 마지막 프레임에 쌓인 몫을 한 번 더 수거한다.
+    #
+    # `_dot_events`는 «다음 프레임 시작에 수거»되는 구조인데, 같은 프레임의
+    # `burst_ctrl.tick()`과 캐릭터 `tick()`이 notify → _activate → damage 핸들러로
+    # 만드는 딜은 그 수거 **뒤에** 쌓인다. 평소엔 다음 프레임이 가져가지만 마지막
+    # 프레임 몫은 가져갈 프레임이 없어 그대로 사라진다 — 라이프스틸도 함께 빠진다.
+    if _dot_events:
+        _accumulate_damage(_dot_events, t)
+        for ev in _dot_events:
+            result.hits.append(ev)
+            result.char_total[ev.caster] += ev.damage
+            _apply_lifesteal(ev, bm, base_stats, t)
+        _dot_events.clear()
 
     result.squad_total = sum(result.char_total.values())
     result.hits.sort(key=lambda e: e.t)

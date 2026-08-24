@@ -323,6 +323,33 @@ def normalize_optimal_range(raw: Any) -> list[str]:
     return [w for w in WEAPON_TYPES if w in set(raw)]
 
 
+def normalize_normal_hit_coeff(raw: Any) -> dict[str, float]:
+    """무기군별 평타 계수 → 엔진 `config["normal_hit_coeff"]`.
+
+    실전에서 탄퍼짐으로 빗나가는 탄을 보정한다. **평타에만** 곱하며 스킬·버스트와
+    변신 모드 사격은 조준 판정이라 손대지 않는다(`timeline._apply_hit_coeff`).
+
+    기본값은 `data/weapon_mechanics.json`의 `normal_hit_coeff`이고, 여기서 넘긴
+    무기군만 그 값을 덮는다. 0~2 범위로 받는다 — 1보다 크면 보정이 아니라 증폭이라
+    실측 근거 없이 쓸 값은 아니지만, 감도를 보려는 사람을 막지는 않는다.
+    """
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise ValueError("평타 계수는 무기군을 키로 하는 객체여야 한다")
+    out: dict[str, float] = {}
+    for weapon, value in raw.items():
+        if weapon not in WEAPON_TYPES:
+            raise ValueError(f"지원하지 않는 무기군: {weapon}")
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"{weapon} 평타 계수는 숫자여야 한다")
+        if not 0.0 <= float(value) <= 2.0:
+            raise ValueError(f"{weapon} 평타 계수는 0~2 사이여야 한다")
+        out[weapon] = float(value)
+    # 무기군 순서를 정본으로 세워 같은 설정이 캐시 키를 가르지 않게 한다.
+    return {w: out[w] for w in WEAPON_TYPES if w in out}
+
+
 def normalize_console(raw: Any) -> dict[str, Any]:
     """계정 콘솔(전초기지 재활용 연구실) 레벨 → 엔진 `console` dict.
 

@@ -93,6 +93,9 @@ export interface SimulationRequest {
   seed: number;
   // 적정거리로 둘 무기군. 그 무기군의 **일반 공격**에만 ③ 보너스 +30%.
   optimalRangeWeapons?: string[];
+  // 무기군별 평타 계수. 실전에서 탄퍼짐으로 빗나가는 탄을 보정한다 — 평타에만 붙고
+  // 스킬·버스트와 변신 모드 사격에는 붙지 않는다. 안 주면 데이터 기본값을 쓴다.
+  normalHitCoeff?: Record<string, number>;
   console?: ConsoleLevels;
   // 버스트 게이지 충전 시간(초). 게이지 누적 대신 쓰는 고정 시간이다.
   burstRegenTime?: number;
@@ -107,6 +110,7 @@ export interface BattleSettings {
   hasParts: boolean;
   seed: number;
   optimalRangeWeapons: string[];
+  normalHitCoeff: Record<string, number>;
   console: ConsoleLevels;
   burstRegenTime: number;
 }
@@ -218,6 +222,8 @@ export interface SettingsCatalog {
   cubes: Record<CubeName, CubeMeta>;
   collectionStages: string[];
   weaponTypes: string[];
+  // 무기군별 평타 계수 기본값 (`data/weapon_mechanics.json`).
+  normalHitCoeff: Record<string, number>;
   consoleClasses: string[];
   consoleCompanies: string[];
   overloadFields: Record<string, NumericFieldMeta>;
