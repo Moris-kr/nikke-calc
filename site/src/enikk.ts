@@ -36,28 +36,34 @@ export interface EnikkRanking {
   teams: EnikkTeam[];
 }
 
-/** 조합 하나 — 같은 5인 편성을 쓴 덱들을 묶은 것. */
-export interface EnikkComp {
-  /** 우리 캐릭명 5개. enikk 표기 순서를 그대로 둔다(= 버스트 우선순위로 읽힌다). */
+/** 덱 하나. enikk 표기 순서를 그대로 둔다(= 버스트 우선순위로 읽힌다). */
+export interface EnikkDeck {
   squad: string[];
-  /** 이 조합을 쓴 덱 수 */
-  uses: number;
-  /** 그 덱들의 평균 딜 */
-  averageDamage: number;
-  /** 그 덱들의 최고 딜 */
-  maxDamage: number;
+  damage: number;
+  cp: number;
+  /** 우리가 못 다루는 니케가 껴 있으면 편성에 못 올린다. */
+  usable: boolean;
+}
+
+/** 랭킹에 오른 플레이어 한 명과 그 사람의 덱들. */
+export interface EnikkPlayer {
+  rank: number | null;
+  playerid: string;
+  server: string;
+  /** 5덱 합 — enikk의 플레이어 총딜이 정확히 이 합이다(실측 확인). */
+  damage: number;
+  cp: number;
+  decks: EnikkDeck[];
 }
 
 export interface EnikkImport {
   season: EnikkSeason;
-  /** 랭킹에 오른 플레이어 수 */
-  players: number;
+  players: EnikkPlayer[];
   /** 읽어들인 덱 수 (플레이어당 최대 5) */
   decks: number;
-  comps: EnikkComp[];
   /** 우리가 이름을 못 붙인 enikk 영문명 — 신캐가 나오면 여기 잡힌다. */
   unknownNames: string[];
-  /** 계산기가 아직 못 도는 니케가 낀 조합 수 */
+  /** 계산기가 아직 못 도는 니케가 낀 덱 수 */
   unsupported: number;
 }
 
@@ -123,58 +129,60 @@ export async function fetchRankings(raid: number): Promise<EnikkRanking[]> {
   return data.SRRankings ?? [];
 }
 
-/** 랭킹을 조합 단위로 접는다. 사용 횟수가 많은 순, 같으면 평균 딜이 높은 순. */
-export function toComps(
+/**
+ * 랭킹 원본 → 플레이어별 덱 목록.
+ *
+ * **조합으로 묶지 않는다.** 한 사람이 어떤 다섯 덱을 어떻게 짰는지가 그대로 남아야
+ * 그 편성을 통째로 가져올 수 있다. 같은 조합을 여럿이 썼다는 사실은 여기서 세지 않는다.
+ */
+export function toPlayers(
   rankings: EnikkRanking[],
   nameMap: Map<string, string>,
   supported: Set<string>,
 ): Omit<EnikkImport, 'season'> {
-  const buckets = new Map<string, { squad: string[]; uses: number; damages: number[] }>();
   const unknown = new Set<string>();
   let decks = 0;
   let unsupported = 0;
+  const players: EnikkPlayer[] = [];
 
   for (const row of rankings) {
+    const list: EnikkDeck[] = [];
     for (const team of row.teams ?? []) {
       const raw = team.characters ?? [];
       if (raw.length === 0) continue;
       decks += 1;
       const squad: string[] = [];
-      let ok = true;
+      let usable = true;
       for (const english of raw) {
         const name = nameMap.get(english);
-        if (!name) { unknown.add(english); ok = false; break; }
+        if (!name) { unknown.add(english); usable = false; continue; }
         squad.push(name);
       }
-      if (!ok) continue;
-      if (!squad.every((name) => supported.has(name))) { unsupported += 1; continue; }
-      // 순서를 지킨 채로 묶는다 — enikk 표기 순서가 곧 버스트 우선순위다.
-      const key = JSON.stringify(squad);
-      const bucket = buckets.get(key) ?? { squad, uses: 0, damages: [] };
-      bucket.uses += 1;
-      // 딜이 안 실려 온 덱은 사용 횟수에만 넣는다 — 0을 평균에 섞으면 평균이 무너진다.
-      if (typeof team.damage === 'number' && team.damage > 0) bucket.damages.push(team.damage);
-      buckets.set(key, bucket);
+      if (usable && !squad.every((name) => supported.has(name))) usable = false;
+      if (!usable) unsupported += 1;
+      list.push({
+        squad,
+        damage: typeof team.damage === 'number' ? team.damage : 0,
+        cp: typeof team.cp === 'number' ? team.cp : 0,
+        usable,
+      });
     }
+    if (list.length === 0) continue;
+    players.push({
+      rank: row.rank ?? null,
+      playerid: row.playerid,
+      server: row.server,
+      damage: row.damage,
+      cp: row.cp,
+      decks: list,
+    });
   }
 
-  const comps: EnikkComp[] = [...buckets.values()].map(({ squad, uses, damages }) => ({
-    squad,
-    uses,
-    averageDamage: damages.length
-      ? damages.reduce((sum, d) => sum + d, 0) / damages.length : 0,
-    maxDamage: damages.reduce((max, d) => Math.max(max, d), 0),
-  }));
-  comps.sort((a, b) => b.uses - a.uses || b.averageDamage - a.averageDamage);
-
-  return {
-    players: rankings.length,
-    decks,
-    comps,
-    unknownNames: [...unknown],
-    unsupported,
-  };
+  // 총딜 내림차순 — enikk 순위와 같은 줄 세우기다.
+  players.sort((a, b) => b.damage - a.damage);
+  return { players, decks, unknownNames: [...unknown], unsupported };
 }
+
 
 /** 전체 흐름. 진행 상황을 단계마다 알린다 — 몇 초 걸리는 일이라 침묵하면 멈춘 줄 안다. */
 export async function loadEnikkComps(
@@ -191,8 +199,8 @@ export async function loadEnikkComps(
   onProgress?.(`시즌 ${season.raid} 랭킹 300명을 받는 중… 5초쯤 걸립니다`);
   const rankings = await fetchRankings(season.raid);
 
-  onProgress?.('조합을 세는 중…');
-  return { season, ...toComps(rankings, nameMap, supported) };
+  onProgress?.('덱을 정리하는 중…');
+  return { season, ...toPlayers(rankings, nameMap, supported) };
 }
 
 /** 억 단위 표기. enikk은 `42B`로 쓰지만 우리는 억으로 읽는다. */

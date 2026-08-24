@@ -12,8 +12,8 @@ import {
   formatEok,
   loadEnikkComps,
   WEAKNESS_KO,
-  type EnikkComp,
   type EnikkImport,
+  type EnikkPlayer,
 } from './enikk';
 import { buildIndex, filterByQuery } from './nikke-search';
 import {
@@ -346,7 +346,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         <div class="section-heading">
           <div><p class="step">ENIKK</p><h2 id="enikk-heading">ENIKK 조합 가져오기</h2></div>
         </div>
-        <p class="enikk-lede">enikk.app 솔로레이드 랭킹에서 <b>실제로 쓰인 조합</b>을 가져옵니다. 최신 시즌 상위 <b>300명</b>(KR·JP·GLOBAL·NA·TW-HK·SEA 각 50명)의 1~5덱을 모두 읽어 같은 편성끼리 묶습니다.</p>
+        <p class="enikk-lede">enikk.app 솔로레이드 랭킹에서 <b>그 사람이 실제로 쓴 5덱을 통째로</b> 가져옵니다. 최신 시즌 상위 <b>300명</b>(KR·JP·GLOBAL·NA·TW-HK·SEA 각 50명)이 대상이고, 누르면 우리 5덱에 그대로 깔립니다.</p>
         <p class="enikk-warn" data-enikk-warn>불러오는 데 <b>5~10초쯤</b> 걸립니다 — enikk에서 300명분을 한 번에 받아오기 때문입니다. 받아온 뒤에는 이 브라우저에 저장해 두고 다시 받지 않습니다.</p>
         <div class="enikk-actions">
           <button type="button" class="roster-import" data-enikk-load>조합 가져오기</button>
@@ -1943,13 +1943,25 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     return box;
   };
 
-  const applyCompToDeck = (comp: EnikkComp) => {
-    const deck = activeDeck();
-    for (const member of deck.squad) if (member) delete deck.characters[member];
-    deck.squad = [...comp.squad];
-    for (const name of comp.squad) {
-      if (roster[name] && !deck.characters[name]) deck.characters[name] = cloneOverride(roster[name]!);
+  /** 한 플레이어의 다섯 덱을 우리 5덱에 그대로 깐다. */
+  const applyPlayerToDecks = (player: EnikkPlayer) => {
+    const usable = player.decks.filter((deck) => deck.usable);
+    if (usable.length === 0) return;
+    for (const deck of decks) { deck.squad = ['', '', '', '', '']; deck.characters = {}; }
+    usable.slice(0, 5).forEach((source, index) => {
+      const deck = decks[index]!;
+      deck.squad = [...source.squad];
+      for (const name of source.squad) {
+        if (roster[name]) deck.characters[name] = cloneOverride(roster[name]!);
+      }
+    });
+    // 다섯 덱을 한 번에 받았으니 5덱 모드가 아니면 볼 수가 없다.
+    if (usable.length > 1 && !fiveDeckMode) {
+      const toggle = element<HTMLInputElement>(root, '#squad-mode');
+      toggle.checked = true;
+      toggle.dispatchEvent(new Event('change'));
     }
+    activeDeckId = 1;
     activeSlot = 0;
     showErrors([]);
     saveState();
@@ -1967,22 +1979,23 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     enikkSummary.replaceChildren();
     enikkSummary.append(createText('strong', `시즌 ${data.season.raid} · ${data.season.boss}`));
     enikkSummary.append(createText('span',
-      `약점 ${weakness} · 플레이어 ${data.players}명 · 덱 ${data.decks.toLocaleString('ko-KR')}개 · 조합 ${data.comps.length.toLocaleString('ko-KR')}가지`));
+      `약점 ${weakness} · 플레이어 ${data.players.length}명 · 덱 ${data.decks.toLocaleString('ko-KR')}개`));
     if (data.unknownNames.length > 0) {
       enikkSummary.append(createText('span',
-        `계산기가 모르는 니케 ${data.unknownNames.length}종은 건너뛰었습니다 — ${data.unknownNames.slice(0, 5).join(', ')}`, 'enikk-note'));
+        `계산기가 모르는 니케 ${data.unknownNames.length}종이 낀 덱은 가져올 수 없습니다 — ${data.unknownNames.slice(0, 5).join(', ')}`,
+        'enikk-note'));
     }
 
     enikkList.hidden = false;
     enikkList.replaceChildren();
     const head = document.createElement('div');
     head.className = 'enikk-list-head';
-    head.append(createText('h3', `조합 ${data.comps.length}가지 · 사용 횟수 순`));
+    head.append(createText('h3', `플레이어 ${data.players.length}명 · 총딜 순`));
     const compareBtn = document.createElement('button');
     compareBtn.type = 'button';
     compareBtn.className = 'roster-import';
-    compareBtn.textContent = `상위 ${COMPARE_TOP}개 대조판 만들기`;
-    compareBtn.title = '실사용 조합을 우리 계산기로 돌려 enikk 실측과 나란히 놓습니다 — 10개라 시간이 걸립니다';
+    compareBtn.textContent = `상위 ${COMPARE_TOP}명 대조판 만들기`;
+    compareBtn.title = '상위 10명의 덱을 우리 계산기로 돌려 enikk 실측과 나란히 놓습니다 — 덱 50개라 몇 분 걸립니다';
     compareBtn.addEventListener('click', () => {
       compareBtn.disabled = true;
       void renderCompare().finally(() => { compareBtn.disabled = false; });
@@ -1990,22 +2003,37 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     head.append(compareBtn);
     enikkList.append(head);
 
-    for (const [index, comp] of data.comps.entries()) {
-      const row = document.createElement('article');
-      row.className = 'enikk-row';
-      const rank = createText('span', `${index + 1}`, 'enikk-rank');
-      const stats = document.createElement('div');
-      stats.className = 'enikk-stats';
-      stats.append(createText('b', `${comp.uses}회`));
-      stats.append(createText('span', `평균 ${formatEok(comp.averageDamage)}`));
-      stats.append(createText('span', `최고 ${formatEok(comp.maxDamage)}`));
-      const use = document.createElement('button');
-      use.type = 'button';
-      use.className = 'enikk-use';
-      use.textContent = '이 조합 쓰기';
-      use.addEventListener('click', () => applyCompToDeck(comp));
-      row.append(rank, enikkPortraits(comp.squad), stats, use);
-      enikkList.append(row);
+    for (const [index, player] of data.players.entries()) {
+      const card = document.createElement('article');
+      card.className = 'enikk-player';
+
+      const top = document.createElement('div');
+      top.className = 'enikk-player-head';
+      top.append(createText('span', `${index + 1}`, 'enikk-rank'));
+      top.append(createText('b', player.server, 'enikk-server'));
+      top.append(createText('span', `총 ${formatEok(player.damage)}`, 'enikk-total'));
+      const take = document.createElement('button');
+      take.type = 'button';
+      take.className = 'enikk-use';
+      const usable = player.decks.filter((deck) => deck.usable).length;
+      take.textContent = `${usable}덱 가져오기`;
+      take.disabled = usable === 0;
+      take.title = usable < player.decks.length
+        ? '계산기가 아직 못 다루는 니케가 낀 덱은 빼고 가져옵니다'
+        : '이 사람의 덱을 우리 5덱에 그대로 깝니다';
+      take.addEventListener('click', () => applyPlayerToDecks(player));
+      top.append(take);
+      card.append(top);
+
+      for (const [n, deck] of player.decks.entries()) {
+        const row = document.createElement('div');
+        row.className = 'enikk-deck' + (deck.usable ? '' : ' is-blocked');
+        row.append(createText('span', `${n + 1}`, 'enikk-deckno'));
+        row.append(enikkPortraits(deck.squad));
+        row.append(createText('span', formatEok(deck.damage), 'enikk-deckdmg'));
+        card.append(row);
+      }
+      enikkList.append(card);
     }
   };
 
@@ -2022,14 +2050,17 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
   const renderCompare = async () => {
     if (!enikkData) return;
-    const targets = enikkData.comps.slice(0, COMPARE_TOP);
+    const targets = enikkData.players.slice(0, COMPARE_TOP);
     if (targets.length === 0) return;
+    const total = targets.reduce((sum, p) => sum + p.decks.filter((d) => d.usable).length, 0);
 
     enikkCompare.hidden = false;
     enikkCompare.replaceChildren();
-    enikkCompare.append(createText('h3', `상위 ${targets.length}개 대조판`));
+    enikkCompare.append(createText('h3', `상위 ${targets.length}명 대조판`));
     enikkCompare.append(createText('p',
-      'enikk 평균은 여러 사람의 육성·조작이 섞인 실측이고, 시뮬은 지금 전투 조건과 스펙으로 돈 값입니다. 배율은 «얼마나 다른가»를 보는 눈금입니다.',
+      `덱 ${total}개를 지금 전투 조건과 내 스펙으로 돌려 그 사람의 실제 딜과 나란히 놓습니다. `
+      + '스펙이 다른 사람의 기록이므로 배율은 «얼마나 다른가»를 보는 눈금입니다. '
+      + '같은 편성은 저장된 결과를 다시 쓰므로 뒤로 갈수록 빨라집니다.',
       'enikk-note'));
 
     const table = document.createElement('div');
@@ -2039,30 +2070,42 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     const battle = readBattle();
     const custom = customPayload();
     await prepared;
-    for (const [index, comp] of targets.entries()) {
-      setEnikkStatus(`대조 계산 중 · ${index + 1}/${targets.length}`);
-      const deck: DeckState = { id: 1, squad: [...comp.squad], characters: {} };
-      for (const name of comp.squad) {
-        if (roster[name]) deck.characters[name] = cloneOverride(roster[name]!);
+    let done = 0;
+    for (const [index, player] of targets.entries()) {
+      let simTotal = 0;
+      let realTotal = 0;
+      for (const source of player.decks) {
+        if (!source.usable) continue;
+        done += 1;
+        setEnikkStatus(`대조 계산 중 · 덱 ${done}/${total}`);
+        const deck: DeckState = { id: 1, squad: [...source.squad], characters: {} };
+        for (const name of source.squad) {
+          if (roster[name]) deck.characters[name] = cloneOverride(roster[name]!);
+        }
+        const request = requestForDeck(deck, battle, Object.keys(custom).length > 0 ? custom : undefined);
+        const key = cacheKey(request, version);
+        let result = cache.get(key);
+        if (!result) {
+          result = await client.simulate(request);
+          cache.set(key, result);
+        }
+        simTotal += result.squadTotal;
+        realTotal += source.damage;
       }
-      const request = requestForDeck(deck, battle, Object.keys(custom).length > 0 ? custom : undefined);
-      const key = cacheKey(request, version);
-      let result = cache.get(key);
-      if (!result) {
-        result = await client.simulate(request);
-        cache.set(key, result);
-      }
-      const ratio = comp.averageDamage > 0 ? result.squadTotal / comp.averageDamage : 0;
+      const ratio = realTotal > 0 ? simTotal / realTotal : 0;
 
       const row = document.createElement('div');
       row.className = 'enikk-trow';
       row.append(createText('span', `${index + 1}`, 'enikk-rank'));
-      row.append(enikkPortraits(comp.squad));
+      const who = document.createElement('div');
+      who.className = 'enikk-who';
+      who.append(createText('b', player.server, 'enikk-server'));
+      who.append(createText('span', `${player.decks.filter((d) => d.usable).length}덱`));
+      row.append(who);
       const nums = document.createElement('div');
       nums.className = 'enikk-nums';
-      nums.append(createText('span', `${comp.uses}회`, 'enikk-uses'));
-      nums.append(createText('span', `enikk 평균 ${formatEok(comp.averageDamage)}`));
-      nums.append(createText('span', `시뮬 ${formatEok(result.squadTotal)}`, 'enikk-sim'));
+      nums.append(createText('span', `실제 ${formatEok(realTotal)}`));
+      nums.append(createText('span', `시뮬 ${formatEok(simTotal)}`, 'enikk-sim'));
       if (ratio > 0) {
         const tag = createText('b', `${ratio.toFixed(2)}배`, 'enikk-ratio');
         tag.classList.add(ratio > 1.15 || ratio < 0.85 ? 'is-off' : 'is-near');
@@ -2071,7 +2114,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       row.append(nums);
       table.append(row);
     }
-    setEnikkStatus(`상위 ${targets.length}개 대조 완료.`);
+    setEnikkStatus(`상위 ${targets.length}명 대조 완료.`);
   };
 
   const loadEnikk = async (force: boolean) => {
@@ -2092,7 +2135,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       const data = await loadEnikkComps(catalog, supported, setEnikkStatus);
       writeEnikkCache(data);
       renderEnikk(data);
-      setEnikkStatus(`${data.players}명에서 조합 ${data.comps.length}가지를 읽었습니다.`);
+      setEnikkStatus(`플레이어 ${data.players.length}명 · 덱 ${data.decks}개를 읽었습니다.`);
       enikkLoad.hidden = true;
       enikkRefresh.hidden = false;
     } catch (error) {

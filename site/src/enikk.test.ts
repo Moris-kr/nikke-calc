@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatEok, toComps, type EnikkRanking } from './enikk';
+import { formatEok, toPlayers, type EnikkRanking } from './enikk';
 
 const NAMES = new Map([
   ['Liter', '리타'],
@@ -14,8 +14,11 @@ const SUPPORTED = new Set([...NAMES.values()]);
 const A = ['Liter', 'Grave', 'Alice', 'Rei', 'Modernia'];
 const B = ['Liter', 'Moran', 'Alice', 'Rei', 'Modernia'];
 
-const player = (teams: Array<{ characters: string[]; damage?: number }>): EnikkRanking => ({
-  rank: 1, playerid: 'p', server: 'KR', damage: 0, cp: 0, teams,
+const player = (
+  over: Partial<EnikkRanking>,
+  teams: Array<{ characters: string[]; damage?: number; cp?: number }>,
+): EnikkRanking => ({
+  rank: 1, playerid: 'p', server: 'KR', damage: 0, cp: 0, teams, ...over,
 });
 
 describe('formatEok', () => {
@@ -26,59 +29,58 @@ describe('formatEok', () => {
   });
 });
 
-describe('toComps', () => {
-  it('같은 조합을 묶고 사용 횟수·평균·최고를 낸다', () => {
-    const result = toComps([
-      player([{ characters: A, damage: 100_000_000 }, { characters: B, damage: 500_000_000 }]),
-      player([{ characters: A, damage: 300_000_000 }]),
+describe('toPlayers', () => {
+  it('사람마다 덱을 그대로 들고 있는다 — 조합으로 묶지 않는다', () => {
+    const result = toPlayers([
+      player({ playerid: 'x', damage: 900 }, [
+        { characters: A, damage: 400 },
+        { characters: B, damage: 500 },
+      ]),
     ], NAMES, SUPPORTED);
 
-    expect(result.decks).toBe(3);
-    expect(result.comps).toHaveLength(2);
-    const [top] = result.comps;
-    expect(top!.squad).toEqual(['리타', '그레이브', '앨리스', '레이', '모더니아']);
-    expect(top!.uses).toBe(2);
-    expect(top!.averageDamage).toBe(200_000_000);
-    expect(top!.maxDamage).toBe(300_000_000);
+    expect(result.players).toHaveLength(1);
+    const [p] = result.players;
+    expect(p!.decks).toHaveLength(2);
+    expect(p!.decks[0]!.squad).toEqual(['리타', '그레이브', '앨리스', '레이', '모더니아']);
+    expect(p!.decks[1]!.squad[1]).toBe('목단');
+    expect(result.decks).toBe(2);
   });
 
-  it('사용 횟수 순으로 세우고, 같으면 평균 딜이 높은 쪽이 앞이다', () => {
-    const result = toComps([
-      player([{ characters: A, damage: 100_000_000 }]),
-      player([{ characters: B, damage: 900_000_000 }]),
+  it('같은 조합을 둘이 써도 각자 남는다', () => {
+    const result = toPlayers([
+      player({ playerid: 'a', damage: 10 }, [{ characters: A, damage: 10 }]),
+      player({ playerid: 'b', damage: 20 }, [{ characters: A, damage: 20 }]),
     ], NAMES, SUPPORTED);
-    expect(result.comps[0]!.squad[1]).toBe('목단');   // 같은 1회 — 평균이 높은 B
+    expect(result.players.map((p) => p.playerid)).toEqual(['b', 'a']);   // 총딜 내림차순
   });
 
-  it('순서가 다르면 다른 조합이다 — enikk 표기 순서가 버스트 우선순위다', () => {
-    const swapped = [A[1]!, A[0]!, A[2]!, A[3]!, A[4]!];
-    const result = toComps([
-      player([{ characters: A, damage: 1 }, { characters: swapped, damage: 1 }]),
+  it('못 다루는 니케가 낀 덱은 가져올 수 없다고 표시하되 버리지 않는다', () => {
+    const result = toPlayers([
+      player({ damage: 1 }, [
+        { characters: A, damage: 1 },
+        { characters: ['Liter', 'Grave', 'Alice', 'Rei', 'NewGirl'], damage: 2 },
+      ]),
     ], NAMES, SUPPORTED);
-    expect(result.comps).toHaveLength(2);
-  });
 
-  it('모르는 영문명은 조합을 버리고 이름을 보고한다', () => {
-    const result = toComps([
-      player([{ characters: ['Liter', 'Grave', 'Alice', 'Rei', 'NewGirl'], damage: 1 }]),
-    ], NAMES, SUPPORTED);
-    expect(result.comps).toHaveLength(0);
+    const [p] = result.players;
+    expect(p!.decks[0]!.usable).toBe(true);
+    expect(p!.decks[1]!.usable).toBe(false);
+    // 덱은 남는다 — 그 사람이 무엇을 썼는지는 보여 준다.
+    expect(p!.decks).toHaveLength(2);
     expect(result.unknownNames).toEqual(['NewGirl']);
-  });
-
-  it('계산기가 못 도는 니케가 끼면 세어서 알린다', () => {
-    const result = toComps([
-      player([{ characters: A, damage: 1 }]),
-    ], NAMES, new Set(['리타', '그레이브', '앨리스', '레이']));   // 모더니아 빠짐
-    expect(result.comps).toHaveLength(0);
     expect(result.unsupported).toBe(1);
   });
 
-  it('딜이 안 실려 온 덱은 횟수만 세고 평균을 흐리지 않는다', () => {
-    const result = toComps([
-      player([{ characters: A }, { characters: A, damage: 400_000_000 }]),
-    ], NAMES, SUPPORTED);
-    expect(result.comps[0]!.uses).toBe(2);
-    expect(result.comps[0]!.averageDamage).toBe(400_000_000);
+  it('계산기에 없는 니케도 못 쓰는 덱으로 센다', () => {
+    const result = toPlayers([
+      player({ damage: 1 }, [{ characters: A, damage: 1 }]),
+    ], NAMES, new Set(['리타', '그레이브', '앨리스', '레이']));   // 모더니아 빠짐
+    expect(result.players[0]!.decks[0]!.usable).toBe(false);
+    expect(result.unsupported).toBe(1);
+  });
+
+  it('덱이 하나도 없는 사람은 목록에 넣지 않는다', () => {
+    const result = toPlayers([player({ damage: 1 }, [])], NAMES, SUPPORTED);
+    expect(result.players).toHaveLength(0);
   });
 });
