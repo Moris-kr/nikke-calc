@@ -219,12 +219,20 @@ def _normalize_control(raw: Any) -> dict[str, Any]:
     return result
 
 
+# 인게임·블라블라링크의 표기 순서. 입력할 때 화면을 그대로 훑을 수 있도록 맞춘다.
+# 목록에 없는 소속이 로스터에 새로 생기면 뒤에 붙는다 — 빠뜨리지 않는 게 우선이다.
+_OFFICIAL_ORDER = {
+    "manufacturer": ("엘리시온", "테트라", "미실리스", "필그림", "어브노말"),
+    "class": ("화력형", "방어형", "지원형"),
+}
+
+
 def _roster_buckets(field: str) -> tuple[str, ...]:
     """로스터에 실제로 존재하는 소속 목록. 정본은 `data/parsed_nikke.json`이다.
 
     엔진은 소속별 콘솔 dict에서 **빠진 소속을 KeyError로 끊는다**
     (`base_stat.console_level`) — 조용히 0이 되지 않게 하려는 자리다. 그래서
-    선택지를 로스터에서 뽑아, 신규 기업·클래스가 생겨도 저절로 따라가게 한다.
+    있는 소속은 로스터에서 뽑고, 순서만 공식 표기를 따른다.
     """
     root = Path(__file__).resolve().parent.parent
     nikke = json.loads((root / "data" / "parsed_nikke.json").read_text(encoding="utf-8"))
@@ -232,7 +240,10 @@ def _roster_buckets(field: str) -> tuple[str, ...]:
         meta.get(field) for name, meta in nikke.items()
         if not name.startswith("test_") and meta.get(field)
     }
-    return tuple(sorted(seen))
+    official = _OFFICIAL_ORDER[field]
+    ordered = [bucket for bucket in official if bucket in seen]
+    ordered += sorted(seen - set(official))
+    return tuple(ordered)
 
 
 CONSOLE_CLASSES = _roster_buckets("class")

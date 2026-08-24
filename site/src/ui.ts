@@ -843,9 +843,10 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     );
 
     grid.append(
+      // 인게임·블라블라링크와 같은 순서 — 공통 → 기업 → 클래스.
       group('공통', [commonWrap]),
-      axisGroup('class', '클래스'),
       axisGroup('company', '기업'),
+      axisGroup('class', '클래스'),
     );
   };
   renderConsole();

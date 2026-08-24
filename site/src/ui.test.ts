@@ -52,7 +52,7 @@ const settings: SettingsCatalog = {
   }])),
   collectionStages: ['없음', 'SR0', 'SR5', 'SR15'],
   consoleClasses: ['화력형', '방어형', '지원형'],
-  consoleCompanies: ['엘리시온', '미실리스', '테트라', '필그림', '어브노말'],
+  consoleCompanies: ['엘리시온', '테트라', '미실리스', '필그림', '어브노말'],
   cubes: {
     재장: { id: 0, label: '재장', stat: 'reload_speed_pct', template: '재장전 {0}%', levels: cubeLevels },
     탄충: { id: 0, label: '탄충', stat: 'ammo_charge_flat', template: '10발마다 {0}발', levels: cubeLevels },
@@ -440,6 +440,22 @@ describe('calculator UI', () => {
     expect(getComputedStyle(tabs).display).toBe('none');
     const css = readFileSync(join(import.meta.dirname, 'styles.css'), 'utf8');
     expect(css).toMatch(/\[hidden\]\s*\{\s*display:\s*none\s*!important;/);
+  });
+
+  it('lays the console out in the in-game order', () => {
+    // 인게임·블라블라링크가 «공통 → 기업 → 클래스» 순으로 보여준다. 화면을 그대로
+    // 훑으며 옮겨 적을 수 있어야 하므로 순서 자체가 뜻을 갖는다.
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const order = [...root.querySelectorAll<HTMLInputElement>('[data-console-bucket]')]
+      .map((input) => input.dataset.consoleBucket);
+
+    expect(order).toEqual([
+      'company:엘리시온', 'company:테트라', 'company:미실리스', 'company:필그림', 'company:어브노말',
+      'class:화력형', 'class:방어형', 'class:지원형',
+    ]);
+    // 공통은 맨 앞이다.
+    const groups = [...root.querySelectorAll('.console-group h4')].map((h) => h.textContent);
+    expect(groups).toEqual(['공통', '기업', '클래스']);
   });
 
   it('sends per-affiliation console levels and restores them on reload', async () => {
