@@ -1,0 +1,71 @@
+# PR 검증. `pages.yml`이 master push를 이미 전부 검사하고 배포까지 하므로, 여기서는
+# **PR과 그 밖의 브랜치**만 맡는다 — 지금까지 그쪽이 통째로 비어 있었다.
+# (master를 여기서도 돌리면 같은 7분짜리 스냅샷을 두 번 태우게 된다)
+#
+# 통과 여부만으로는 리뷰가 안 된다. 계산기를 고치면 baseline도 같이 고쳐 PR에 넣으므로
+# **회귀는 초록불로 지나가기 때문**이다. 실제로 읽어야 할 것은 마지막 단계가 PR 요약에
+# 붙이는 **변동 표**다 — 한 캐릭터를 고쳤는데 29개 스쿼드가 다 흔들렸다면 초록불이어도
+# 의도한 수정이 아니다.
+
+name: CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+# 연달아 push하면 앞 실행은 취소한다. 스냅샷이 길어 쌓이면 큐가 밀린다.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # 변동 표가 기준 커밋의 baseline을 `git show`로 읽는다. 얕은 클론이면 없다.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Install dependencies
+        working-directory: site
+        run: npm ci
+
+      # 파이썬 쪽은 표준 라이브러리만 쓴다 — `pip install` 단계가 없는 게 정상이다.
+      - name: 문서·데이터 정합 (doclint)
+        run: python -m context.doclint
+
+      - name: 엔진 단위 테스트
+        run: |
+          python -m unittest discover -s calculator -p 'test_*.py'
+          python calculator/damage.py
+
+      - name: 브리지 스모크 테스트
+        working-directory: site
+        run: python scripts/test-bridge.py
+
+      - name: 브라우저 사이트 테스트
+        working-directory: site
+        run: npm test -- --run
+
+      - name: 딜 계산 회귀 (golden snapshot 29개)
+        run: python -m context.snapshot
+
+      # 실패해도 붙인다 — 무엇이 움직였는지는 빨간불일 때 더 알고 싶다.
+      - name: 스냅샷 변동 요약
+        if: always() && github.event_name == 'pull_request'
+        run: |
+          python .github/scripts/baseline_delta.py \
+            "${{ github.event.pull_request.base.sha }}" >> "$GITHUB_STEP_SUMMARY"
