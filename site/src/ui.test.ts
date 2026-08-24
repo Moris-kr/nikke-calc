@@ -457,6 +457,19 @@ describe('calculator UI', () => {
     expect(root.querySelector<HTMLElement>('[data-deck-copy-panel]')!.hidden).toBe(false);
   });
 
+  it('ignores an enikk cache left by an older shape instead of crashing', () => {
+    // v1은 `players`가 숫자였다. 그 값을 새 코드가 배열로 읽으면 터진다.
+    localStorage.setItem('nikke-enikk-v1', JSON.stringify({ players: 300, comps: [] }));
+    localStorage.setItem('nikke-enikk-v2', JSON.stringify({ players: 300, comps: [] }));
+
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    root.querySelector<HTMLButtonElement>('[data-view-tab="enikk"]')!.click();
+
+    // 낡은 캐시를 무시하고 «가져오기» 버튼이 그대로 남는다.
+    expect(root.querySelector<HTMLButtonElement>('[data-enikk-load]')!.hidden).toBe(false);
+    expect(root.querySelectorAll('.enikk-player')).toHaveLength(0);
+  });
+
   it('drops the AI/no-server badges and states the supported count plainly', () => {
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
     const trust = root.querySelector<HTMLElement>('.trust-row')!;

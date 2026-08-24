@@ -1901,7 +1901,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   // ── ENIKK 조합 가져오기 ─────────────────────────────────────────────────
   // enikk.app 솔로레이드 랭킹 상위 300명(서버당 50명 × 6서버)의 1~5덱을 받아
   // 같은 편성끼리 묶는다. 페이지를 넘길 필요가 없다 — GraphQL이 한 번에 다 준다.
-  const ENIKK_KEY = 'nikke-enikk-v1';
+  // v1은 조합으로 묶어 저장했다(`players`가 숫자였다). 사람 단위로 바꾸면서 모양이
+  // 달라졌으므로 키를 올린다 — 안 올리면 예전 캐시를 새 코드가 읽다 터진다.
+  const ENIKK_KEY = 'nikke-enikk-v2';
   const enikkStatus = element<HTMLElement>(root, '[data-enikk-status]');
   const enikkSummary = element<HTMLElement>(root, '[data-enikk-summary]');
   const enikkList = element<HTMLElement>(root, '[data-enikk-list]');
@@ -1914,7 +1916,11 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const readEnikkCache = (): EnikkImport | null => {
     try {
       const raw = resolveStorage()?.getItem(ENIKK_KEY);
-      return raw ? JSON.parse(raw) as EnikkImport : null;
+      if (!raw) return null;
+      const data = JSON.parse(raw) as EnikkImport;
+      // 키를 올려도 남의 브라우저에는 무엇이 들어 있을지 모른다. 쓰기 전에 모양을 본다.
+      if (!Array.isArray(data?.players) || !data.season) return null;
+      return data;
     } catch { return null; }
   };
   const writeEnikkCache = (data: EnikkImport) => {
