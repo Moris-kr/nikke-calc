@@ -190,9 +190,9 @@ describe('calculator UI', () => {
     const filled = () => stepper.querySelectorAll('.growth-star.is-on').length;
     const core = () => stepper.querySelector('.growth-core')?.textContent ?? null;
 
-    // 기본값 3돌: 별 3개, 진화 배지 없음. 아직 오버라이드가 없어 드롭다운도 없다.
+    // 기본값 3돌: 별 3개, 진화 0. 아직 오버라이드가 없어 드롭다운도 없다.
     expect(filled()).toBe(3);
-    expect(core()).toBeNull();
+    expect(core()).toBe('0');
     expect(root.querySelector('[data-slot-card="0"] [data-growth-stage]')).toBeNull();
 
     // + 한 번 → 코강 1. 별 3개 + 동그라미 "1", 개별 설정 드롭다운이 생겨 값이 맞는다.
@@ -202,15 +202,51 @@ describe('calculator UI', () => {
     expect(root.querySelector<HTMLSelectElement>('[data-slot-card="0"] [data-growth-stage]')!.value).toBe('4');
 
     // 바닥까지 내리면 명함(0): 채워진 별 0개, − 비활성.
+    // 진화 뱃지는 0으로 남는다 — 사라지면 별 줄 폭이 흔들린다.
     for (let i = 0; i < 6; i += 1) minus.click();
     expect(filled()).toBe(0);
-    expect(core()).toBeNull();
+    expect(core()).toBe('0');
     expect(minus.disabled).toBe(true);
 
     // 기본값(3돌)으로 되돌리면 오버라이드가 사라져 드롭다운도 없어진다.
     for (let i = 0; i < 3; i += 1) plus.click();
     expect(filled()).toBe(3);
     expect(root.querySelector('[data-slot-card="0"] [data-growth-stage]')).toBeNull();
+  });
+
+  it('keeps the star art from swallowing clicks on the stepper buttons', () => {
+    // 별·진화 그림은 칸보다 크게 그려 −/+ 위로 넘친다. pointer-events를 놓치면
+    // 버튼 한가운데가 안 눌린다 (유저 제보).
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const stepper = root.querySelector<HTMLElement>('[data-slot-card="0"] [data-growth-stepper]')!;
+    for (const decoration of ['.growth-stars', '.growth-star', '.growth-core']) {
+      expect(stepper.querySelector(decoration), decoration).not.toBeNull();
+    }
+    // jsdom은 pointer-events 캐스케이드를 계산하지 않는다 — 규칙 자체를 확인한다.
+    const css = readFileSync(join(import.meta.dirname, 'styles.css'), 'utf8');
+    expect(css).toMatch(
+      /\.growth-stars,\s*\.growth-star,\s*\.growth-core\s*\{\s*pointer-events:\s*none;/,
+    );
+  });
+
+  it('shows the element code icon on squad cards and roster cells', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+
+    // 편성 카드는 좌상단 — 슬롯 번호와 한 줄에 선다.
+    const tags = root.querySelector<HTMLElement>('[data-slot-card="0"] .slot-tags')!;
+    expect(tags.querySelector('.slot-number')!.textContent).toBe('01');
+    // 리타는 철갑.
+    expect(tags.querySelector('.slot-code')!.className).toContain('is-iron');
+
+    // 고르기 판은 우상단. 전원에게 붙고 속성별로 갈린다.
+    const cells = [...root.querySelectorAll<HTMLElement>('[data-roster-cell]')];
+    expect(cells.length).toBeGreaterThan(0);
+    expect(cells.every((cell) => cell.querySelector('.roster-code'))).toBe(true);
+    const iconOf = (name: string) => root
+      .querySelector(`[data-roster-cell="${name}"] .roster-code`)!.className;
+    expect(iconOf('라피 : 레드 후드')).toContain('is-fire');     // 작열
+    expect(iconOf('앨리스')).toContain('is-water');              // 수냉
+    expect(iconOf('나가')).toContain('is-electronic');           // 전격
   });
 
   it('gives each slot a target button instead of a dropdown, and one shared picker', () => {

@@ -107,6 +107,7 @@ h2 { margin: 0; font-size: 24px; letter-spacing: -.035em; }
 .roster-portrait { position: relative; aspect-ratio: 1; overflow: hidden; border-radius: 7px; background: rgba(3,9,16,.75); }
 .roster-portrait img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .roster-burst { position: absolute; top: 4px; left: 4px; padding: 1px 5px; background: rgba(2,6,12,.78); color: var(--cyan); font-size: 9px; font-weight: 700; border-radius: 4px; }
+.roster-code { position: absolute; top: 3px; right: 3px; }
 .roster-cell strong { font-size: 11px; line-height: 1.35; color: var(--ink); word-break: keep-all; }
 .roster-cell span { color: var(--muted); font-size: 9px; line-height: 1.4; }
 .roster-empty { margin: 14px 0 0; color: var(--muted); font-size: 11px; }
@@ -208,7 +209,17 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .portrait-wrap::after { content: ""; position: absolute; inset: auto 0 0; height: 42%; background: linear-gradient(transparent, rgba(3,10,17,.86)); pointer-events: none; }
 .portrait-wrap img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 28%; display: block; }
 .portrait-fallback { position: absolute; inset: 22%; border: 1px solid rgba(69,214,208,.2); transform: rotate(45deg); }
-.slot-number { position: absolute; z-index: 2; top: 8px; left: 8px; min-width: 27px; padding: 4px 5px; background: var(--amber); color: #1b1200; font: 900 11px ui-monospace, monospace; }
+/* 속성(코드) 아이콘 — 육각 뱃지. 원본 63×73 비율을 지킨다. */
+.element-icon { flex: none; width: 18px; height: 21px; background-repeat: no-repeat; background-size: contain; background-position: center; filter: drop-shadow(0 1px 2px rgba(0,0,0,.6)); }
+.element-icon.is-fire { background-image: url('./assets/icon-code-fire.png'); }
+.element-icon.is-water { background-image: url('./assets/icon-code-water.png'); }
+.element-icon.is-wind { background-image: url('./assets/icon-code-wind.png'); }
+.element-icon.is-electronic { background-image: url('./assets/icon-code-electronic.png'); }
+.element-icon.is-iron { background-image: url('./assets/icon-code-iron.png'); }
+
+/* 슬롯 번호 + 속성 아이콘 한 줄 — 초상화 좌상단 */
+.slot-tags { position: absolute; z-index: 2; top: 8px; left: 8px; display: flex; align-items: center; gap: 4px; }
+.slot-number { min-width: 27px; padding: 4px 5px; background: var(--amber); color: #1b1200; font: 900 11px ui-monospace, monospace; }
 /* 자리 이동 — 슬롯 번호 맞은편 */
 .slot-moves { position: absolute; z-index: 2; top: 8px; right: 8px; display: flex; gap: 4px; }
 .slot-move { width: 24px; height: 24px; padding: 0; display: grid; place-items: center; border: 1px solid rgba(146,176,201,.28); background: rgba(3,10,17,.72); color: #cfeceb; font: 700 14px/1 ui-monospace, monospace; border-radius: 5px; cursor: pointer; }
@@ -227,17 +238,34 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .squad-slot.is-preview::after { content: "PREVIEW"; position: absolute; top: 8px; right: 8px; z-index: 3; padding: 3px 5px; background: var(--danger); color: #21050a; font-size: 8px; font-weight: 900; }
 /* 돌파·코어 강화 스테퍼 — 초상화 우측하단. 별 + 진화 숫자로 명함~풀코를 보이고 −/+로 조절. */
 .growth-stepper { position: absolute; z-index: 2; right: 7px; bottom: 7px; display: flex; align-items: center; gap: 4px; padding: 3px; border: 1px solid rgba(146,176,201,.22); border-radius: 7px; background: rgba(3,10,17,.78); backdrop-filter: blur(2px); }
-.growth-step { width: 20px; height: 20px; padding: 0; display: grid; place-items: center; border: 1px solid rgba(146,176,201,.28); background: rgba(3,10,17,.6); color: #cfeceb; font: 800 13px/1 ui-monospace, monospace; border-radius: 5px; cursor: pointer; }
+/* 버튼은 별 장식 위에 온다 — 아래 pointer-events와 짝이다. */
+.growth-step { position: relative; z-index: 1; width: 20px; height: 20px; padding: 0; display: grid; place-items: center; border: 1px solid rgba(146,176,201,.28); background: rgba(3,10,17,.6); color: #cfeceb; font: 800 13px/1 ui-monospace, monospace; border-radius: 5px; cursor: pointer; }
 .growth-step:hover:not(:disabled) { background: rgba(69,214,208,.22); border-color: var(--cyan); }
 .growth-step:disabled { opacity: .28; cursor: default; }
-.growth-stars { display: flex; align-items: center; gap: 1px; padding: 0 1px; }
-/* 별 아이콘은 blablalink 도감 스프라이트(3000×120, 25프레임)를 그대로 쓴다.
-   한 프레임 = 120px → background-size 2500%. 빈 별 = 마지막 프레임(100%),
-   채워진 별 = 골드 프레임(62.5%). blablalink와 같은 그림이라 통일감이 있다. */
-.growth-star { width: 15px; height: 15px; background-image: url('./assets/upgrade-star.webp'); background-repeat: no-repeat; background-size: 2500% 100%; background-position: 100% 0; }
-.growth-star.is-on { background-position: 62.5% 0; }
-/* 진화(코강) 숫자 — 별 옆 동그라미 */
-.growth-core { display: grid; place-items: center; width: 16px; height: 16px; margin-left: 3px; border-radius: 50%; background: var(--amber); color: #1b1200; font: 900 9.5px/1 ui-monospace, monospace; }
+/* 별·진화는 그림일 뿐이라 클릭을 먹지 않는다. 아래에서 프레임을 칸보다 크게
+   그리는 탓에 그림이 −/+ 버튼 위로 넘치는데, 이게 없으면 버튼이 안 눌린다. */
+.growth-stars, .growth-star, .growth-core { pointer-events: none; }
+.growth-stars { display: flex; align-items: center; gap: 2px; padding: 0 1px; }
+/* 별·진화 아이콘은 blablalink 도감 스프라이트를 그대로 쓴다.
+   두 스프라이트 모두 한 프레임이 120×120인데 그림 자체는 그 안에 작게 들어 있다
+   (별 25×24, 진화 38×38 — 나머지는 등장 애니메이션용 여백). 그래서 도감과 똑같이
+   **의사요소를 칸보다 크게 잡아 넘치게** 그린다. 프레임을 칸 크기로 우겨넣으면
+   그림이 1/4로 줄어 거의 안 보인다. 애니메이션은 쓰지 않고 정지 프레임만 고른다. */
+.growth-star { position: relative; width: 15px; height: 15px; }
+.growth-star::before {
+  content: ""; position: absolute; top: -22px; left: -22px; width: 60px; height: 60px;
+  background-image: url('./assets/upgrade-star.webp'); background-repeat: no-repeat;
+  background-size: 2500% 100%; background-position: 100% 0;   /* 빈 별 = 마지막 프레임 */
+}
+.growth-star.is-on::before { background-position: 62.5% 0; }  /* 채워진 별 = 골드 프레임 */
+/* 진화(코강) — 별 옆 동그라미. 숫자는 아이콘 위에 얹는다. */
+.growth-core { position: relative; display: grid; place-items: center; width: 16px; height: 16px; margin-left: 1px; color: #fff; font: 900 9px/1 ui-monospace, monospace; text-shadow: 0 1px 2px rgba(0,0,0,.7); }
+.growth-core::before {
+  content: ""; position: absolute; top: -17px; left: -17px; width: 50px; height: 50px;
+  background-image: url('./assets/upgrade-evolve.webp'); background-repeat: no-repeat;
+  background-size: 1300% 100%; background-position: 0 0;
+}
+.growth-core span { position: relative; }
 
 .character-settings { margin-top: 10px; border-top: 1px solid rgba(146,176,201,.12); padding-top: 9px; }
 /* 접이식 머리 — 개별 설정과 컨트롤은 기본이 접힘이고 여는 건 별도 동작이다. */

@@ -83,6 +83,22 @@ const createText = (tag: keyof HTMLElementTagNameMap, value: string, className?:
   return node;
 };
 
+// 속성(코드) 아이콘 — 그림은 `image/icon/icon-code-*.png`가 정본이다.
+// 직접 추가한 니케가 목록에 없는 코드를 쓰면 조용히 아이콘을 생략한다.
+const ELEMENT_ICON: Record<string, string> = {
+  작열: 'fire', 수냉: 'water', 풍압: 'wind', 전격: 'electronic', 철갑: 'iron',
+};
+
+const createElementIcon = (elementCode: string, className: string): HTMLElement | null => {
+  const slug = ELEMENT_ICON[elementCode];
+  if (!slug) return null;
+  const icon = document.createElement('span');
+  icon.className = `${className} element-icon is-${slug}`;
+  icon.title = elementCode;
+  icon.ariaLabel = elementCode;
+  return icon;
+};
+
 // Pyodide 오류는 긴 파이썬 트레이스백으로 온다. 마지막 줄(실제 오류 메시지)만 보여준다.
 const cleanEngineError = (raw: string): string => {
   const lines = raw.split('\n').map((line) => line.trim()).filter(Boolean);
@@ -688,8 +704,16 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       top.className = 'slot-top';
       const portrait = document.createElement('div');
       portrait.className = 'portrait-wrap';
-      const number = createText('span', `0${index + 1}`, 'slot-number');
-      portrait.append(number, createText('div', '', 'portrait-fallback'));
+      // 슬롯 번호와 속성 아이콘은 좌상단에 나란히 선다. 번호 폭이 자릿수에 따라
+      // 달라져도 아이콘이 겹치지 않도록 절대배치 대신 한 줄로 묶는다.
+      const tags = document.createElement('div');
+      tags.className = 'slot-tags';
+      tags.append(createText('span', `0${index + 1}`, 'slot-number'));
+      if (char) {
+        const codeIcon = createElementIcon(char.elementCode, 'slot-code');
+        if (codeIcon) tags.append(codeIcon);
+      }
+      portrait.append(tags, createText('div', '', 'portrait-fallback'));
 
       // 자리 이동. 니케는 배치 순서가 전투에 영향을 주므로 캐릭터를 다시 고르지 않고
       // 자리만 맞바꿀 수 있어야 한다. 이름으로 걸린 설정(deck.characters)은 슬롯과
@@ -824,7 +848,12 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             star.className = i < Math.min(stage, 3) ? 'growth-star is-on' : 'growth-star';
             stars.append(star);
           }
-          if (core > 0) stars.append(createText('span', String(core), 'growth-core'));
+          // 진화 뱃지는 도감처럼 0일 때도 자리를 지킨다 — 켜졌다 꺼졌다 하면
+          // 별 줄의 폭이 흔들려 카드가 들썩인다.
+          const badge = document.createElement('span');
+          badge.className = 'growth-core';
+          badge.append(createText('span', String(core)));
+          stars.append(badge);
           minus.disabled = stage <= 0;
           plus.disabled = stage >= maxStage;
           const text = labelOf(stage);
@@ -1539,6 +1568,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       badge.className = 'roster-burst';
       badge.textContent = `B${char.burstStage}`;
       portrait.append(badge);
+      // 버스트 단계 맞은편(우상단)에 속성 아이콘.
+      const codeIcon = createElementIcon(char.elementCode, 'roster-code');
+      if (codeIcon) portrait.append(codeIcon);
       cell.append(
         portrait,
         createText('strong', char.name),
