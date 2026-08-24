@@ -3,6 +3,7 @@ import type {
   CharacterOverrides,
   CubeName,
   EquipPart,
+  EquipSetting,
   SettingsCatalog,
   SkillLevels,
 } from './types';
@@ -324,20 +325,26 @@ export function renderCharacterSettings(
     partText.textContent = EQUIP_PART_LABELS[part];
     const partSelect = document.createElement('select');
     partSelect.dataset.equipLevel = part;
+    // 장비는 세 갈래다 — 미장착 / 일반 T1~T9(강화 없음) / 기업·오버로드 강화 0~5.
+    // 미장착을 «강화 0»으로 적으면 안 낀 부위가 플랫 스탯을 얻어 딜이 부푼다.
     // 스킬 레벨과 같은 방향(낮은 값이 위)으로 둔다 — 한 패널 안에서 정렬이
     // 엇갈리면 고를 때마다 방향을 다시 읽어야 한다.
-    for (let lv = 0; lv <= 5; lv += 1) {
+    const addOption = (value: string, label: string) => {
       const option = document.createElement('option');
-      option.value = String(lv);
-      option.textContent = `Lv${lv}`;
+      option.value = value;
+      option.textContent = label;
       partSelect.append(option);
-    }
+    };
+    addOption('없음', '미장착');
+    for (let tier = 1; tier <= 9; tier += 1) addOption(`T${tier}`, `T${tier}`);
+    for (let lv = 0; lv <= 5; lv += 1) addOption(String(lv), `기업 Lv${lv}`);
     partSelect.value = String(current.equipLevels?.[part] ?? 5);
     partSelect.addEventListener('change', () => {
       const next = cloneOverrides(current);
       const levels = { ...(next.equipLevels ?? {}) };
       for (const p of EQUIP_PARTS) levels[p] ??= current.equipLevels?.[p] ?? 5;
-      levels[part] = Number(partSelect.value);
+      const picked = partSelect.value;
+      levels[part] = /^\d+$/.test(picked) ? Number(picked) : (picked as EquipSetting);
       next.equipLevels = levels;
       emitNumericChange(next);
     });
@@ -346,7 +353,7 @@ export function renderCharacterSettings(
   }
   const equipNote = document.createElement('p');
   equipNote.className = 'field-note';
-  equipNote.textContent = '부위별 장비 강화 레벨(0~5) · 오버로드 옵션과 별개인 장비 기본 스탯입니다.';
+  equipNote.textContent = '부위별 장비 · 미장착 / 일반 T1~T9(강화 없음) / 기업·오버로드 강화 0~5. 오버로드 옵션과 별개인 장비 기본 스탯입니다.';
   equipEditor.append(equipHeading, equipGrid, equipNote);
   body.append(equipEditor);
 

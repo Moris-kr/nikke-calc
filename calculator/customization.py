@@ -74,6 +74,14 @@ SKILL_LEVEL_KEYS = {"1", "2", "3"}
 EQUIP_PARTS = ("머리", "몸통", "팔", "다리")
 EQUIP_LEVEL_MAX = 5  # data/base_stat_tables/equipment_stats.json 은 부위별 LV0~5
 
+# 장비는 세 갈래다 (`base_stat._equip_stat`).
+#   숫자 0~5   기업·오버로드 장비의 강화 단계
+#   "T1"~"T9"  일반 장비 — 강화가 없다
+#   "없음"      미장착
+# **미장착을 강화0으로 적으면 안 된다** — 강화0도 플랫 스탯이 붙어서, 안 낀 부위가
+# 공격력을 그냥 얻는다(4부위 기준 약 1만). 프로필 동기화가 이 셋을 구분해 보낸다.
+EQUIP_TIERS = (NO_ITEM, *(f"T{n}" for n in range(1, 10)))
+
 
 def _stat(label: str, unit: str = "%", minimum: float = -1000.0,
           maximum: float = 10000.0) -> dict[str, Any]:
@@ -511,6 +519,13 @@ def normalize_character_overrides(
             raise ValueError(f"지원하지 않는 장비 부위: {sorted(unknown)}")
         equipment: dict[str, Any] = {}
         for part, level in equip_levels.items():
+            # 문자열은 등급(미장착·일반 T1~T9) — 강화 단계가 없는 갈래다.
+            if isinstance(level, str):
+                if level not in EQUIP_TIERS:
+                    raise ValueError(
+                        f"장비 등급({part})은 {NO_ITEM} 또는 T1~T9여야 한다 ({level!r})")
+                equipment[part] = {"tier": level}
+                continue
             if isinstance(level, bool) or not isinstance(level, int) \
                     or not 0 <= level <= EQUIP_LEVEL_MAX:
                 raise ValueError(f"장비 레벨({part})은 0~{EQUIP_LEVEL_MAX} 정수여야 한다")

@@ -107,7 +107,7 @@ describe('areaToOverrides', () => {
     expect(overload.crit_rate).toBe(0);
   });
 
-  it('기업 장비만 강화 레벨을 쓰고 일반 티어와 빈 슬롯은 0이다', () => {
+  it('기업은 강화 레벨로, 일반 티어와 빈 슬롯은 등급 그대로 읽는다', () => {
     const result = areaToOverrides(area({
       characters: [{ name_code: 5001, grade: 0, core: 0 }],
       details: [detailOf({
@@ -119,8 +119,10 @@ describe('areaToOverrides', () => {
       })],
     }), settings, catalog);
 
+    // 예전에는 기업이 아니면 전부 0(=기업 강화0)으로 뭉갰다. 강화0에도 플랫 스탯이
+    // 붙어서 미장착·일반 장비가 공격력을 그냥 얻었다 — 등급을 그대로 넘겨야 한다.
     expect(result.overrides['라피']!.equipLevels).toEqual({
-      머리: 5, 몸통: 0, 팔: 0, 다리: 2,
+      머리: 5, 몸통: 'T9', 팔: '없음', 다리: 2,
     });
   });
 

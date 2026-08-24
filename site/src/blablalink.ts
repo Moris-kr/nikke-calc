@@ -2,6 +2,7 @@ import type {
   CharacterMeta,
   CharacterOverrides,
   EquipPart,
+  EquipSetting,
   SettingsCatalog,
 } from './types';
 
@@ -123,11 +124,16 @@ function overloadOf(
   return total;
 }
 
-function equipLevelsOf(detail: Record<string, number>): Partial<Record<EquipPart, number>> {
-  const levels: Partial<Record<EquipPart, number>> = {};
+function equipLevelsOf(detail: Record<string, number>): Partial<Record<EquipPart, EquipSetting>> {
+  const levels: Partial<Record<EquipPart, EquipSetting>> = {};
   for (const [prefix, part] of PARTS) {
     const tier = detail[`${prefix}_equip_tier`] ?? 0;
-    levels[part] = tier >= CORP_TIER ? clamp(detail[`${prefix}_equip_lv`] ?? 0, 0, 5) : 0;
+    // 셋을 구분해 넘긴다. 예전에는 기업이 아니면 전부 «강화 0»으로 적었는데,
+    // 강화 0에도 플랫 스탯이 붙어 미장착·일반 장비가 공격력을 그냥 얻었다
+    // (4부위 미장착 기준 약 1만). `scraper/profile_fetch.py`가 하는 구분과 같다.
+    levels[part] = tier >= CORP_TIER
+      ? clamp(detail[`${prefix}_equip_lv`] ?? 0, 0, 5)
+      : tier >= 1 ? (`T${tier}` as EquipSetting) : '없음';
   }
   return levels;
 }

@@ -590,5 +590,37 @@ class CharacterCustomizationTest(unittest.TestCase):
         self.assertEqual(skill_on, skill_off)
 
 
+    def test_equip_accepts_tier_as_well_as_enhancement_level(self):
+        """장비 세 갈래 — 미장착 · 일반 T1~T9 · 기업 강화 0~5.
+
+        미장착을 «강화 0»으로 적으면 안 낀 부위가 플랫 스탯을 얻어 딜이 부푼다
+        (4부위 전부 미장착일 때 실측 +11.5%). 프로필 동기화가 이 셋을 구분해 보낸다.
+        """
+        from calculator.customization import normalize_character_overrides
+
+        got = normalize_character_overrides(
+            {"equipLevels": {"머리": 5, "몸통": "T9", "팔": "없음", "다리": 0}},
+            character_name="라피",
+        )["equipment"]
+        self.assertEqual(got, {
+            "머리": {"level": 5}, "몸통": {"tier": "T9"},
+            "팔": {"tier": "없음"}, "다리": {"level": 0},
+        })
+
+        for bad in ("T0", "T10", "T99", "기업", ""):
+            with self.assertRaises(ValueError, msg=bad):
+                normalize_character_overrides(
+                    {"equipLevels": {"머리": bad}}, character_name="라피")
+
+    def test_unequipped_is_not_the_same_as_enhancement_zero(self):
+        """미장착(0)과 기업 강화0(플랫 스탯 있음)은 다른 값이어야 한다."""
+        from calculator.base_stat import _equip_stat
+
+        empty = _equip_stat("화력형", "머리", {"tier": "없음"})
+        zero = _equip_stat("화력형", "머리", {"level": 0})
+        self.assertEqual(empty["atk"], 0.0)
+        self.assertGreater(zero["atk"], 0.0)
+
+
 if __name__ == "__main__":
     unittest.main()

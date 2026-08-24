@@ -206,14 +206,26 @@ describe('character settings editor', () => {
 
     const head = root.querySelector<HTMLSelectElement>('[data-equip-level="머리"]')!;
     const arm = root.querySelector<HTMLSelectElement>('[data-equip-level="팔"]')!;
-    // 스킬 레벨과 같은 방향(오름차순)으로 통일했다.
-    expect([...head.options].map((option) => option.value)).toEqual(['0', '1', '2', '3', '4', '5']);
+    // 장비는 세 갈래다 — 미장착 / 일반 T1~T9 / 기업 강화 0~5.
+    // 강화 레벨은 스킬 레벨과 같은 방향(오름차순)으로 통일했다.
+    expect([...head.options].map((option) => option.value)).toEqual(
+      ['없음', 'T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', '0', '1', '2', '3', '4', '5'],
+    );
     expect(head.value).toBe('5');
     expect(root.querySelectorAll('[data-equip-level]').length).toBe(4);
 
     arm.value = '2';
     arm.dispatchEvent(new Event('change'));
     expect(value?.equipLevels).toEqual({ 머리: 5, 몸통: 5, 팔: 2, 다리: 5 });
+
+    // 등급을 고르면 숫자가 아니라 등급 그대로 실린다 — 미장착을 강화0으로
+    // 적으면 안 낀 부위가 플랫 스탯을 얻는다.
+    arm.value = '없음';
+    arm.dispatchEvent(new Event('change'));
+    expect(value?.equipLevels?.팔).toBe('없음');
+    arm.value = 'T9';
+    arm.dispatchEvent(new Event('change'));
+    expect(value?.equipLevels?.팔).toBe('T9');
   });
 
   it('offers Crystal Wave sniper mode with a six-second default delay', () => {

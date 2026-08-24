@@ -37,6 +37,8 @@ export type BurstAssignment =
   | { mode: 'priority'; every: number }
   | { mode: 'skip' };
 export type EquipPart = '머리' | '몸통' | '팔' | '다리';
+export type EquipTier = '없음' | 'T1' | 'T2' | 'T3' | 'T4' | 'T5' | 'T6' | 'T7' | 'T8' | 'T9';
+export type EquipSetting = number | EquipTier;
 
 // 소장품과 애장품은 같은 슬롯이다. favorite이 1~3이면 애장품을 낀 것이고
 // 그때 stage는 SR15로 고정된다(스탯이 SR15와 같다).
@@ -54,7 +56,8 @@ export interface CharacterOverrides {
   control?: CharacterControl;
   manualStats?: Record<string, number>;
   burst?: BurstAssignment;
-  equipLevels?: Partial<Record<EquipPart, number>>;
+  /** 부위별 장비. 숫자 0~5 = 기업·오버로드 강화 단계, 문자열 = 등급('없음' · 'T1'~'T9'). */
+  equipLevels?: Partial<Record<EquipPart, EquipSetting>>;
   /** 전투 시작 후 이 시각부터 수동 재장전 기반 무기 모드 전환을 시도한다. */
   weaponModeSwapAt?: number;
 }
