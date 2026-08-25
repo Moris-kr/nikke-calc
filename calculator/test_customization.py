@@ -622,5 +622,66 @@ class CharacterCustomizationTest(unittest.TestCase):
         self.assertGreater(zero["atk"], 0.0)
 
 
+    def test_phase_windows_are_validated(self):
+        """족자·속저 구간 검증. 뒤집힌 구간을 조용히 바로잡지 않는다."""
+        from calculator.customization import (
+            normalize_element_windows, normalize_immune_windows)
+
+        self.assertEqual(normalize_immune_windows(None), [])
+        self.assertEqual(normalize_immune_windows([{"from": 10, "to": 30}]), [[10.0, 30.0]])
+        self.assertEqual(
+            normalize_element_windows([{"from": 100, "to": 102, "code": "풍압"}]),
+            [{"from": 100.0, "to": 102.0, "code": "풍압"}])
+
+        for bad in ([{"from": 30, "to": 10}], [{"from": 0, "to": 200}], [{"from": 5}]):
+            with self.assertRaises(ValueError):
+                normalize_immune_windows(bad)
+        with self.assertRaises(ValueError):
+            normalize_element_windows([{"from": 1, "to": 2, "code": "불"}])
+
+    def test_immune_window_blocks_damage_and_element_window_gates_it(self):
+        """족자는 딜을 통째로 막고, 속저는 우월 코드만 통과시킨다."""
+        deck = ["라피", "나유타", "리타", "크라운", "앨리스"]  # 라피·앨리스가 작열
+        squad = build_squad(deck)
+        cfg = build_config(squad, {"duration": 60, "first_burst_time": 3.0})
+        enemy = {"def": 31_784, "code": "", "core_px": 0, "has_parts": False}
+
+        plain = simulate(squad, config=cfg, enemy=enemy, seed=42)
+        immune = simulate(squad, config=cfg,
+                          enemy={**enemy, "immune_windows": [[10, 30]]}, seed=42)
+        gated = simulate(squad, config=cfg,
+                         enemy={**enemy, "element_windows":
+                                [{"from": 10, "to": 30, "code": "풍압"}]}, seed=42)
+
+        # 족자 구간에는 히트가 하나도 없어야 한다.
+        self.assertEqual([h for h in immune.hits if 10 <= h.t < 30], [])
+        self.assertLess(immune.squad_total, plain.squad_total)
+
+        # 속저 구간에는 풍압에 우월한 작열만 남는다.
+        casters = {h.caster for h in gated.hits if 10 <= h.t < 30}
+        self.assertEqual(casters, {"라피", "앨리스"})
+
+    def test_immune_window_can_also_stop_burst_charging(self):
+        """족자 중에는 보스를 못 때리니 게이지도 안 찬다 — 옵션이다."""
+        from calculator.timeline import charge_end
+
+        # 충전이 족자에 걸리면 그 구간만큼 밀린다.
+        self.assertEqual(charge_end(0.0, 2.0, []), 2.0)
+        self.assertEqual(charge_end(0.0, 2.0, [(10, 30)]), 2.0)      # 구간 전에 완충
+        self.assertEqual(charge_end(9.0, 2.0, [(10, 30)]), 31.0)     # 1초 채우고 멈춤
+        self.assertEqual(charge_end(15.0, 2.0, [(10, 30)]), 32.0)    # 구간 안에서 시작
+
+        deck = ["라피", "나유타", "리타", "크라운", "앨리스"]
+        squad = build_squad(deck)
+        enemy = {"def": 31_784, "code": "", "core_px": 0, "has_parts": False,
+                 "immune_windows": [[10, 40]]}
+        keep = simulate(squad, config=build_config(squad, {"duration": 120}),
+                        enemy=enemy, seed=42)
+        stop = simulate(squad, config=build_config(
+            squad, {"duration": 120, "immune_blocks_burst": True}), enemy=enemy, seed=42)
+        # 충전이 멈추면 버스트가 밀려 딜이 더 줄어든다.
+        self.assertLess(stop.squad_total, keep.squad_total)
+
+
 if __name__ == "__main__":
     unittest.main()

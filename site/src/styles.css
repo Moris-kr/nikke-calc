@@ -280,6 +280,23 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .buff-target { display: flex; align-items: baseline; gap: 4px; margin: 0 0 8px; padding: 6px 8px; border: 1px solid var(--amber); border-radius: 6px; background: rgba(255,191,60,.09); color: #d9c79a; font: 700 10px/1.4 ui-monospace, monospace; word-break: keep-all; }
 .buff-target b { color: var(--amber); font-weight: 900; }
 
+/* 보스 페이즈 — 구간을 몇 개든 추가한다. */
+.phase-head { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.phase-add { padding: 6px 11px; border: 1px solid rgba(69,214,208,.42); border-radius: 999px; background: rgba(69,214,208,.1); color: var(--cyan); font: 800 10px ui-monospace, monospace; cursor: pointer; }
+.phase-add:hover { background: rgba(69,214,208,.24); border-color: var(--cyan); }
+.phase-add b { margin-left: 3px; font-size: 12px; }
+.phase-list { display: grid; gap: 6px; }
+.phase-list:empty { display: none; }
+.phase-row { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: rgba(7,15,25,.5); }
+.phase-row input[type="number"] { width: 74px; min-height: 30px; }
+.phase-row select { min-height: 30px; }
+.phase-tag { flex: none; min-width: 30px; padding: 2px 6px; border-radius: 4px; font: 800 9.5px ui-monospace, monospace; text-align: center; }
+.phase-row.is-immune .phase-tag { background: rgba(255,119,135,.18); color: var(--danger); }
+.phase-row.is-element .phase-tag { background: rgba(69,214,208,.18); color: var(--cyan); }
+.phase-sep { color: var(--muted); font: 700 10px ui-monospace, monospace; }
+.phase-drop { margin-left: auto; width: 24px; height: 24px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 5px; background: none; color: var(--muted); font-size: 11px; cursor: pointer; }
+.phase-drop:hover { background: rgba(255,119,135,.16); color: var(--danger); }
+
 .buff-target.is-pending { border-color: rgba(255,191,60,.4); }
 .buff-target.is-pending b { color: var(--muted); font-weight: 700; }
 .buff-order-open { margin-left: auto; flex: none; padding: 2px 7px; border: 1px solid rgba(255,191,60,.55); border-radius: 999px; background: rgba(255,191,60,.14); color: var(--amber); font: 800 9px ui-monospace, monospace; cursor: pointer; }

@@ -96,6 +96,12 @@ export interface SimulationRequest {
   seed: number;
   // 적정거리로 둘 무기군. 그 무기군의 **일반 공격**에만 ③ 보너스 +30%.
   optimalRangeWeapons?: string[];
+  // 보스 페이즈 — 족자(딜 차단)와 속저(우월 코드만 통과).
+  immuneWindows?: PhaseWindow[];
+  elementWindows?: ElementWindow[];
+  rngMode?: RngMode;
+  /** 족자 중에는 버스트 게이지도 안 찬다고 볼지. */
+  immuneBlocksBurst?: boolean;
   // 무기군별 평타 계수. 실전에서 탄퍼짐으로 빗나가는 탄을 보정한다 — 평타에만 붙고
   // 스킬·버스트와 변신 모드 사격에는 붙지 않는다. 안 주면 데이터 기본값을 쓴다.
   normalHitCoeff?: Record<string, number>;
@@ -103,6 +109,13 @@ export interface SimulationRequest {
   // 버스트 게이지 충전 시간(초). 게이지 누적 대신 쓰는 고정 시간이다.
   burstRegenTime?: number;
 }
+
+/** 보스 페이즈 구간. `[from, to)` 반개구간이다. */
+export interface PhaseWindow { from: number; to: number }
+/** 속저 — 그 구간 동안 이 코드에 **우월한** 캐릭터의 딜만 들어간다. */
+export interface ElementWindow extends PhaseWindow { code: ElementCode }
+/** 난수 처리. random = 인게임과 같은 분산, expected = 기대값(결정론적). */
+export type RngMode = 'random' | 'expected';
 
 export interface BattleSettings {
   duration: number;
@@ -114,6 +127,12 @@ export interface BattleSettings {
   seed: number;
   optimalRangeWeapons: string[];
   normalHitCoeff: Record<string, number>;
+  /** 족자 — 그 구간 동안 보스에게 딜이 아예 안 들어간다. */
+  immuneWindows: PhaseWindow[];
+  /** 속저 — 그 구간 동안 우월 코드만 통과한다. */
+  elementWindows: ElementWindow[];
+  rngMode: RngMode;
+  immuneBlocksBurst: boolean;
   console: ConsoleLevels;
   burstRegenTime: number;
 }

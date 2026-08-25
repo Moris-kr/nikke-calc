@@ -142,6 +142,9 @@ DEFAULT_CONFIG: dict = {
     #   "expected" — 확률 대신 기대값을 태워 결과를 결정론적으로 만든다.
     #                시드·반복 평균 없이 1회 실행으로 기대딜이 나온다.
     "rng_mode":           "random",
+    # 족자(`enemy["immune_windows"]`) 중에는 보스를 때릴 수 없으니 버스트 게이지도
+    # 안 찬다고 볼지. 켜면 충전이 그 구간만큼 밀린다.
+    "immune_blocks_burst": False,
 }
 
 DEFAULT_ENEMY: dict = {
@@ -1595,6 +1598,26 @@ class CharState:
 
 # ── BurstController ───────────────────────────────────────────────────────
 
+def charge_end(start: float, regen: float,
+                windows: list[tuple[float, float]]) -> float:
+    """`start`부터 게이지를 채워 `regen`초어치가 차는 시각.
+
+    족자 구간에서는 보스를 때릴 수 없으니 게이지도 안 찬다 — 그 구간만큼 뒤로
+    밀린다. 구간이 없으면 그냥 `start + regen`이다.
+    """
+    if not windows:
+        return start + regen
+    t, remaining = start, regen
+    for lo, hi in sorted(windows):
+        if hi <= t:
+            continue          # 이미 지난 구간
+        if lo >= t + remaining:
+            break             # 이 구간이 오기 전에 다 찬다
+        remaining -= max(0.0, lo - t)   # 구간 시작 전까지 채운 몫
+        t = hi                          # 족자 동안 멈췄다가 끝나면 재개
+    return t + remaining
+
+
 class BurstController:
     """
     스쿼드 버스트 흐름 관리. 발사 루프와 완전 독립.
@@ -1613,6 +1636,12 @@ class BurstController:
         enemy: dict,
     ):
         self.config = config
+        # 족자 중에는 평타를 못 넣으니 버스트 게이지도 안 찬다 — 옵션이다.
+        # (기본은 끔: 종전 동작 유지)
+        self._gauge_blocked = (
+            [(float(a), float(b)) for a, b in (enemy.get("immune_windows") or [])]
+            if config.get("immune_blocks_burst") else []
+        )
         self.char_states = char_states
         self.enemy_def: int = enemy.get("def", 31784)
         self.squad_names = [c["name"] for c in squad]
@@ -1717,7 +1746,7 @@ class BurstController:
                 self._log.burst_log.append(BurstLogEntry(t=t, event="full_burst 종료", caster=""))
             for name in self.squad_names:
                 regen = self.char_states[name].char.get("burst_regen_time", 2.0)
-                self.gauge_full_at[name] = t + regen
+                self.gauge_full_at[name] = charge_end(t, regen, self._gauge_blocked)
             self._burst_count += 1
 
         # ── idle → 게이지 충전 완료 시 1단계 진입 ─────────────────────────

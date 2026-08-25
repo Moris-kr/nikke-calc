@@ -27,6 +27,14 @@ export function normalizeRequest(request: SimulationRequest): SimulationRequest 
     // 고른 순서가 달라도 같은 설정이다 — 정렬해 캐시 키가 갈리지 않게 한다.
     ...(request.optimalRangeWeapons?.length
       ? { optimalRangeWeapons: [...request.optimalRangeWeapons].sort() } : {}),
+    // 보스 페이즈는 시작 시각순으로 세운다 — 넣은 순서가 달라도 같은 설정이다.
+    ...(request.immuneWindows?.length ? { immuneWindows:
+      [...request.immuneWindows].sort((a, b) => a.from - b.from || a.to - b.to) } : {}),
+    ...(request.elementWindows?.length ? { elementWindows:
+      [...request.elementWindows].sort((a, b) => a.from - b.from || a.to - b.to) } : {}),
+    // 기본값(기대값)은 요청에서 뺀다 — 옛 캐시 키와 갈리지 않게.
+    ...(request.rngMode && request.rngMode !== 'expected' ? { rngMode: request.rngMode } : {}),
+    ...(request.immuneBlocksBurst ? { immuneBlocksBurst: true } : {}),
     // 평타 계수도 캐시 키에 실린다 — 값이 다른 결과가 섞이면 안 된다. 키 순서가
     // 흔들려도 같은 설정이므로 정렬해 싣는다.
     ...(normalizeRecord(request.normalHitCoeff)
@@ -135,6 +143,20 @@ export function validateRequest(request: SimulationRequest): string[] {
         && request.burstRegenTime >= 0 && request.burstRegenTime <= 20)) {
     errors.push('버스트 게이지 충전 시간은 0~20초여야 합니다.');
   }
+  // 보스 페이즈 — 시작이 끝보다 뒤면 조용히 뒤집지 않고 막는다. 엔진도 같은 규칙이다.
+  const windows: Array<[{ from: number; to: number }, string]> = [
+    ...(request.immuneWindows ?? []).map((w) => [w, '족자'] as [typeof w, string]),
+    ...(request.elementWindows ?? []).map((w) => [w, '속저'] as [typeof w, string]),
+  ];
+  for (const [w, label] of windows) {
+    if (!Number.isFinite(w.from) || !Number.isFinite(w.to)
+        || w.from < 0 || w.to > 180 || w.from < 0) {
+      errors.push(`${label} 구간은 0~180초여야 합니다.`);
+    } else if (w.from >= w.to) {
+      errors.push(`${label} 구간은 시작이 끝보다 앞서야 합니다 (${w.from}~${w.to}).`);
+    }
+  }
+
   if (request.console) {
     const levels: Array<[number, string]> = [
       [request.console.common_level, '공통'],
@@ -193,6 +215,10 @@ export function requestForDeck(
     hasParts: battle.hasParts,
     seed: battle.seed,
     optimalRangeWeapons: battle.optimalRangeWeapons,
+    immuneWindows: battle.immuneWindows,
+    elementWindows: battle.elementWindows,
+    rngMode: battle.rngMode,
+    immuneBlocksBurst: battle.immuneBlocksBurst,
     normalHitCoeff: battle.normalHitCoeff,
     console: battle.console,
     burstRegenTime: battle.burstRegenTime,

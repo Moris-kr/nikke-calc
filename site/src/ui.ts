@@ -50,6 +50,9 @@ import type {
   BatchResult,
   BattleSettings,
   BuffTargetRow,
+  ElementWindow,
+  PhaseWindow,
+  RngMode,
   CharacterMeta,
   CharacterOverrides,
   DeckResultEntry,
@@ -439,10 +442,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           </div>
           <div class="field-grid">
             <label><span>전투 시간</span><div class="input-unit"><input id="duration" type="number" min="10" max="180" step="1" value="180" /><em>초</em></div></label>
-            <label><span>적 방어력</span><input id="enemy-def" type="number" min="0" max="999999" step="1" value="31784" /></label>
             <label><span>적 코드</span><select id="enemy-code"><option value="">없음</option><option value="풍압">풍압(작열weak)</option><option value="수냉">수냉(전격weak)</option><option value="작열">작열(수냉weak)</option><option value="전격">전격(철갑weak)</option><option value="철갑">철갑(풍압weak)</option></select></label>
-            <label><span>난수 시드</span><input id="seed" type="number" min="0" max="2147483647" step="1" value="42" /></label>
-            <label title="게이지 충전만의 시간입니다. 여기에 단계 전환 0.3초와 버스트 쿨 여유가 더해져 실제 공백은 더 깁니다."><span>버스트 게이지 충전</span><div class="input-unit"><input id="burst-regen" type="number" min="0" max="20" step="0.1" value="2" /><em>초</em></div></label>
             <label class="toggle-field"><input id="has-core" type="checkbox" /><span class="toggle"></span><span>코어 있음</span></label>
             <label data-core-size><span>코어 직경</span><div class="input-unit"><input id="core-px" type="number" min="0" max="1000" step="1" value="52" disabled /><em>px</em></div></label>
             <label class="toggle-field"><input id="has-parts" type="checkbox" /><span class="toggle"></span><span>파괴 가능 파츠</span></label>
@@ -452,11 +452,37 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <div class="range-options" data-optimal-range></div>
             <p class="field-note">고른 무기군의 <b>일반 공격</b>에만 대미지 보너스 +30%가 붙습니다 — 스킬 대미지에는 붙지 않습니다. 적과의 거리에 달린 조건이라 무기군 단위로 켭니다.</p>
           </fieldset>
-          <fieldset class="range-field">
-            <legend>평타 계수</legend>
-            <div class="coeff-options" data-hit-coeff></div>
-            <p class="field-note">실전에서 탄퍼짐으로 빗나가는 탄을 보정합니다. <b>평타에만</b> 곱하며 스킬·버스트와 변신 모드 사격은 조준 판정이라 손대지 않습니다. 기본값은 실측 대조로 뽑은 값이고(SG 0.90), 1.00이면 보정 없음입니다.</p>
-          </fieldset>
+
+          <!-- 고급 설정 — 자주 손대지 않는 값과 보스 페이즈를 한자리에 접어 둔다. -->
+          <button type="button" class="disclosure" data-advanced-battle aria-expanded="false">
+            <span class="disclosure-label">고급 설정</span><span class="disclosure-hint">펼치기</span>
+          </button>
+          <div class="disclosure-panel" data-advanced-battle-panel hidden>
+            <div class="field-grid">
+              <label><span>적 방어력</span><input id="enemy-def" type="number" min="0" max="999999" step="1" value="31784" /></label>
+              <label><span>난수 시드</span><input id="seed" type="number" min="0" max="2147483647" step="1" value="42" /></label>
+              <label title="게이지 충전만의 시간입니다. 여기에 단계 전환 0.3초와 버스트 쿨 여유가 더해져 실제 공백은 더 깁니다."><span>버스트 게이지 충전</span><div class="input-unit"><input id="burst-regen" type="number" min="0" max="20" step="0.1" value="2" /><em>초</em></div></label>
+              <label><span>난수 처리</span><select id="rng-mode"><option value="expected">기대값 (권장)</option><option value="random">난수</option></select></label>
+              <label class="toggle-field" title="족자 구간에는 보스를 때릴 수 없으니 게이지도 차지 않습니다. 켜면 그만큼 버스트가 밀립니다."><input id="immune-blocks-burst" type="checkbox" /><span class="toggle"></span><span>족자 중 버스트 충전 정지</span></label>
+            </div>
+            <p class="field-note">기대값은 확률 대신 기대치를 태워 <b>같은 설정이면 언제나 같은 값</b>이 나옵니다. 난수는 인게임과 같은 분산을 재현하며 시드에 따라 결과가 흔들립니다.</p>
+
+            <fieldset class="range-field">
+              <legend>평타 계수</legend>
+              <div class="coeff-options" data-hit-coeff></div>
+              <p class="field-note">실전에서 탄퍼짐으로 빗나가는 탄을 보정합니다. <b>평타에만</b> 곱하며 스킬·버스트와 변신 모드 사격은 조준 판정이라 손대지 않습니다. 기본값은 실측 대조로 뽑은 값이고(SG 0.90), 1.00이면 보정 없음입니다.</p>
+            </fieldset>
+
+            <fieldset class="range-field phase-field">
+              <legend>보스 페이즈</legend>
+              <div class="phase-head">
+                <button type="button" class="phase-add" data-phase-add="immune">족자 추가 <b>+</b></button>
+                <button type="button" class="phase-add" data-phase-add="element">속저 추가 <b>+</b></button>
+              </div>
+              <div class="phase-list" data-phase-list></div>
+              <p class="field-note"><b>족자</b>는 그 구간 동안 보스에게 딜이 아예 안 들어갑니다. <b>속저</b>는 고른 속성에 <b>우월한</b> 캐릭터의 딜만 통과시킵니다 — 풍압으로 두면 작열 캐릭터만 들어갑니다.</p>
+            </fieldset>
+          </div>
           <section class="console-editor">
             <h3>콘솔 <span>전초기지 재활용 연구실</span></h3>
             <div class="console-grid" data-console-grid></div>
@@ -1203,6 +1229,120 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     }
   };
 
+  // ── 보스 페이즈 (족자 · 속저) ───────────────────────────────────────────
+  // 구간은 개수가 정해지지 않아 입력을 미리 만들어 둘 수 없다 — 배열을 정본으로
+  // 들고 그릴 때마다 새로 만든다. 입력값이 잘못돼도(시작>끝) 지우지 않고 그대로
+  // 두고, 실행할 때 검증 메시지로 알린다.
+  let immuneWindows: PhaseWindow[] = [];
+  let elementWindows: ElementWindow[] = [];
+
+  const renderPhases = () => {
+    const list = element<HTMLElement>(root, '[data-phase-list]');
+    list.replaceChildren();
+
+    const numberField = (value: number, onInput: (v: number) => void) => {
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.min = '0';
+      input.max = '180';
+      input.step = '0.1';
+      input.value = String(value);
+      input.addEventListener('input', () => onInput(Number(input.value)));
+      return input;
+    };
+
+    const row = (kind: 'immune' | 'element', index: number, from: number, to: number) => {
+      const box = document.createElement('div');
+      box.className = `phase-row is-${kind}`;
+      box.dataset.phaseRow = `${kind}:${index}`;
+      box.append(createText('span', kind === 'immune' ? '족자' : '속저', 'phase-tag'));
+      box.append(numberField(from, (v) => {
+        if (kind === 'immune') immuneWindows[index]!.from = v;
+        else elementWindows[index]!.from = v;
+        saveState();
+      }));
+      box.append(createText('span', '~', 'phase-sep'));
+      box.append(numberField(to, (v) => {
+        if (kind === 'immune') immuneWindows[index]!.to = v;
+        else elementWindows[index]!.to = v;
+        saveState();
+      }));
+      box.append(createText('span', '초', 'phase-sep'));
+      return box;
+    };
+
+    immuneWindows.forEach((w, index) => {
+      const box = row('immune', index, w.from, w.to);
+      const drop = document.createElement('button');
+      drop.type = 'button';
+      drop.className = 'phase-drop';
+      drop.dataset.phaseDrop = `immune:${index}`;
+      drop.textContent = '✕';
+      drop.ariaLabel = `족자 ${index + 1} 삭제`;
+      drop.addEventListener('click', () => {
+        immuneWindows.splice(index, 1);
+        saveState();
+        renderPhases();
+      });
+      box.append(drop);
+      list.append(box);
+    });
+
+    elementWindows.forEach((w, index) => {
+      const box = row('element', index, w.from, w.to);
+      const code = document.createElement('select');
+      code.dataset.phaseCode = String(index);
+      for (const value of ['풍압', '수냉', '작열', '전격', '철갑']) {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = value;
+        code.append(option);
+      }
+      code.value = w.code || '풍압';
+      code.addEventListener('change', () => {
+        elementWindows[index]!.code = code.value as ElementWindow['code'];
+        saveState();
+      });
+      box.append(code);
+      const drop = document.createElement('button');
+      drop.type = 'button';
+      drop.className = 'phase-drop';
+      drop.dataset.phaseDrop = `element:${index}`;
+      drop.textContent = '✕';
+      drop.ariaLabel = `속저 ${index + 1} 삭제`;
+      drop.addEventListener('click', () => {
+        elementWindows.splice(index, 1);
+        saveState();
+        renderPhases();
+      });
+      box.append(drop);
+      list.append(box);
+    });
+  };
+
+  for (const kind of ['immune', 'element'] as const) {
+    element<HTMLButtonElement>(root, `[data-phase-add="${kind}"]`).addEventListener('click', () => {
+      // 마지막 구간 뒤를 기본값으로 잡아, 겹치지 않는 구간을 이어 붙이기 쉽게 한다.
+      const all = [...immuneWindows, ...elementWindows];
+      const start = all.length > 0 ? Math.max(...all.map((w) => w.to)) : 0;
+      const from = Math.min(start, 178);
+      if (kind === 'immune') immuneWindows.push({ from, to: Math.min(from + 2, 180) });
+      else elementWindows.push({ from, to: Math.min(from + 2, 180), code: '풍압' });
+      saveState();
+      renderPhases();
+    });
+  }
+
+  const advancedBattle = element<HTMLButtonElement>(root, '[data-advanced-battle]');
+  const advancedBattlePanel = element<HTMLElement>(root, '[data-advanced-battle-panel]');
+  advancedBattle.addEventListener('click', () => {
+    const next = advancedBattle.getAttribute('aria-expanded') !== 'true';
+    advancedBattle.setAttribute('aria-expanded', String(next));
+    advancedBattlePanel.hidden = !next;
+    const hint = advancedBattle.querySelector('.disclosure-hint');
+    if (hint) hint.textContent = next ? '접기' : '펼치기';
+  });
+
   const readOptimalRange = (): string[] =>
     [...rangeInputs].filter(([, input]) => input.checked).map(([weapon]) => weapon);
 
@@ -1220,6 +1360,12 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     hasParts: element<HTMLInputElement>(root, '#has-parts').checked,
     seed: Number(element<HTMLInputElement>(root, '#seed').value),
     optimalRangeWeapons: readOptimalRange(),
+    // 배열은 화면이 아니라 이 변수가 정본이다 — 입력이 잘못돼도 지우지 않고
+    // 그대로 실어 실행 시 검증 메시지로 알린다.
+    immuneWindows: immuneWindows.map((w) => ({ ...w })),
+    elementWindows: elementWindows.map((w) => ({ ...w })),
+    rngMode: element<HTMLSelectElement>(root, '#rng-mode').value as RngMode,
+    immuneBlocksBurst: element<HTMLInputElement>(root, '#immune-blocks-burst').checked,
     normalHitCoeff: readHitCoeff(),
     burstRegenTime: Number(element<HTMLInputElement>(root, '#burst-regen').value),
     console: {
@@ -1239,6 +1385,11 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     element<HTMLInputElement>(root, '#has-parts').checked = battle.hasParts;
     element<HTMLInputElement>(root, '#seed').value = String(battle.seed);
     writeOptimalRange(battle.optimalRangeWeapons ?? []);
+    immuneWindows = (battle.immuneWindows ?? []).map((w) => ({ ...w }));
+    elementWindows = (battle.elementWindows ?? []).map((w) => ({ ...w }));
+    renderPhases();
+    element<HTMLSelectElement>(root, '#rng-mode').value = battle.rngMode ?? 'expected';
+    element<HTMLInputElement>(root, '#immune-blocks-burst').checked = Boolean(battle.immuneBlocksBurst);
     writeHitCoeff(battle.normalHitCoeff);
     if (battle.burstRegenTime !== undefined) {
       element<HTMLInputElement>(root, '#burst-regen').value = String(battle.burstRegenTime);
