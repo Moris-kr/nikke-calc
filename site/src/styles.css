@@ -280,6 +280,18 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .buff-target { display: flex; align-items: baseline; gap: 4px; margin: 0 0 8px; padding: 6px 8px; border: 1px solid var(--amber); border-radius: 6px; background: rgba(255,191,60,.09); color: #d9c79a; font: 700 10px/1.4 ui-monospace, monospace; word-break: keep-all; }
 .buff-target b { color: var(--amber); font-weight: 900; }
 
+/* ENIKK 제외 니케 — 안 가진 니케가 낀 덱을 목록에서 걷어낸다. */
+.enikk-exclude { margin: 12px 0; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: rgba(7,15,25,.4); }
+.enikk-exclude-label { display: block; margin-bottom: 6px; color: var(--ink); font-size: 11px; font-weight: 800; }
+.enikk-exclude-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.enikk-exclude-row input { flex: 1 1 220px; min-width: 0; }
+.enikk-exclude-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.enikk-exclude-chips:empty { display: none; }
+.enikk-exclude-chip { display: flex; align-items: center; gap: 6px; padding: 4px 9px; border: 1px solid rgba(255,119,135,.45); border-radius: 999px; background: rgba(255,119,135,.12); color: var(--danger); font: 700 10px ui-monospace, monospace; cursor: pointer; }
+.enikk-exclude-chip:hover { background: rgba(255,119,135,.26); border-color: var(--danger); }
+.enikk-exclude-chip b { font-size: 10px; }
+.enikk-exclude .field-note { margin: 8px 0 0; }
+
 .deck-clear { padding: 7px 12px; border: 1px solid rgba(255,119,135,.42); border-radius: 8px; background: rgba(255,119,135,.1); color: var(--danger); font: 800 10.5px ui-monospace, monospace; cursor: pointer; }
 .deck-clear:hover { background: rgba(255,119,135,.22); border-color: var(--danger); }
 .deck-move { width: 26px; min-height: 26px; padding: 0; border: 1px solid rgba(146,176,201,.28); border-radius: 6px; background: rgba(3,10,17,.6); color: #cfeceb; font: 700 13px/1 ui-monospace, monospace; cursor: pointer; }

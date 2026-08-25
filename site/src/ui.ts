@@ -366,6 +366,16 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           <button type="button" class="roster-import" data-enikk-refresh hidden>다시 받기</button>
           <span class="enikk-status" data-enikk-status></span>
         </div>
+        <div class="enikk-exclude">
+          <label class="enikk-exclude-label" for="enikk-exclude">제외할 니케</label>
+          <div class="enikk-exclude-row">
+            <input id="enikk-exclude" type="search" list="enikk-exclude-list" placeholder="안 가진 니케 이름을 넣으세요" autocomplete="off" data-enikk-exclude-input />
+            <datalist id="enikk-exclude-list" data-enikk-exclude-options></datalist>
+            <button type="button" class="roster-import" data-enikk-exclude-add>추가</button>
+          </div>
+          <div class="enikk-exclude-chips" data-enikk-exclude-chips></div>
+          <p class="field-note">넣은 니케가 낀 덱은 <b>가져오기에서 빠집니다</b>. 그 니케가 없어도 짤 수 있는 조합만 남기려는 것입니다.</p>
+        </div>
         <div class="enikk-summary" data-enikk-summary hidden></div>
         <div class="enikk-compare" data-enikk-compare hidden></div>
         <div class="enikk-list" data-enikk-list hidden></div>
@@ -2393,7 +2403,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
   /** 한 플레이어의 다섯 덱을 우리 5덱에 그대로 깐다. */
   const applyPlayerToDecks = (player: EnikkPlayer) => {
-    const usable = player.decks.filter((deck) => deck.usable);
+    const usable = player.decks.filter(enikkDeckUsable);
     if (usable.length === 0) return;
     for (const deck of decks) { deck.squad = ['', '', '', '', '']; deck.characters = {}; }
     usable.slice(0, 5).forEach((source, index) => {
@@ -2419,6 +2429,85 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     switchView('calc');
     scrollTo(squadGrid);
   };
+
+  // ── 제외 니케 ───────────────────────────────────────────────────────────
+  // 안 가진 니케가 낀 덱은 가져와도 못 쓴다. enikk 데이터 자체가 아니라 «내 사정»이라
+  // 계산 결과가 아닌 **화면 층**에서 거른다.
+  const EXCLUDE_KEY = 'nikke-enikk-excluded-v1';
+  let enikkExcluded: string[] = [];
+  try {
+    const raw = resolveStorage()?.getItem(EXCLUDE_KEY);
+    const parsed = raw ? JSON.parse(raw) as unknown : null;
+    if (Array.isArray(parsed)) {
+      enikkExcluded = parsed.filter((n): n is string =>
+        typeof n === 'string' && catalogByName.has(n));
+    }
+  } catch { /* 못 읽으면 빈 목록으로 시작한다 */ }
+
+  const saveExcluded = () => {
+    try {
+      resolveStorage()?.setItem(EXCLUDE_KEY, JSON.stringify(enikkExcluded));
+    } catch { /* 저장 실패 무시 */ }
+  };
+
+  /** 이 덱을 쓸 수 있나 — 계산기가 다룰 수 있고, 제외 니케가 안 껴 있어야 한다. */
+  const enikkDeckUsable = (deck: { squad: string[]; usable: boolean }): boolean =>
+    deck.usable && !deck.squad.some((name) => enikkExcluded.includes(name));
+
+  const renderExcludeChips = () => {
+    const box = element<HTMLElement>(root, '[data-enikk-exclude-chips]');
+    box.replaceChildren();
+    for (const name of enikkExcluded) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'enikk-exclude-chip';
+      chip.dataset.enikkExcludeChip = name;
+      chip.title = `${name} 제외 해제`;
+      chip.append(createText('span', name));
+      chip.append(createText('b', '✕'));
+      chip.addEventListener('click', () => {
+        enikkExcluded = enikkExcluded.filter((n) => n !== name);
+        saveExcluded();
+        renderExcludeChips();
+        if (enikkData) renderEnikk(enikkData);
+      });
+      box.append(chip);
+    }
+  };
+
+  const addExcluded = () => {
+    const input = element<HTMLInputElement>(root, '[data-enikk-exclude-input]');
+    const name = input.value.trim();
+    if (!name) return;
+    if (!catalogByName.has(name)) {
+      setEnikkStatus(`«${name}»은(는) 목록에 없는 이름입니다.`);
+      return;
+    }
+    if (!enikkExcluded.includes(name)) {
+      enikkExcluded.push(name);
+      enikkExcluded.sort((a, b) => a.localeCompare(b, 'ko'));
+      saveExcluded();
+      renderExcludeChips();
+      if (enikkData) renderEnikk(enikkData);
+    }
+    input.value = '';
+  };
+
+  // 이름 자동완성 — 오타로 «목록에 없는 이름»을 만나는 일을 줄인다.
+  {
+    const options = element<HTMLElement>(root, '[data-enikk-exclude-options]');
+    for (const meta of catalog) {
+      const option = document.createElement('option');
+      option.value = meta.name;
+      options.append(option);
+    }
+    renderExcludeChips();
+  }
+
+  element<HTMLButtonElement>(root, '[data-enikk-exclude-add]').addEventListener('click', addExcluded);
+  element<HTMLInputElement>(root, '[data-enikk-exclude-input]').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') { event.preventDefault(); addExcluded(); }
+  });
 
   const renderEnikk = (data: EnikkImport) => {
     enikkData = data;
@@ -2478,11 +2567,11 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       const take = document.createElement('button');
       take.type = 'button';
       take.className = 'enikk-use';
-      const usable = player.decks.filter((deck) => deck.usable).length;
+      const usable = player.decks.filter(enikkDeckUsable).length;
       take.textContent = `${usable}덱 가져오기`;
       take.disabled = usable === 0;
       take.title = usable < player.decks.length
-        ? '계산기가 아직 못 다루는 니케가 낀 덱은 빼고 가져옵니다'
+        ? '계산기가 못 다루거나 제외한 니케가 낀 덱은 빼고 가져옵니다'
         : '이 사람의 덱을 우리 5덱에 그대로 깝니다';
       take.addEventListener('click', () => applyPlayerToDecks(player));
       top.append(take);
@@ -2490,7 +2579,11 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
       for (const [n, deck] of player.decks.entries()) {
         const row = document.createElement('div');
-        row.className = 'enikk-deck' + (deck.usable ? '' : ' is-blocked');
+        const blocked = !enikkDeckUsable(deck);
+        row.className = 'enikk-deck' + (blocked ? ' is-blocked' : '');
+        if (blocked && deck.usable) {
+          row.title = `제외한 니케가 껴 있습니다 — ${deck.squad.filter((n) => enikkExcluded.includes(n)).join(', ')}`;
+        }
         row.append(createText('span', `${n + 1}`, 'enikk-deckno'));
         row.append(enikkPortraits(deck.squad));
         row.append(createText('span', formatEok(deck.damage), 'enikk-deckdmg'));
@@ -2585,7 +2678,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       let simTotal = 0;
       let realTotal = 0;
       for (const source of player.decks) {
-        if (!source.usable) continue;
+        if (!enikkDeckUsable(source)) continue;
         done += 1;
         setEnikkStatus(`대조 계산 중 · 덱 ${done}/${total}`);
         const deck: DeckState = { id: 1, squad: [...source.squad], characters: {} };
