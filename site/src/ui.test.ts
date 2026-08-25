@@ -53,6 +53,7 @@ const settings: SettingsCatalog = {
   collectionStages: ['없음', 'SR0', 'SR5', 'SR15'],
   normalHitCoeff: { AR: 1, SMG: 1, SG: 0.9, MG: 1, SR: 1, RL: 1 },
   weaponTypes: ['AR', 'SMG', 'SG', 'MG', 'SR', 'RL'],
+  buffTargetWatch: { 미란다: [{ buff: '웨이크업! 4', label: '크확 대상' }] },
   consoleClasses: ['화력형', '방어형', '지원형'],
   consoleCompanies: ['엘리시온', '테트라', '미실리스', '필그림', '어브노말'],
   cubes: {

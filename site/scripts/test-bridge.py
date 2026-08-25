@@ -260,6 +260,54 @@ class BrowserBridgeTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "누락된 스탯"):
             run_request(json.dumps(payload, ensure_ascii=False))
 
+    def test_buff_targets_report_who_actually_received_the_buff(self):
+        """「누가 이 버프를 받았나」는 추정이 아니라 실제 발동 로그에서 온다.
+
+        대상이 공격력 순위로 갈려 편성만 보고는 알 수 없고, 미란다는 애장품
+        2단계 이상이어야 발동한다 — 조건이 안 맞으면 빈 목록이어야 한다.
+        """
+        squad = ["아니스 : 스타", "나유타", "미란다", "리버렐리오", "홍련 : 흑영"]
+
+        def run(favorite: int) -> dict:
+            payload = {
+                "squad": squad,
+                "characters": {"미란다": {"collection": {"stage": "SR15",
+                                                       "favorite": favorite}}},
+                "duration": 60, "enemyDef": 31784, "enemyCode": "",
+                "corePx": 52, "hasParts": False, "seed": 42,
+            }
+            return json.loads(run_request(json.dumps(payload,
+                                                     ensure_ascii=False)))["buffTargets"]
+
+        got = run(3)
+        miranda = got["미란다"][0]
+        self.assertEqual(miranda["label"], "크확 대상")
+        self.assertGreater(miranda["count"], 0)
+        # 자신 제외 공격력 1위에게 간다 — 스쿼드 안의 다른 캐릭터여야 한다.
+        self.assertTrue(miranda["targets"])
+        self.assertNotIn("미란다", miranda["targets"])
+        for name in miranda["targets"]:
+            self.assertIn(name, squad)
+
+        rebellio = got["리버렐리오"][0]
+        self.assertEqual(rebellio["label"], "차분한 수심 대상")
+        self.assertTrue(rebellio["targets"])
+        for name in rebellio["targets"]:
+            self.assertIn(name, squad)
+
+        # 애장품 1단계는 발동 조건(2단계)에 못 미친다 → 빈 목록.
+        self.assertEqual(run(1)["미란다"][0]["targets"], [])
+        self.assertEqual(run(1)["미란다"][0]["count"], 0)
+
+    def test_buff_targets_left_out_for_squads_without_watched_casters(self):
+        """감시 대상이 없는 편성이면 아무 것도 담기지 않는다."""
+        payload = {
+            "squad": ["라피", "앨리스"], "duration": 20, "enemyDef": 31784,
+            "enemyCode": "", "corePx": 0, "hasParts": False, "seed": 42,
+        }
+        got = json.loads(run_request(json.dumps(payload, ensure_ascii=False)))
+        self.assertEqual(got["buffTargets"], {})
+
     def test_rejects_character_settings_outside_the_squad(self):
         payload = {
             "squad": ["리타"],

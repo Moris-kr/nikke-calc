@@ -108,6 +108,7 @@ const settings: SettingsCatalog = {
   collectionStages: ['없음', 'SR0', 'SR5', 'SR15'],
   normalHitCoeff: { AR: 1, SMG: 1, SG: 0.9, MG: 1, SR: 1, RL: 1 },
   weaponTypes: ['AR', 'SMG', 'SG', 'MG', 'SR', 'RL'],
+  buffTargetWatch: { 미란다: [{ buff: '웨이크업! 4', label: '크확 대상' }] },
   consoleClasses: ['화력형', '방어형', '지원형'],
   consoleCompanies: ['엘리시온', '미실리스', '테트라', '필그림', '어브노말'],
   cubes: {
@@ -481,6 +482,39 @@ describe('character settings editor', () => {
 
     expect(value).toBeUndefined();
     expect(root.textContent).toContain('기본값');
+  });
+
+  it('shows who receives a watched buff, between the stat summary and the toggle', () => {
+    // 대상이 공격력 순위로 갈려 편성만 보고는 알 수 없다 — 계산 전에는 빈 괄호로
+    // 자리만 잡고, 결과가 오면 실제 수령자가 채워진다.
+    renderCharacterSettings(root, characterName, settings, value, (next) => { value = next; },
+      [{ label: '크확 대상', buff: '웨이크업! 4', targets: [], count: 0 }]);
+    let row = root.querySelector<HTMLElement>('[data-buff-target]')!;
+    expect(row.textContent).toBe('크확 대상 : []');
+    // 스탯 요약과 개별 설정 사이에 선다.
+    expect(row.previousElementSibling?.className).toContain('loadout-summary');
+    expect(row.nextElementSibling?.className).toContain('inline-check');
+
+    renderCharacterSettings(root, characterName, settings, value, (next) => { value = next; },
+      [{ label: '크확 대상', buff: '웨이크업! 4', targets: ['리버렐리오'], count: 3 }]);
+    row = root.querySelector<HTMLElement>('[data-buff-target]')!;
+    expect(row.textContent).toBe('크확 대상 : [리버렐리오]');
+    expect(row.title).toContain('3회 발동');
+  });
+
+  it('omits the buff-target row for characters without a watched buff', () => {
+    render();
+    expect(root.querySelector('[data-buff-target]')).toBeNull();
+  });
+
+  it('keeps 버스트 운용 inside the 컨트롤 · 버스트 fold', () => {
+    setToggle('[data-custom-toggle]', true);
+    const fold = root.querySelector<HTMLElement>('[data-control-open]')!;
+    expect(fold.querySelector('.disclosure-label')!.textContent).toBe('컨트롤 · 버스트');
+    // 접이판 안에 있고, 본문(돌파·스킬·오버로드·큐브)에는 남아 있지 않다.
+    expect(fold.nextElementSibling!.querySelector('.burst-editor')).not.toBeNull();
+    expect(root.querySelector('.character-settings-body .burst-editor')).toBeNull();
+    expect(root.querySelector('[data-burst-assignment]')).not.toBeNull();
   });
 
   it('keeps numeric input focused while consecutive digits are entered', () => {

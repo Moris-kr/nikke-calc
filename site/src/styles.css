@@ -275,6 +275,11 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .disclosure-label { font-size: 11px; font-weight: 800; letter-spacing: .03em; }
 .disclosure-hint { color: var(--muted); font: 700 9.5px ui-monospace, monospace; }
 .disclosure-panel[hidden] { display: none; }
+/* 「누가 이 버프를 받았나」 — 스탯 요약과 개별 설정 사이. 편성을 보고는 알 수 없는
+   정보라 노란 테두리로 눈에 걸리게 둔다. */
+.buff-target { display: flex; align-items: baseline; gap: 4px; margin: 0 0 8px; padding: 6px 8px; border: 1px solid var(--amber); border-radius: 6px; background: rgba(255,191,60,.09); color: #d9c79a; font: 700 10px/1.4 ui-monospace, monospace; word-break: keep-all; }
+.buff-target b { color: var(--amber); font-weight: 900; }
+
 .loadout-summary { margin: 0 0 8px; min-height: 30px; color: #9eafbd; font: 600 9px/1.55 ui-monospace, monospace; word-break: keep-all; }
 .inline-check { display: flex; align-items: center; gap: 7px; color: #b9c8d4; font-size: 11px; font-weight: 750; cursor: pointer; }
 .inline-check input { width: 15px; min-height: 15px; height: 15px; accent-color: var(--amber); }

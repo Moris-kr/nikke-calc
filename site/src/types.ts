@@ -172,6 +172,16 @@ export interface SimulationResult {
   previewNote: string;
   deviations: string;
   timeline?: BattleTimeline;
+  /** 감시 대상 버프의 실제 수령자 — `{시전자: [...]}`. 구버전 캐시에는 없다. */
+  buffTargets?: Record<string, BuffTargetRow[]>;
+}
+
+/** 「누가 이 버프를 받았나」 한 줄. 대상이 공격력 순위로 갈려 편성만으로는 알 수 없다. */
+export interface BuffTargetRow {
+  label: string;
+  buff: string;
+  targets: string[];
+  count: number;
 }
 
 export interface RuntimeManifest {
@@ -227,6 +237,8 @@ export interface SettingsCatalog {
   cubes: Record<CubeName, CubeMeta>;
   collectionStages: string[];
   weaponTypes: string[];
+  /** 「누가 이 버프를 받았나」를 카드에 띄울 버프 — 정본은 `calculator.customization`. */
+  buffTargetWatch: Record<string, Array<{ buff: string; label: string }>>;
   // 무기군별 평타 계수 기본값 (`data/weapon_mechanics.json`).
   normalHitCoeff: Record<string, number>;
   consoleClasses: string[];

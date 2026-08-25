@@ -6,6 +6,7 @@ import json
 import math
 
 from calculator.customization import (
+    BUFF_TARGET_WATCH,
     normalize_burst_regen,
     normalize_character_overrides,
     normalize_console,
@@ -137,6 +138,43 @@ def _inject_custom_characters(custom: dict) -> None:
             store[name] = skills
 
 
+def _build_buff_targets(result, names: list[str]) -> dict:
+    """편성된 캐릭터 중 감시 대상 버프의 실제 수령자.
+
+    `{시전자: [{"label": ..., "buff": ..., "targets": [이름...], "count": N}]}`.
+    수령자가 전투 중 갈리면 여러 명이 담긴다 — 그대로 보여 주는 게 맞다.
+    """
+    log = getattr(result, "log", None)
+    if log is None:
+        return {}
+    out: dict[str, list[dict]] = {}
+    for caster in names:
+        watches = BUFF_TARGET_WATCH.get(caster)
+        if not watches:
+            continue
+        rows = []
+        for buff_name, label in watches:
+            seen: dict[str, int] = {}
+            for ev in log.buff_events:
+                if ev.kind != "activate" or ev.caster != caster:
+                    continue
+                # 같은 스킬의 판본(애장품 등)이 이름 뒤에 붙어 오는 경우가 있다.
+                if ev.name != buff_name and not ev.name.startswith(f"{buff_name} ("):
+                    continue
+                if ev.target in names:
+                    seen[ev.target] = seen.get(ev.target, 0) + 1
+            rows.append({
+                "label": label,
+                "buff": buff_name,
+                # 많이 받은 순 — 전투 내내 한 명이면 그 한 명만 담긴다.
+                "targets": sorted(seen, key=lambda n: -seen[n]),
+                "count": sum(seen.values()),
+            })
+        if rows:
+            out[caster] = rows
+    return out
+
+
 def run_request(raw: str) -> str:
     payload = json.loads(raw)
     _inject_custom_characters(payload.get("customCharacters") or {})
@@ -215,5 +253,6 @@ def run_request(raw: str) -> str:
         "previewNote": char_spec.preview_note(names),
         "deviations": char_spec.format_deviations(squad),
         "timeline": _build_timeline(result, names),
+        "buffTargets": _build_buff_targets(result, names),
     }
     return json.dumps(response, ensure_ascii=False, separators=(",", ":"))

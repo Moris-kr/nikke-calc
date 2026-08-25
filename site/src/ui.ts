@@ -49,6 +49,7 @@ import {
 import type {
   BatchResult,
   BattleSettings,
+  BuffTargetRow,
   CharacterMeta,
   CharacterOverrides,
   DeckResultEntry,
@@ -735,6 +736,19 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   deckCopyCancel.addEventListener('click', closeDeckCopy);
   deckCopyApply.addEventListener('click', applyDeckCopy);
 
+  // 최근 계산에서 나온 「누가 이 버프를 받았나」. 덱 단위로 들고 있다가 카드에 얹는다.
+  // 계산 전에는 비어 있고, 그때는 빈 괄호로 자리만 잡는다.
+  const buffTargetsByDeck = new Map<number, Record<string, BuffTargetRow[]>>();
+
+  /** 이 덱에서 감시 대상 버프를 가진 캐릭터의 표시 줄. 아직 안 돌렸으면 빈 대상. */
+  const buffTargetRowsFor = (deckId: number, name: string): BuffTargetRow[] | undefined => {
+    const known = buffTargetsByDeck.get(deckId)?.[name];
+    if (known) return known;
+    const watched = settings.buffTargetWatch?.[name];
+    if (!watched) return undefined;
+    return watched.map((w) => ({ ...w, targets: [] as string[], count: 0 }));
+  };
+
   const renderSquad = () => {
     const deck = activeDeck();
     squadGrid.replaceChildren();
@@ -854,7 +868,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             saveState();
             // 개별 설정 안 드롭다운으로 돌파를 바꿔도 초상화의 별이 따라가게 한다.
             renderGrowthStepper();
-          });
+          }, buffTargetRowsFor(deck.id, cname));
         };
 
         // 초상화 우측하단의 돌파·코어 강화 스테퍼. blablalink 도감처럼 별 + 진화 숫자로
@@ -1515,6 +1529,16 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   });
 
   const renderBatchResult = (batch: BatchResult) => {
+    // 수령자는 실제 발동 로그에서 온다 — 결과가 들어와야 카드에 채울 수 있다.
+    let touchedActiveDeck = false;
+    for (const entry of batch.decks) {
+      const targets = entry.result.buffTargets;
+      if (!targets) continue;
+      buffTargetsByDeck.set(entry.deckId, targets);
+      if (entry.deckId === activeDeckId) touchedActiveDeck = true;
+    }
+    if (touchedActiveDeck) renderSquad();
+
     resultPanel.replaceChildren();
     const duration = batch.decks[0]?.result.duration ?? 1;
     const header = document.createElement('div');

@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from calculator.customization import (  # noqa: E402
-    COLLECTION_STAGES, CONSOLE_CLASSES, CONSOLE_COMPANIES, CUBE_NAMES, WEAPON_TYPES,
+    BUFF_TARGET_WATCH, COLLECTION_STAGES, CONSOLE_CLASSES, CONSOLE_COMPANIES, CUBE_NAMES, WEAPON_TYPES,
     MANUAL_STATS, OVERLOAD_FIELDS,
 )
 from context.growth import growth_options, growth_profile  # noqa: E402
@@ -105,6 +105,10 @@ def main() -> None:
         "collectionStages": list(COLLECTION_STAGES),
         # 콘솔 소속. 엔진이 빠진 소속을 에러로 끊으므로 목록의 정본을 넘긴다.
         "weaponTypes": list(WEAPON_TYPES),
+        "buffTargetWatch": {
+            caster: [{"buff": b, "label": l} for b, l in rows]
+            for caster, rows in BUFF_TARGET_WATCH.items()
+        },
         # 무기군별 평타 계수 기본값. 값이 없는 무기군은 1.0(보정 없음)으로 채워
         # 브라우저가 무기군 목록만 보고 입력칸을 다 그릴 수 있게 한다.
         "normalHitCoeff": {

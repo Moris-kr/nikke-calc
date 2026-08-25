@@ -296,6 +296,17 @@ def normalize_burst_regen(raw: Any) -> float | None:
     return value
 
 
+# 「누가 이 버프를 받았나」를 카드에 띄울 버프들. 대상이 공격력 순위로 갈려서 편성만
+# 보고는 알 수 없고 전투 중에 바뀌기도 한다 — 그래서 추정하지 않고 **실제 발동 로그**의
+# 수령자를 쓴다(`pybridge.bridge._build_buff_targets`).
+# 발동 조건(미란다는 애장품 2단계 이상)이 안 맞으면 이벤트가 없어 빈 값이 된다.
+# 여기가 정본이고, 브라우저는 settings.json의 `buffTargetWatch`로 받는다.
+BUFF_TARGET_WATCH: dict[str, tuple[tuple[str, str], ...]] = {
+    "리버렐리오": (("차분한 수심 4", "차분한 수심 대상"),),
+    "미란다": (("웨이크업! 4", "크확 대상"),),
+}
+
+
 def _load_weapon_types() -> tuple[str, ...]:
     """무기군 목록. 정본은 `data/weapon_mechanics.json`의 `weapon_type_defaults`다.
 

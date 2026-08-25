@@ -1,4 +1,5 @@
 import type {
+  BuffTargetRow,
   CharacterControl,
   CharacterOverrides,
   CubeName,
@@ -104,6 +105,7 @@ export function renderCharacterSettings(
   catalog: SettingsCatalog,
   value: CharacterOverrides | undefined,
   onChange: (next: CharacterOverrides | undefined) => void,
+  buffTargets?: BuffTargetRow[],
 ): void {
   const advancedWasOpen = container.querySelector<HTMLInputElement>('[data-advanced-toggle]')?.checked ?? false;
   // 펼침 상태는 다시 그려도 유지한다. 값을 하나 바꿀 때마다 접히면 쓸 수 없다.
@@ -145,7 +147,7 @@ export function renderCharacterSettings(
 
   const commit = (next: CharacterOverrides | undefined) => {
     onChange(next);
-    renderCharacterSettings(container, name, catalog, next, onChange);
+    renderCharacterSettings(container, name, catalog, next, onChange, buffTargets);
   };
 
   const summary = document.createElement('p');
@@ -153,6 +155,25 @@ export function renderCharacterSettings(
   summary.dataset.loadoutSummary = '';
   summary.textContent = summaryText(name, catalog, value);
   container.append(summary);
+
+  // 「누가 이 버프를 받았나」. 대상이 공격력 순위로 갈려 편성만 보고는 알 수 없고
+  // 전투 중에 바뀌기도 해서, 추정하지 않고 **실제 발동 로그**의 수령자를 띄운다.
+  // 계산을 돌리기 전에는 아직 알 수 없으므로 빈 괄호로 자리만 잡는다.
+  for (const row of buffTargets ?? []) {
+    const box = document.createElement('p');
+    box.className = 'buff-target';
+    box.dataset.buffTarget = row.buff;
+    const label = document.createElement('span');
+    label.textContent = `${row.label} : `;
+    box.append(label);
+    const who = document.createElement('b');
+    who.textContent = `[${row.targets.join(', ')}]`;
+    box.append(who);
+    box.title = row.targets.length > 0
+      ? `${row.buff} — ${row.count}회 발동`
+      : `${row.buff} — 아직 계산하지 않았거나 발동 조건이 맞지 않습니다`;
+    container.append(box);
+  }
 
   const toggleLabel = document.createElement('label');
   toggleLabel.className = 'inline-check';
@@ -311,7 +332,8 @@ export function renderCharacterSettings(
   burstNote.textContent =
     '같은 버스트 단계 후보가 여럿일 때, n의 배수 사이클마다 이 캐릭터를 우선 사용합니다(쿨타임 한도 내). n=1이면 매 사이클.';
   burstEditor.append(burstHeading, burstRow, burstNote);
-  body.append(burstEditor);
+  // `body`가 아니라 아래 «컨트롤 · 버스트» 접이판에 넣는다 — 버스트 운용도 결국
+  // 조작 방식이라 컨트롤과 한자리에 있는 편이 찾기 쉽다.
 
   const equipEditor = document.createElement('section');
   equipEditor.className = 'equip-editor';
@@ -681,8 +703,8 @@ export function renderCharacterSettings(
   controlWarning.className = 'field-note warning';
   controlWarning.textContent = '여러 캐릭터 동시 컨트롤은 실제 한 명 조작보다 유리한 상한일 수 있습니다.';
   // 컨트롤은 따로 접는다. 손대는 사람은 적은데 자리는 가장 많이 먹는다.
-  const controlFold = disclosure('컨트롤', 'data-control-open', controlWasOpen);
-  controlFold.panel.append(controlMode, recommendation, controlGrid, controlWarning);
+  const controlFold = disclosure('컨트롤 · 버스트', 'data-control-open', controlWasOpen);
+  controlFold.panel.append(controlMode, recommendation, controlGrid, controlWarning, burstEditor);
   controlEditor.append(controlFold.head, controlFold.panel);
   // 컨트롤은 돌파·스킬·오버로드·큐브와 **형제**로 둔다. 그 안에 넣으면 컨트롤만
   // 보려 해도 설정 뭉치를 먼저 펼쳐야 한다 — 두 뭉치는 만지는 이유가 다르다.
