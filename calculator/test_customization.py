@@ -661,6 +661,30 @@ class CharacterCustomizationTest(unittest.TestCase):
         casters = {h.caster for h in gated.hits if 10 <= h.t < 30}
         self.assertEqual(casters, {"라피", "앨리스"})
 
+    def test_element_window_also_honors_override_buffs(self):
+        """속저는 인게임처럼 **우월 코드 버프까지 인정한다** (유저 확인).
+
+        라피 : 레드 후드는 로스터가 작열이라 전격에는 우월하지 않지만,
+        `부착형 유탄`이 전격 적에게도 우월을 붙여 준다 — 그 버프로 통과해야 한다.
+        """
+        deck = ["라피 : 레드 후드", "나유타", "리타", "크라운", "앨리스"]
+        squad = build_squad(deck)
+        result = simulate(
+            squad, config=build_config(squad, {"duration": 60, "first_burst_time": 3.0}),
+            enemy={"def": 31_784, "code": "전격", "core_px": 0, "has_parts": False,
+                   "element_windows": [{"from": 10, "to": 40, "code": "전격"}]},
+            seed=42)
+
+        casters = {h.caster for h in result.hits if 10 <= h.t < 40}
+        # 철갑(리타·크라운)은 로스터 상성으로 통과한다.
+        self.assertIn("리타", casters)
+        self.assertIn("크라운", casters)
+        # 작열인데도 버프 덕에 통과한다 — 로스터 코드만 봤다면 빠졌을 캐릭터다.
+        self.assertIn("라피 : 레드 후드", casters)
+        # 풍압·작열은 전격에 우월하지 않고 버프도 없다.
+        self.assertNotIn("나유타", casters)
+        self.assertNotIn("앨리스", casters)
+
     def test_immune_window_can_also_stop_burst_charging(self):
         """족자 중에는 보스를 못 때리니 게이지도 안 찬다 — 옵션이다."""
         from calculator.timeline import charge_end

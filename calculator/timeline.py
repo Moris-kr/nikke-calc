@@ -2632,9 +2632,16 @@ def simulate(
         (float(w["from"]), float(w["to"]), str(w["code"]))
         for w in enm.get("element_windows") or []
     ]
-    # 속저 판정은 **로스터 코드**로 본다 — 유저가 말하는 "작열 캐릭터"가 그것이다.
+    # 속저 판정은 인게임과 같이 **우월 코드 버프까지 인정한다** (유저 확인) —
+    # 로스터 코드 상성이거나, `element_code_override` 버프로 그 코드에 우월해졌거나
+    # 둘 중 하나면 통과한다. 후자는 버프라 매 프레임 조회해야 한다
+    # (라피 : 레드 후드 `부착형 유탄` — 전격 적에게도 우월).
     _roster_code = {c["name"]: _NIKKE.get(c["name"], {}).get("element_code", "")
                     for c in squad}
+
+    def _beats(name: str, code: str) -> bool:
+        return (is_element_match(_roster_code.get(name, ""), code)
+                or bm.element_override_match(name, code))
 
     def _gate(events: list[HitEvent], t: float) -> list[HitEvent]:
         if not events or (not _immune_windows and not _element_windows):
@@ -2645,8 +2652,7 @@ def simulate(
         if not blocking:
             return events
         return [ev for ev in events
-                if all(is_element_match(_roster_code.get(ev.caster, ""), code)
-                       for code in blocking)]
+                if all(_beats(ev.caster, code) for code in blocking)]
 
     t = 0.0
     while t <= duration:
