@@ -4,6 +4,14 @@ import type { BattleTimeline, DeckResultEntry } from './types';
 const LINE_COLORS = ['#45d6d0', '#ffbf3c', '#9b8cff', '#5fd08a', '#ff7db0'];
 const MIN_SPAN = 4; // 최대 확대: 화면에 4초까지
 
+// 버스트 표기 — 시각에 **얼굴을 꽂는다**. 색을 범례와 대조할 필요가 없어 누가 썼는지
+// 바로 읽힌다. 같은 시각에 여러 명이 쓰면(B1→B2→B3는 늘 그렇다) 계단식으로 어긋내
+// 서로 가리지 않게 한다.
+const PIN_R = 11;          // 초상화 원 반지름
+const PIN_GAP = 4;         // 계단 한 칸 높이
+const PIN_STEPS = 3;       // 계단 단 수 — 이보다 많이 겹치면 처음 단으로 돌아간다
+const PIN_LANE = PIN_R * 2 + PIN_GAP * (PIN_STEPS - 1) + 14;  // 핀이 차지하는 세로 폭
+
 export interface TimelineSeries {
   names: string[];
   colors: Record<string, string>;
@@ -11,6 +19,10 @@ export interface TimelineSeries {
   totals: Record<string, number>;
   bursts: Record<string, { t: number; stage: string }[]>;
   fullBurst: [number, number][];
+  /** 족자 — 딜이 아예 안 들어가는 구간. 타임라인에 붉은 밴드로 깐다. */
+  immuneWindows: Array<{ from: number; to: number }>;
+  /** 속저 — 우월 코드만 통과하는 구간. 푸른 밴드로 깐다. */
+  elementWindows: Array<{ from: number; to: number; code: string }>;
   peak: number;
   buckets: number;
   duration: number;
@@ -21,6 +33,10 @@ export function buildSeries(
   timeline: BattleTimeline,
   squad: string[],
   duration: number,
+  phases: {
+    immuneWindows?: Array<{ from: number; to: number }>;
+    elementWindows?: Array<{ from: number; to: number; code: string }>;
+  } = {},
 ): TimelineSeries | null {
   const names = squad.filter((name) => timeline.damage[name]);
   if (names.length === 0 || timeline.buckets <= 0 || duration <= 0) return null;
@@ -42,6 +58,8 @@ export function buildSeries(
     totals,
     bursts: timeline.bursts,
     fullBurst: timeline.fullBurst,
+    immuneWindows: phases.immuneWindows ?? [],
+    elementWindows: phases.elementWindows ?? [],
     peak,
     buckets: timeline.buckets,
     duration,
@@ -79,14 +97,26 @@ class TimelineChart {
   private dragging = false;
   private lastX = 0;
 
+  private portraits = new Map<string, HTMLImageElement>();
+
   constructor(
     private canvas: HTMLCanvasElement,
     private tooltip: HTMLElement,
     private series: TimelineSeries,
+    portraitUrls: Record<string, string> = {},
   ) {
     this.ctx = canvas.getContext('2d');
     this.view0 = 0;
     this.view1 = series.duration;
+    // 캔버스는 이미지가 준비돼야 그릴 수 있다 — 도착할 때마다 다시 그린다.
+    // 못 받아도(오프라인·404) 이름 첫 글자로 대신 그리므로 화면이 비지 않는다.
+    for (const [name, url] of Object.entries(portraitUrls)) {
+      const img = new Image();
+      img.decoding = 'async';
+      img.addEventListener('load', () => this.draw());
+      img.src = url;
+      this.portraits.set(name, img);
+    }
     this.bindEvents();
   }
 
@@ -120,7 +150,9 @@ class TimelineChart {
     const rect = this.canvas.getBoundingClientRect();
     const width = rect.width || this.canvas.width;
     const height = rect.height || this.canvas.height;
-    return { left: 58, top: 12, width: Math.max(1, width - 58 - 14), height: Math.max(1, height - 12 - 34) };
+    // 아래쪽에 축(34) + 핀 레인을 비워 둔다.
+    return { left: 58, top: 12, width: Math.max(1, width - 58 - 14),
+             height: Math.max(1, height - 12 - 34 - PIN_LANE) };
   }
 
   private xFor(t: number): number {
@@ -161,6 +193,33 @@ class TimelineChart {
       ctx.fillStyle = 'rgba(255,191,60,0.09)';
       ctx.fillRect(x0, top, Math.max(0, x1 - x0), height);
     }
+
+    // 보스 페이즈 밴드 — 족자는 붉게(딜이 아예 안 들어감), 속저는 푸르게
+    // (우월 코드만 통과). 풀버스트 밴드와 같은 방식이라 함께 읽힌다.
+    const band = (from: number, to: number, fill: string, label: string) => {
+      if (to < this.view0 || from > this.view1) return;
+      const x0 = Math.max(left, this.xFor(from));
+      const x1 = Math.min(left + width, this.xFor(to));
+      const w = Math.max(0, x1 - x0);
+      if (w <= 0) return;
+      ctx.fillStyle = fill;
+      ctx.fillRect(x0, top, w, height);
+      // 좁은 구간에 글씨를 욱여넣으면 오히려 안 읽힌다.
+      if (w >= 26) {
+        ctx.fillStyle = 'rgba(234,242,248,0.72)';
+        ctx.font = '700 9px ui-monospace, monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(label, x0 + w / 2, top + 3);
+      }
+    };
+    for (const w of this.series.immuneWindows) {
+      band(w.from, w.to, 'rgba(255,119,135,0.16)', '족자');
+    }
+    for (const w of this.series.elementWindows) {
+      band(w.from, w.to, 'rgba(96,165,250,0.16)', `속저 ${w.code}`);
+    }
+    ctx.textAlign = 'left';
 
     // y 그리드 + 라벨
     ctx.font = '10px Pretendard, system-ui, sans-serif';
@@ -219,20 +278,80 @@ class TimelineChart {
       ctx.stroke();
     }
 
-    // 버스트 마커 (플롯 하단 살짝 위)
+    // 버스트 핀 — 플롯 아래 레인에 **얼굴**을 꽂는다.
+    // 시각순으로 모아 두고, 서로 가까우면 계단식으로 어긋내 겹치지 않게 한다.
+    const pins: Array<{ t: number; name: string; stage: string }> = [];
     for (const name of this.series.names) {
       if (this.hidden.has(name)) continue;
-      ctx.fillStyle = this.series.colors[name]!;
       for (const cast of this.series.bursts[name] ?? []) {
         if (cast.t < this.view0 || cast.t > this.view1) continue;
-        const x = this.xFor(cast.t);
-        const y = top + height - 2;
+        pins.push({ t: cast.t, name, stage: cast.stage });
+      }
+    }
+    pins.sort((a, b) => a.t - b.t);
+
+    const laneTop = top + height + 8;
+    let lastX = -Infinity;
+    let tier = 0;
+    for (const pin of pins) {
+      const x = this.xFor(pin.t);
+      // 앞 핀과 지름만큼도 안 떨어져 있으면 한 단 내린다.
+      tier = (x - lastX < PIN_R * 2) ? (tier + 1) % PIN_STEPS : 0;
+      lastX = x;
+      const cy = laneTop + PIN_R + tier * PIN_GAP;
+      const color = this.series.colors[pin.name]!;
+
+      // 그래프에서 내려오는 줄기 — 어느 시각인지 눈으로 잇는다.
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.55;
+      ctx.beginPath();
+      ctx.moveTo(x, top + height);
+      ctx.lineTo(x, cy - PIN_R);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      // 얼굴 (원형으로 잘라 넣는다). 아직 안 왔으면 이름 첫 글자로 대신한다.
+      const img = this.portraits.get(pin.name);
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(x, cy, PIN_R, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+      if (img?.complete && img.naturalWidth > 0) {
+        const side = PIN_R * 2;
+        ctx.drawImage(img, x - PIN_R, cy - PIN_R - PIN_R * 0.25, side, side * 1.25);
+      } else {
+        ctx.fillStyle = 'rgba(6,14,23,.95)';
+        ctx.fillRect(x - PIN_R, cy - PIN_R, PIN_R * 2, PIN_R * 2);
+        ctx.fillStyle = color;
+        ctx.font = '700 10px ui-monospace, monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(pin.name.slice(0, 1), x, cy);
+      }
+      ctx.restore();
+
+      // 캐릭터 색 테두리 — 그래프 선과 같은 색이라 어느 줄의 주인인지도 이어진다.
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.75;
+      ctx.beginPath();
+      ctx.arc(x, cy, PIN_R, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // 버스트 단계 — 우하단 작은 배지.
+      if (pin.stage) {
+        const bx = x + PIN_R * 0.72;
+        const by = cy + PIN_R * 0.72;
+        ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.moveTo(x - 3, y);
-        ctx.lineTo(x, y - 5);
-        ctx.lineTo(x + 3, y);
-        ctx.closePath();
+        ctx.arc(bx, by, 6, 0, Math.PI * 2);
         ctx.fill();
+        ctx.fillStyle = '#04101a';
+        ctx.font = '900 8px ui-monospace, monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(pin.stage, bx, by);
       }
     }
     ctx.restore();
@@ -326,11 +445,17 @@ class TimelineChart {
 }
 
 /** 덱 결과에 붙일 인터랙티브 타임라인 블록을 만든다. 타임라인이 없으면 null. */
-export function createTimelineBlock(entry: DeckResultEntry): HTMLElement | null {
+export function createTimelineBlock(
+  entry: DeckResultEntry,
+  portraitUrls: Record<string, string> = {},
+): HTMLElement | null {
   const timeline = entry.result.timeline;
   if (!timeline) return null;
   const squad = entry.request.squad.filter(Boolean);
-  const series = buildSeries(timeline, squad, entry.result.duration);
+  const series = buildSeries(timeline, squad, entry.result.duration, {
+    immuneWindows: entry.request.immuneWindows,
+    elementWindows: entry.request.elementWindows,
+  });
   if (!series) return null;
 
   const block = document.createElement('div');
@@ -369,10 +494,10 @@ export function createTimelineBlock(entry: DeckResultEntry): HTMLElement | null 
 
   const note = document.createElement('p');
   note.className = 'timeline-legend';
-  note.textContent = '드래그 이동 · 휠/버튼 확대·축소 · 세로 밴드 = 풀버스트 · 삼각형 = 버스트 사용 · 마우스를 올리면 초별 수치';
+  note.textContent = '드래그 이동 · 휠/버튼 확대·축소 · 노란 밴드 = 풀버스트 · 붉은 밴드 = 족자 · 푸른 밴드 = 속저 · 아래 초상화 = 버스트 사용(배지는 단계)';
   block.append(note);
 
-  const chart = new TimelineChart(canvas, tooltip, series);
+  const chart = new TimelineChart(canvas, tooltip, series, portraitUrls);
   zoomIn.addEventListener('click', () => chart.zoomBy(0.6));
   zoomOut.addEventListener('click', () => chart.zoomBy(1.8));
   reset.addEventListener('click', () => chart.reset());

@@ -92,3 +92,29 @@ describe('createTimelineBlock', () => {
     expect(createTimelineBlock(noTimeline)).toBeNull();
   });
 });
+
+
+describe('보스 페이즈 밴드', () => {
+  it('족자·속저 구간을 시리즈에 싣는다', () => {
+    const series = buildSeries({
+      bucket: 1, buckets: 3,
+      damage: { 리타: [1, 2, 3] },
+      bursts: { 리타: [{ t: 1.5, stage: '1' }] },
+      fullBurst: [[1, 2]] as [number, number][],
+    }, ['리타'], 3, {
+      immuneWindows: [{ from: 0, to: 1 }],
+      elementWindows: [{ from: 2, to: 3, code: '풍압' }],
+    })!;
+    expect(series.immuneWindows).toEqual([{ from: 0, to: 1 }]);
+    expect(series.elementWindows).toEqual([{ from: 2, to: 3, code: '풍압' }]);
+  });
+
+  it('구간을 안 주면 빈 배열이다 — 옛 결과에도 안전하다', () => {
+    const series = buildSeries({
+      bucket: 1, buckets: 2, damage: { 리타: [1, 2] },
+      bursts: {}, fullBurst: [],
+    }, ['리타'], 2)!;
+    expect(series.immuneWindows).toEqual([]);
+    expect(series.elementWindows).toEqual([]);
+  });
+});

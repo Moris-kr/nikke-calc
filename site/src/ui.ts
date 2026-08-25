@@ -1975,7 +1975,13 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     timelineBody.replaceChildren();
     let timelineCount = 0;
     for (const entry of batch.decks) {
-      const timelineBlock = createTimelineBlock(entry);
+      // 버스트 핀에 쓸 초상화. 캔버스가 직접 그리므로 URL만 넘긴다.
+      const portraitUrls: Record<string, string> = {};
+      for (const name of entry.request.squad) {
+        const image = catalogByName.get(name)?.image;
+        if (image) portraitUrls[name] = `${import.meta.env.BASE_URL}${image}`;
+      }
+      const timelineBlock = createTimelineBlock(entry, portraitUrls);
       if (!timelineBlock) continue;
       if (batch.decks.length > 1) {
         timelineBlock.prepend(createText('h3', `덱 ${entry.deckId}`, 'timeline-deck-label'));
