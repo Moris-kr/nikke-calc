@@ -24,6 +24,7 @@ from .buff_manager import BuffManager, _QUANT_PARTS_KEY, _get_skill_lv
 from .damage import calc_damage, default_hit_type, is_element_match
 from .sim_result import (
     HitEvent,
+    _is_normal,
     BurstLogEntry,
     BuffEntry,
     BuffEvent,
@@ -142,8 +143,8 @@ DEFAULT_CONFIG: dict = {
     #   "expected" — 확률 대신 기대값을 태워 결과를 결정론적으로 만든다.
     #                시드·반복 평균 없이 1회 실행으로 기대딜이 나온다.
     "rng_mode":           "random",
-    # 족자(`enemy["immune_windows"]`) 중에는 보스를 때릴 수 없으니 버스트 게이지도
-    # 안 찬다 — 인게임이 그렇다(유저 확인). 끄면 족자 중에도 충전이 이어진다.
+    # 족자(`enemy["immune_windows"]`) 중에는 평타가 빗나가므로 버스트 게이지도
+    # 안 찬다고 본다. 끄면 족자 중에도 충전이 이어진다.
     # 족자를 안 쓰면 어느 쪽이든 결과가 같다.
     "immune_blocks_burst": True,
 }
@@ -155,7 +156,7 @@ DEFAULT_ENEMY: dict = {
     "has_parts":            False,# 파괴 가능 파츠 보유 보스. part_hit_count / part_dmg_pct의 전제
     "optimal_range_weapons": [],  # 적정거리 적용 무기군 목록 e.g. ["SG", "SMG"]
     # 보스 페이즈 구간. 둘 다 `[시작초, 끝초)` 반개구간이고 여러 개를 넣을 수 있다.
-    #   immune_windows  — 족자: 그 구간 동안 보스에게 딜이 아예 안 들어간다
+    #   immune_windows  — 족자: 그 구간 동안 평타가 적중하지 않는다
     #   element_windows — 속저: 그 구간 동안 **그 코드에 우월한** 캐릭터의 딜만 들어간다
     #                     e.g. {"from":100,"to":102,"code":"풍압"} → 작열 캐릭터만
     "immune_windows":       [],
@@ -1603,7 +1604,7 @@ def charge_end(start: float, regen: float,
                 windows: list[tuple[float, float]]) -> float:
     """`start`부터 게이지를 채워 `regen`초어치가 차는 시각.
 
-    족자 구간에서는 보스를 때릴 수 없으니 게이지도 안 찬다 — 그 구간만큼 뒤로
+    족자 구간에서는 평타가 빗나가니 게이지도 안 찬다 — 그 구간만큼 뒤로
     밀린다. 구간이 없으면 그냥 `start + regen`이다.
     """
     if not windows:
@@ -1637,8 +1638,8 @@ class BurstController:
         enemy: dict,
     ):
         self.config = config
-        # 족자 중에는 평타를 못 넣으니 버스트 게이지도 안 찬다 — 옵션이다.
-        # (기본은 끔: 종전 동작 유지)
+        # 족자 중에는 평타가 빗나가니 버스트 게이지도 안 찬다 — 옵션이다.
+        # 기본은 켬이며, 옵션을 끄면 족자 중에도 충전이 이어진다.
         self._gauge_blocked = (
             [(float(a), float(b)) for a, b in (enemy.get("immune_windows") or [])]
             if config.get("immune_blocks_burst") else []
@@ -2626,8 +2627,9 @@ def simulate(
     _next_part_break = _part_break_interval if _part_break_interval > 0 else math.inf
 
     # ── 보스 페이즈 관문 (족자 · 속저) ────────────────────────────────────
-    # 족자는 그 구간의 딜을 통째로 막고, 속저는 코드 상성이 맞는 캐릭터만 통과시킨다.
-    # 대미지 누적기(분배 딜)에 들어가기 **전에** 걸러야 막힌 딜이 우회해 쌓이지 않는다.
+    # 족자는 그 구간의 평타만 빗나가고, 속저는 코드 상성이 맞는 캐릭터만 통과시킨다.
+    # 평타 판정은 트리거가 처리된 뒤 결과 HitEvent에서만 뺀다 — 발사로 파생된 스킬
+    # 공격과 이미 걸린 지속 대미지는 족자 중에도 정상적으로 적중한다.
     _immune_windows = [(float(a), float(b)) for a, b in enm.get("immune_windows") or []]
     _element_windows = [
         (float(w["from"]), float(w["to"]), str(w["code"]))
@@ -2648,7 +2650,7 @@ def simulate(
         if not events or (not _immune_windows and not _element_windows):
             return events
         if any(lo <= t < hi for lo, hi in _immune_windows):
-            return []
+            events = [ev for ev in events if not _is_normal(ev)]
         blocking = [code for lo, hi, code in _element_windows if lo <= t < hi]
         if not blocking:
             return events

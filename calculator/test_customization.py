@@ -639,8 +639,10 @@ class CharacterCustomizationTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             normalize_element_windows([{"from": 1, "to": 2, "code": "불"}])
 
-    def test_immune_window_blocks_damage_and_element_window_gates_it(self):
-        """족자는 딜을 통째로 막고, 속저는 우월 코드만 통과시킨다."""
+    def test_immune_window_makes_only_normal_attacks_miss_and_element_window_gates_it(self):
+        """족자는 평타만 빗나가고, 속저는 우월 코드만 통과시킨다."""
+        from calculator.sim_result import _is_normal
+
         deck = ["라피", "나유타", "리타", "크라운", "앨리스"]  # 라피·앨리스가 작열
         squad = build_squad(deck)
         cfg = build_config(squad, {"duration": 60, "first_burst_time": 3.0})
@@ -653,13 +655,59 @@ class CharacterCustomizationTest(unittest.TestCase):
                          enemy={**enemy, "element_windows":
                                 [{"from": 10, "to": 30, "code": "풍압"}]}, seed=42)
 
-        # 족자 구간에는 히트가 하나도 없어야 한다.
-        self.assertEqual([h for h in immune.hits if 10 <= h.t < 30], [])
+        # 족자 구간에는 평타만 빠지고 스킬 대미지는 남아야 한다.
+        immune_hits = [h for h in immune.hits if 10 <= h.t < 30]
+        self.assertTrue(immune_hits)
+        self.assertFalse(any(_is_normal(h) for h in immune_hits))
         self.assertLess(immune.squad_total, plain.squad_total)
 
         # 속저 구간에는 풍압에 우월한 작열만 남는다.
         casters = {h.caster for h in gated.hits if 10 <= h.t < 30}
         self.assertEqual(casters, {"라피", "앨리스"})
+
+    def test_immune_window_keeps_existing_damage_over_time(self):
+        """족자가 시작돼도 이미 걸린 레이븐 `쇼크웨이브`의 틱은 계속 들어간다."""
+        squad = build_squad(["레이븐", "크라운", "test_B3"])
+        result = simulate(
+            squad,
+            config=build_config(squad, {
+                "first_burst_time": 1, "duration": 20, "rng_mode": "expected",
+            }),
+            enemy={
+                "def": 31_784, "code": "", "core_px": 0, "has_parts": False,
+                "immune_windows": [[5, 15]],
+            },
+            seed=1,
+        )
+
+        ticks = [h for h in result.hits
+                 if 5 <= h.t < 15 and h.caster == "레이븐"
+                 and h.skill_name == "쇼크웨이브"]
+        self.assertTrue(ticks, "족자 구간에서 지속 대미지가 사라졌다")
+
+    def test_immune_window_keeps_attacks_triggered_by_a_normal_attack(self):
+        """평타는 빗나가도 헤비암즈의 `오토 파이어` 후속 공격은 적중한다."""
+        from calculator.sim_result import _is_normal
+
+        name = "스노우 화이트 : 헤비암즈"
+        squad = build_squad(["리틀 머메이드", "크라운", name])
+        result = simulate(
+            squad,
+            config=build_config(squad, {
+                "duration": 30, "first_burst_time": 3.0, "rng_mode": "expected",
+            }),
+            enemy={
+                "def": 31_784, "code": "", "core_px": 0, "has_parts": False,
+                "immune_windows": [[5, 20]],
+            },
+            seed=42,
+        )
+
+        hits = [h for h in result.hits if 5 <= h.t < 20 and h.caster == name]
+        self.assertFalse(any(_is_normal(h) for h in hits))
+        skill_names = {h.skill_name for h in hits}
+        self.assertIn("오토 파이어 1", skill_names)
+        self.assertIn("오토 파이어 2", skill_names)
 
     def test_element_window_also_honors_override_buffs(self):
         """속저는 인게임처럼 **우월 코드 버프까지 인정한다** (유저 확인).
@@ -686,7 +734,7 @@ class CharacterCustomizationTest(unittest.TestCase):
         self.assertNotIn("앨리스", casters)
 
     def test_immune_window_can_also_stop_burst_charging(self):
-        """족자 중에는 보스를 못 때리니 게이지도 안 찬다 — 옵션이다."""
+        """족자 중에는 평타가 빗나가니 게이지도 안 찬다 — 옵션이다."""
         from calculator.timeline import charge_end
 
         # 충전이 족자에 걸리면 그 구간만큼 밀린다.

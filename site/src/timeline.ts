@@ -19,7 +19,7 @@ export interface TimelineSeries {
   totals: Record<string, number>;
   bursts: Record<string, { t: number; stage: string }[]>;
   fullBurst: [number, number][];
-  /** 족자 — 딜이 아예 안 들어가는 구간. 타임라인에 붉은 밴드로 깐다. */
+  /** 족자 — 평타가 빗나가는 구간. 타임라인에 붉은 밴드로 깐다. */
   immuneWindows: Array<{ from: number; to: number }>;
   /** 속저 — 우월 코드만 통과하는 구간. 푸른 밴드로 깐다. */
   elementWindows: Array<{ from: number; to: number; code: string }>;
@@ -194,7 +194,7 @@ class TimelineChart {
       ctx.fillRect(x0, top, Math.max(0, x1 - x0), height);
     }
 
-    // 보스 페이즈 밴드 — 족자는 붉게(딜이 아예 안 들어감), 속저는 푸르게
+    // 보스 페이즈 밴드 — 족자는 붉게(평타가 빗나감), 속저는 푸르게
     // (우월 코드만 통과). 풀버스트 밴드와 같은 방식이라 함께 읽힌다.
     const band = (from: number, to: number, fill: string, label: string) => {
       if (to < this.view0 || from > this.view1) return;

@@ -392,7 +392,7 @@ def _window(raw: Any, label: str) -> tuple[float, float]:
 
 
 def normalize_immune_windows(raw: Any) -> list[list[float]]:
-    """족자 — 그 구간 동안 보스에게 딜이 아예 안 들어간다."""
+    """족자 — 그 구간 동안 평타가 적중하지 않는다."""
     if raw is None:
         return []
     if not isinstance(raw, list):

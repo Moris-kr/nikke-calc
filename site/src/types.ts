@@ -96,7 +96,7 @@ export interface SimulationRequest {
   seed: number;
   // 적정거리로 둘 무기군. 그 무기군의 **일반 공격**에만 ③ 보너스 +30%.
   optimalRangeWeapons?: string[];
-  // 보스 페이즈 — 족자(딜 차단)와 속저(우월 코드만 통과).
+  // 보스 페이즈 — 족자(평타 빗나감)와 속저(우월 코드만 통과).
   immuneWindows?: PhaseWindow[];
   elementWindows?: ElementWindow[];
   rngMode?: RngMode;
@@ -127,7 +127,7 @@ export interface BattleSettings {
   seed: number;
   optimalRangeWeapons: string[];
   normalHitCoeff: Record<string, number>;
-  /** 족자 — 그 구간 동안 보스에게 딜이 아예 안 들어간다. */
+  /** 족자 — 그 구간 동안 평타가 적중하지 않는다. */
   immuneWindows: PhaseWindow[];
   /** 속저 — 그 구간 동안 우월 코드만 통과한다. */
   elementWindows: ElementWindow[];
