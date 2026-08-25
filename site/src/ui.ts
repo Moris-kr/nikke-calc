@@ -34,7 +34,9 @@ import {
   reportFilename,
   type ReportMeta,
 } from './report';
-import { applyShareToDecks, decodeShareCode, encodeShareCode } from './share-code';
+import {
+  applyShareToDecks, decodeBattleCode, decodeShareCode, encodeBattleCode, encodeShareCode,
+} from './share-code';
 import { createTimelineBlock } from './timeline';
 import {
   aggregateDeckResults,
@@ -438,7 +440,10 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         <section class="panel settings-panel" aria-labelledby="settings-heading">
           <div class="section-heading compact target-heading">
             <div><p class="step">02 / TARGET</p><h2 id="settings-heading">전투 조건</h2></div>
-            <button type="button" class="reset-enemy" data-reset-enemy>적 수치 초기화</button>
+            <div class="target-actions">
+              <button type="button" class="reset-enemy" data-battle-share-open title="전투 조건을 코드로 만들어 공유하거나, 받은 코드를 붙여넣어 적용합니다">전투 조건 공유</button>
+              <button type="button" class="reset-enemy" data-reset-enemy>적 수치 초기화</button>
+            </div>
           </div>
           <div class="field-grid">
             <label><span>전투 시간</span><div class="input-unit"><input id="duration" type="number" min="10" max="180" step="1" value="180" /><em>초</em></div></label>
@@ -510,6 +515,24 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           <div class="custom-head"><h2>계산 기록</h2><button type="button" class="custom-close" data-history-close aria-label="닫기">✕</button></div>
           <p class="custom-desc">결과에서 «결과 기록»을 누른 시점의 편성과 수치가 이 브라우저에 남습니다. 편성을 되살려 그때 조합으로 돌아갈 수 있습니다. <b>수치는 그때의 스펙·전투 조건으로 낸 값</b>이라, 지금 설정과 다르면 다시 계산해야 맞습니다.</p>
           <div class="history-list" data-history-list></div>
+        </div>
+      </div>
+
+      <div class="custom-modal" data-battle-share-modal hidden>
+        <div class="custom-card" role="dialog" aria-label="전투 조건 공유">
+          <div class="custom-head"><h2>전투 조건 공유</h2><button type="button" class="custom-close" data-battle-share-close aria-label="닫기">✕</button></div>
+          <p class="custom-desc">전투 시간·적 코드·코어·족자·속저·난수 처리 같은 <b>«어떤 상황에서 쟀나»를 코드 한 줄로</b> 주고받습니다. <b>콘솔은 담기지 않습니다</b> — 계정 육성 상태라 남의 값이 딸려 오면 자기 스펙으로 잰 결과가 아니게 됩니다. 편성과 개인 스펙도 담기지 않습니다(그쪽은 «조합 공유»).</p>
+          <div class="squad-code-block">
+            <h4>내 전투 조건 코드</h4>
+            <textarea class="share-out" data-battle-share-out readonly rows="3"></textarea>
+            <button type="button" class="share-copy" data-battle-share-copy>코드 복사</button>
+          </div>
+          <div class="squad-code-block">
+            <h4>받은 코드 적용</h4>
+            <textarea class="share-in" data-battle-share-in rows="3" placeholder="NK3- 로 시작하는 코드를 붙여넣으세요"></textarea>
+            <button type="button" class="share-apply" data-battle-share-apply>적용</button>
+          </div>
+          <p class="share-msg" data-battle-share-msg hidden></p>
         </div>
       </div>
 
@@ -1928,6 +1951,52 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     const target = event.target as HTMLElement | null;
     if (target?.closest('.settings-panel')) saveState();
   });
+  // ── 전투 조건 공유 ──────────────────────────────────────────────────────
+  const battleShareModal = element<HTMLElement>(root, '[data-battle-share-modal]');
+  const battleShareOut = element<HTMLTextAreaElement>(root, '[data-battle-share-out]');
+  const battleShareIn = element<HTMLTextAreaElement>(root, '[data-battle-share-in]');
+  const battleShareMsg = element<HTMLElement>(root, '[data-battle-share-msg]');
+  const showBattleShareMsg = (message: string, ok = false) => {
+    battleShareMsg.hidden = message === '';
+    battleShareMsg.textContent = message;
+    battleShareMsg.classList.toggle('is-ok', ok);
+  };
+
+  element<HTMLButtonElement>(root, '[data-battle-share-open]').addEventListener('click', () => {
+    battleShareOut.value = encodeBattleCode(readBattle());
+    battleShareIn.value = '';
+    showBattleShareMsg('');
+    battleShareModal.hidden = false;
+  });
+  element<HTMLButtonElement>(root, '[data-battle-share-close]').addEventListener('click', () => {
+    battleShareModal.hidden = true;
+  });
+  battleShareModal.addEventListener('click', (event) => {
+    if (event.target === battleShareModal) battleShareModal.hidden = true;
+  });
+  element<HTMLButtonElement>(root, '[data-battle-share-copy]').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(battleShareOut.value);
+      showBattleShareMsg('코드를 복사했습니다.', true);
+    } catch {
+      battleShareOut.select();
+      showBattleShareMsg('자동 복사가 막혀 코드를 선택해 뒀습니다. Ctrl+C로 복사해 주세요.');
+    }
+  });
+  element<HTMLButtonElement>(root, '[data-battle-share-apply]').addEventListener('click', () => {
+    try {
+      // 콘솔은 코드에 없다 — 지금 내 값을 그대로 둔다.
+      const applied = decodeBattleCode(battleShareIn.value);
+      writeBattle({ ...applied, console: readBattle().console });
+      corePxInput.disabled = !applied.coreEnabled;
+      saveState();
+      showErrors([]);
+      showBattleShareMsg('전투 조건을 적용했습니다. 콘솔은 내 값 그대로입니다.', true);
+    } catch (error) {
+      showBattleShareMsg(error instanceof Error ? error.message : String(error));
+    }
+  });
+
   element<HTMLButtonElement>(root, '[data-reset-enemy]').addEventListener('click', () => {
     writeBattle(resetEnemy(readBattle()));
     saveState();

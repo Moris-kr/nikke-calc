@@ -280,6 +280,8 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .buff-target { display: flex; align-items: baseline; gap: 4px; margin: 0 0 8px; padding: 6px 8px; border: 1px solid var(--amber); border-radius: 6px; background: rgba(255,191,60,.09); color: #d9c79a; font: 700 10px/1.4 ui-monospace, monospace; word-break: keep-all; }
 .buff-target b { color: var(--amber); font-weight: 900; }
 
+.target-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
 /* 보스 페이즈 — 구간을 몇 개든 추가한다. */
 .phase-head { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
 .phase-add { padding: 6px 11px; border: 1px solid rgba(69,214,208,.42); border-radius: 999px; background: rgba(69,214,208,.1); color: var(--cyan); font: 800 10px ui-monospace, monospace; cursor: pointer; }

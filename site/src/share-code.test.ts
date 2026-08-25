@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { applyShareToDecks, decodeShareCode, encodeShareCode, nameHash } from './share-code';
+import {
+  applyShareToDecks, decodeBattleCode, decodeShareCode, encodeBattleCode, encodeShareCode, nameHash,
+} from './share-code';
 import type { DeckState } from './types';
 
 const deck = (id: number, squad: string[], characters: DeckState['characters'] = {}): DeckState =>
@@ -157,5 +159,62 @@ describe('applyShareToDecks', () => {
     );
     applyShareToDecks(payload, decks, () => true);
     expect(decks[4]!.squad).toEqual(['', '', '', '', '']);
+  });
+});
+
+
+describe('전투 조건 공유 코드 (NK3)', () => {
+  const battle = {
+    duration: 120, enemyDef: 40000, enemyCode: '철갑' as const,
+    coreEnabled: true, corePx: 52, hasParts: true, seed: 7,
+    optimalRangeWeapons: ['SG', 'SMG'],
+    normalHitCoeff: { SG: 0.9 },
+    immuneWindows: [{ from: 10, to: 30 }],
+    elementWindows: [{ from: 100, to: 102, code: '풍압' as const }],
+    rngMode: 'random' as const,
+    immuneBlocksBurst: true,
+    burstRegenTime: 2.8,
+    console: { common_level: 390, class_level: { 화력형: 257 }, company_level: { 필그림: 386 } },
+  };
+
+  it('NK3-로 시작하고 되읽으면 같은 값이 나온다', () => {
+    const code = encodeBattleCode(battle);
+    expect(code.startsWith('NK3-')).toBe(true);
+    const { console: _drop, ...expected } = battle;
+    expect(decodeBattleCode(code)).toEqual(expected);
+  });
+
+  it('콘솔은 담지 않는다 — 남의 계정 육성 상태가 딸려 오면 안 된다', () => {
+    const code = encodeBattleCode(battle);
+    expect(decodeBattleCode(code)).not.toHaveProperty('console');
+    // 코드 본문에도 콘솔 값이 없어야 한다.
+    const body = atob(code.slice(4).replace(/-/g, '+').replace(/_/g, '/'));
+    expect(body).not.toContain('common_level');
+    expect(body).not.toContain('390');
+  });
+
+  it('범위를 벗어난 값과 못 쓰는 구간은 기본값으로 되돌린다', () => {
+    // btoa는 Latin-1만 받는다 — 실제 코드와 같이 UTF-8 바이트로 만든다.
+    const raw = JSON.stringify({
+      duration: 9999, enemyDef: -5, seed: 'x', rngMode: '이상함',
+      immuneWindows: [{ from: 30, to: 10 }, { from: 5, to: 9 }],
+      elementWindows: [{ from: 1, to: 2, code: '불' }],
+    });
+    let binary = '';
+    for (const byte of new TextEncoder().encode(raw)) binary += String.fromCharCode(byte);
+    const bad = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const got = decodeBattleCode(`NK3-${bad}`);
+    expect(got.duration).toBe(180);
+    expect(got.enemyDef).toBe(31_784);
+    expect(got.seed).toBe(42);
+    expect(got.rngMode).toBe('expected');
+    // 뒤집힌 구간은 버리고 쓸 수 있는 것만 남는다.
+    expect(got.immuneWindows).toEqual([{ from: 5, to: 9 }]);
+    expect(got.elementWindows).toEqual([]);
+  });
+
+  it('빈 코드와 깨진 코드는 사람이 읽을 메시지로 막는다', () => {
+    expect(() => decodeBattleCode('   ')).toThrow(/입력해 주세요/);
+    expect(() => decodeBattleCode('NK3-@@@')).toThrow(/해석하지 못했습니다|올바르지 않습니다/);
   });
 });
