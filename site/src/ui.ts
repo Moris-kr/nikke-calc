@@ -760,6 +760,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   // 채운다. 결과는 정식 계산과 같은 캐시를 쓰므로 이어서 «실행»을 눌러도 덤이 없다.
   let prefetchTimer: ReturnType<typeof setTimeout> | undefined;
   let prefetching = false;
+  // 배경 계산이 도는 덱. 그 사이 화면에는 `[계산중]`으로 나온다.
+  let prefetchingDeckId: number | undefined;
 
   const needsPrefetch = (deck: DeckState): boolean => {
     if (!deck.squad.some((name) => name && settings.buffTargetWatch?.[name])) return false;
@@ -774,6 +776,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       const deck = activeDeck();
       if (!needsPrefetch(deck)) return;
       prefetching = true;
+      prefetchingDeckId = deck.id;
+      renderSquad();
       try {
         await prepared;
         const custom = customPayload();
@@ -798,6 +802,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         /* 미리 계산은 편의 기능이다 — 실패해도 조용히 넘어간다 */
       } finally {
         prefetching = false;
+        prefetchingDeckId = undefined;
+        renderSquad();
       }
     }, 700);
   };
@@ -812,7 +818,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     if (known) return known;
     const watched = settings.buffTargetWatch?.[name];
     if (!watched) return undefined;
-    return watched.map((w) => ({ ...w, targets: [] as string[], count: 0 }));
+    const pending = prefetchingDeckId === deckId;
+    return watched.map((w) => ({ ...w, targets: [] as string[], count: 0, pending }));
   };
 
   // 「순서보기」 — 버프가 발동할 때마다 누가 받았는지 초상화로 죽 편다.

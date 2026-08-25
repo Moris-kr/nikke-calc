@@ -527,14 +527,24 @@ describe('character settings editor', () => {
       .toEqual(['앨리스', '홍련 : 흑영', '앨리스', '홍련 : 흑영']);
   });
 
-  it('offers the order button even when the target never changes', () => {
-    // 「순서보기」는 특이케이스 전용이 아니다 — 언제 몇 번 발동했는지도 정보다.
+  it('shows just the name when the target never changes, with no order button', () => {
+    // 대상이 고정이면 이름 하나로 충분하다 — 「순서보기」는 갈릴 때만 붙인다.
     renderCharacterSettings(root, characterName, settings, value, (next) => { value = next; },
       [{ label: '크확 대상', buff: '웨이크업! 4', targets: ['리버렐리오'], count: 3,
          sequence: [{ t: 3.25, target: '리버렐리오' }] }], () => {});
     const box = root.querySelector<HTMLElement>('[data-buff-target]')!;
-    expect(box.textContent).toContain('[리버렐리오]');
-    expect(root.querySelector('[data-buff-order-open]')).not.toBeNull();
+    expect(box.textContent).toBe('크확 대상 : [리버렐리오]');
+    expect(root.querySelector('[data-buff-order-open]')).toBeNull();
+  });
+
+  it('says 계산중 while the background run is in flight', () => {
+    // 빈 괄호만 보이면 기능이 꺼진 것처럼 보인다 — 도는 동안은 그렇다고 적는다.
+    renderCharacterSettings(root, characterName, settings, value, (next) => { value = next; },
+      [{ label: '크확 대상', buff: '웨이크업! 4', targets: [], count: 0, pending: true }]);
+    const box = root.querySelector<HTMLElement>('[data-buff-target]')!;
+    expect(box.textContent).toBe('크확 대상 : [계산중]');
+    expect(box.classList.contains('is-pending')).toBe(true);
+    expect(box.title).toContain('계산하는 중');
   });
 
   it('omits the buff-target row for characters without a watched buff', () => {

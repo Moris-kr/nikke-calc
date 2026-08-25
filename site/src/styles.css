@@ -280,6 +280,8 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .buff-target { display: flex; align-items: baseline; gap: 4px; margin: 0 0 8px; padding: 6px 8px; border: 1px solid var(--amber); border-radius: 6px; background: rgba(255,191,60,.09); color: #d9c79a; font: 700 10px/1.4 ui-monospace, monospace; word-break: keep-all; }
 .buff-target b { color: var(--amber); font-weight: 900; }
 
+.buff-target.is-pending { border-color: rgba(255,191,60,.4); }
+.buff-target.is-pending b { color: var(--muted); font-weight: 700; }
 .buff-order-open { margin-left: auto; flex: none; padding: 2px 7px; border: 1px solid rgba(255,191,60,.55); border-radius: 999px; background: rgba(255,191,60,.14); color: var(--amber); font: 800 9px ui-monospace, monospace; cursor: pointer; }
 .buff-order-open:hover { background: rgba(255,191,60,.28); border-color: var(--amber); }
 /* 순서보기 — 발동마다 누가 받았는지 초상화로 죽 편다. */

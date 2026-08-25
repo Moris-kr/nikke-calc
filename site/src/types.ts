@@ -185,6 +185,8 @@ export interface BuffTargetRow {
   /** 발동마다 누가 받았는지 시간순. 「순서보기」가 이걸 그린다. */
   sequence?: Array<{ t: number; target: string }>;
   count: number;
+  /** 배경에서 대상을 계산하는 중 — 화면에는 `[계산중]`으로 나온다. */
+  pending?: boolean;
 }
 
 export interface RuntimeManifest {

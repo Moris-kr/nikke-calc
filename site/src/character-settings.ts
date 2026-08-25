@@ -171,15 +171,23 @@ export function renderCharacterSettings(
     // 대상이 전투 중 갈리면 이름을 나열해도 읽히지 않는다 — 특이케이스로 접고
     // 실제 순서는 「순서보기」로 넘긴다.
     const special = row.targets.length > 1;
-    who.textContent = special ? '[특이케이스]' : `[${row.targets.join(', ')}]`;
+    // 미리 계산은 배경에서 돈다. 빈 괄호만 보이면 기능이 꺼진 것처럼 보이므로
+    // 도는 동안은 그렇다고 적는다.
+    who.textContent = row.pending ? '[계산중]'
+      : special ? '[특이케이스]'
+        : `[${row.targets.join(', ')}]`;
+    if (row.pending) box.classList.add('is-pending');
     box.append(who);
-    box.title = row.targets.length === 0
-      ? `${row.buff} — 아직 계산하지 않았거나 발동 조건이 맞지 않습니다`
-      : special
-        ? `${row.buff} — ${row.count}회 발동 · 대상이 ${row.targets.length}명 사이에서 갈립니다`
-        : `${row.buff} — ${row.count}회 발동`;
+    box.title = row.pending
+      ? `${row.buff} — 대상을 계산하는 중입니다`
+      : row.targets.length === 0
+        ? `${row.buff} — 아직 계산하지 않았거나 발동 조건이 맞지 않습니다`
+        : special
+          ? `${row.buff} — ${row.count}회 발동 · 대상이 ${row.targets.length}명 사이에서 갈립니다`
+          : `${row.buff} — ${row.count}회 발동`;
 
-    if (onShowOrder && (row.sequence?.length ?? 0) > 0) {
+    // 순서보기는 대상이 갈릴 때만 — 고정 대상은 이름만으로 충분하다.
+    if (onShowOrder && special && (row.sequence?.length ?? 0) > 0) {
       const open = document.createElement('button');
       open.type = 'button';
       open.className = 'buff-order-open';

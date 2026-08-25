@@ -10,6 +10,8 @@ from calculator.customization import (
     normalize_burst_regen,
     normalize_character_overrides,
     normalize_console,
+    normalize_element_windows,
+    normalize_immune_windows,
     normalize_normal_hit_coeff,
     normalize_optimal_range,
 )
@@ -227,6 +229,11 @@ def run_request(raw: str) -> str:
             burst_pattern[name] = []
     if burst_pattern:
         config_in["burst_pattern"] = burst_pattern
+    # 난수 처리: "random"(인게임과 같은 분산) / "expected"(기대값, 결정론적).
+    rng_mode = str(payload.get("rngMode") or "random")
+    if rng_mode not in ("random", "expected"):
+        raise ValueError('난수 모드는 random 또는 expected여야 합니다')
+    config_in["rng_mode"] = rng_mode
     config = char_spec.build_config(squad, config_in)
     # 평타 계수는 적이 아니라 **우리 쪽 명중**의 문제라 config에 둔다.
     hit_coeff = normalize_normal_hit_coeff(payload.get("normalHitCoeff"))
@@ -242,6 +249,9 @@ def run_request(raw: str) -> str:
         "optimal_range_weapons": normalize_optimal_range(
             payload.get("optimalRangeWeapons")
         ),
+        # 보스 페이즈 — 족자(딜 차단)와 속저(우월 코드만 통과).
+        "immune_windows": normalize_immune_windows(payload.get("immuneWindows")),
+        "element_windows": normalize_element_windows(payload.get("elementWindows")),
     }
     result = simulate(
         squad,

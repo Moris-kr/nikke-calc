@@ -150,6 +150,12 @@ DEFAULT_ENEMY: dict = {
     "core_px":              0,    # 코어 직경(px). 0이면 코어 없음, >0이면 코어히트율 확률 계산
     "has_parts":            False,# 파괴 가능 파츠 보유 보스. part_hit_count / part_dmg_pct의 전제
     "optimal_range_weapons": [],  # 적정거리 적용 무기군 목록 e.g. ["SG", "SMG"]
+    # 보스 페이즈 구간. 둘 다 `[시작초, 끝초)` 반개구간이고 여러 개를 넣을 수 있다.
+    #   immune_windows  — 족자: 그 구간 동안 보스에게 딜이 아예 안 들어간다
+    #   element_windows — 속저: 그 구간 동안 **그 코드에 우월한** 캐릭터의 딜만 들어간다
+    #                     e.g. {"from":100,"to":102,"code":"풍압"} → 작열 캐릭터만
+    "immune_windows":       [],
+    "element_windows":      [],
 }
 
 
@@ -2589,12 +2595,36 @@ def simulate(
     _part_break_interval = float(cfg.get("part_break_interval", 0) or 0)
     _next_part_break = _part_break_interval if _part_break_interval > 0 else math.inf
 
+    # ── 보스 페이즈 관문 (족자 · 속저) ────────────────────────────────────
+    # 족자는 그 구간의 딜을 통째로 막고, 속저는 코드 상성이 맞는 캐릭터만 통과시킨다.
+    # 대미지 누적기(분배 딜)에 들어가기 **전에** 걸러야 막힌 딜이 우회해 쌓이지 않는다.
+    _immune_windows = [(float(a), float(b)) for a, b in enm.get("immune_windows") or []]
+    _element_windows = [
+        (float(w["from"]), float(w["to"]), str(w["code"]))
+        for w in enm.get("element_windows") or []
+    ]
+    # 속저 판정은 **로스터 코드**로 본다 — 유저가 말하는 "작열 캐릭터"가 그것이다.
+    _roster_code = {c["name"]: _NIKKE.get(c["name"], {}).get("element_code", "")
+                    for c in squad}
+
+    def _gate(events: list[HitEvent], t: float) -> list[HitEvent]:
+        if not events or (not _immune_windows and not _element_windows):
+            return events
+        if any(lo <= t < hi for lo, hi in _immune_windows):
+            return []
+        blocking = [code for lo, hi, code in _element_windows if lo <= t < hi]
+        if not blocking:
+            return events
+        return [ev for ev in events
+                if all(is_element_match(_roster_code.get(ev.caster, ""), code)
+                       for code in blocking)]
+
     t = 0.0
     while t <= duration:
         bm.tick(t)
         _sync_damage_accumulators(t)
 
-        for ev in _release_damage_accumulators(t):
+        for ev in _gate(_release_damage_accumulators(t), t):
             result.hits.append(ev)
             result.char_total[ev.caster] += ev.damage
             _apply_lifesteal(ev, bm, base_stats, t)
@@ -2604,14 +2634,16 @@ def simulate(
                 bm.notify("event:part_destroy", t, char["name"])
             _next_part_break += _part_break_interval
 
-        _accumulate_damage(_dot_events, t)
-        for ev in _dot_events:
+        _gated_dots = _gate(_dot_events, t)
+        _accumulate_damage(_gated_dots, t)
+        for ev in _gated_dots:
             result.hits.append(ev)
             result.char_total[ev.caster] += ev.damage
             _apply_lifesteal(ev, bm, base_stats, t)
         _dot_events.clear()
 
         burst_events = burst_ctrl.tick(t, bm, state)
+        burst_events = _gate(burst_events, t)
         _accumulate_damage(burst_events, t)
         for ev in burst_events:
             result.hits.append(ev)
@@ -2620,7 +2652,7 @@ def simulate(
 
         for char in squad:
             name = char["name"]
-            char_events = char_states[name].tick(t, bm, enm, cfg)
+            char_events = _gate(char_states[name].tick(t, bm, enm, cfg), t)
             _accumulate_damage(char_events, t)
             for ev in char_events:
                 result.hits.append(ev)
@@ -2636,6 +2668,7 @@ def simulate(
     # 만드는 딜은 그 수거 **뒤에** 쌓인다. 평소엔 다음 프레임이 가져가지만 마지막
     # 프레임 몫은 가져갈 프레임이 없어 그대로 사라진다 — 라이프스틸도 함께 빠진다.
     if _dot_events:
+        _dot_events[:] = _gate(_dot_events, t)
         _accumulate_damage(_dot_events, t)
         for ev in _dot_events:
             result.hits.append(ev)

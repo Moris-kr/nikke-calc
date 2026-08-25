@@ -369,6 +369,56 @@ def normalize_normal_hit_coeff(raw: Any) -> dict[str, float]:
     return {w: out[w] for w in WEAPON_TYPES if w in out}
 
 
+# 보스 페이즈 구간의 상한. 전투 시간이 최대 180초라 그 위는 의미가 없다.
+PHASE_WINDOW_MAX = 180.0
+ELEMENT_CODES = ("작열", "수냉", "풍압", "전격", "철갑")
+
+
+def _window(raw: Any, label: str) -> tuple[float, float]:
+    """`{from, to}` 한 구간. 시작이 끝보다 뒤면 막는다 — 조용히 뒤집으면 오해를 낳는다."""
+    if not isinstance(raw, dict):
+        raise ValueError(f"{label} 구간은 객체여야 한다")
+    try:
+        start, end = float(raw["from"]), float(raw["to"])
+    except (KeyError, TypeError, ValueError):
+        raise ValueError(f"{label} 구간에는 from·to 숫자가 필요하다") from None
+    if not (math.isfinite(start) and math.isfinite(end)):
+        raise ValueError(f"{label} 구간은 유한한 숫자여야 한다")
+    if not 0 <= start <= PHASE_WINDOW_MAX or not 0 <= end <= PHASE_WINDOW_MAX:
+        raise ValueError(f"{label} 구간은 0~{PHASE_WINDOW_MAX:g}초여야 한다")
+    if start >= end:
+        raise ValueError(f"{label} 구간은 시작이 끝보다 앞서야 한다 ({start:g}~{end:g})")
+    return start, end
+
+
+def normalize_immune_windows(raw: Any) -> list[list[float]]:
+    """족자 — 그 구간 동안 보스에게 딜이 아예 안 들어간다."""
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        raise ValueError("족자 설정은 배열이어야 한다")
+    return [list(_window(item, "족자")) for item in raw]
+
+
+def normalize_element_windows(raw: Any) -> list[dict[str, Any]]:
+    """속저 — 그 구간 동안 **그 코드에 우월한** 캐릭터의 딜만 들어간다.
+
+    코드는 보스가 두르는 속성이다. 풍압으로 두면 풍압에 우월한 작열만 통과한다.
+    """
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        raise ValueError("속저 설정은 배열이어야 한다")
+    out = []
+    for item in raw:
+        start, end = _window(item, "속저")
+        code = item.get("code")
+        if code not in ELEMENT_CODES:
+            raise ValueError(f"속저 속성은 {', '.join(ELEMENT_CODES)} 중 하나여야 한다 ({code!r})")
+        out.append({"from": start, "to": end, "code": code})
+    return out
+
+
 def normalize_console(raw: Any) -> dict[str, Any]:
     """계정 콘솔(전초기지 재활용 연구실) 레벨 → 엔진 `console` dict.
 
