@@ -280,6 +280,12 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .buff-target { display: flex; align-items: baseline; gap: 4px; margin: 0 0 8px; padding: 6px 8px; border: 1px solid var(--amber); border-radius: 6px; background: rgba(255,191,60,.09); color: #d9c79a; font: 700 10px/1.4 ui-monospace, monospace; word-break: keep-all; }
 .buff-target b { color: var(--amber); font-weight: 900; }
 
+.deck-clear { padding: 7px 12px; border: 1px solid rgba(255,119,135,.42); border-radius: 8px; background: rgba(255,119,135,.1); color: var(--danger); font: 800 10.5px ui-monospace, monospace; cursor: pointer; }
+.deck-clear:hover { background: rgba(255,119,135,.22); border-color: var(--danger); }
+.deck-move { width: 26px; min-height: 26px; padding: 0; border: 1px solid rgba(146,176,201,.28); border-radius: 6px; background: rgba(3,10,17,.6); color: #cfeceb; font: 700 13px/1 ui-monospace, monospace; cursor: pointer; }
+.deck-move:hover:not(:disabled) { background: rgba(69,214,208,.22); border-color: var(--cyan); }
+.deck-move:disabled { opacity: .3; cursor: default; }
+
 .target-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
 /* 보스 페이즈 — 구간을 몇 개든 추가한다. */

@@ -393,6 +393,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <p class="roster-note" data-roster-note hidden></p>
           </div>
           <div class="deck-tabs" data-deck-tabs hidden></div>
+          <button type="button" class="deck-clear" data-deck-clear title="지금 보고 있는 덱의 편성과 개별 설정을 비웁니다">덱 비우기</button>
           <div class="deck-copy" data-deck-copy hidden>
             <button type="button" class="deck-copy-open" data-deck-copy-open>현재 덱 복사</button>
             <div class="deck-copy-panel" data-deck-copy-panel hidden>
@@ -422,6 +423,10 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
                 <button type="button" class="roster-chip" data-burst="1">B1</button>
                 <button type="button" class="roster-chip" data-burst="2">B2</button>
                 <button type="button" class="roster-chip" data-burst="3">B3</button>
+              </span>
+              <span class="roster-filter-group" data-filter-rarity>
+                <button type="button" class="roster-chip is-on" data-rarity="">등급 전체</button>
+                <button type="button" class="roster-chip" data-rarity="SSR">SSR만</button>
               </span>
               <span class="roster-filter-group" data-filter-code>
                 <button type="button" class="roster-chip is-on" data-code="">속성 전체</button>
@@ -723,6 +728,39 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         renderSquad();
       });
       deckTabs.append(button);
+    }
+
+    // 덱 순서 바꾸기. 덱 «번호»는 자리 이름이라 그대로 두고 **내용만** 맞바꾼다 —
+    // 번호까지 따라 움직이면 지금 보던 덱이 어디로 갔는지 알 수 없다.
+    const swapDeck = (delta: number) => {
+      const index = decks.findIndex((deck) => deck.id === activeDeckId);
+      const target = index + delta;
+      if (index < 0 || target < 0 || target >= decks.length) return;
+      const a = decks[index]!;
+      const b = decks[target]!;
+      [a.squad, b.squad] = [b.squad, a.squad];
+      [a.characters, b.characters] = [b.characters, a.characters];
+      // 방금 옮긴 편성을 따라간다.
+      activeDeckId = b.id;
+      closeDeckCopy();
+      saveState();
+      renderDeckTabs();
+      renderSquad();
+    };
+    for (const [delta, label, title] of [
+      [-1, '‹', '앞으로'], [1, '›', '뒤로'],
+    ] as const) {
+      const move = document.createElement('button');
+      move.type = 'button';
+      move.className = 'deck-move';
+      move.dataset.deckMove = String(delta);
+      move.textContent = label;
+      move.title = `현재 덱을 ${title} 옮기기`;
+      move.ariaLabel = `덱 ${activeDeckId}을 ${title} 옮기기`;
+      const index = decks.findIndex((deck) => deck.id === activeDeckId);
+      move.disabled = index + delta < 0 || index + delta >= decks.length;
+      move.addEventListener('click', () => swapDeck(delta));
+      deckTabs.append(move);
     }
   };
 
@@ -1931,8 +1969,31 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     timelinePanel.hidden = !timelineHasContent || currentView !== 'calc';
   };
 
+  element<HTMLButtonElement>(root, '[data-deck-clear]').addEventListener('click', () => {
+    const deck = activeDeck();
+    deck.squad = ['', '', '', '', ''];
+    deck.characters = {};
+    activeSlot = 0;
+    closeDeckCopy();
+    showErrors([]);
+    saveState();
+    renderDeckTabs();
+    renderSquad();
+    renderRosterGrid();
+  });
+
   element<HTMLInputElement>(root, '#squad-mode').addEventListener('change', (event) => {
     fiveDeckMode = (event.currentTarget as HTMLInputElement).checked;
+    // 5덱을 끄면 «지금 보고 있던 덱»이 1덱 자리로 온다 — 2~5덱 중 하나만 계산하려고
+    // 끄는 경우가 많은데, 그때마다 편성을 손으로 옮기는 건 번거롭다(유저 피드백).
+    if (!fiveDeckMode && activeDeckId !== 1) {
+      const picked = decks.find((deck) => deck.id === activeDeckId);
+      const first = decks[0]!;
+      if (picked) {
+        [first.squad, picked.squad] = [picked.squad, first.squad];
+        [first.characters, picked.characters] = [picked.characters, first.characters];
+      }
+    }
     activeDeckId = 1;
     deckTabs.hidden = !fiveDeckMode;
     deckNote.hidden = !fiveDeckMode;
@@ -2010,6 +2071,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const rosterDesc = element<HTMLElement>(root, '[data-roster-desc]');
   let burstFilter = '';
   let codeFilter = '';
+  // SR·R은 실전에서 거의 안 쓴다 — 목록에서 걷어내 SSR만 보는 스위치(유저 피드백).
+  let rarityFilter = '';
 
   const renderRosterGrid = () => {
     // 직접 추가한 니케까지 포함해 지금 고를 수 있는 전체를 보여준다.
@@ -2017,6 +2080,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     const narrowed = all.filter((char) => {
       if (burstFilter && char.burstStage !== burstFilter) return false;
       if (codeFilter && char.elementCode !== codeFilter) return false;
+      if (rarityFilter && settings.characters[char.name]?.rarity !== rarityFilter) return false;
       return true;
     });
     // 칩으로 먼저 좁히고 검색어로 세운다. 검색은 초성과 구분자까지 받아
@@ -2099,6 +2163,15 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     if (!chip) return;
     burstFilter = chip.dataset.burst ?? '';
     for (const other of root.querySelectorAll<HTMLElement>('[data-filter-burst] .roster-chip')) {
+      other.classList.toggle('is-on', other === chip);
+    }
+    renderRosterGrid();
+  });
+  element<HTMLElement>(root, '[data-filter-rarity]').addEventListener('click', (event) => {
+    const chip = (event.target as HTMLElement).closest<HTMLElement>('.roster-chip');
+    if (!chip) return;
+    rarityFilter = chip.dataset.rarity ?? '';
+    for (const other of root.querySelectorAll<HTMLElement>('[data-filter-rarity] .roster-chip')) {
       other.classList.toggle('is-on', other === chip);
     }
     renderRosterGrid();

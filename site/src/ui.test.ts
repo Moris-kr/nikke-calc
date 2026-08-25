@@ -325,6 +325,64 @@ describe('calculator UI', () => {
     expect(shown()).toBe('크확 대상 : []');
   });
 
+  it('filters the picker down to SSR only', () => {
+    // SR·R은 실전에서 거의 안 쓴다 — 목록에서 걷어낸다(유저 피드백).
+    const withSR: SettingsCatalog = {
+      ...settings,
+      characters: { ...settings.characters, 나가: { ...settings.characters.나가!, rarity: 'SR' } },
+    };
+    mountCalculator(root, { catalog, settings: withSR, version: 'v1', client: new FakeClient(), storage: localStorage });
+    expect(rosterNames(root)).toContain('나가');
+    root.querySelector<HTMLButtonElement>('[data-filter-rarity] [data-rarity="SSR"]')!.click();
+    expect(rosterNames(root)).not.toContain('나가');
+    root.querySelector<HTMLButtonElement>('[data-filter-rarity] [data-rarity=""]')!.click();
+    expect(rosterNames(root)).toContain('나가');
+  });
+
+  it('empties just the deck being viewed', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    expect(root.querySelectorAll('[data-slot-choose] strong')[0]!.textContent).toBe('리타');
+    root.querySelector<HTMLButtonElement>('[data-deck-clear]')!.click();
+    expect([...root.querySelectorAll('[data-slot-choose] strong')].map((e) => e.textContent))
+      .toEqual(['빈 칸', '빈 칸', '빈 칸', '빈 칸', '빈 칸']);
+  });
+
+  it('brings the deck you were viewing to deck 1 when five-deck mode is turned off', () => {
+    // 2~5덱 중 하나만 계산하려고 끄는 경우가 많다 — 그때마다 손으로 옮기지 않게 한다.
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const mode = root.querySelector<HTMLInputElement>('#squad-mode')!;
+    mode.checked = true;
+    mode.dispatchEvent(new Event('change'));
+    root.querySelector<HTMLButtonElement>('[data-deck-tab="3"]')!.click();
+    chooseCharacter(root, 0, '프리바티');
+    const viewing = [...root.querySelectorAll('[data-slot-choose] strong')].map((e) => e.textContent);
+
+    mode.checked = false;
+    mode.dispatchEvent(new Event('change'));
+    expect([...root.querySelectorAll('[data-slot-choose] strong')].map((e) => e.textContent))
+      .toEqual(viewing);
+  });
+
+  it('swaps deck contents in place, keeping the numbers as fixed slots', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const mode = root.querySelector<HTMLInputElement>('#squad-mode')!;
+    mode.checked = true;
+    mode.dispatchEvent(new Event('change'));
+    const shown = () => [...root.querySelectorAll('[data-slot-choose] strong')].map((e) => e.textContent);
+    const deck1 = shown();
+
+    // 1덱에서는 «앞으로»가 막혀 있다.
+    expect(root.querySelector<HTMLButtonElement>('[data-deck-move="-1"]')!.disabled).toBe(true);
+
+    root.querySelector<HTMLButtonElement>('[data-deck-tab="2"]')!.click();
+    const deck2 = shown();
+    root.querySelector<HTMLButtonElement>('[data-deck-move="-1"]')!.click();
+    // 내용만 맞바뀌고, 보던 편성을 따라간다.
+    expect(shown()).toEqual(deck2);
+    root.querySelector<HTMLButtonElement>('[data-deck-tab="2"]')!.click();
+    expect(shown()).toEqual(deck1);
+  });
+
   it('gives each slot a target button instead of a dropdown, and one shared picker', () => {
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
     const choosers = [...root.querySelectorAll<HTMLButtonElement>('[data-slot-choose]')];
