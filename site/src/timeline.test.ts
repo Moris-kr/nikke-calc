@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { buildSeries, createTimelineBlock, niceMax } from './timeline';
 import type { BattleTimeline, DeckResultEntry } from './types';
@@ -40,6 +40,79 @@ const entry: DeckResultEntry = {
     timeline,
   },
 };
+
+function clippingCanvas(): {
+  context: CanvasRenderingContext2D;
+  portraitCircles: Array<{ x: number; y: number; radius: number }>;
+  visibleText: string[];
+} {
+  type ClipRect = { left: number; top: number; right: number; bottom: number };
+  const portraitCircles: Array<{ x: number; y: number; radius: number }> = [];
+  const visibleText: string[] = [];
+  const stack: Array<ClipRect | null> = [];
+  let clipRect: ClipRect | null = null;
+  let pathRect: ClipRect | null = null;
+  let pathArc: { x: number; y: number; radius: number } | null = null;
+  const noop = () => undefined;
+  const context = {
+    arc: (x: number, y: number, radius: number) => {
+      pathArc = { x, y, radius };
+    },
+    beginPath: () => { pathRect = null; pathArc = null; },
+    clearRect: noop,
+    clip: () => {
+      if (!pathRect) return;
+      clipRect = clipRect ? {
+        left: Math.max(clipRect.left, pathRect.left),
+        top: Math.max(clipRect.top, pathRect.top),
+        right: Math.min(clipRect.right, pathRect.right),
+        bottom: Math.min(clipRect.bottom, pathRect.bottom),
+      } : { ...pathRect };
+    },
+    closePath: noop,
+    drawImage: noop,
+    fill: noop,
+    fillRect: noop,
+    fillText: (text: string, x: number, y: number) => {
+      if (!clipRect || (
+        x >= clipRect.left && x <= clipRect.right &&
+        y >= clipRect.top && y <= clipRect.bottom
+      )) visibleText.push(text);
+    },
+    lineTo: noop,
+    moveTo: noop,
+    rect: (x: number, y: number, width: number, height: number) => {
+      pathRect = { left: x, top: y, right: x + width, bottom: y + height };
+    },
+    restore: () => { clipRect = stack.pop() ?? null; },
+    save: () => { stack.push(clipRect ? { ...clipRect } : null); },
+    setTransform: noop,
+    stroke: () => { if (pathArc) portraitCircles.push(pathArc); },
+  } as unknown as CanvasRenderingContext2D;
+  return { context, portraitCircles, visibleText };
+}
+
+function renderOnClippingCanvas(target: DeckResultEntry) {
+  vi.useFakeTimers();
+  const surface = clippingCanvas();
+  const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext')
+    .mockReturnValue(surface.context);
+  const getBoundingClientRect = vi.spyOn(HTMLCanvasElement.prototype, 'getBoundingClientRect')
+    .mockReturnValue({
+      x: 0, y: 0, left: 0, top: 0, right: 800, bottom: 380,
+      width: 800, height: 380, toJSON: () => ({}),
+    });
+
+  try {
+    createTimelineBlock(target);
+    vi.runAllTimers();
+    return surface;
+  } finally {
+    getBoundingClientRect.mockRestore();
+    getContext.mockRestore();
+    vi.useRealTimers();
+  }
+}
 
 describe('buildSeries', () => {
   it('collects per-character totals, colors, and the shared peak', () => {
@@ -90,6 +163,47 @@ describe('createTimelineBlock', () => {
       result: { ...entry.result, timeline: undefined },
     };
     expect(createTimelineBlock(noTimeline)).toBeNull();
+  });
+
+  it('renders the burst portrait fallback and stage in the lane below the plot', () => {
+    const { visibleText } = renderOnClippingCanvas(entry);
+    expect(visibleText).toContain('라');
+    expect(visibleText).toContain('1');
+  });
+
+  it('keeps three simultaneous burst portraits at least four pixels apart', () => {
+    const crowded: DeckResultEntry = {
+      ...entry,
+      request: { ...entry.request, squad: ['라피', '크라운', '앨리스'] },
+      result: {
+        ...entry.result,
+        charTotals: { 라피: 350, 크라운: 0, 앨리스: 0 },
+        timeline: {
+          ...timeline,
+          damage: {
+            ...timeline.damage,
+            앨리스: [0, 0, 0, 0],
+          },
+          bursts: {
+            라피: [{ t: 1.5, stage: '1' }],
+            크라운: [{ t: 1.5, stage: '2' }],
+            앨리스: [{ t: 1.5, stage: '3' }],
+          },
+        },
+      },
+    };
+
+    const { portraitCircles } = renderOnClippingCanvas(crowded);
+
+    expect(portraitCircles).toHaveLength(3);
+    for (let i = 0; i < portraitCircles.length; i += 1) {
+      for (let j = i + 1; j < portraitCircles.length; j += 1) {
+        const a = portraitCircles[i]!;
+        const b = portraitCircles[j]!;
+        const edgeGap = Math.hypot(a.x - b.x, a.y - b.y) - a.radius - b.radius;
+        expect(edgeGap).toBeGreaterThanOrEqual(4);
+      }
+    }
   });
 });
 

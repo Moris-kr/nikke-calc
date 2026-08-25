@@ -8,9 +8,10 @@ const MIN_SPAN = 4; // 최대 확대: 화면에 4초까지
 // 바로 읽힌다. 같은 시각에 여러 명이 쓰면(B1→B2→B3는 늘 그렇다) 계단식으로 어긋내
 // 서로 가리지 않게 한다.
 const PIN_R = 11;          // 초상화 원 반지름
-const PIN_GAP = 4;         // 계단 한 칸 높이
-const PIN_STEPS = 3;       // 계단 단 수 — 이보다 많이 겹치면 처음 단으로 돌아간다
-const PIN_LANE = PIN_R * 2 + PIN_GAP * (PIN_STEPS - 1) + 14;  // 핀이 차지하는 세로 폭
+const PIN_GAP = 4;         // 원과 원 사이 최소 여백
+const PIN_STEPS = 3;       // 핀 행 수 — 이보다 동시에 많을 때만 가장 오래 빈 행을 재사용한다
+const PIN_STEP = PIN_R * 2 + PIN_GAP;
+const PIN_LANE = PIN_R * 2 * PIN_STEPS + PIN_GAP * (PIN_STEPS - 1) + 14;
 
 export interface TimelineSeries {
   names: string[];
@@ -277,6 +278,7 @@ class TimelineChart {
       }
       ctx.stroke();
     }
+    ctx.restore();
 
     // 버스트 핀 — 플롯 아래 레인에 **얼굴**을 꽂는다.
     // 시각순으로 모아 두고, 서로 가까우면 계단식으로 어긋내 겹치지 않게 한다.
@@ -291,14 +293,15 @@ class TimelineChart {
     pins.sort((a, b) => a.t - b.t);
 
     const laneTop = top + height + 8;
-    let lastX = -Infinity;
-    let tier = 0;
+    const tierLastX = Array<number>(PIN_STEPS).fill(-Infinity);
     for (const pin of pins) {
       const x = this.xFor(pin.t);
-      // 앞 핀과 지름만큼도 안 떨어져 있으면 한 단 내린다.
-      tier = (x - lastX < PIN_R * 2) ? (tier + 1) % PIN_STEPS : 0;
-      lastX = x;
-      const cy = laneTop + PIN_R + tier * PIN_GAP;
+      // 같은 행의 앞 핀과 지름+여백만큼 떨어지는 첫 행을 고른다. 세 행이 모두
+      // 차 있으면 가장 오래 비어 있던 행을 재사용해 겹침을 최소화한다.
+      let tier = tierLastX.findIndex((lastX) => x - lastX >= PIN_STEP);
+      if (tier < 0) tier = tierLastX.indexOf(Math.min(...tierLastX));
+      tierLastX[tier] = x;
+      const cy = laneTop + PIN_R + tier * PIN_STEP;
       const color = this.series.colors[pin.name]!;
 
       // 그래프에서 내려오는 줄기 — 어느 시각인지 눈으로 잇는다.
@@ -354,7 +357,6 @@ class TimelineChart {
         ctx.fillText(pin.stage, bx, by);
       }
     }
-    ctx.restore();
 
     // 호버 크로스헤어 + 포인트
     if (this.hoverIndex !== null) {
