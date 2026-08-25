@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -182,7 +182,71 @@ describe('calculator UI', () => {
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     root.remove();
+  });
+
+  it('블라블라링크 연동 창은 자동을 기본값으로 공식 서버 다섯 곳을 보여 준다', () => {
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+      blablaProxy: 'https://proxy.example',
+    } as Parameters<typeof mountCalculator>[1] & { blablaProxy: string });
+
+    root.querySelector<HTMLButtonElement>('[data-blabla-open]')!.click();
+    const server = root.querySelector<HTMLSelectElement>('[data-blabla-server]');
+
+    expect(server).not.toBeNull();
+    expect(server!.value).toBe('');
+    expect([...server!.options].map((option) => [option.value, option.textContent])).toEqual([
+      ['', '자동 (보유 니케가 가장 많은 서버)'],
+      ['83', '한국'],
+      ['81', '일본'],
+      ['84', '글로벌'],
+      ['82', '북미'],
+      ['85', '동남아'],
+    ]);
+  });
+
+  it('선택한 서버를 Worker 요청과 완료 안내에 사용한다', async () => {
+    let sentBody: Record<string, unknown> | null = null;
+    vi.stubGlobal('fetch', async (_input: RequestInfo | URL, init?: RequestInit) => {
+      sentBody = JSON.parse(String(init?.body));
+      return Response.json({
+        openid: '15361668407129878426',
+        areas: [{
+          area: 84,
+          characters: [{ name_code: 5001, grade: 0, core: 0 }],
+          details: [{ name_code: 5001 }],
+          stateEffects: [],
+          outpost: null,
+        }],
+      });
+    });
+    const blablaCatalog = catalog.map((entry) => ({
+      ...entry,
+      nameCode: entry.name === '리타' ? 5001 : null,
+    }));
+    mountCalculator(root, {
+      catalog: blablaCatalog,
+      settings,
+      version: 'v1',
+      client: new FakeClient(),
+      storage: localStorage,
+      blablaProxy: 'https://proxy.example',
+    });
+
+    root.querySelector<HTMLButtonElement>('[data-blabla-open]')!.click();
+    const server = root.querySelector<HTMLSelectElement>('[data-blabla-server]')!;
+    const url = root.querySelector<HTMLInputElement>('[data-blabla-url]')!;
+    server.value = '84';
+    url.value = 'https://www.blablalink.com/user?openid=15361668407129878426';
+    root.querySelector<HTMLButtonElement>('[data-blabla-sync]')!.click();
+    await flush();
+    await flush();
+
+    expect(sentBody).toEqual({ profileUrl: url.value, area: 84 });
+    expect(root.querySelector<HTMLElement>('[data-blabla-status]')!.textContent)
+      .toContain('글로벌 서버에서 1명을 불러왔습니다.');
   });
 
   it('sets breakthrough from the portrait star stepper and keeps the dropdown in sync', () => {

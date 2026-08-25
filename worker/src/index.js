@@ -24,12 +24,11 @@ const upstreamHeaders = (cookie) => ({
   Cookie: cookie,
 });
 
-// 계정이 걸릴 수 있는 지역. 앞쪽이 흔해서 대개 첫 번째에 걸린다. 한 계정에 지역이
-// 둘 이상 걸리기도 하므로(한섭+일섭) 하나 찾았다고 멈추지 않고 전부 훑는다.
-const AREAS = [83, 1, 261, 219, 145, 81, 82];
+// BlablaLink GetRegionList가 돌려주는 공식 서버. 수동 선택이면 하나만, 자동이면 전부
+// 조회한다. 한 계정에 지역이 둘 이상 걸리기도 해서 자동은 하나를 찾았다고 멈추지 않는다.
+const AREAS = [83, 81, 84, 82, 85];
 
 const DETAIL_BATCH = 60;      // 상세는 60종씩 — 그 이상은 상류가 잘라 낸다
-const MAX_AREAS = 3;          // 한 계정에서 받아 올 지역 수 상한
 
 class SyncError extends Error {
   constructor(reason, message, status) {
@@ -170,7 +169,7 @@ async function health(cookie) {
   return { shape, upstream };
 }
 
-async function sync(profileUrl, cookie) {
+async function sync(profileUrl, cookie, requestedArea) {
   const openid = openidFrom(profileUrl);
   if (!openid) {
     throw new SyncError('badurl',
@@ -178,11 +177,16 @@ async function sync(profileUrl, cookie) {
       400);
   }
 
+  const selectedArea = requestedArea === undefined || requestedArea === null || requestedArea === ''
+    ? null : Number(requestedArea);
+  if (selectedArea !== null && !AREAS.includes(selectedArea)) {
+    throw new SyncError('badarea', '지원하지 않는 서버입니다.', 400);
+  }
+
   const areas = [];
-  for (const area of AREAS) {
+  for (const area of selectedArea === null ? AREAS : [selectedArea]) {
     const collected = await collectArea(openid, area, cookie);
     if (collected) areas.push(collected);
-    if (areas.length >= MAX_AREAS) break;
   }
   if (areas.length === 0) {
     throw new SyncError('private',
@@ -239,7 +243,7 @@ export default {
     }
 
     try {
-      return json(await sync(body?.profileUrl, env.BLABLA_COOKIE), 200);
+      return json(await sync(body?.profileUrl, env.BLABLA_COOKIE, body?.area), 200);
     } catch (error) {
       if (error instanceof SyncError) {
         return json({ error: error.message, reason: error.reason }, error.status);

@@ -593,6 +593,8 @@ footer a { color: #93aabd; text-decoration: none; font-weight: 800; letter-spaci
 
 /* 블라블라링크 연동 */
 .blabla-row { display: flex; gap: 8px; align-items: center; margin: 12px 0 4px; flex-wrap: wrap; }
+.blabla-server { flex: 0 1 260px; min-width: 210px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: rgba(8,16,20,.6); color: inherit; font: inherit; }
+.blabla-server:focus { outline: none; border-color: var(--cyan); }
 .blabla-url { flex: 1 1 320px; min-width: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: rgba(8,16,20,.6); color: inherit; font: inherit; }
 .blabla-url:focus { outline: none; border-color: var(--cyan); }
 .blabla-status { color: var(--cyan); font-weight: 700; }

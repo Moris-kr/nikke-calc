@@ -69,9 +69,20 @@ curl -X POST https://<워커주소>/health   -H "Content-Type: application/json"
 ## API
 
 ```
-POST /sync     {"profileUrl": "https://www.blablalink.com/user?openid=..."}
+POST /sync     {"profileUrl": "https://www.blablalink.com/user?openid=...", "area": 84}
 POST /health   {}      세션 점검 — 쿠키 값은 절대 돌려주지 않고 모양과 상류 응답만 낸다
 ```
+
+`area`는 선택값이다. 생략하면 아래 공식 서버를 모두 조회해 사이트가 보유 니케가 가장
+많은 곳을 고르고, 주면 그 서버만 조회한다.
+
+| 서버 | area |
+|---|---:|
+| 한국 | 83 |
+| 일본 | 81 |
+| 글로벌 | 84 |
+| 북미 | 82 |
+| 동남아 | 85 |
 
 성공하면 이렇게 돌려준다. 지역이 여러 개 걸린 계정은 `areas`가 여러 개다.
 

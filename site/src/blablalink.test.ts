@@ -182,6 +182,18 @@ describe('areaToOverrides', () => {
 });
 
 describe('pickArea', () => {
+  it('사용자가 고른 서버가 있으면 보유 니케 수와 무관하게 그 지역을 고른다', () => {
+    const picked = pickArea({
+      openid: '1',
+      areas: [
+        area({ area: 83, characters: [{ name_code: 5001 }, { name_code: 5002 }] }),
+        area({ area: 84, characters: [{ name_code: 5001 }] }),
+      ],
+    }, 84);
+
+    expect(picked?.area).toBe(84);
+  });
+
   it('니케를 가장 많이 가진 지역을 고른다', () => {
     const picked = pickArea({
       openid: '1',

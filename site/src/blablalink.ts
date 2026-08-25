@@ -6,6 +6,18 @@ import type {
   SettingsCatalog,
 } from './types';
 
+export const BLABLA_SERVERS = [
+  { area: 83, label: '한국' },
+  { area: 81, label: '일본' },
+  { area: 84, label: '글로벌' },
+  { area: 82, label: '북미' },
+  { area: 85, label: '동남아' },
+] as const;
+
+export function blablaServerLabel(area: number): string {
+  return BLABLA_SERVERS.find((server) => server.area === area)?.label ?? `서버 ${area}`;
+}
+
 // 블라블라링크 프로필 응답 → 캐릭터별 override.
 //
 // 응답은 프록시(`worker/`)가 그대로 넘겨준 원시 JSON이다. 여기서 우리 용어로 옮기며,
@@ -255,7 +267,10 @@ export function areaToOverrides(
  * 한 계정에 한섭·일섭이 같이 걸리기도 하는데, 둘을 합치면 같은 니케의 육성 상태가
  * 뒤섞인다. 주로 쓰는 계정이 니케가 더 많다는 게 가장 덜 틀리는 추정이다.
  */
-export function pickArea(profile: RawProfile): RawArea | null {
+export function pickArea(profile: RawProfile, preferredArea?: number): RawArea | null {
+  if (preferredArea !== undefined) {
+    return profile.areas?.find((area) => area.area === preferredArea) ?? null;
+  }
   let best: RawArea | null = null;
   for (const area of profile.areas ?? []) {
     if (!best || (area.characters?.length ?? 0) > (best.characters?.length ?? 0)) best = area;

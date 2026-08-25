@@ -1,7 +1,9 @@
 import { ResultCache, type StorageLike, type StorageSource } from './cache';
 import { renderCharacterSettings } from './character-settings';
 import {
+  BLABLA_SERVERS,
   areaToOverrides,
+  blablaServerLabel,
   consoleFrom,
   looksLikeProfileUrl,
   pickArea,
@@ -81,6 +83,8 @@ interface CalculatorDependencies {
   // 완전 초기화는 저장소를 비운 뒤 페이지를 다시 띄워 메모리 상태까지 확실히
   // 되돌린다. 테스트에서는 이 자리에 가짜 함수를 넣는다.
   reload?: () => void;
+  /** 테스트·자체 호스팅에서 빌드 환경값 대신 쓸 BlablaLink 프록시 주소. */
+  blablaProxy?: string;
 }
 
 const element = <T extends Element>(root: ParentNode, selector: string): T => {
@@ -217,6 +221,7 @@ const BLABLA_PROXY = (import.meta.env.VITE_BLABLA_PROXY ?? '').trim().replace(/\
 
 export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies): () => void {
   const { catalog, settings, version, client, storage, reload } = deps;
+  const blablaProxy = (deps.blablaProxy ?? BLABLA_PROXY).trim().replace(/\/+$/, '');
   const cache = new ResultCache(storage, version, 30);
   const catalogByName = new Map(catalog.map((char) => [char.name, char]));
   const decks = Array.from({ length: 5 }, (_, index) => emptyDeck(index + 1));
@@ -393,7 +398,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
                 </label>
                 <button type="button" class="roster-info" data-doro-open aria-label="렛츠도로 CSV 받는 법" title="렛츠도로에서 CSV 받는 법">i</button>
               </span>
-              ${BLABLA_PROXY ? '<button type="button" class="roster-import" data-blabla-open title="블라블라링크 프로필 URL로 보유 니케의 육성을 한 번에 불러옵니다">블라블라링크 연동</button>' : ''}
+              ${blablaProxy ? '<button type="button" class="roster-import" data-blabla-open title="블라블라링크 프로필 URL로 보유 니케의 육성을 한 번에 불러옵니다">블라블라링크 연동</button>' : ''}
               <button type="button" class="roster-import" data-add-nikke title="미출시·미등록 니케를 직접 추가">새 니케 추가</button>
               <button type="button" class="roster-import" data-preset-open title="현재 편성을 저장하거나 저장한 편성을 불러옵니다. 개인 스펙과 전투 조건은 저장하지 않습니다">편성 프리셋</button>
               <button type="button" class="roster-import" data-share-open title="편성을 코드로 만들어 공유하거나, 받은 코드를 붙여넣어 5덱을 한 번에 적용">조합 공유</button>
@@ -624,13 +629,17 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         </div>
       </div>
 
-      ${BLABLA_PROXY ? `
+      ${blablaProxy ? `
       <div class="custom-modal" data-blabla-modal hidden>
         <div class="custom-card doro-card" role="dialog" aria-label="블라블라링크 연동">
           <div class="custom-head"><h2>블라블라링크 연동</h2><button type="button" class="custom-close" data-blabla-close aria-label="닫기">✕</button></div>
           <p class="custom-desc">블라블라링크에서 <b>내 프로필 주소</b>를 복사해 넣으면 보유 니케의 육성 상태를 한 번에 가져옵니다. 돌파·코강·스킬·오버로드·장비 강화에 더해, CSV에는 없는 <b>큐브와 소장품</b>까지 들어옵니다.</p>
           <p class="custom-desc"><a href="https://www.blablalink.com/user" target="_blank" rel="noreferrer noopener">blablalink.com/user</a> 에 들어가면 주소창에 뜨는 주소가 그것입니다. 블라블라링크에서 <b>프로필과 니케 목록을 공개</b>로 바꿔야 조회됩니다 — 하나라도 비공개면 막힙니다. 전초기지까지 공개하면 콘솔(재활용 연구실) 레벨도 함께 들어옵니다.</p>
           <div class="blabla-row">
+            <select class="blabla-server" data-blabla-server aria-label="블라블라링크 서버">
+              <option value="">자동 (보유 니케가 가장 많은 서버)</option>
+              ${BLABLA_SERVERS.map(({ area, label }) => `<option value="${area}">${label}</option>`).join('')}
+            </select>
             <input type="url" class="blabla-url" data-blabla-url placeholder="https://www.blablalink.com/user?openid=..." spellcheck="false" />
             <button type="button" class="roster-import" data-blabla-sync>동기화</button>
           </div>
@@ -2285,8 +2294,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   });
 
   // 블라블라링크 연동. 프록시가 설정된 빌드에서만 마크업이 있으므로 없으면 통째로 건너뛴다.
-  if (BLABLA_PROXY) {
+  if (blablaProxy) {
     const blablaModal = element<HTMLElement>(root, '[data-blabla-modal]');
+    const blablaServer = element<HTMLSelectElement>(root, '[data-blabla-server]');
     const blablaUrl = element<HTMLInputElement>(root, '[data-blabla-url]');
     const blablaSync = element<HTMLButtonElement>(root, '[data-blabla-sync]');
     const blablaStatus = element<HTMLElement>(root, '[data-blabla-status]');
@@ -2302,19 +2312,25 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         setStatus('블라블라링크 프로필 주소를 붙여넣어 주세요.');
         return;
       }
+      const selectedArea = blablaServer.value === '' ? undefined : Number(blablaServer.value);
       blablaSync.disabled = true;
+      blablaServer.disabled = true;
       setStatus('블라블라링크에서 받는 중… 니케가 많으면 몇 초 걸립니다.');
       try {
-        const response = await fetch(`${BLABLA_PROXY}/sync`, {
+        const response = await fetch(`${blablaProxy}/sync`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ profileUrl: url }),
+          body: JSON.stringify({
+            profileUrl: url,
+            ...(selectedArea === undefined ? {} : { area: selectedArea }),
+          }),
         });
         const payload = await response.json() as RawProfile & { error?: string };
         if (!response.ok) throw new Error(payload.error ?? `동기화에 실패했습니다 (${response.status}).`);
 
-        const area = pickArea(payload);
+        const area = pickArea(payload, selectedArea);
         if (!area) throw new Error('니케 목록이 비어 있습니다.');
+        const serverLabel = blablaServerLabel(area.area);
         const { overrides, matched, unmatched, notes } = areaToOverrides(area, settings, catalog);
         if (matched.length === 0) {
           setStatus('계산기가 다루는 니케를 찾지 못했습니다. 프로필이 공개인지 확인해 주세요.');
@@ -2334,15 +2350,16 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         renderDeckTabs();
         renderSquad();
 
-        const parts = [`블라블라링크 ${matched.length}명 적용`];
+        const parts = [`블라블라링크 ${serverLabel} ${matched.length}명 적용`];
         if (unmatched.length > 0) parts.push(`미지원 ${unmatched.length}명 제외`);
         if (consoleLevels) parts.push('콘솔 레벨 함께 적용');
         updateRosterNote(parts.join(' · '));
-        setStatus([`${matched.length}명을 불러왔습니다.`, ...notes].join(' '));
+        setStatus([`${serverLabel} 서버에서 ${matched.length}명을 불러왔습니다.`, ...notes].join(' '));
       } catch (error) {
         setStatus(error instanceof Error ? error.message : String(error));
       } finally {
         blablaSync.disabled = false;
+        blablaServer.disabled = false;
       }
     };
 
