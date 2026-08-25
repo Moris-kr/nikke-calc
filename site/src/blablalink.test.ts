@@ -11,15 +11,15 @@ import type { CharacterMeta, SettingsCatalog } from './types';
 const catalog: CharacterMeta[] = [
   {
     name: '라피', burstStage: '1', elementCode: '작열', weaponType: 'AR',
-    className: '화력형', manufacturer: '엘리시온', preview: false, image: null, nameCode: 5001, resourceId: null,
+    className: '화력형', manufacturer: '엘리시온', preview: false, image: null, nameCode: 5001, resourceId: null, aliases: [],
   },
   {
     name: '앨리스', burstStage: '3', elementCode: '수냉', weaponType: 'SR',
-    className: '화력형', manufacturer: '필그림', preview: false, image: null, nameCode: 5002, resourceId: null,
+    className: '화력형', manufacturer: '필그림', preview: false, image: null, nameCode: 5002, resourceId: null, aliases: [],
   },
   {
     name: '미공개', burstStage: '3', elementCode: '전격', weaponType: 'AR',
-    className: '화력형', manufacturer: '테트라', preview: true, image: null, nameCode: 5003, resourceId: null,
+    className: '화력형', manufacturer: '테트라', preview: true, image: null, nameCode: 5003, resourceId: null, aliases: [],
   },
 ];
 

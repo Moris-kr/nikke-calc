@@ -200,6 +200,8 @@ export function customToMeta(custom: CustomCharacter): CharacterMeta {
     // 직접 추가한 니케는 블라블라링크·enikk 사전에 없다 — 그쪽 가져오기가 건너뛴다.
     nameCode: null,
     resourceId: null,
+    // 직접 추가한 니케에는 별칭이 없다 — 별칭 표는 유저가 손으로 채운다.
+    aliases: [],
   };
 }
 

@@ -11,11 +11,16 @@ const meta = (name: string, over: Partial<CharacterMeta> = {}): CharacterMeta =>
   manufacturer: '엘리시온',
   preview: false,
   image: null,
-  nameCode: null, resourceId: null,
+  nameCode: null, resourceId: null, aliases: [],
   ...over,
 });
 
+const 세이렌 = meta('리틀 머메이드', { aliases: ['세이렌'] });
+const 수니스 = meta('아니스 : 스파클링 서머', { aliases: ['수니스'] });
+
 const CHARS = [
+  세이렌,
+  수니스,
   meta('2B'),
   meta('아크레인저 블랙'),
   meta('크라운', { elementCode: '수냉' }),
@@ -93,5 +98,29 @@ describe('filterByQuery', () => {
 
   it('걸리는 게 없으면 빈 목록', () => {
     expect(pick('없는이름')).toEqual([]);
+  });
+});
+
+describe('별칭 검색', () => {
+  it('별칭으로 쳐도 찾아지고, 나오는 이름은 정식 명칭이다', () => {
+    expect(pick('세이렌')).toEqual(['리틀 머메이드']);
+    expect(pick('수니스')).toEqual(['아니스 : 스파클링 서머']);
+  });
+
+  it('별칭 초성으로도 찾아진다', () => {
+    expect(pick('ㅅㅇㄹ')).toContain('리틀 머메이드');
+    expect(pick('ㅅㄴㅅ')).toContain('아니스 : 스파클링 서머');
+  });
+
+  it('별칭은 이름 첫머리와 같은 무게다', () => {
+    const index = buildIndex(세이렌);
+    expect(rankOf('세이렌', index)).toBe(0);
+    expect(rankOf('리틀', index)).toBe(0);
+    // 별칭 안쪽만 걸리면 그만큼 뒤로 밀린다.
+    expect(rankOf('이렌', index)).toBe(2);
+  });
+
+  it('별칭이 없는 캐릭터는 종전 그대로다', () => {
+    expect(rankOf('세이렌', buildIndex(meta('크라운')))).toBe(NO_MATCH);
   });
 });

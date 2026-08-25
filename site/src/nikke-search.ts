@@ -37,15 +37,22 @@ export interface SearchIndex {
   key: string;
   /** 구분자를 지운 초성 */
   cho: string;
+  /** 별칭(`수니스`)을 구분자 지운 형태로. 이름과 같은 무게로 친다 */
+  aliasKeys: string[];
+  /** 별칭의 초성 */
+  aliasChos: string[];
   /** 속성·무기·클래스·기업 — 이름이 아닌 곁가지 */
   tags: string;
 }
 
 export function buildIndex(char: CharacterMeta): SearchIndex {
+  const aliases = char.aliases ?? [];
   return {
     name: char.name,
     key: squash(char.name),
     cho: squash(initials(char.name)),
+    aliasKeys: aliases.map(squash).filter(Boolean),
+    aliasChos: aliases.map((alias) => squash(initials(alias))).filter(Boolean),
     tags: squash([
       char.elementCode, char.weaponType, char.className, char.manufacturer,
       `b${char.burstStage}`,
@@ -59,10 +66,11 @@ export const NO_MATCH = -1;
 export function rankOf(query: string, index: SearchIndex): number {
   const q = squash(query);
   if (!q) return 0;
-  if (index.key.startsWith(q)) return 0;
-  if (index.cho.startsWith(q)) return 1;
-  if (index.key.includes(q)) return 2;
-  if (index.cho.includes(q)) return 3;
+  // 별칭은 유저가 일부러 정한 손잡이다 — 이름 첫머리와 같은 무게로 앞에 세운다.
+  if (index.key.startsWith(q) || index.aliasKeys.some((a) => a.startsWith(q))) return 0;
+  if (index.cho.startsWith(q) || index.aliasChos.some((a) => a.startsWith(q))) return 1;
+  if (index.key.includes(q) || index.aliasKeys.some((a) => a.includes(q))) return 2;
+  if (index.cho.includes(q) || index.aliasChos.some((a) => a.includes(q))) return 3;
   if (index.tags.includes(q)) return 4;
   return NO_MATCH;
 }

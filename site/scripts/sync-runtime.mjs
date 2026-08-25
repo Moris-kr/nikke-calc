@@ -87,6 +87,32 @@ const resourceByCharacter = new Map(
     .map(([name, value]) => [name, Number(value.id)]),
 );
 
+// 별칭. 정본은 `context/ALIASES.md`의 «별칭 표»이고 유저가 손으로 채운다
+// (그 문서 §원칙 — Claude가 임의로 별칭을 짓지 않는다). 검색이 그 표를 그대로 읽게
+// 해서, 표를 고치면 사이트도 같이 바뀌게 한다.
+//
+// 별칭에는 `크메 (메스트와 함께 조합)`처럼 괄호 주석이 붙기도 한다 — 검색어로 쓸 것은
+// 괄호 앞부분이다.
+const aliasesByCharacter = (() => {
+  const text = readFileSync(join(repoRoot, 'context', 'ALIASES.md'), 'utf8');
+  const start = text.indexOf('## 별칭 표');
+  if (start < 0) return new Map();
+  const nextSection = text.indexOf('\n## ', start + 1);
+  const section = text.slice(start, nextSection < 0 ? undefined : nextSection);
+  const map = new Map();
+  for (const line of section.split('\n')) {
+    const row = line.match(/^\|([^|]*)\|([^|]*)\|\s*$/);
+    if (!row) continue;
+    const name = row[1].trim();
+    if (!name || name === '정식 명칭' || /^-+$/.test(name)) continue;
+    const list = row[2].split(',')
+      .map((piece) => piece.split('(')[0].trim())
+      .filter(Boolean);
+    if (list.length > 0) map.set(name, list);
+  }
+  return map;
+})();
+
 const nameCodeByCharacter = new Map();
 for (const [code, character] of Object.entries(readJson(join(repoRoot, 'data', 'name_codes.json')))) {
   if (!nameCodeByCharacter.has(character)) nameCodeByCharacter.set(character, Number(code));
@@ -123,6 +149,7 @@ const catalog = names.map((name, index) => {
     image,
     nameCode: nameCodeByCharacter.get(name) ?? null,
     resourceId: resourceByCharacter.get(name) ?? null,
+    aliases: aliasesByCharacter.get(name) ?? [],
   };
 });
 
@@ -145,4 +172,10 @@ writeFileSync(join(publicDir, 'settings.json'), settings);
 
 
 const withNameCode = catalog.filter((entry) => entry.nameCode !== null).length;
-console.log(`runtime ${manifest.files.length} files · catalog ${catalog.length} characters (name_code ${withNameCode}) · settings exported · version ${manifest.version}`);
+const withAlias = catalog.filter((entry) => entry.aliases.length > 0).length;
+// 별칭 표의 이름이 카탈로그에 없으면 조용히 사라진다 — 오타를 여기서 잡는다.
+const strayAliases = [...aliasesByCharacter.keys()].filter((name) => !nikke[name]);
+if (strayAliases.length > 0) {
+  console.warn(`별칭 표에 없는 캐릭터가 있습니다: ${strayAliases.join(', ')}`);
+}
+console.log(`runtime ${manifest.files.length} files · catalog ${catalog.length} characters (name_code ${withNameCode}, 별칭 ${withAlias}) · settings exported · version ${manifest.version}`);
