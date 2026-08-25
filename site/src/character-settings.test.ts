@@ -3,7 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { renderCharacterSettings } from './character-settings';
-import type { CharacterOverrides, SettingsCatalog } from './types';
+import type { BuffTargetRow, CharacterOverrides, SettingsCatalog } from './types';
 
 const settings: SettingsCatalog = {
   characters: {
@@ -500,6 +500,41 @@ describe('character settings editor', () => {
     row = root.querySelector<HTMLElement>('[data-buff-target]')!;
     expect(row.textContent).toBe('크확 대상 : [리버렐리오]');
     expect(row.title).toContain('3회 발동');
+  });
+
+  it('folds a switching target into 특이케이스 and offers the order', () => {
+    // 대상이 갈리면 이름을 나열해도 읽히지 않는다 — 접고 순서는 버튼으로 넘긴다.
+    let opened: BuffTargetRow | undefined;
+    const row: BuffTargetRow = {
+      label: '차분한 수심 대상', buff: '차분한 수심 4', count: 4,
+      targets: ['앨리스', '홍련 : 흑영'],
+      sequence: [
+        { t: 3.25, target: '앨리스' }, { t: 23.25, target: '홍련 : 흑영' },
+        { t: 43.25, target: '앨리스' }, { t: 63.25, target: '홍련 : 흑영' },
+      ],
+    };
+    renderCharacterSettings(root, characterName, settings, value, (next) => { value = next; },
+      [row], (r) => { opened = r; });
+
+    const box = root.querySelector<HTMLElement>('[data-buff-target]')!;
+    expect(box.textContent).toContain('[특이케이스]');
+    expect(box.title).toContain('2명 사이에서 갈립니다');
+
+    const button = root.querySelector<HTMLButtonElement>('[data-buff-order-open]')!;
+    expect(button.textContent).toBe('순서보기');
+    button.click();
+    expect(opened?.sequence?.map((s) => s.target))
+      .toEqual(['앨리스', '홍련 : 흑영', '앨리스', '홍련 : 흑영']);
+  });
+
+  it('offers the order button even when the target never changes', () => {
+    // 「순서보기」는 특이케이스 전용이 아니다 — 언제 몇 번 발동했는지도 정보다.
+    renderCharacterSettings(root, characterName, settings, value, (next) => { value = next; },
+      [{ label: '크확 대상', buff: '웨이크업! 4', targets: ['리버렐리오'], count: 3,
+         sequence: [{ t: 3.25, target: '리버렐리오' }] }], () => {});
+    const box = root.querySelector<HTMLElement>('[data-buff-target]')!;
+    expect(box.textContent).toContain('[리버렐리오]');
+    expect(root.querySelector('[data-buff-order-open]')).not.toBeNull();
   });
 
   it('omits the buff-target row for characters without a watched buff', () => {

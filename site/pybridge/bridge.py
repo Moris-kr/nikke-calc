@@ -154,7 +154,7 @@ def _build_buff_targets(result, names: list[str]) -> dict:
             continue
         rows = []
         for buff_name, label in watches:
-            seen: dict[str, int] = {}
+            sequence: list[dict] = []
             for ev in log.buff_events:
                 if ev.kind != "activate" or ev.caster != caster:
                     continue
@@ -162,13 +162,19 @@ def _build_buff_targets(result, names: list[str]) -> dict:
                 if ev.name != buff_name and not ev.name.startswith(f"{buff_name} ("):
                     continue
                 if ev.target in names:
-                    seen[ev.target] = seen.get(ev.target, 0) + 1
+                    sequence.append({"t": round(ev.t, 2), "target": ev.target})
+            # 처음 받은 순서대로 중복을 없앤다. 둘 이상이면 대상이 전투 중 갈린
+            # **특이케이스**이고, 그때는 순서 자체가 정보라 그대로 넘긴다.
+            order: list[str] = []
+            for item in sequence:
+                if item["target"] not in order:
+                    order.append(item["target"])
             rows.append({
                 "label": label,
                 "buff": buff_name,
-                # 많이 받은 순 — 전투 내내 한 명이면 그 한 명만 담긴다.
-                "targets": sorted(seen, key=lambda n: -seen[n]),
-                "count": sum(seen.values()),
+                "targets": order,
+                "sequence": sequence,
+                "count": len(sequence),
             })
         if rows:
             out[caster] = rows

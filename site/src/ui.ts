@@ -487,6 +487,14 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         </div>
       </div>
 
+      <div class="custom-modal" data-buff-order-modal hidden>
+        <div class="custom-card buff-order-card" role="dialog" aria-label="버프 대상 순서">
+          <div class="custom-head"><h2 data-buff-order-title>버프 대상 순서</h2><button type="button" class="custom-close" data-buff-order-close aria-label="닫기">✕</button></div>
+          <p class="custom-desc" data-buff-order-desc></p>
+          <div class="buff-order-list" data-buff-order-list></div>
+        </div>
+      </div>
+
       <div class="custom-modal" data-share-modal hidden>
         <div class="custom-card" role="dialog" aria-label="조합 공유">
           <div class="custom-head"><h2>조합 공유</h2><button type="button" class="custom-close" data-share-close aria-label="닫기">✕</button></div>
@@ -746,6 +754,55 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const deckSignature = (deck: DeckState): string =>
     JSON.stringify([deck.squad, deck.characters]);
 
+  // ── 버프 대상 미리 계산 ──────────────────────────────────────────────────
+  // 수령자는 실제 발동 로그에서만 나온다(대상이 최종 공격력으로 갈리고 전투 중
+  // 바뀌기도 한다). 그래서 계산 버튼을 누르기 전에 **배경으로 한 번 돌려** 미리
+  // 채운다. 결과는 정식 계산과 같은 캐시를 쓰므로 이어서 «실행»을 눌러도 덤이 없다.
+  let prefetchTimer: ReturnType<typeof setTimeout> | undefined;
+  let prefetching = false;
+
+  const needsPrefetch = (deck: DeckState): boolean => {
+    if (!deck.squad.some((name) => name && settings.buffTargetWatch?.[name])) return false;
+    return buffTargetsByDeck.get(deck.id)?.sig !== deckSignature(deck);
+  };
+
+  const prefetchBuffTargets = () => {
+    clearTimeout(prefetchTimer);
+    prefetchTimer = setTimeout(async () => {
+      // 정식 계산이 도는 중이면 워커를 뺏지 않는다 — 끝나면 어차피 채워진다.
+      if (prefetching || submit.disabled) return;
+      const deck = activeDeck();
+      if (!needsPrefetch(deck)) return;
+      prefetching = true;
+      try {
+        await prepared;
+        const custom = customPayload();
+        const request = requestForDeck(deck, readBattle(),
+          Object.keys(custom).length > 0 ? custom : undefined);
+        if (validateRequest(request).length > 0) return;
+        const key = cacheKey(request, version);
+        let result = cache.get(key);
+        if (!result) {
+          result = await client.simulate(request);
+          cache.set(key, result);
+        }
+        // 기다리는 사이 편성이 바뀌었을 수 있다 — 서명이 맞을 때만 반영한다.
+        const now = activeDeck();
+        if (now.id !== deck.id || deckSignature(now) !== deckSignature(deck)) return;
+        if (result.buffTargets) {
+          buffTargetsByDeck.set(deck.id, { sig: deckSignature(deck), rows: result.buffTargets });
+          saveState();
+          renderSquad();
+        }
+      } catch {
+        /* 미리 계산은 편의 기능이다 — 실패해도 조용히 넘어간다 */
+      } finally {
+        prefetching = false;
+      }
+    }, 700);
+  };
+
+
   /** 이 덱에서 감시 대상 버프를 가진 캐릭터의 표시 줄. 아직 안 돌렸으면 빈 대상. */
   const buffTargetRowsFor = (deckId: number, name: string): BuffTargetRow[] | undefined => {
     const deck = decks.find((d) => d.id === deckId);
@@ -757,6 +814,46 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     if (!watched) return undefined;
     return watched.map((w) => ({ ...w, targets: [] as string[], count: 0 }));
   };
+
+  // 「순서보기」 — 버프가 발동할 때마다 누가 받았는지 초상화로 죽 편다.
+  // 대상이 갈리는 편성에서는 이 순서 자체가 정보다(앨리스-홍련-앨리스-홍련…).
+  const buffOrderModal = element<HTMLElement>(root, '[data-buff-order-modal]');
+  const showBuffOrder = (caster: string, row: BuffTargetRow) => {
+    element<HTMLElement>(root, '[data-buff-order-title]').textContent =
+      `${caster} · ${row.label}`;
+    element<HTMLElement>(root, '[data-buff-order-desc]').textContent =
+      row.targets.length > 1
+        ? `${row.buff} — ${row.count}회 발동. 대상이 ${row.targets.length}명 사이에서 갈립니다.`
+        : `${row.buff} — ${row.count}회 발동. 전투 내내 같은 대상입니다.`;
+    const list = element<HTMLElement>(root, '[data-buff-order-list]');
+    list.replaceChildren();
+    for (const [index, step] of (row.sequence ?? []).entries()) {
+      const item = document.createElement('div');
+      item.className = 'buff-order-step';
+      item.dataset.buffOrderStep = String(index);
+      const meta = catalogByName.get(step.target);
+      const shot = document.createElement('div');
+      shot.className = 'buff-order-portrait';
+      if (meta?.image) {
+        const img = document.createElement('img');
+        img.src = `${import.meta.env.BASE_URL}${meta.image}`;
+        img.alt = '';
+        img.loading = 'lazy';
+        shot.append(img);
+      }
+      item.append(shot);
+      item.append(createText('strong', step.target));
+      item.append(createText('span', `${step.t.toFixed(2)}초`));
+      list.append(item);
+    }
+    buffOrderModal.hidden = false;
+  };
+  element<HTMLButtonElement>(root, '[data-buff-order-close]').addEventListener('click', () => {
+    buffOrderModal.hidden = true;
+  });
+  buffOrderModal.addEventListener('click', (event) => {
+    if (event.target === buffOrderModal) buffOrderModal.hidden = true;
+  });
 
   const renderSquad = () => {
     const deck = activeDeck();
@@ -877,7 +974,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             saveState();
             // 개별 설정 안 드롭다운으로 돌파를 바꿔도 초상화의 별이 따라가게 한다.
             renderGrowthStepper();
-          }, buffTargetRowsFor(deck.id, cname));
+          }, buffTargetRowsFor(deck.id, cname), (row) => showBuffOrder(cname, row));
         };
 
         // 초상화 우측하단의 돌파·코어 강화 스테퍼. blablalink 도감처럼 별 + 진화 숫자로
@@ -956,6 +1053,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       }
       squadGrid.append(card);
     }
+    // 편성·개별 설정·덱 전환이 모두 이 함수를 지난다 — 미리 계산 예약은 여기 한 곳.
+    prefetchBuffTargets();
   };
 
   // ── 콘솔 ────────────────────────────────────────────────────────────────

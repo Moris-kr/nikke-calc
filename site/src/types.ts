@@ -180,7 +180,10 @@ export interface SimulationResult {
 export interface BuffTargetRow {
   label: string;
   buff: string;
+  /** 처음 받은 순서대로 중복 없이. 둘 이상이면 전투 중 대상이 갈린 특이케이스다. */
   targets: string[];
+  /** 발동마다 누가 받았는지 시간순. 「순서보기」가 이걸 그린다. */
+  sequence?: Array<{ t: number; target: string }>;
   count: number;
 }
 

@@ -295,6 +295,16 @@ class BrowserBridgeTest(unittest.TestCase):
         for name in rebellio["targets"]:
             self.assertIn(name, squad)
 
+        # 순서는 발동 시각순으로 담기고, `targets`는 그 순서에서 중복만 지운 것이다.
+        for row in (miranda, rebellio):
+            self.assertEqual(len(row["sequence"]), row["count"])
+            self.assertEqual(
+                list(dict.fromkeys(step["target"] for step in row["sequence"])),
+                row["targets"],
+            )
+            times = [step["t"] for step in row["sequence"]]
+            self.assertEqual(times, sorted(times))
+
         # 애장품 1단계는 발동 조건(2단계)에 못 미친다 → 빈 목록.
         self.assertEqual(run(1)["미란다"][0]["targets"], [])
         self.assertEqual(run(1)["미란다"][0]["count"], 0)

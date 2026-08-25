@@ -106,6 +106,7 @@ export function renderCharacterSettings(
   value: CharacterOverrides | undefined,
   onChange: (next: CharacterOverrides | undefined) => void,
   buffTargets?: BuffTargetRow[],
+  onShowOrder?: (row: BuffTargetRow) => void,
 ): void {
   const advancedWasOpen = container.querySelector<HTMLInputElement>('[data-advanced-toggle]')?.checked ?? false;
   // 펼침 상태는 다시 그려도 유지한다. 값을 하나 바꿀 때마다 접히면 쓸 수 없다.
@@ -147,7 +148,7 @@ export function renderCharacterSettings(
 
   const commit = (next: CharacterOverrides | undefined) => {
     onChange(next);
-    renderCharacterSettings(container, name, catalog, next, onChange, buffTargets);
+    renderCharacterSettings(container, name, catalog, next, onChange, buffTargets, onShowOrder);
   };
 
   const summary = document.createElement('p');
@@ -167,11 +168,26 @@ export function renderCharacterSettings(
     label.textContent = `${row.label} : `;
     box.append(label);
     const who = document.createElement('b');
-    who.textContent = `[${row.targets.join(', ')}]`;
+    // 대상이 전투 중 갈리면 이름을 나열해도 읽히지 않는다 — 특이케이스로 접고
+    // 실제 순서는 「순서보기」로 넘긴다.
+    const special = row.targets.length > 1;
+    who.textContent = special ? '[특이케이스]' : `[${row.targets.join(', ')}]`;
     box.append(who);
-    box.title = row.targets.length > 0
-      ? `${row.buff} — ${row.count}회 발동`
-      : `${row.buff} — 아직 계산하지 않았거나 발동 조건이 맞지 않습니다`;
+    box.title = row.targets.length === 0
+      ? `${row.buff} — 아직 계산하지 않았거나 발동 조건이 맞지 않습니다`
+      : special
+        ? `${row.buff} — ${row.count}회 발동 · 대상이 ${row.targets.length}명 사이에서 갈립니다`
+        : `${row.buff} — ${row.count}회 발동`;
+
+    if (onShowOrder && (row.sequence?.length ?? 0) > 0) {
+      const open = document.createElement('button');
+      open.type = 'button';
+      open.className = 'buff-order-open';
+      open.dataset.buffOrderOpen = row.buff;
+      open.textContent = '순서보기';
+      open.addEventListener('click', () => onShowOrder(row));
+      box.append(open);
+    }
     container.append(box);
   }
 
