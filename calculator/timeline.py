@@ -1472,8 +1472,19 @@ class CharState:
         if fixed is not None:
             # "재장전 시간 N초로 고정" — 절대 고정이라 reload_speed_pct를 타지 않는다
             return fixed
+        return self.weapon["reload_time"] * self._reload_speed_factor(bm, t)
+
+    def _reload_speed_factor(self, bm: BuffManager, t: float) -> float:
+        """재장전 시간에 곱할 배수. `재장전 속도 N% ▲`는 시간에 ×(1−N/100)이다.
+
+        **앞뒤 딜레이에도 같이 곱한다.** `reload_start_delay`(탄 소진 → 장전 시작)와
+        `post_reload_delay`(장전 완료 → 첫 발)는 장전 «동작»의 일부라 동작이 빨라지면
+        같이 줄어든다. 고정으로 두면 장탄이 1발까지 줄어든 캐릭터가 매 발마다 그 값을
+        온전히 물어 딜이 무너진다 — 아니스 : 스파클링 서머가 그랬다(제보 2026-08-24).
+        실측(`weapon_delays.json`)은 버프 없는 상태에서 잰 값이라 배수 1일 때 그대로다.
+        """
         speed_pct = bm.get_buffs(self.name, "__enemy__", t).get("reload_speed_pct", 0.0) / 100.0
-        return self.weapon["reload_time"] * max(0.0, 1.0 - speed_pct)
+        return max(0.0, 1.0 - speed_pct)
 
     def _is_clip_reload(self, bm: BuffManager) -> bool:
         """지금 굴러가는 재장전이 클립 장전인가.
@@ -1510,7 +1521,7 @@ class CharState:
                       from_empty: bool = False):
         # 탄을 비워 자동으로 걸린 재장전만 시작 지연을 얹는다. 지연 동안은 쏘지도
         # 장전하지도 않으므로 장전 완료 시각을 그만큼 미루는 것으로 같아진다.
-        lead = self.reload_start_delay if from_empty else 0.0
+        lead = (self.reload_start_delay * self._reload_speed_factor(bm, t)) if from_empty else 0.0
         self.reloading_until = t + lead + self._reload_duration(bm, t)
         self._reload_in_weapon_change = bm.get_weapon_change(self.name) is not None
         # 차지 중에 재장전이 걸리면 차지는 무효다. 재장전 후에는 처음부터 다시 차지한다
@@ -1584,7 +1595,7 @@ class CharState:
             self._sim_log.reload_log.append(ReloadLogEntry(t=t, caster=self.name, event="재장전 완료"))
             self._sim_log.ammo_log.append(AmmoLogEntry(t=t, caster=self.name, ammo=self.ammo))
         if self.post_reload_delay > 0.0:
-            self._post_reload_end_t = t + self.post_reload_delay
+            self._post_reload_end_t = t + self.post_reload_delay * self._reload_speed_factor(bm, t)
         else:
             self.next_fire_time = t
 
