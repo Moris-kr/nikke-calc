@@ -164,41 +164,64 @@ describe('applyShareToDecks', () => {
 
 
 describe('전투 조건 공유 코드 (NK3)', () => {
-  const battle = {
-    duration: 120, enemyDef: 40000, enemyCode: '철갑' as const,
-    coreEnabled: true, corePx: 52, hasParts: true, seed: 7,
-    optimalRangeWeapons: ['SG', 'SMG'],
-    normalHitCoeff: { SG: 0.9 },
-    immuneWindows: [{ from: 10, to: 30 }],
-    elementWindows: [{ from: 100, to: 102, code: '풍압' as const }],
-    rngMode: 'random' as const,
-    immuneBlocksBurst: true,
-    burstRegenTime: 2.8,
+  const COEFF = { AR: 1, SMG: 1, SG: 0.9, MG: 1, SR: 1, RL: 1 };
+  const base = {
+    duration: 180, enemyDef: 31_784, enemyCode: '' as const, coreEnabled: false,
+    corePx: 52, hasParts: false, seed: 42, optimalRangeWeapons: [],
+    normalHitCoeff: { ...COEFF }, immuneWindows: [], elementWindows: [],
+    rngMode: 'expected' as const, immuneBlocksBurst: true, burstRegenTime: 2,
     console: { common_level: 390, class_level: { 화력형: 257 }, company_level: { 필그림: 386 } },
   };
 
-  it('NK3-로 시작하고 되읽으면 같은 값이 나온다', () => {
-    const code = encodeBattleCode(battle);
+  it('기본값은 아예 싣지 않아 코드가 아주 짧다', () => {
+    // 붙여넣는 곳이 400자쯤에서 잘린다는 제보 — 기본값 생략이 가장 큰 절약이다.
+    const code = encodeBattleCode(base, COEFF);
     expect(code.startsWith('NK3-')).toBe(true);
+    expect(code.length).toBeLessThan(16);
+  });
+
+  it('바꾼 것만 실어도 왕복이 성립한다', () => {
+    const battle = {
+      ...base, duration: 120, enemyCode: '철갑' as const, coreEnabled: true,
+      optimalRangeWeapons: ['SG', 'SMG'], rngMode: 'random' as const,
+      immuneBlocksBurst: false, burstRegenTime: 2.8,
+      immuneWindows: [{ from: 10, to: 30 }, { from: 90.5, to: 95 }],
+      elementWindows: [{ from: 100, to: 102, code: '풍압' as const }],
+    };
+    const code = encodeBattleCode(battle, COEFF);
+    expect(code.length).toBeLessThan(200);   // 붙여넣기 한도(약 400자)의 절반 아래
     const { console: _drop, ...expected } = battle;
-    expect(decodeBattleCode(code)).toEqual(expected);
+    expect(decodeBattleCode(code)).toEqual({ ...expected, normalHitCoeff: {} });
+  });
+
+  it('평타 계수는 기본값과 다른 무기군만 싣는다', () => {
+    const code = encodeBattleCode(
+      { ...base, normalHitCoeff: { ...COEFF, SG: 0.8 } }, COEFF);
+    expect(decodeBattleCode(code).normalHitCoeff).toEqual({ SG: 0.8 });
+    // 여섯 개를 다 실었다면 훨씬 길어진다.
+    expect(code.length).toBeLessThan(50);
   });
 
   it('콘솔은 담지 않는다 — 남의 계정 육성 상태가 딸려 오면 안 된다', () => {
-    const code = encodeBattleCode(battle);
+    const code = encodeBattleCode(base, COEFF);
     expect(decodeBattleCode(code)).not.toHaveProperty('console');
-    // 코드 본문에도 콘솔 값이 없어야 한다.
     const body = atob(code.slice(4).replace(/-/g, '+').replace(/_/g, '/'));
     expect(body).not.toContain('common_level');
     expect(body).not.toContain('390');
   });
 
+  it('족자 중 버스트 충전 정지는 기본이 켜짐이다', () => {
+    // 안 실린 코드를 읽으면 켜진 것으로 본다.
+    expect(decodeBattleCode(encodeBattleCode(base, COEFF)).immuneBlocksBurst).toBe(true);
+    const off = encodeBattleCode({ ...base, immuneBlocksBurst: false }, COEFF);
+    expect(decodeBattleCode(off).immuneBlocksBurst).toBe(false);
+  });
+
   it('범위를 벗어난 값과 못 쓰는 구간은 기본값으로 되돌린다', () => {
-    // btoa는 Latin-1만 받는다 — 실제 코드와 같이 UTF-8 바이트로 만든다.
     const raw = JSON.stringify({
-      duration: 9999, enemyDef: -5, seed: 'x', rngMode: '이상함',
-      immuneWindows: [{ from: 30, to: 10 }, { from: 5, to: 9 }],
-      elementWindows: [{ from: 1, to: 2, code: '불' }],
+      d: 9999, ed: -5, s: 'x', ec: 99,
+      iw: [[300, 100], [50, 90]],
+      ew: [[10, 20, 0]],
     });
     let binary = '';
     for (const byte of new TextEncoder().encode(raw)) binary += String.fromCharCode(byte);
@@ -207,9 +230,10 @@ describe('전투 조건 공유 코드 (NK3)', () => {
     expect(got.duration).toBe(180);
     expect(got.enemyDef).toBe(31_784);
     expect(got.seed).toBe(42);
-    expect(got.rngMode).toBe('expected');
-    // 뒤집힌 구간은 버리고 쓸 수 있는 것만 남는다.
+    expect(got.enemyCode).toBe('');
+    // 뒤집힌 구간은 버리고 쓸 수 있는 것만 남는다(0.1초 단위로 담긴다).
     expect(got.immuneWindows).toEqual([{ from: 5, to: 9 }]);
+    // 속저 코드 0(없음)은 못 쓴다.
     expect(got.elementWindows).toEqual([]);
   });
 

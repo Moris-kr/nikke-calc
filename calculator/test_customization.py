@@ -699,12 +699,20 @@ class CharacterCustomizationTest(unittest.TestCase):
         squad = build_squad(deck)
         enemy = {"def": 31_784, "code": "", "core_px": 0, "has_parts": False,
                  "immune_windows": [[10, 40]]}
-        keep = simulate(squad, config=build_config(squad, {"duration": 120}),
+        # 기본은 **켜짐**(인게임 기준) — 끄면 족자 중에도 충전이 이어진다.
+        keep = simulate(squad, config=build_config(
+            squad, {"duration": 120, "immune_blocks_burst": False}), enemy=enemy, seed=42)
+        stop = simulate(squad, config=build_config(squad, {"duration": 120}),
                         enemy=enemy, seed=42)
-        stop = simulate(squad, config=build_config(
-            squad, {"duration": 120, "immune_blocks_burst": True}), enemy=enemy, seed=42)
         # 충전이 멈추면 버스트가 밀려 딜이 더 줄어든다.
         self.assertLess(stop.squad_total, keep.squad_total)
+
+        # 족자가 없으면 이 옵션은 결과를 바꾸지 않는다 — 종전 스냅샷이 안 흔들리는 이유다.
+        plain = {"def": 31_784, "code": "", "core_px": 0, "has_parts": False}
+        on = simulate(squad, config=build_config(squad, {"duration": 60}), enemy=plain, seed=42)
+        off = simulate(squad, config=build_config(
+            squad, {"duration": 60, "immune_blocks_burst": False}), enemy=plain, seed=42)
+        self.assertEqual(on.squad_total, off.squad_total)
 
 
 if __name__ == "__main__":

@@ -234,8 +234,9 @@ def run_request(raw: str) -> str:
     if rng_mode not in ("random", "expected"):
         raise ValueError('난수 모드는 random 또는 expected여야 합니다')
     config_in["rng_mode"] = rng_mode
-    # 족자 중 버스트 게이지 정지 여부.
-    config_in["immune_blocks_burst"] = bool(payload.get("immuneBlocksBurst"))
+    # 족자 중 버스트 게이지 정지 여부. 안 주면 켠 것으로 본다(인게임 기준).
+    blocks = payload.get("immuneBlocksBurst")
+    config_in["immune_blocks_burst"] = True if blocks is None else bool(blocks)
     config = char_spec.build_config(squad, config_in)
     # 평타 계수는 적이 아니라 **우리 쪽 명중**의 문제라 config에 둔다.
     hit_coeff = normalize_normal_hit_coeff(payload.get("normalHitCoeff"))

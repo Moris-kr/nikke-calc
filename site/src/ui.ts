@@ -483,7 +483,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
               <label><span>난수 시드</span><input id="seed" type="number" min="0" max="2147483647" step="1" value="42" /></label>
               <label title="게이지 충전만의 시간입니다. 여기에 단계 전환 0.3초와 버스트 쿨 여유가 더해져 실제 공백은 더 깁니다."><span>버스트 게이지 충전</span><div class="input-unit"><input id="burst-regen" type="number" min="0" max="20" step="0.1" value="2" /><em>초</em></div></label>
               <label><span>난수 처리</span><select id="rng-mode"><option value="expected">기대값 (권장)</option><option value="random">난수</option></select></label>
-              <label class="toggle-field" title="족자 구간에는 보스를 때릴 수 없으니 게이지도 차지 않습니다. 켜면 그만큼 버스트가 밀립니다."><input id="immune-blocks-burst" type="checkbox" /><span class="toggle"></span><span>족자 중 버스트 충전 정지</span></label>
+              <label class="toggle-field" title="족자 구간에는 보스를 때릴 수 없으니 게이지도 차지 않습니다. 켜면 그만큼 버스트가 밀립니다."><input id="immune-blocks-burst" type="checkbox" checked /><span class="toggle"></span><span>족자 중 버스트 충전 정지</span></label>
             </div>
             <p class="field-note">기대값은 확률 대신 기대치를 태워 <b>같은 설정이면 언제나 같은 값</b>이 나옵니다. 난수는 인게임과 같은 분산을 재현하며 시드에 따라 결과가 흔들립니다.</p>
 
@@ -2034,7 +2034,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   };
 
   element<HTMLButtonElement>(root, '[data-battle-share-open]').addEventListener('click', () => {
-    battleShareOut.value = encodeBattleCode(readBattle());
+    battleShareOut.value = encodeBattleCode(readBattle(), settings.normalHitCoeff ?? {});
     battleShareIn.value = '';
     showBattleShareMsg('');
     battleShareModal.hidden = false;

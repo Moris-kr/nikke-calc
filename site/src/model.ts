@@ -34,7 +34,8 @@ export function normalizeRequest(request: SimulationRequest): SimulationRequest 
       [...request.elementWindows].sort((a, b) => a.from - b.from || a.to - b.to) } : {}),
     // 기본값(기대값)은 요청에서 뺀다 — 옛 캐시 키와 갈리지 않게.
     ...(request.rngMode && request.rngMode !== 'expected' ? { rngMode: request.rngMode } : {}),
-    ...(request.immuneBlocksBurst ? { immuneBlocksBurst: true } : {}),
+    // 기본값(켜짐)은 요청·캐시 키에서 뺀다.
+    ...(request.immuneBlocksBurst === false ? { immuneBlocksBurst: false } : {}),
     // 평타 계수도 캐시 키에 실린다 — 값이 다른 결과가 섞이면 안 된다. 키 순서가
     // 흔들려도 같은 설정이므로 정렬해 싣는다.
     ...(normalizeRecord(request.normalHitCoeff)

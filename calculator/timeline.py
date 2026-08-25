@@ -143,8 +143,9 @@ DEFAULT_CONFIG: dict = {
     #                시드·반복 평균 없이 1회 실행으로 기대딜이 나온다.
     "rng_mode":           "random",
     # 족자(`enemy["immune_windows"]`) 중에는 보스를 때릴 수 없으니 버스트 게이지도
-    # 안 찬다고 볼지. 켜면 충전이 그 구간만큼 밀린다.
-    "immune_blocks_burst": False,
+    # 안 찬다 — 인게임이 그렇다(유저 확인). 끄면 족자 중에도 충전이 이어진다.
+    # 족자를 안 쓰면 어느 쪽이든 결과가 같다.
+    "immune_blocks_burst": True,
 }
 
 DEFAULT_ENEMY: dict = {
