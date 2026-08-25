@@ -403,7 +403,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <p class="roster-note" data-roster-note hidden></p>
           </div>
           <div class="deck-tabs" data-deck-tabs hidden></div>
-          <button type="button" class="deck-clear" data-deck-clear title="지금 보고 있는 덱의 편성과 개별 설정을 비웁니다">덱 비우기</button>
+          <div class="deck-controls">
+            <span class="deck-moves" data-deck-moves hidden></span>
+            <button type="button" class="deck-clear" data-deck-clear title="지금 보고 있는 덱의 편성과 개별 설정을 비웁니다">덱 비우기</button>
           <div class="deck-copy" data-deck-copy hidden>
             <button type="button" class="deck-copy-open" data-deck-copy-open>현재 덱 복사</button>
             <div class="deck-copy-panel" data-deck-copy-panel hidden>
@@ -414,6 +416,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
                 <button type="button" class="deck-copy-cancel" data-deck-copy-cancel>취소</button>
               </div>
             </div>
+          </div>
           </div>
           <p class="deck-note" data-deck-note hidden>덱 사이에는 같은 캐릭터를 다시 편성할 수 있습니다.</p>
           <div class="squad-grid" data-squad-grid></div>
@@ -690,6 +693,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const deckTabs = element<HTMLElement>(root, '[data-deck-tabs]');
   const deckNote = element<HTMLElement>(root, '[data-deck-note]');
   const deckCopy = element<HTMLElement>(root, '[data-deck-copy]');
+  const deckMoves = element<HTMLElement>(root, '[data-deck-moves]');
   const deckCopyOpen = element<HTMLButtonElement>(root, '[data-deck-copy-open]');
   const deckCopyPanel = element<HTMLElement>(root, '[data-deck-copy-panel]');
   const deckCopyTitle = element<HTMLElement>(root, '[data-deck-copy-title]');
@@ -740,6 +744,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       deckTabs.append(button);
     }
 
+    const moves = element<HTMLElement>(root, '[data-deck-moves]');
+    moves.replaceChildren();
+
     // 덱 순서 바꾸기. 덱 «번호»는 자리 이름이라 그대로 두고 **내용만** 맞바꾼다 —
     // 번호까지 따라 움직이면 지금 보던 덱이 어디로 갔는지 알 수 없다.
     const swapDeck = (delta: number) => {
@@ -770,7 +777,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       const index = decks.findIndex((deck) => deck.id === activeDeckId);
       move.disabled = index + delta < 0 || index + delta >= decks.length;
       move.addEventListener('click', () => swapDeck(delta));
-      deckTabs.append(move);
+      moves.append(move);
     }
   };
 
@@ -1771,6 +1778,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       fiveDeckMode = payload.fiveDeckMode || applied > 1;
       element<HTMLInputElement>(root, '#squad-mode').checked = fiveDeckMode;
       deckTabs.hidden = !fiveDeckMode;
+      deckMoves.hidden = !fiveDeckMode;
       deckNote.hidden = !fiveDeckMode;
       activeDeckId = 1;
       saveState();
@@ -2006,6 +2014,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     }
     activeDeckId = 1;
     deckTabs.hidden = !fiveDeckMode;
+    deckMoves.hidden = !fiveDeckMode;
     deckNote.hidden = !fiveDeckMode;
     deckCopy.hidden = !fiveDeckMode;
     closeDeckCopy();
@@ -2925,6 +2934,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       fiveDeckMode = true;
       element<HTMLInputElement>(root, '#squad-mode').checked = true;
       deckTabs.hidden = false;
+      deckMoves.hidden = false;
       deckNote.hidden = false;
       deckCopy.hidden = false;
     }

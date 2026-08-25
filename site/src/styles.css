@@ -292,8 +292,14 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .enikk-exclude-chip b { font-size: 10px; }
 .enikk-exclude .field-note { margin: 8px 0 0; }
 
-.deck-clear { padding: 7px 12px; border: 1px solid rgba(255,119,135,.42); border-radius: 8px; background: rgba(255,119,135,.1); color: var(--danger); font: 800 10.5px ui-monospace, monospace; cursor: pointer; }
-.deck-clear:hover { background: rgba(255,119,135,.22); border-color: var(--danger); }
+/* 덱 조작 한 줄 — 순서 바꾸기 · 비우기 · 복사.
+   화살표를 `.deck-tabs`(5열 그리드) 안에 넣으면 7번째 칸으로 밀려 줄이 깨진다. */
+.deck-controls { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; margin: 0 0 14px; }
+.deck-controls .deck-copy { margin-top: 0; }
+.deck-moves { display: flex; gap: 4px; }
+.deck-moves[hidden] { display: none; }
+.deck-clear { padding: 6px 10px; border: 1px solid rgba(255,119,135,.42); border-radius: 6px; background: rgba(255,119,135,.07); color: var(--danger); font: 700 10px ui-monospace, monospace; cursor: pointer; }
+.deck-clear:hover { background: rgba(255,119,135,.16); border-color: var(--danger); }
 .deck-move { width: 26px; min-height: 26px; padding: 0; border: 1px solid rgba(146,176,201,.28); border-radius: 6px; background: rgba(3,10,17,.6); color: #cfeceb; font: 700 13px/1 ui-monospace, monospace; cursor: pointer; }
 .deck-move:hover:not(:disabled) { background: rgba(69,214,208,.22); border-color: var(--cyan); }
 .deck-move:disabled { opacity: .3; cursor: default; }
