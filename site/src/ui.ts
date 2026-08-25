@@ -294,6 +294,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     fiveDeckMode: boolean;
     activeDeckId: number;
     battle: BattleSettings;
+    buffTargets: Array<{ id: number; sig: string; rows: Record<string, BuffTargetRow[]> }>;
   }
   // 큐브 이름이 짧은 통칭에서 인게임 정식 명칭으로 바뀌었다. 이전 버전에서 저장된
   // 편성에는 옛 이름이 남아 있어 그대로 두면 엔진이 요청을 거부한다. 불러올 때 한 번
@@ -738,11 +739,19 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
   // 최근 계산에서 나온 「누가 이 버프를 받았나」. 덱 단위로 들고 있다가 카드에 얹는다.
   // 계산 전에는 비어 있고, 그때는 빈 괄호로 자리만 잡는다.
-  const buffTargetsByDeck = new Map<number, Record<string, BuffTargetRow[]>>();
+  // 값과 함께 **무엇을 계산한 결과인가**(편성 + 개별 설정)를 적어 둔다. 편성이나
+  // 스펙을 바꾸면 대상이 달라질 수 있으므로, 서명이 어긋나면 지난 값을 쓰지 않는다.
+  const buffTargetsByDeck = new Map<number, { sig: string; rows: Record<string, BuffTargetRow[]> }>();
+
+  const deckSignature = (deck: DeckState): string =>
+    JSON.stringify([deck.squad, deck.characters]);
 
   /** 이 덱에서 감시 대상 버프를 가진 캐릭터의 표시 줄. 아직 안 돌렸으면 빈 대상. */
   const buffTargetRowsFor = (deckId: number, name: string): BuffTargetRow[] | undefined => {
-    const known = buffTargetsByDeck.get(deckId)?.[name];
+    const deck = decks.find((d) => d.id === deckId);
+    const saved = buffTargetsByDeck.get(deckId);
+    const known = deck && saved && saved.sig === deckSignature(deck)
+      ? saved.rows[name] : undefined;
     if (known) return known;
     const watched = settings.buffTargetWatch?.[name];
     if (!watched) return undefined;
@@ -1533,11 +1542,12 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     let touchedActiveDeck = false;
     for (const entry of batch.decks) {
       const targets = entry.result.buffTargets;
-      if (!targets) continue;
-      buffTargetsByDeck.set(entry.deckId, targets);
+      const deck = decks.find((d) => d.id === entry.deckId);
+      if (!targets || !deck) continue;
+      buffTargetsByDeck.set(entry.deckId, { sig: deckSignature(deck), rows: targets });
       if (entry.deckId === activeDeckId) touchedActiveDeck = true;
     }
-    if (touchedActiveDeck) renderSquad();
+    if (touchedActiveDeck) { saveState(); renderSquad(); }
 
     resultPanel.replaceChildren();
     const duration = batch.decks[0]?.result.duration ?? 1;
@@ -2384,6 +2394,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     try {
       resolveStorage()?.setItem(STATE_KEY, JSON.stringify({
         decks, fiveDeckMode, activeDeckId, battle: readBattle(),
+        // 새로고침해도 「누가 이 버프를 받았나」가 남게 한다 — 다시 계산하기 전까지
+        // 빈 괄호만 보이면 기능이 꺼진 것처럼 보인다.
+        buffTargets: [...buffTargetsByDeck].map(([id, v]) => ({ id, ...v })),
       }));
     } catch {
       /* 저장 실패 무시 */
@@ -2403,6 +2416,15 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         }
       });
     }
+    // 「누가 이 버프를 받았나」는 서명이 지금 편성·설정과 맞을 때만 되살린다.
+    // 어긋나면 지난 계산의 값이라 그대로 믿을 수 없다.
+    for (const saved of savedState.buffTargets ?? []) {
+      const deck = decks.find((d) => d.id === saved.id);
+      if (deck && saved.sig === deckSignature(deck)) {
+        buffTargetsByDeck.set(saved.id, { sig: saved.sig, rows: saved.rows });
+      }
+    }
+
     const savedActive = savedState.activeDeckId;
     if (typeof savedActive === 'number' && savedActive >= 1 && savedActive <= 5) {
       activeDeckId = savedActive;

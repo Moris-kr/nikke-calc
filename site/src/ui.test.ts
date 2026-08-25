@@ -53,7 +53,7 @@ const settings: SettingsCatalog = {
   collectionStages: ['없음', 'SR0', 'SR5', 'SR15'],
   normalHitCoeff: { AR: 1, SMG: 1, SG: 0.9, MG: 1, SR: 1, RL: 1 },
   weaponTypes: ['AR', 'SMG', 'SG', 'MG', 'SR', 'RL'],
-  buffTargetWatch: { 미란다: [{ buff: '웨이크업! 4', label: '크확 대상' }] },
+  buffTargetWatch: { 리타: [{ buff: '웨이크업! 4', label: '크확 대상' }] },
   consoleClasses: ['화력형', '방어형', '지원형'],
   consoleCompanies: ['엘리시온', '테트라', '미실리스', '필그림', '어브노말'],
   cubes: {
@@ -288,6 +288,41 @@ describe('calculator UI', () => {
       .filter((box) => box.checked)
       .map((box) => box.dataset.optimalRangeWeapon);
     expect(restored).toEqual(['AR', 'SG']);
+  });
+
+  it('keeps buff targets across a reload, and drops them when the squad changes', async () => {
+    // 수령자는 실제 발동 로그에서 오므로 계산 전에는 알 수 없다. 새로고침할 때마다
+    // 빈 괄호로 돌아가면 기능이 꺼진 것처럼 보이므로 저장했다가 되살린다.
+    const withTargets: SimulationResult = {
+      ...calculated,
+      buffTargets: { 리타: [{ label: '크확 대상', buff: '웨이크업! 4', targets: ['크라운'], count: 3 }] },
+    };
+    class TargetClient extends FakeClient {
+      override async simulate(request: SimulationRequest): Promise<SimulationResult> {
+        await super.simulate(request);
+        return withTargets;
+      }
+    }
+    // 리타는 기본 편성 1번 칸에 있다 — 감시 대상으로 잡아 둔 캐릭터다.
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new TargetClient(), storage: localStorage });
+    const shown = () => root.querySelector<HTMLElement>('[data-buff-target]')?.textContent;
+    expect(shown()).toBe('크확 대상 : []');
+
+    root.querySelector<HTMLFormElement>('form')!.requestSubmit();
+    await flush();
+    await flush();
+    expect(shown()).toBe('크확 대상 : [크라운]');
+
+    // 새로 마운트해도(=새로고침) 남는다.
+    root.remove();
+    root = document.createElement('main');
+    document.body.append(root);
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    expect(shown()).toBe('크확 대상 : [크라운]');
+
+    // 편성을 바꾸면 지난 계산의 값이라 그대로 믿을 수 없다 — 비운다.
+    chooseCharacter(root, 1, '프리바티');
+    expect(shown()).toBe('크확 대상 : []');
   });
 
   it('gives each slot a target button instead of a dropdown, and one shared picker', () => {
