@@ -171,7 +171,7 @@ describe('calculator UI', () => {
     const modal = root.querySelector<HTMLElement>('[data-share-modal]')!;
     expect(modal.hidden).toBe(false);
     expect(root.querySelector<HTMLInputElement>('[data-preset-name]')).toBe(document.activeElement);
-    expect(modal.textContent).toContain('개인 스펙과 전투 조건은 코드에 담기지 않습니다');
+    expect(modal.textContent).toContain('개인 스펙과 전투 조건은 담기지 않습니다');
 
     const name = root.querySelector<HTMLInputElement>('[data-preset-name]')!;
     name.value = '솔레 1군';
@@ -557,12 +557,32 @@ describe('calculator UI', () => {
     expect(panel.hidden).toBe(true);
   });
 
+  it('keeps burst chips outside the panel, next to the button that opens it', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const bar = root.querySelector<HTMLElement>('.picker-bar')!;
+    const burst = [...bar.querySelectorAll<HTMLButtonElement>('[data-burst-group] .filter-chip')];
+    expect(burst.map((chipEl) => chipEl.textContent)).toEqual(['B1', 'B2', 'B3', 'BA']);
+    // 판 안에는 더 이상 버스트가 없다.
+    expect(root.querySelector('[data-filter-groups] [data-filter-chip^="burst"]')).toBeNull();
+
+    // 판을 펼치지 않고 바로 걸린다.
+    expect(root.querySelector<HTMLElement>('[data-filter-panel]')!.hidden).toBe(true);
+    const b3 = catalog.filter((meta) => meta.burstStage === '3').map((meta) => meta.name);
+    chip(root, 'burst', '3').click();
+    expect(rosterNames(root).sort()).toEqual([...b3].sort());
+    expect(root.querySelector('[data-filter-badge]')!.textContent).toBe('1');
+    expect(root.querySelector('[data-filter-summary]')!.textContent).toContain('B3');
+
+    chip(root, 'burst', '3').click();
+    expect(rosterNames(root).length).toBe(catalog.length);
+  });
+
   it('drops the favorite-item filter', () => {
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
     expect(root.querySelector('[data-filter-chip^="favorite"]')).toBeNull();
     const titles = [...root.querySelectorAll('[data-filter-groups] .filter-title')]
       .map((title) => title.textContent);
-    expect(titles).toEqual(['버스트', '등급', '클래스', '코드', '무기', '기업']);
+    expect(titles).toEqual(['등급', '클래스', '코드', '무기', '기업']);
   });
 
   it('empties just the deck being viewed', () => {

@@ -1,0 +1,16 @@
+name = "nikke-calc-share"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+
+# 사이트에서 부를 수 있는 오리진. 여기 없는 오리진에는 CORS 헤더를 주지 않는다.
+[vars]
+ALLOWED_ORIGINS = "https://moris-kr.github.io,http://localhost:5173,http://127.0.0.1:5173"
+# 투표자 식별용 소금. 이게 바뀌면 «누가 이미 눌렀나»가 전부 초기화된다(표 자체는 남는다).
+# 진짜 비밀로 두려면 vars에서 지우고 `npx wrangler secret put VOTE_SALT`로 넣는다.
+VOTE_SALT = "nikke-calc-share"
+
+# 목록·투표가 여기 들어간다. id는 아래 명령으로 만든 뒤 붙여넣는다.
+#   npx wrangler kv namespace create SHARE
+[[kv_namespaces]]
+binding = "SHARE"
+id = "PUT_KV_NAMESPACE_ID_HERE"

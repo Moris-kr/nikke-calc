@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>공유 판 미리보기 (dev 전용)</title>
+<link rel="stylesheet" href="src/styles.css" />
+<style>
+  .prev-shell { width: min(1100px, calc(100% - 40px)); margin: 0 auto; padding: 28px 0 60px; }
+  .prev-stage { display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; padding: 24px 0;
+    border: 1px dashed rgba(146,176,201,.16); border-radius: 14px; }
+  .prev-stage .custom-card { max-height: none; }
+</style>
+</head>
+<body>
+<div class="prev-shell">
+  <p class="eyebrow">dev 전용 · <span>실제 share-panel 모듈</span></p>
+  <h1 style="margin:0 0 18px;font-size:24px;">공유 판 미리보기</h1>
+  <div class="prev-stage">
+    <div class="custom-card" role="dialog" aria-label="전투 조건 공유">
+      <div class="custom-head"><h2>전투 조건 공유</h2><button type="button" class="custom-close">✕</button></div>
+      <p class="custom-desc">전투 시간·적 코드·코어 같은 «어떤 상황에서 쟀나»를 주고받습니다.</p>
+      <div class="share-tabs" data-boss-tabs></div>
+      <div class="share-pane" data-boss-pane="upload" hidden></div>
+      <div class="share-pane" data-boss-pane="list" hidden></div>
+      <div class="share-pane" data-boss-pane="code">
+        <div class="squad-code-block">
+          <h4>내 전투 조건 코드</h4>
+          <textarea class="custom-json" rows="2" readonly>NK3-8f2a91c4e7…</textarea>
+        </div>
+      </div>
+      <p class="custom-msg" data-boss-msg hidden></p>
+    </div>
+  </div>
+</div>
+<script type="module" src="./share-preview.ts"></script>
+</body>
+</html>

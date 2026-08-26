@@ -39,6 +39,8 @@ import {
 import {
   applyShareToDecks, decodeBattleCode, decodeShareCode, encodeBattleCode, encodeShareCode,
 } from './share-code';
+import { mountSharePanel, type SharePanel } from './share-panel';
+import { ShareServer, summarizeBattle, summarizeSquad } from './share-server';
 import { createTimelineBlock } from './timeline';
 import {
   aggregateDeckResults,
@@ -221,6 +223,9 @@ function renderCharacterRows(container: HTMLElement, entry: DeckResultEntry): vo
 // 그리지 않는다 — 프록시 없이 브라우저에서 직접 부르면 CORS와 로그인 세션 두 가지가 동시에
 // 막아 반드시 실패한다(`worker/README.md`).
 const BLABLA_PROXY = (import.meta.env.VITE_BLABLA_PROXY ?? '').trim().replace(/\/+$/, '');
+// 설정 공유 서버(`worker-share/`). 비어 있으면 공유 모달이 코드 주고받기만 그린다 —
+// 서버 없이 부르면 반드시 실패하므로 탭을 만들어 두는 쪽이 더 헷갈린다.
+const SHARE_API = (import.meta.env.VITE_SHARE_API ?? '').trim().replace(/\/+$/, '');
 
 export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies): () => void {
   const { catalog, settings, version, client, storage, reload } = deps;
@@ -446,6 +451,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
                 <b class="filter-badge" data-filter-badge hidden></b>
                 <span class="filter-caret" aria-hidden="true">▾</span>
               </button>
+              <!-- 버스트는 가장 자주 거르는 축이라 판 안에 넣지 않는다 — 판을 펼치지
+                   않고 바로 누를 수 있어야 한다. -->
+              <div class="filter-chips burst-chips" data-burst-group></div>
               <button type="button" class="filter-reset" data-filter-reset hidden>필터 지우기</button>
               <span class="filter-summary" data-filter-summary></span>
             </div>
@@ -551,16 +559,21 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       <div class="custom-modal" data-battle-share-modal hidden>
         <div class="custom-card" role="dialog" aria-label="전투 조건 공유">
           <div class="custom-head"><h2>전투 조건 공유</h2><button type="button" class="custom-close" data-battle-share-close aria-label="닫기">✕</button></div>
-          <p class="custom-desc">전투 시간·적 코드·코어·족자·속저·난수 처리 같은 <b>«어떤 상황에서 쟀나»를 코드 한 줄로</b> 주고받습니다. <b>콘솔은 담기지 않습니다</b> — 계정 육성 상태라 남의 값이 딸려 오면 자기 스펙으로 잰 결과가 아니게 됩니다. 편성과 개인 스펙도 담기지 않습니다(그쪽은 «조합 공유»).</p>
-          <div class="squad-code-block">
-            <h4>내 전투 조건 코드</h4>
-            <textarea class="share-out" data-battle-share-out readonly rows="3"></textarea>
-            <button type="button" class="share-copy" data-battle-share-copy>코드 복사</button>
-          </div>
-          <div class="squad-code-block">
-            <h4>받은 코드 적용</h4>
-            <textarea class="share-in" data-battle-share-in rows="3" placeholder="NK3- 로 시작하는 코드를 붙여넣으세요"></textarea>
-            <button type="button" class="share-apply" data-battle-share-apply>적용</button>
+          <p class="custom-desc">전투 시간·적 코드·코어·족자·속저·난수 처리 같은 <b>«어떤 상황에서 쟀나»</b>를 주고받습니다. <b>콘솔은 담기지 않습니다</b> — 계정 육성 상태라 남의 값이 딸려 오면 자기 스펙으로 잰 결과가 아니게 됩니다. 편성과 개인 스펙도 담기지 않습니다(그쪽은 «조합 공유»).</p>
+          ${SHARE_API ? '<div class="share-tabs" data-battle-share-tabs></div>' : ''}
+          <div class="share-pane" data-battle-share-pane="upload" hidden></div>
+          <div class="share-pane" data-battle-share-pane="list" hidden></div>
+          <div class="share-pane" data-battle-share-pane="code">
+            <div class="squad-code-block">
+              <h4>내 전투 조건 코드</h4>
+              <textarea class="share-out" data-battle-share-out readonly rows="3"></textarea>
+              <button type="button" class="share-copy" data-battle-share-copy>코드 복사</button>
+            </div>
+            <div class="squad-code-block">
+              <h4>받은 코드 적용</h4>
+              <textarea class="share-in" data-battle-share-in rows="3" placeholder="NK3- 로 시작하는 코드를 붙여넣으세요"></textarea>
+              <button type="button" class="share-apply" data-battle-share-apply>적용</button>
+            </div>
           </div>
           <p class="share-msg" data-battle-share-msg hidden></p>
         </div>
@@ -577,7 +590,11 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       <div class="custom-modal" data-share-modal hidden>
         <div class="custom-card" role="dialog" aria-label="조합 공유">
           <div class="custom-head"><h2>조합 공유</h2><button type="button" class="custom-close" data-share-close aria-label="닫기">✕</button></div>
-          <p class="custom-desc">누가 편성됐는지(캐릭터 조합)만 코드 한 줄로 주고받습니다. 5덱 모드면 5개 덱이 한 번에 담깁니다. <b>오버로드·공격력·돌파 같은 개인 스펙과 전투 조건은 코드에 담기지 않습니다</b> — 코드를 적용하면 캐릭터만 바뀌고 스펙은 각자 자기 설정(CSV 로스터를 넣었다면 그 값)이 그대로 쓰입니다. 서버로 전송되지 않습니다.</p>
+          <p class="custom-desc">누가 편성됐는지(캐릭터 조합)만 주고받습니다. 5덱 모드면 5개 덱이 한 번에 담깁니다. <b>오버로드·공격력·돌파 같은 개인 스펙과 전투 조건은 담기지 않습니다</b> — 적용하면 캐릭터만 바뀌고 스펙은 각자 자기 설정(CSV 로스터를 넣었다면 그 값)이 그대로 쓰입니다. ${SHARE_API ? '<b>서버로는 «올리기»를 누를 때만 전송됩니다.</b>' : '서버로 전송되지 않습니다.'}</p>
+          ${SHARE_API ? '<div class="share-tabs" data-share-tabs></div>' : ''}
+          <div class="share-pane" data-share-pane="upload" hidden></div>
+          <div class="share-pane" data-share-pane="list" hidden></div>
+          <div class="share-pane" data-share-pane="code">
           <div class="squad-code-block">
             <h4>내 조합 코드</h4>
             <textarea class="custom-json" data-share-out rows="3" readonly></textarea>
@@ -600,6 +617,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
               <button type="button" class="deck-copy-apply" data-preset-save>저장</button>
             </div>
             <div class="preset-list" data-preset-list></div>
+          </div>
           </div>
           <p class="custom-msg" data-share-msg hidden></p>
         </div>
@@ -1547,6 +1565,17 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     return messages;
   };
 
+  // ── 설정 공유 서버 ──────────────────────────────────────────────────────
+  // 전투 조건과 조합이 같은 서버·같은 판을 쓴다. 주소가 없으면 판을 아예 만들지
+  // 않고 코드 주고받기만 남는다.
+  const shareServer = SHARE_API ? new ShareServer(SHARE_API) : null;
+  const sharePanelHosts = (prefix: 'share' | 'battle-share') => ({
+    tabs: element<HTMLElement>(root, `[data-${prefix}-tabs]`),
+    upload: element<HTMLElement>(root, `[data-${prefix}-pane="upload"]`),
+    list: element<HTMLElement>(root, `[data-${prefix}-pane="list"]`),
+    code: element<HTMLElement>(root, `[data-${prefix}-pane="code"]`),
+  });
+
   // ── 조합 공유 코드 ──────────────────────────────────────────────────────
   const shareModal = element<HTMLElement>(root, '[data-share-modal]');
   const shareOut = element<HTMLTextAreaElement>(root, '[data-share-out]');
@@ -1753,7 +1782,12 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     shareIn.value = '';
     showShareMsg('');
     shareModal.hidden = false;
-    if (focusPreset) presetName.focus();
+    squadSharePanel?.open();
+    // 프리셋은 «코드» 탭 안에 있다 — 겨냥해 열었으면 그 탭으로 간다.
+    if (focusPreset) {
+      root.querySelector<HTMLButtonElement>('[data-share-tab="code"]')?.click();
+      presetName.focus();
+    }
   };
   element<HTMLButtonElement>(root, '[data-share-open]').addEventListener('click', () => {
     openShareModal();
@@ -1812,6 +1846,23 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   element<HTMLButtonElement>(root, '[data-share-apply]').addEventListener('click', () => {
     applyShareText(shareIn.value);
   });
+  const squadSharePanel: SharePanel | null = shareServer && mountSharePanel(
+    sharePanelHosts('share'),
+    {
+      kind: 'squad',
+      server: shareServer,
+      current: () => ({
+        code: encodeShareCode(decks, fiveDeckMode),
+        auto: summarizeSquad(decks, fiveDeckMode),
+      }),
+      // applyShareText가 제외된 니케까지 세어 자기 말로 알린다 — 그대로 쓴다.
+      apply: (item) => {
+        applyShareText(item.code);
+        refreshShareFields();
+      },
+      notify: showShareMsg,
+    },
+  );
   element<HTMLButtonElement>(root, '[data-share-url-copy]').addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(shareUrl.value);
@@ -2064,11 +2115,37 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     battleShareMsg.classList.toggle('is-ok', ok);
   };
 
+  /** 받은 전투 조건을 얹는다. 콘솔은 코드에 없으므로 내 값을 그대로 둔다. */
+  const applyBattleCode = (code: string): void => {
+    const applied = decodeBattleCode(code);
+    writeBattle({ ...applied, console: readBattle().console });
+    corePxInput.disabled = !applied.coreEnabled;
+    saveState();
+    showErrors([]);
+  };
+  const battleSharePanel: SharePanel | null = shareServer && mountSharePanel(
+    sharePanelHosts('battle-share'),
+    {
+      kind: 'boss',
+      server: shareServer,
+      current: () => ({
+        code: encodeBattleCode(readBattle(), settings.normalHitCoeff ?? {}),
+        auto: summarizeBattle(readBattle()),
+      }),
+      apply: (item) => {
+        applyBattleCode(item.code);
+        showBattleShareMsg(`«${item.name}»을(를) 적용했습니다. 콘솔은 내 값 그대로입니다.`, true);
+      },
+      notify: showBattleShareMsg,
+    },
+  );
+
   element<HTMLButtonElement>(root, '[data-battle-share-open]').addEventListener('click', () => {
     battleShareOut.value = encodeBattleCode(readBattle(), settings.normalHitCoeff ?? {});
     battleShareIn.value = '';
     showBattleShareMsg('');
     battleShareModal.hidden = false;
+    battleSharePanel?.open();
   });
   element<HTMLButtonElement>(root, '[data-battle-share-close]').addEventListener('click', () => {
     battleShareModal.hidden = true;
@@ -2087,12 +2164,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   });
   element<HTMLButtonElement>(root, '[data-battle-share-apply]').addEventListener('click', () => {
     try {
-      // 콘솔은 코드에 없다 — 지금 내 값을 그대로 둔다.
-      const applied = decodeBattleCode(battleShareIn.value);
-      writeBattle({ ...applied, console: readBattle().console });
-      corePxInput.disabled = !applied.coreEnabled;
-      saveState();
-      showErrors([]);
+      applyBattleCode(battleShareIn.value);
       showBattleShareMsg('전투 조건을 적용했습니다. 콘솔은 내 값 그대로입니다.', true);
     } catch (error) {
       showBattleShareMsg(error instanceof Error ? error.message : String(error));
@@ -2174,8 +2246,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     }
   };
 
+  /** 버스트만 판 밖에 있다 — 값은 여기 두고 그리는 자리만 다르다. */
+  const BURST_VALUES = ['1', '2', '3', 'A'];
   const FILTER_GROUPS: Array<{ key: FilterKey; title: string; values: string[] }> = [
-    { key: 'burst', title: '버스트', values: ['1', '2', '3'] },
     { key: 'rarity', title: '등급', values: ['SSR', 'SR', 'R'] },
     { key: 'class', title: '클래스', values: ['화력형', '방어형', '지원형'] },
     { key: 'code', title: '코드', values: ['작열', '수냉', '풍압', '전격', '철갑'] },
@@ -2222,16 +2295,38 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     const label = SORTS.find((s) => s.key === sortKey)?.label;
     const pending = sortKey === 'power' && Object.keys(combatPower).length === 0;
     parts.push(`${label}${pending ? ' 계산중' : sortDesc ? ' ▼' : ' ▲'}`);
-    for (const group of FILTER_GROUPS) {
-      const set = picked[group.key];
+    for (const key of ['burst', ...FILTER_GROUPS.map((group) => group.key)] as FilterKey[]) {
+      const set = picked[key];
       if (set.size > 0) {
-        parts.push([...set].map((v) => labelOf(group.key, v)).join('·'));
+        parts.push([...set].map((value) => labelOf(key, value)).join('·'));
       }
     }
     filterSummary.textContent = parts.join(' · ');
   };
 
+  /** 필터 칩 하나. 같은 칩을 다시 누르면 꺼진다 — 「전체」 칩을 따로 두지 않아도 된다. */
+  const filterChip = (key: FilterKey, value: string): HTMLButtonElement => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    const on = picked[key].has(value);
+    chip.className = 'filter-chip' + (on ? ' is-on' : '');
+    chip.dataset.filterChip = `${key}:${value}`;
+    chip.setAttribute('aria-pressed', String(on));
+    chip.textContent = labelOf(key, value);
+    chip.addEventListener('click', () => {
+      if (on) picked[key].delete(value);
+      else picked[key].add(value);
+      renderFilterPanel();
+      renderFilterState();
+      renderRosterGrid();
+    });
+    return chip;
+  };
+
   const renderFilterPanel = () => {
+    const burstBox = element<HTMLElement>(root, '[data-burst-group]');
+    burstBox.replaceChildren(...BURST_VALUES.map((value) => filterChip('burst', value)));
+
     const sortBox = element<HTMLElement>(root, '[data-sort-group]');
     sortBox.replaceChildren();
     for (const option of SORTS) {
@@ -2266,23 +2361,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       section.append(createText('p', group.title, 'filter-title'));
       const chips = document.createElement('div');
       chips.className = 'filter-chips';
-      for (const value of group.values) {
-        const chip = document.createElement('button');
-        chip.type = 'button';
-        const on = picked[group.key].has(value);
-        chip.className = 'filter-chip' + (on ? ' is-on' : '');
-        chip.dataset.filterChip = `${group.key}:${value}`;
-        chip.textContent = labelOf(group.key, value);
-        chip.addEventListener('click', () => {
-          // 같은 칩을 다시 누르면 꺼진다 — 「전체」 칩을 따로 두지 않아도 된다.
-          if (on) picked[group.key].delete(value);
-          else picked[group.key].add(value);
-          renderFilterPanel();
-          renderFilterState();
-          renderRosterGrid();
-        });
-        chips.append(chip);
-      }
+      chips.append(...group.values.map((value) => filterChip(group.key, value)));
       section.append(chips);
       box.append(section);
     }
