@@ -25,8 +25,10 @@ describe('generated browser runtime', () => {
     ) as RuntimeManifest;
 
     expect(manifest.version).toMatch(/^[a-f0-9]{16}$/);
-    expect(manifest.files).toHaveLength(22);
+    expect(manifest.files).toHaveLength(23);
     expect(manifest.files).toContain('context/growth.py');
+    // 브리지가 import하는 모듈이 목록에서 빠지면 엔진 초기화가 통째로 실패한다.
+    expect(manifest.files).toContain('calculator/combat_power.py');
     for (const file of manifest.files) {
       expect(readFileSync(join(publicDir, 'runtime', file)).byteLength).toBeGreaterThan(0);
     }
