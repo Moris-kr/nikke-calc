@@ -240,6 +240,65 @@ describe('share panel', () => {
     expect(server.applies).toEqual(['a1']);
   });
 
+  it('filters the list by name, uploader, or description', async () => {
+    const server = new FakeServer();
+    server.reply = {
+      items: [
+        item({ id: 'a1', name: '솔레 3페', by: '모리스', auto: '90초 · 적 수냉' }),
+        item({ id: 'a2', name: '유니온 레이드', by: '', auto: '60초 · 무속성' }),
+        item({ id: 'a3', name: '심층전', by: '니케초보', auto: '150초 · 적 작열' }),
+      ],
+      mine: {},
+      applied: {},
+    };
+    const { host, panel } = mount(server);
+    panel.open();
+    await flush();
+
+    const rows = () => [...host.querySelectorAll<HTMLElement>('[data-share-item]')]
+      .map((row) => row.dataset.shareItem);
+    const search = host.querySelector<HTMLInputElement>('[data-share-search]')!;
+    expect(rows()).toHaveLength(3);
+
+    const type = (text: string) => {
+      search.value = text;
+      search.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    // 이름으로.
+    type('심층');
+    expect(rows()).toEqual(['a3']);
+    // 업로더로.
+    type('모리스');
+    expect(rows()).toEqual(['a1']);
+    // 설명으로.
+    type('무속성');
+    expect(rows()).toEqual(['a2']);
+    // 없으면 그렇다고 적는다.
+    type('없는이름');
+    expect(rows()).toEqual([]);
+    expect(host.querySelector('[data-share-rows]')!.textContent).toContain('검색과 일치하는');
+    // 비우면 다 돌아온다.
+    type('');
+    expect(rows()).toHaveLength(3);
+  });
+
+  it('keeps the search box alive while the list redraws', async () => {
+    const server = new FakeServer();
+    server.reply = { items: [item({ up: 5 })], mine: {}, applied: {} };
+    const { host, panel } = mount(server);
+    panel.open();
+    await flush();
+    const search = host.querySelector<HTMLInputElement>('[data-share-search]')!;
+    search.value = '솔레';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // 엄지를 눌러 목록이 다시 그려져도 같은 입력칸이고 친 글자도 그대로다.
+    host.querySelector<HTMLButtonElement>('[data-vote="a1:1"]')!.click();
+    await flush();
+    expect(host.querySelector('[data-share-search]')).toBe(search);
+    expect(search.value).toBe('솔레');
+  });
+
   it('requires a name, sends the auto summary, and never sends before the button', async () => {
     const server = new FakeServer();
     const { host, panel } = mount(server);

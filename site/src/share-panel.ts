@@ -95,6 +95,17 @@ export function squadPreview(
   return box;
 }
 
+/**
+ * 검색 — 이름·업로더·설명 어디에 걸려도 통과시킨다. 목록이 길어지면 «내가 아는 이름»
+ * 으로 찾는 게 가장 빠른데, 그 이름이 셋 중 어디에 있는지는 사람마다 다르다.
+ */
+export function filterShareItems(items: ShareItem[], query: string): ShareItem[] {
+  const needle = query.trim().toLowerCase();
+  if (needle === '') return items;
+  return items.filter((item) => [item.name, item.by, item.auto]
+    .some((field) => field.toLowerCase().includes(needle)));
+}
+
 /** 인기순 — 엄지 차이로 세우고, 같으면 새것이 앞이다. */
 export function rankItems(items: ShareItem[]): ShareItem[] {
   return [...items].sort((a, b) => (b.up - b.down) - (a.up - a.down)
@@ -109,10 +120,25 @@ export function mountSharePanel(hosts: SharePanelHosts, deps: SharePanelDeps): S
   let loaded = false;
   let loading = false;
   let listError = '';
+  let query = '';
 
   const panes: Record<TabKey, HTMLElement> = {
     list: hosts.list, upload: hosts.upload, code: hosts.code,
   };
+
+  // 검색줄은 딱 한 번 만든다 — 목록을 다시 그릴 때마다 새로 만들면 한 글자 칠 때마다
+  // 입력칸이 갈려 커서가 튄다.
+  const toolbar = el('div', 'share-toolbar');
+  const search = el('input', 'share-search');
+  search.type = 'search';
+  search.placeholder = '이름 · 업로더 · 설명으로 찾기';
+  search.autocomplete = 'off';
+  search.setAttribute('aria-label', '공유된 설정 검색');
+  search.dataset.shareSearch = '';
+  search.addEventListener('input', () => { query = search.value; renderRows(); });
+  toolbar.append(search);
+  const rowsHost = el('div');
+  rowsHost.dataset.shareRows = '';
 
   const showTab = (next: TabKey) => {
     tab = next;
@@ -175,7 +201,7 @@ export function mountSharePanel(hosts: SharePanelHosts, deps: SharePanelDeps): S
     if (after === 1) item.up += 1;
     if (after === -1) item.down += 1;
     mine[item.id] = after;
-    renderList();
+    renderRows();
     try {
       const result = await deps.server.vote(deps.kind, item.id, after);
       item.up = result.up;
@@ -187,7 +213,7 @@ export function mountSharePanel(hosts: SharePanelHosts, deps: SharePanelDeps): S
       mine[item.id] = undo.mine;
       deps.notify(error instanceof Error ? error.message : String(error));
     }
-    renderList();
+    renderRows();
   }
 
   function voteButton(item: ShareItem, want: 1 | -1): HTMLButtonElement {
@@ -225,8 +251,19 @@ export function mountSharePanel(hosts: SharePanelHosts, deps: SharePanelDeps): S
       hosts.list.append(el('p', 'share-empty', '아직 올라온 설정이 없습니다. 첫 번째로 올려 보세요.'));
       return;
     }
+    hosts.list.append(toolbar, rowsHost);
+    renderRows();
+  }
+
+  function renderRows(): void {
+    rowsHost.replaceChildren();
+    const shown = filterShareItems(items, query);
+    if (shown.length === 0) {
+      rowsHost.append(el('p', 'share-empty', '검색과 일치하는 설정이 없습니다.'));
+      return;
+    }
     const box = el('div', 'share-list');
-    for (const item of rankItems(items)) {
+    for (const item of rankItems(shown)) {
       const row = el('div', 'share-item');
       row.dataset.shareItem = item.id;
 
@@ -267,10 +304,10 @@ export function mountSharePanel(hosts: SharePanelHosts, deps: SharePanelDeps): S
       row.append(body, votes, apply);
       box.append(row);
     }
-    hosts.list.append(box);
-    hosts.list.append(el(
+    rowsHost.append(box);
+    rowsHost.append(el(
       'p', 'share-foot',
-      '엄지는 IP당 한 표입니다 — 다시 누르면 취소, 반대쪽을 누르면 갈아탑니다.',
+      `${shown.length}개 · 엄지는 IP당 한 표입니다 — 다시 누르면 취소, 반대쪽을 누르면 갈아탑니다.`,
     ));
   }
 
@@ -284,17 +321,17 @@ export function mountSharePanel(hosts: SharePanelHosts, deps: SharePanelDeps): S
     if (!already) {
       item.uses += 1;
       applied[item.id] = 1;
-      renderList();
+      renderRows();
     }
     try {
       const result = await deps.server.apply(deps.kind, item.id);
       item.uses = result.uses;
-      renderList();
+      renderRows();
     } catch {
       if (!already) {
         item.uses = Math.max(0, item.uses - 1);
         delete applied[item.id];
-        renderList();
+        renderRows();
       }
     }
   }
