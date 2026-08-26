@@ -23,6 +23,11 @@ export interface SharePanelDeps {
   apply: (item: ShareItem) => void;
   /** 모달마다 자기 자리에 적는 알림. */
   notify: (message: string, ok?: boolean) => void;
+  /**
+   * 한 줄 설명 대신 보여 줄 그림. 조합은 이름을 늘어놓는 것보다 초상화가 빠르다.
+   * 못 만들면(코드가 깨졌거나 그림이 없으면) null을 주고, 그때는 설명 줄을 쓴다.
+   */
+  preview?: (item: ShareItem) => HTMLElement | null;
 }
 
 export interface SharePanel {
@@ -53,6 +58,41 @@ export function agoText(iso: string, now = Date.now()): string {
   const days = Math.floor(hours / 24);
   if (days < 30) return `${days}일 전`;
   return new Date(at).toLocaleDateString('ko-KR');
+}
+
+/**
+ * 조합 미리보기 — 이름 줄 대신 초상화로 «누가 들었나»를 한눈에 보인다.
+ * 덱이 하나뿐이면 «1덱» 딱지는 붙이지 않는다. 그때는 셀 것이 없다.
+ */
+export function squadPreview(
+  decks: string[][],
+  imageOf: (name: string) => string | undefined,
+): HTMLElement {
+  const box = el('div', 'share-decks');
+  const many = decks.length > 1;
+  decks.forEach((squad, index) => {
+    const row = el('div', 'share-deck-row');
+    row.dataset.shareDeck = String(index + 1);
+    if (many) row.append(el('span', 'share-deck-label', `${index + 1}덱`));
+    for (const name of squad) {
+      const source = imageOf(name);
+      if (source) {
+        const image = el('img', 'share-portrait');
+        image.src = source;
+        image.alt = name;
+        image.title = name;
+        image.loading = 'lazy';
+        row.append(image);
+      } else {
+        // 초상화가 없는 니케(직접 추가한 커스텀 등)는 이름 조각으로 자리를 지킨다.
+        const chip = el('span', 'share-portrait-empty', name.slice(0, 4));
+        chip.title = name;
+        row.append(chip);
+      }
+    }
+    box.append(row);
+  });
+  return box;
 }
 
 /** 인기순 — 엄지 차이로 세우고, 같으면 새것이 앞이다. */
@@ -192,7 +232,13 @@ export function mountSharePanel(hosts: SharePanelHosts, deps: SharePanelDeps): S
 
       const body = el('div', 'share-body');
       body.append(el('p', 'share-name', item.name));
-      if (item.auto) body.append(el('p', 'share-auto', item.auto));
+      const preview = deps.preview?.(item) ?? null;
+      if (preview) {
+        preview.title = item.auto;
+        body.append(preview);
+      } else if (item.auto) {
+        body.append(el('p', 'share-auto', item.auto));
+      }
       const by = el('p', 'share-by');
       if (item.by) by.append(el('span', undefined, item.by));
       else by.append(el('span', 'anon', '익명'));

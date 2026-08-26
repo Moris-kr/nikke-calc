@@ -2,7 +2,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { agoText, mountSharePanel, rankItems } from './share-panel';
+import { agoText, mountSharePanel, rankItems, squadPreview } from './share-panel';
 import type { ShareItem, ShareListResult, ShareVoteResult } from './share-server';
 import type { ShareServer } from './share-server';
 
@@ -293,6 +293,47 @@ describe('share panel', () => {
     host.querySelector<HTMLButtonElement>('[data-share-retry]')!.click();
     await flush();
     expect(host.querySelectorAll('[data-share-item]')).toHaveLength(1);
+  });
+});
+
+describe('squad preview', () => {
+  it('draws one row per deck, labelled only when there is more than one', () => {
+    const image = (name: string) => (name === '나가' ? undefined : `img/${name}.webp`);
+    const one = squadPreview([['리타', '크라운']], image);
+    expect(one.querySelectorAll('[data-share-deck]')).toHaveLength(1);
+    // 덱이 하나면 «1덱» 딱지는 붙이지 않는다 — 셀 것이 없다.
+    expect(one.querySelector('.share-deck-label')).toBeNull();
+    expect([...one.querySelectorAll('img')].map((node) => node.getAttribute('alt')))
+      .toEqual(['리타', '크라운']);
+
+    const many = squadPreview([['리타'], ['앨리스', '나가']], image);
+    expect([...many.querySelectorAll('.share-deck-label')].map((node) => node.textContent))
+      .toEqual(['1덱', '2덱']);
+    // 초상화가 없는 니케는 이름 조각으로 자리를 지킨다.
+    const chip = many.querySelector('.share-portrait-empty')!;
+    expect(chip.textContent).toBe('나가');
+    expect(chip.getAttribute('title')).toBe('나가');
+  });
+
+  it('replaces the summary line in the list when a preview is given', async () => {
+    const server = new FakeServer();
+    const { host, panel } = mount(server, {
+      preview: () => {
+        const node = document.createElement('div');
+        node.className = 'share-decks';
+        return node;
+      },
+    });
+    panel.open();
+    await flush();
+    const row = host.querySelector('[data-share-item]')!;
+    expect(row.querySelector('.share-decks')).not.toBeNull();
+    expect(row.querySelector('.share-auto')).toBeNull();
+    // 그림을 못 만들면 설명 줄로 물러난다.
+    const plain = mount(new FakeServer(), { preview: () => null });
+    plain.panel.open();
+    await flush();
+    expect(plain.host.querySelector('.share-auto')!.textContent).toBe('90초 · 적 수냉');
   });
 });
 

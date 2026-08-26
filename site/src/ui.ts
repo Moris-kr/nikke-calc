@@ -39,7 +39,7 @@ import {
 import {
   applyShareToDecks, decodeBattleCode, decodeShareCode, encodeBattleCode, encodeShareCode,
 } from './share-code';
-import { mountSharePanel, type SharePanel } from './share-panel';
+import { mountSharePanel, squadPreview, type SharePanel } from './share-panel';
 import { ShareServer, summarizeBattle, summarizeSquad } from './share-server';
 import { createTimelineBlock } from './timeline';
 import {
@@ -485,14 +485,6 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             </div>
             <p class="roster-note" data-roster-note hidden></p>
           </div>
-          <!-- 실행은 편성 바로 위에 둔다. 조건 패널 맨 아래에 있던 시절에는 편성을
-               고치고 나서 화면 끝까지 내려가야 누를 수 있었다. -->
-          <div class="run-row">
-            <button class="calculate-button" type="submit"><span>시뮬레이션 실행</span><b aria-hidden="true">→</b></button>
-            <button type="button" class="clear-cache" data-clear-cache title="같은 조건에 저장된 결과를 지우고 다음 실행부터 새로 계산합니다">저장된 결과 지우기</button>
-            <p class="status" data-status aria-live="polite">계산 엔진 준비 중…</p>
-          </div>
-          <div class="error-box" data-errors hidden role="alert"></div>
           <div class="deck-tabs" data-deck-tabs hidden></div>
           <div class="deck-controls">
             <span class="deck-moves" data-deck-moves hidden></span>
@@ -553,6 +545,17 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           </section>
         </section>
 
+        <!-- 조건 → 편성 → **실행** → 결과. 두 패널 사이에 두면 위에서 아래로 차례대로
+             누르는 흐름이 그대로 화면 순서가 된다. -->
+        <div class="run-step">
+          <div class="error-box" data-errors hidden role="alert"></div>
+          <div class="run-row">
+            <button class="calculate-button" type="submit"><span>시뮬레이션 실행</span><b aria-hidden="true">→</b></button>
+            <button type="button" class="clear-cache" data-clear-cache title="같은 조건에 저장된 결과를 지우고 다음 실행부터 새로 계산합니다">저장된 결과 지우기</button>
+            <p class="status" data-status aria-live="polite">계산 엔진 준비 중…</p>
+          </div>
+        </div>
+
         <section class="panel result-panel" aria-labelledby="result-heading" data-result-panel>
           <div class="result-empty"><p class="step">03 / RESULT</p><h2 id="result-heading">전투 결과</h2><div class="radar-mark" aria-hidden="true"><i></i><i></i><i></i></div><p>편성과 조건을 확인한 뒤<br />시뮬레이션을 실행해 주세요.</p></div>
         </section>
@@ -567,7 +570,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       <div class="custom-modal" data-history-modal hidden>
         <div class="custom-card roster-card" role="dialog" aria-label="계산 기록">
           <div class="custom-head"><h2>계산 기록</h2><button type="button" class="custom-close" data-history-close aria-label="닫기">✕</button></div>
-          <p class="custom-desc">결과에서 «결과 기록»을 누른 시점의 편성과 수치가 이 브라우저에 남습니다. 편성을 되살려 그때 조합으로 돌아갈 수 있습니다. <b>수치는 그때의 스펙·전투 조건으로 낸 값</b>이라, 지금 설정과 다르면 다시 계산해야 맞습니다.</p>
+          <p class="custom-desc">결과에서 «결과 저장»을 누른 시점의 편성과 수치가 이 브라우저에 남습니다. 편성을 되살려 그때 조합으로 돌아갈 수 있습니다. <b>수치는 그때의 스펙·전투 조건으로 낸 값</b>이라, 지금 설정과 다르면 다시 계산해야 맞습니다.</p>
           <div class="history-list" data-history-list></div>
         </div>
       </div>
@@ -1806,7 +1809,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const renderHistory = () => {
     historyList.replaceChildren();
     if (calcHistory.length === 0) {
-      historyList.append(createText('p', '아직 기록이 없습니다. 결과에서 «결과 기록»을 눌러 주세요.', 'preset-empty'));
+      historyList.append(createText('p', '아직 저장된 결과가 없습니다. 결과에서 «결과 저장»을 눌러 주세요.', 'preset-empty'));
       return;
     }
     for (const entry of calcHistory) {
@@ -1949,6 +1952,23 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         refreshShareFields();
       },
       notify: showShareMsg,
+      // 조합은 이름을 늘어놓는 것보다 초상화가 빠르다. 코드를 그 자리에서 풀어
+      // 덱마다 한 줄씩 세운다 — 못 풀면 설명 줄로 물러난다.
+      preview: (item) => {
+        try {
+          const payload = decodeShareCode(item.code, catalog.map((char) => char.name));
+          const decks = payload.decks
+            .map((deck) => deck.squad.filter((name) => name.trim() !== ''))
+            .filter((squad) => squad.length > 0);
+          if (decks.length === 0) return null;
+          return squadPreview(decks, (name) => {
+            const image = catalogByName.get(name)?.image;
+            return image ? `${import.meta.env.BASE_URL}${image}` : undefined;
+          });
+        } catch {
+          return null;
+        }
+      },
     },
   );
   element<HTMLButtonElement>(root, '[data-share-url-copy]').addEventListener('click', async () => {
@@ -2072,14 +2092,14 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     historySave.type = 'button';
     historySave.className = 'report-open';
     historySave.dataset.historySave = '';
-    historySave.textContent = '결과 기록';
+    historySave.textContent = '결과 저장';
     historySave.title = '이때의 편성과 수치를 이 브라우저에 남깁니다';
     historySave.addEventListener('click', () => saveHistory(batch));
     const historyOpen = document.createElement('button');
     historyOpen.type = 'button';
     historyOpen.className = 'report-open';
     historyOpen.dataset.historyOpen = '';
-    historyOpen.textContent = '기록 보기';
+    historyOpen.textContent = '결과 불러오기';
     historyOpen.addEventListener('click', () => { renderHistory(); historyModal.hidden = false; });
     reportTools.append(historySave, historyOpen, reportButton);
     resultPanel.append(reportTools);
