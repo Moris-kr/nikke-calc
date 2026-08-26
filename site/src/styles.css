@@ -305,6 +305,8 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .filter-chip:hover { border-color: rgba(69,214,208,.5); color: var(--ink); }
 .filter-chip.is-on { border-color: var(--cyan); background: rgba(69,214,208,.16); color: #d9f4f2; }
 /* 정렬은 하나만 고른다 — 켜진 칩을 앰버로 구분해 다중선택 필터와 헷갈리지 않게 한다. */
+[data-sort-group] .filter-chip { display: inline-flex; align-items: center; gap: 5px; }
+.sort-caret { font-size: 8px; line-height: 1; }
 [data-sort-group] .filter-chip.is-on { border-color: var(--amber); background: rgba(255,191,60,.14); color: var(--amber); }
 
 /* ENIKK 제외 니케 — 안 가진 니케가 낀 덱을 목록에서 걷어낸다. */

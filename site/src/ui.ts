@@ -2113,15 +2113,21 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   };
   type SortKey = 'name' | 'element' | 'elementAtk';
   let sortKey: SortKey = 'name';
+  // 같은 항목을 다시 누르면 뒤집는다. 항목마다 «자연스러운» 방향이 달라서
+  // (이름은 가나다순, 수치는 높은 순) 처음 고를 때는 그 방향으로 잡는다.
+  let sortDesc = false;
 
   // ── 정렬 · 필터 판 ──────────────────────────────────────────────────────
   // 정렬은 «내 로스터에서 이 캐릭터가 얼마나 굴려졌나»를 본다. 오버로드 수치가
   // 그 척도라, CSV·프로필로 불러온 내 값이 있으면 그걸 쓰고 없으면 기본 스펙을 쓴다.
   const SORTS: Array<{ key: SortKey; label: string; hint: string }> = [
-    { key: 'name', label: '이름', hint: '가나다순' },
-    { key: 'element', label: '우월코드', hint: '오버로드 우월 코드 대미지가 높은 순' },
-    { key: 'elementAtk', label: '우공합', hint: '우월 코드 + 공격력 증가 합이 높은 순' },
+    { key: 'name', label: '이름', hint: '가나다순 — 다시 누르면 뒤집습니다' },
+    { key: 'element', label: '우월코드', hint: '오버로드 우월 코드 대미지 — 다시 누르면 뒤집습니다' },
+    { key: 'elementAtk', label: '우공합', hint: '우월 코드 + 공격력 증가 합 — 다시 누르면 뒤집습니다' },
   ];
+
+  /** 처음 고를 때의 방향. 이름은 오름차순, 수치는 높은 순이 자연스럽다. */
+  const defaultDesc = (key: SortKey): boolean => key !== 'name';
 
   /** 이 캐릭터에게 실제로 적용될 오버로드 — 내 로스터 값이 우선이다. */
   const overloadOf = (name: string): Record<string, number> =>
@@ -2146,14 +2152,15 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
   function sortRoster(list: CharacterMeta[]): void {
     const byName = (a: CharacterMeta, b: CharacterMeta) => a.name.localeCompare(b.name, 'ko');
-    if (sortKey === 'name') { list.sort(byName); return; }
+    const flip = sortDesc ? -1 : 1;
+    if (sortKey === 'name') { list.sort((a, b) => flip * byName(a, b)); return; }
     const scoreOf = (char: CharacterMeta): number => {
       const over = overloadOf(char.name);
       const element = over.element_bonus ?? 0;
       return sortKey === 'element' ? element : element + (over.atk_pct ?? 0);
     };
-    // 높은 순. 같은 값 안에서는 늘 이름순 — 정렬을 바꿔도 목록이 요동치지 않는다.
-    list.sort((a, b) => scoreOf(b) - scoreOf(a) || byName(a, b));
+    // 같은 값 안에서는 늘 이름순 — 정렬 방향을 바꿔도 동점끼리 요동치지 않는다.
+    list.sort((a, b) => flip * (scoreOf(a) - scoreOf(b)) || byName(a, b));
   }
 
   const filterPanel = element<HTMLElement>(root, '[data-filter-panel]');
@@ -2169,8 +2176,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     filterReset.hidden = count === 0;
     // 판을 접어도 무엇이 걸려 있는지 알 수 있게 요약을 남긴다.
     const parts: string[] = [];
-    if (sortKey !== 'name') {
-      parts.push(`${SORTS.find((s) => s.key === sortKey)?.label}순`);
+    if (sortKey !== 'name' || sortDesc) {
+      const label = SORTS.find((s) => s.key === sortKey)?.label;
+      parts.push(`${label}${sortDesc ? ' ▼' : ' ▲'}`);
     }
     for (const group of FILTER_GROUPS) {
       const set = picked[group.key];
@@ -2187,12 +2195,18 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     for (const option of SORTS) {
       const chip = document.createElement('button');
       chip.type = 'button';
-      chip.className = 'filter-chip' + (sortKey === option.key ? ' is-on' : '');
+      const active = sortKey === option.key;
+      chip.className = 'filter-chip' + (active ? ' is-on' : '');
       chip.dataset.sort = option.key;
-      chip.textContent = option.label;
+      chip.dataset.sortDir = active ? (sortDesc ? 'desc' : 'asc') : '';
+      chip.append(createText('span', option.label));
+      // 삼각형으로 방향을 알린다 — 켜진 항목에만 붙는다.
+      if (active) chip.append(createText('b', sortDesc ? '▼' : '▲', 'sort-caret'));
       chip.title = option.hint;
       chip.addEventListener('click', () => {
-        sortKey = option.key;
+        // 같은 항목을 다시 누르면 뒤집고, 다른 항목이면 그 항목의 기본 방향으로 간다.
+        if (active) sortDesc = !sortDesc;
+        else { sortKey = option.key; sortDesc = defaultDesc(option.key); }
         renderFilterPanel();
         renderFilterState();
         renderRosterGrid();
@@ -2238,6 +2252,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   filterReset.addEventListener('click', () => {
     for (const set of Object.values(picked)) set.clear();
     sortKey = 'name';
+    sortDesc = false;
     renderFilterPanel();
     renderFilterState();
     renderRosterGrid();

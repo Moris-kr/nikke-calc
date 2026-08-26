@@ -469,6 +469,30 @@ describe('calculator UI', () => {
     expect(bySum.indexOf('리타')).toBeLessThan(bySum.indexOf('앨리스'));
   });
 
+  it('flips the sort when the same option is clicked again, and shows which way', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const sortChip = (key: string) =>
+      root.querySelector<HTMLButtonElement>(`[data-sort="${key}"]`)!;
+
+    // 이름은 오름차순으로 시작한다.
+    expect(sortChip('name').dataset.sortDir).toBe('asc');
+    expect(sortChip('name').textContent).toContain('▲');
+    const asc = rosterNames(root);
+
+    // 같은 항목을 다시 누르면 뒤집힌다.
+    sortChip('name').click();
+    expect(sortChip('name').dataset.sortDir).toBe('desc');
+    expect(sortChip('name').textContent).toContain('▼');
+    expect(rosterNames(root)).toEqual([...asc].reverse());
+
+    // 수치 항목은 «높은 순»으로 시작한다 — 항목마다 자연스러운 방향이 다르다.
+    sortChip('element').click();
+    expect(sortChip('element').dataset.sortDir).toBe('desc');
+    // 켜지지 않은 항목에는 삼각형이 없다.
+    expect(sortChip('name').textContent).not.toContain('▲');
+    expect(sortChip('name').textContent).not.toContain('▼');
+  });
+
   it('empties just the deck being viewed', () => {
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
     expect(root.querySelectorAll('[data-slot-choose] strong')[0]!.textContent).toBe('리타');
