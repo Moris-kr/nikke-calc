@@ -119,6 +119,10 @@ h2 { margin: 0; font-size: 24px; letter-spacing: -.035em; }
 
 /* 조합 공유 */
 .squad-code-block { margin: 14px 0 0; }
+/* 전투 조건 모달의 복사·적용 단추. 조합 모달의 것과 같은 모양이어야 한다. */
+.share-copy, .share-apply { padding: 6px 12px; border: 1px solid rgba(69,214,208,.22);
+  background: rgba(69,214,208,.18); color: #d7ecef; font-size: 10px; cursor: pointer; }
+.share-copy:hover, .share-apply:hover { border-color: var(--cyan); background: rgba(69,214,208,.28); }
 .squad-code-block h4 { margin: 0 0 6px; color: var(--cyan); font-size: 12px; }
 .squad-code-block .custom-json { margin: 0 0 8px; }
 
@@ -161,10 +165,14 @@ h2 { margin: 0; font-size: 24px; letter-spacing: -.035em; }
 .custom-btn:hover { background: rgba(69,214,208,.16); }
 .custom-btn.primary { background: var(--amber); border-color: var(--amber); color: #1b1200; }
 .custom-btn.primary:hover { background: var(--amber-hot); }
-.custom-json { width: 100%; margin: 12px 0; padding: 10px; background: rgba(2,9,16,.72); border: 1px solid var(--line); border-radius: 8px; color: var(--ink); font: 12px/1.5 ui-monospace, monospace; resize: vertical; }
+.custom-json,
+.share-out,
+.share-in { width: 100%; margin: 12px 0; padding: 10px; background: rgba(2,9,16,.72); border: 1px solid var(--line); border-radius: 8px; color: var(--ink); font: 12px/1.5 ui-monospace, monospace; resize: vertical; }
 .custom-actions { display: flex; gap: 8px; }
-.custom-msg { margin: 12px 0 0; padding: 9px 12px; background: rgba(255,119,135,.1); border-left: 3px solid var(--danger); color: #ffc2ca; font-size: 12px; line-height: 1.5; }
-.custom-msg.is-ok { background: rgba(69,214,208,.1); border-left-color: var(--cyan); color: #b6e9e6; }
+.custom-msg,
+.share-msg { margin: 12px 0 0; padding: 9px 12px; background: rgba(255,119,135,.1); border-left: 3px solid var(--danger); color: #ffc2ca; font-size: 12px; line-height: 1.5; }
+.custom-msg.is-ok,
+.share-msg.is-ok { background: rgba(69,214,208,.1); border-left-color: var(--cyan); color: #b6e9e6; }
 .custom-list { margin-top: 16px; }
 .custom-list-title { margin: 0 0 8px; color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: .1em; }
 .custom-list-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 6px; }
