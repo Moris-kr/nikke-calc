@@ -298,13 +298,17 @@ class BrowserBridgeTest(unittest.TestCase):
         result = json.loads(run_request(json.dumps(payload, ensure_ascii=False)))
         timeline = result["timeline"]
 
-        self.assertEqual(timeline["bucket"], 1)
-        self.assertEqual(timeline["buckets"], 30)
+        self.assertEqual(timeline["bucket"], 0.1)
+        self.assertEqual(timeline["buckets"], 300)
         for name in payload["squad"]:
             row = timeline["damage"][name]
-            self.assertEqual(len(row), 30)
-            # 버킷 합은 전 구간 대미지와 일치해야 한다 (전투 30초 = 버킷 30개).
+            self.assertEqual(len(row), 300)
+            # 버킷 합은 전 구간 대미지와 일치해야 한다 — 잘게 쪼개도 히트가 새지 않는다
+            # (부동소수 나눗셈이 앞 칸으로 흘리기 쉬운 자리다).
             self.assertEqual(sum(row), result["charTotals"][name])
+        # 전투 마지막 순간(t가 duration에 붙은 값)의 히트도 마지막 칸에 들어간다 —
+        # 잘게 쪼갤수록 이 경계에서 새기 쉬운데, 새면 위 합계가 곧바로 어긋난다.
+        self.assertGreater(sum(timeline["damage"][name][-1] for name in payload["squad"]), 0)
         # 풀버스트 구간과 버스트 사용 시점이 로그에서 채워진다.
         self.assertTrue(timeline["fullBurst"])
         self.assertTrue(any(timeline["bursts"][name] for name in payload["squad"]))

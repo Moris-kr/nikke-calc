@@ -26,6 +26,11 @@ export interface TimelineSeries {
   elementWindows: Array<{ from: number; to: number; code: string }>;
   peak: number;
   buckets: number;
+  /**
+   * 버킷 한 칸의 길이(초). «몇 번째 칸이 몇 초인지»는 전부 이 값으로 환산한다 —
+   * 1초 버킷으로 저장된 옛 결과도 같은 셈으로 그려진다.
+   */
+  bucket: number;
   duration: number;
 }
 
@@ -63,8 +68,22 @@ export function buildSeries(
     elementWindows: phases.elementWindows ?? [],
     peak,
     buckets: timeline.buckets,
+    // 옛 결과에는 이 값이 없을 수 있다 — 그때는 1초 버킷이었다.
+    bucket: timeline.bucket > 0 ? timeline.bucket : 1,
     duration,
   };
+}
+
+/**
+ * 툴팁에 적을 구간. 버킷이 1초면 «12–13초», 0.1초면 «12.3–12.4초»로 적는다 —
+ * 소수 자리는 버킷 크기에서 뽑아, 칸이 더 잘게 쪼개져도 그대로 맞는다.
+ */
+export function formatSpan(index: number, bucket: number): string {
+  // 소수 자리는 버킷 값에서 그대로 센다 — 0.1은 한 자리, 0.25는 두 자리다.
+  const digits = Number.isInteger(bucket)
+    ? 0 : Math.min(3, (String(bucket).split('.')[1] ?? '').length);
+  const from = index * bucket;
+  return `${from.toFixed(digits)}–${(from + bucket).toFixed(digits)}초`;
 }
 
 /** peak 이상이면서 축 눈금으로 깔끔한 상한값. */
@@ -270,7 +289,7 @@ class TimelineChart {
       ctx.beginPath();
       let started = false;
       for (let i = 0; i < row.length; i += 1) {
-        const t = i + 0.5;
+        const t = (i + 0.5) * this.series.bucket;
         if (t < this.view0 - step || t > this.view1 + step) continue;
         const x = this.xFor(t);
         const y = yFor(row[i]!);
@@ -360,7 +379,7 @@ class TimelineChart {
 
     // 호버 크로스헤어 + 포인트
     if (this.hoverIndex !== null) {
-      const t = this.hoverIndex + 0.5;
+      const t = (this.hoverIndex + 0.5) * this.series.bucket;
       if (t >= this.view0 && t <= this.view1) {
         const x = this.xFor(t);
         ctx.strokeStyle = 'rgba(234,242,248,0.35)';
@@ -394,7 +413,7 @@ class TimelineChart {
       `<span class="tl-name">${row.name}</span><span class="tl-val">${formatDamage(row.value)}</span></div>`,
     ).join('');
     this.tooltip.innerHTML =
-      `<div class="tl-tip-time">${index}–${index + 1}초</div>${lines}` +
+      `<div class="tl-tip-time">${formatSpan(index, this.series.bucket)}</div>${lines}` +
       `<div class="tl-tip-total"><span>합계</span><span>${formatDamage(total)}</span></div>`;
     const host = this.canvas.parentElement!.getBoundingClientRect();
     let px = clientX - host.left + 14;
@@ -421,7 +440,7 @@ class TimelineChart {
         return;
       }
       const t = this.tFor(event.clientX - rect.left);
-      const index = Math.round(t - 0.5);
+      const index = Math.floor(t / this.series.bucket);
       this.hoverIndex = index >= 0 && index < this.series.buckets ? index : null;
       this.draw();
       this.showTooltip(event.clientX, event.clientY);

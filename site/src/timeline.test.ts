@@ -2,7 +2,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { buildSeries, createTimelineBlock, niceMax } from './timeline';
+import { buildSeries, createTimelineBlock, formatSpan, niceMax } from './timeline';
 import type { BattleTimeline, DeckResultEntry } from './types';
 
 const timeline: BattleTimeline = {
@@ -122,6 +122,20 @@ describe('buildSeries', () => {
     expect(series?.totals).toEqual({ 라피: 350, 크라운: 0 });
     expect(series?.peak).toBe(200);
     expect(series?.colors['라피']).not.toEqual(series?.colors['크라운']);
+  });
+
+  it('carries the bucket size, and falls back to one second for older results', () => {
+    // 화면이 «몇 번째 칸이 몇 초인지»를 이 값으로 환산한다.
+    expect(buildSeries({ ...timeline, bucket: 0.1 }, ['라피'], 4)?.bucket).toBe(0.1);
+    // 이 값이 없던 시절에 저장된 결과는 1초 버킷이었다.
+    expect(buildSeries({ ...timeline, bucket: 0 }, ['라피'], 4)?.bucket).toBe(1);
+  });
+
+  it('writes the hovered span from the bucket size', () => {
+    // 1초 버킷은 정수로, 0.1초 버킷은 소수 한 자리로 적는다.
+    expect(formatSpan(12, 1)).toBe('12–13초');
+    expect(formatSpan(123, 0.1)).toBe('12.3–12.4초');
+    expect(formatSpan(0, 0.25)).toBe('0.00–0.25초');
   });
 
   it('returns null when there are no buckets or no matching members', () => {

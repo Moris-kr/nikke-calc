@@ -26,16 +26,30 @@ from calculator.timeline import simulate
 from context import spec as char_spec
 
 
+# 타임라인 버킷 크기(초). 1초로 뭉치면 버스트 한 번에 몰린 딜이 통째로 한 칸이 되어
+# «언제 터졌나»가 사라진다. 0.1초면 그 안을 볼 수 있고, 늘어나는 건 배열 칸 수뿐이다
+# (버킷 나누기는 히트를 한 번 훑는 일이라 칸을 몇 개로 쪼개든 비용이 같다).
+TIMELINE_BUCKET = 0.1
+
+
 def _build_timeline(result, names: list[str]) -> dict:
-    """캐릭터별 초당 대미지 · 버스트 시각 · 풀버스트 구간을 1초 버킷으로 요약한다.
+    """캐릭터별 대미지 · 버스트 시각 · 풀버스트 구간을 0.1초 버킷으로 요약한다.
 
     브라우저 타임라인 시각화용. 대미지는 result.hits(항상 채워짐)에서,
     버스트·풀버스트 구간은 verbose 로그(result.log)에서 만든다.
+    버킷 크기는 응답에 함께 실어 보낸다 — 화면이 «몇 번째 칸이 몇 초인지»를
+    그 값으로 환산하므로, 1초 버킷으로 저장된 옛 결과도 그대로 그려진다.
     """
-    buckets = int(math.ceil(result.duration)) if result.duration > 0 else 0
+    buckets = int(math.ceil(result.duration / TIMELINE_BUCKET)) if result.duration > 0 else 0
     damage = {name: [0] * buckets for name in names}
     for hit in result.hits:
-        index = int(hit.t)
+        # 부동소수 나눗셈이 0.3/0.1 = 2.9999…로 떨어져 앞 칸에 붙는 일이 있다 — 보정한다.
+        index = int((hit.t + 1e-9) / TIMELINE_BUCKET)
+        # 그 보정 때문에 마지막 순간(t = 29.999999999999577처럼 duration에 붙은 값)의
+        # 히트가 칸 밖으로 밀려난다. 버리면 버킷 합이 캐릭터 총딜과 어긋나므로
+        # 마지막 칸에 넣는다 — 실제로 그 칸에서 일어난 히트다.
+        if index == buckets:
+            index = buckets - 1
         if 0 <= index < buckets:
             row = damage.get(hit.caster)
             if row is not None:
@@ -58,7 +72,7 @@ def _build_timeline(result, names: list[str]) -> dict:
                 pending_start = None
 
     return {
-        "bucket": 1,
+        "bucket": TIMELINE_BUCKET,
         "buckets": buckets,
         "damage": damage,
         "bursts": bursts,
