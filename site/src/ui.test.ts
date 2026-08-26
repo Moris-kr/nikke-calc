@@ -439,15 +439,34 @@ describe('calculator UI', () => {
     expect(rosterNames(root).length).toBe(catalog.length);
   });
 
-  it('sorts by the picked key, breaking ties by name', () => {
-    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+  it('sorts by overload value, breaking ties by name', () => {
+    // 우월코드·우공합은 «내 로스터에서 얼마나 굴려졌나»를 보는 척도다.
+    const over = (element: number, atk: number) => ({
+      element_bonus: element, atk_pct: atk, max_ammo_pct: 0, crit_rate: 0, crit_dmg: 0,
+    });
+    const tuned: SettingsCatalog = {
+      ...settings,
+      characters: {
+        ...settings.characters,
+        리타: { ...settings.characters.리타!, overload: over(10, 90) },
+        앨리스: { ...settings.characters.앨리스!, overload: over(50, 0) },
+        나가: { ...settings.characters.나가!, overload: over(30, 5) },
+      },
+    };
+    mountCalculator(root, { catalog, settings: tuned, version: 'v1', client: new FakeClient(), storage: localStorage });
+
     // 기본은 이름순.
     expect(rosterNames(root)).toEqual([...rosterNames(root)].sort((a, b) => a.localeCompare(b, 'ko')));
 
-    root.querySelector<HTMLButtonElement>('[data-sort="burst"]')!.click();
-    const stages = rosterNames(root)
-      .map((name) => catalog.find((c) => c.name === name)!.burstStage);
-    expect(stages).toEqual([...stages].sort());
+    root.querySelector<HTMLButtonElement>('[data-sort="element"]')!.click();
+    const byElement = rosterNames(root);
+    expect(byElement.indexOf('앨리스')).toBeLessThan(byElement.indexOf('나가'));
+    expect(byElement.indexOf('나가')).toBeLessThan(byElement.indexOf('리타'));
+
+    // 우공합은 공증까지 더하므로 리타(10+90=100)가 앨리스(50)를 앞선다.
+    root.querySelector<HTMLButtonElement>('[data-sort="elementAtk"]')!.click();
+    const bySum = rosterNames(root);
+    expect(bySum.indexOf('리타')).toBeLessThan(bySum.indexOf('앨리스'));
   });
 
   it('empties just the deck being viewed', () => {

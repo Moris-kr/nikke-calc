@@ -2111,17 +2111,21 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     burst: new Set(), rarity: new Set(), class: new Set(),
     code: new Set(), weapon: new Set(), corp: new Set(), favorite: new Set(),
   };
-  type SortKey = 'name' | 'burst' | 'code' | 'weapon' | 'class';
+  type SortKey = 'name' | 'element' | 'elementAtk';
   let sortKey: SortKey = 'name';
 
   // ── 정렬 · 필터 판 ──────────────────────────────────────────────────────
-  const SORTS: Array<{ key: SortKey; label: string }> = [
-    { key: 'name', label: '이름' },
-    { key: 'burst', label: '버스트' },
-    { key: 'code', label: '속성' },
-    { key: 'weapon', label: '무기' },
-    { key: 'class', label: '클래스' },
+  // 정렬은 «내 로스터에서 이 캐릭터가 얼마나 굴려졌나»를 본다. 오버로드 수치가
+  // 그 척도라, CSV·프로필로 불러온 내 값이 있으면 그걸 쓰고 없으면 기본 스펙을 쓴다.
+  const SORTS: Array<{ key: SortKey; label: string; hint: string }> = [
+    { key: 'name', label: '이름', hint: '가나다순' },
+    { key: 'element', label: '우월코드', hint: '오버로드 우월 코드 대미지가 높은 순' },
+    { key: 'elementAtk', label: '우공합', hint: '우월 코드 + 공격력 증가 합이 높은 순' },
   ];
+
+  /** 이 캐릭터에게 실제로 적용될 오버로드 — 내 로스터 값이 우선이다. */
+  const overloadOf = (name: string): Record<string, number> =>
+    roster[name]?.overload ?? settings.characters[name]?.overload ?? {};
 
   const FILTER_GROUPS: Array<{ key: FilterKey; title: string; values: string[] }> = [
     { key: 'burst', title: '버스트', values: ['1', '2', '3'] },
@@ -2142,17 +2146,14 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
   function sortRoster(list: CharacterMeta[]): void {
     const byName = (a: CharacterMeta, b: CharacterMeta) => a.name.localeCompare(b.name, 'ko');
-    const keyOf = (char: CharacterMeta): string => {
-      switch (sortKey) {
-        case 'burst': return char.burstStage;
-        case 'code': return char.elementCode;
-        case 'weapon': return char.weaponType;
-        case 'class': return char.className;
-        default: return '';
-      }
+    if (sortKey === 'name') { list.sort(byName); return; }
+    const scoreOf = (char: CharacterMeta): number => {
+      const over = overloadOf(char.name);
+      const element = over.element_bonus ?? 0;
+      return sortKey === 'element' ? element : element + (over.atk_pct ?? 0);
     };
-    // 같은 값 안에서는 늘 이름순 — 정렬을 바꿔도 목록이 요동치지 않는다.
-    list.sort((a, b) => keyOf(a).localeCompare(keyOf(b), 'ko') || byName(a, b));
+    // 높은 순. 같은 값 안에서는 늘 이름순 — 정렬을 바꿔도 목록이 요동치지 않는다.
+    list.sort((a, b) => scoreOf(b) - scoreOf(a) || byName(a, b));
   }
 
   const filterPanel = element<HTMLElement>(root, '[data-filter-panel]');
@@ -2189,6 +2190,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       chip.className = 'filter-chip' + (sortKey === option.key ? ' is-on' : '');
       chip.dataset.sort = option.key;
       chip.textContent = option.label;
+      chip.title = option.hint;
       chip.addEventListener('click', () => {
         sortKey = option.key;
         renderFilterPanel();
