@@ -1355,6 +1355,10 @@ describe('calculator UI', () => {
     expect(client.requests[0]?.characters?.리타?.growthStage).toBe(1);
     expect(client.requests[1]?.characters?.리타?.growthStage).toBe(7);
     expect(root.querySelectorAll('[data-deck-result]')).toHaveLength(2);
+    // 덱이 둘 이상이면 가로로 나란히 선다 — 한 화면에서 비교하려는 것이다.
+    const row = root.querySelector('.deck-result-row')!;
+    expect(row).not.toBeNull();
+    expect(row.querySelectorAll('[data-deck-result]')).toHaveLength(2);
     expect(root.querySelector('[data-batch-total]')?.textContent).toContain('246,912');
     expect(root.querySelector('[data-status]')?.textContent).toContain('2개 덱 계산 완료');
   });
