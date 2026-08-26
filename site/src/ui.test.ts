@@ -9,6 +9,7 @@ import { mountCalculator, type CalculatorClientLike } from './ui';
 import './styles.css';
 import type {
   CharacterMeta,
+  CombatPowerRequest,
   SettingsCatalog,
   SimulationRequest,
   SimulationResult,
@@ -475,6 +476,7 @@ describe('calculator UI', () => {
       root.querySelector<HTMLButtonElement>(`[data-sort="${key}"]`)!;
 
     // 이름은 오름차순으로 시작한다.
+    sortChip('name').click();
     expect(sortChip('name').dataset.sortDir).toBe('asc');
     expect(sortChip('name').textContent).toContain('▲');
     const asc = rosterNames(root);
@@ -491,6 +493,36 @@ describe('calculator UI', () => {
     // 켜지지 않은 항목에는 삼각형이 없다.
     expect(sortChip('name').textContent).not.toContain('▲');
     expect(sortChip('name').textContent).not.toContain('▼');
+  });
+
+  it('opens on combat power, standing by name until the engine answers', async () => {
+    // 전투력은 엔진이 계산해 온다. 그 사이에도 목록은 쓸 수 있어야 한다.
+    let answer!: (power: Record<string, number>) => void;
+    class PowerClient extends FakeClient {
+      names: string[] = [];
+      async combatPower(request: CombatPowerRequest): Promise<Record<string, number>> {
+        this.names = request.names;
+        return new Promise((resolve) => { answer = resolve; });
+      }
+    }
+    const client = new PowerClient();
+    mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });
+    const summary = () => root.querySelector<HTMLElement>('[data-filter-summary]')!.textContent;
+
+    expect(root.querySelector<HTMLButtonElement>('[data-sort="power"]')!.dataset.sortDir).toBe('desc');
+    // 오는 동안은 이름순으로 서 있고, 요약이 기다리는 중임을 알린다.
+    expect(summary()).toContain('전투력 계산중');
+    expect(rosterNames(root)).toEqual([...rosterNames(root)].sort((a, b) => a.localeCompare(b, 'ko')));
+
+    await flush();
+    expect(client.names).toEqual(catalog.map((meta) => meta.name));
+    answer({ 나가: 30, 리타: 10, 앨리스: 50 });
+    await flush();
+
+    expect(summary()).toContain('전투력 ▼');
+    const byPower = rosterNames(root);
+    expect(byPower.indexOf('앨리스')).toBeLessThan(byPower.indexOf('나가'));
+    expect(byPower.indexOf('나가')).toBeLessThan(byPower.indexOf('리타'));
   });
 
   it('empties just the deck being viewed', () => {

@@ -2115,10 +2115,13 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     code: new Set(), weapon: new Set(), corp: new Set(), favorite: new Set(),
   };
   type SortKey = 'power' | 'name' | 'element' | 'elementAtk';
-  let sortKey: SortKey = 'name';
+  // 처음 보이는 순서는 전투력 높은 순이다 — 목록에서 먼저 찾는 것이 «내가 키운
+  // 니케»라, 가나다순으로 세워 두면 매번 스크롤해서 찾아야 한다.
+  const DEFAULT_SORT: SortKey = 'power';
+  let sortKey: SortKey = DEFAULT_SORT;
   // 같은 항목을 다시 누르면 뒤집는다. 항목마다 «자연스러운» 방향이 달라서
   // (이름은 가나다순, 수치는 높은 순) 처음 고를 때는 그 방향으로 잡는다.
-  let sortDesc = false;
+  let sortDesc = true;
 
   // ── 정렬 · 필터 판 ──────────────────────────────────────────────────────
   // 정렬은 «내 로스터에서 이 캐릭터가 얼마나 굴려졌나»를 본다. 오버로드 수치가
@@ -2210,12 +2213,12 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     filterBadge.textContent = String(count);
     filterReset.hidden = count === 0;
     // 판을 접어도 무엇이 걸려 있는지 알 수 있게 요약을 남긴다.
+    // 정렬은 늘 적혀 있다 — 기본이 전투력순이라, 안 적어 두면 «왜 가나다순이
+    // 아닌가»를 판을 펼쳐야만 알 수 있다.
     const parts: string[] = [];
-    if (sortKey !== 'name' || sortDesc) {
-      const label = SORTS.find((s) => s.key === sortKey)?.label;
-      const pending = sortKey === 'power' && Object.keys(combatPower).length === 0;
-      parts.push(`${label}${pending ? ' 계산중' : sortDesc ? ' ▼' : ' ▲'}`);
-    }
+    const label = SORTS.find((s) => s.key === sortKey)?.label;
+    const pending = sortKey === 'power' && Object.keys(combatPower).length === 0;
+    parts.push(`${label}${pending ? ' 계산중' : sortDesc ? ' ▼' : ' ▲'}`);
     for (const group of FILTER_GROUPS) {
       const set = picked[group.key];
       if (set.size > 0) {
@@ -2289,8 +2292,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   });
   filterReset.addEventListener('click', () => {
     for (const set of Object.values(picked)) set.clear();
-    sortKey = 'name';
-    sortDesc = false;
+    sortKey = DEFAULT_SORT;
+    sortDesc = defaultDesc(DEFAULT_SORT);
     renderFilterPanel();
     renderFilterState();
     renderRosterGrid();
@@ -2449,6 +2452,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       }
       roster = overrides;
       saveRoster();
+      void loadCombatPower();
       applyRosterToDecks();
       saveState();
       renderDeckTabs();
@@ -2509,6 +2513,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
         roster = overrides;
         saveRoster();
+        void loadCombatPower();
         applyRosterToDecks();
 
         // 콘솔은 계정 단위라 전투 설정 쪽에 있다. 전초기지가 비공개면 안 오고, 그때는
@@ -3170,6 +3175,10 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       activity = 'error';
       status.textContent = `초기화 실패 · ${error instanceof Error ? error.message : String(error)}`;
     });
+
+  // 기본 정렬이 전투력이라 목록을 열기 전에 미리 받아 둔다. 오는 동안은 이름순으로
+  // 서 있고, 도착하면 그 자리에서 다시 세운다.
+  void loadCombatPower();
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
