@@ -525,6 +525,46 @@ describe('calculator UI', () => {
     expect(byPower.indexOf('나가')).toBeLessThan(byPower.indexOf('리타'));
   });
 
+  it('lays the filter panel over the list and closes it like a dropdown', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const open = root.querySelector<HTMLButtonElement>('[data-filter-open]')!;
+    const panel = root.querySelector<HTMLElement>('[data-filter-panel]')!;
+    const scroll = root.querySelector<HTMLElement>('.picker-scroll')!;
+
+    // 판과 목록이 같은 자리 컨테이너에 나란히 있어야 판을 목록 «위에» 얹을 수 있다.
+    expect(panel.parentElement).toBe(scroll.parentElement);
+    expect(panel.parentElement!.classList.contains('picker-body')).toBe(true);
+
+    expect(panel.hidden).toBe(true);
+    open.click();
+    expect(panel.hidden).toBe(false);
+
+    // 판 안과 판을 여는 줄은 «바깥»이 아니다 — 눌러도 닫히지 않는다.
+    panel.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+    root.querySelector<HTMLElement>('.picker-bar')!
+      .dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+    expect(panel.hidden).toBe(false);
+
+    // 바깥을 누르면 닫힌다.
+    scroll.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+    expect(panel.hidden).toBe(true);
+    expect(open.getAttribute('aria-expanded')).toBe('false');
+
+    // Esc로도 닫힌다.
+    open.click();
+    expect(panel.hidden).toBe(false);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(panel.hidden).toBe(true);
+  });
+
+  it('drops the favorite-item filter', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    expect(root.querySelector('[data-filter-chip^="favorite"]')).toBeNull();
+    const titles = [...root.querySelectorAll('[data-filter-groups] .filter-title')]
+      .map((title) => title.textContent);
+    expect(titles).toEqual(['버스트', '등급', '클래스', '코드', '무기', '기업']);
+  });
+
   it('empties just the deck being viewed', () => {
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
     expect(root.querySelectorAll('[data-slot-choose] strong')[0]!.textContent).toBe('리타');

@@ -449,16 +449,20 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
               <button type="button" class="filter-reset" data-filter-reset hidden>필터 지우기</button>
               <span class="filter-summary" data-filter-summary></span>
             </div>
-            <div class="filter-panel" data-filter-panel hidden>
-              <div class="filter-section">
-                <p class="filter-title">정렬</p>
-                <div class="filter-chips" data-sort-group></div>
+            <!-- 판은 목록을 밀어내지 않고 그 «위에» 얹힌다. 밀어내면 펼칠 때마다
+                 목록이 화면 밖으로 내려가 무엇을 고르는 중이었는지 놓친다. -->
+            <div class="picker-body">
+              <div class="filter-panel" data-filter-panel hidden>
+                <div class="filter-section">
+                  <p class="filter-title">정렬</p>
+                  <div class="filter-chips" data-sort-group></div>
+                </div>
+                <div class="filter-rule"></div>
+                <p class="filter-title">필터</p>
+                <div class="filter-groups" data-filter-groups></div>
               </div>
-              <div class="filter-rule"></div>
-              <p class="filter-title">필터</p>
-              <div class="filter-groups" data-filter-groups></div>
+              <div class="picker-scroll"><div class="roster-grid" data-roster-grid></div></div>
             </div>
-            <div class="picker-scroll"><div class="roster-grid" data-roster-grid></div></div>
             <p class="roster-empty" data-roster-empty hidden>검색과 일치하는 니케가 없습니다.</p>
           </section>
         </section>
@@ -2109,10 +2113,10 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   // 필터는 **그룹 안에서는 OR, 그룹 사이에서는 AND**다. 무기 SG·SMG를 함께 켜면
   // 둘 중 하나면 통과하고, 거기에 클래스 화력형을 더하면 «화력형이면서 SG나 SMG»가 된다.
   // 인게임 도감이 이 방식이라 익숙하고, 하나만 고르는 것보다 훨씬 빨리 좁혀진다.
-  type FilterKey = 'burst' | 'rarity' | 'class' | 'code' | 'weapon' | 'corp' | 'favorite';
+  type FilterKey = 'burst' | 'rarity' | 'class' | 'code' | 'weapon' | 'corp';
   const picked: Record<FilterKey, Set<string>> = {
     burst: new Set(), rarity: new Set(), class: new Set(),
-    code: new Set(), weapon: new Set(), corp: new Set(), favorite: new Set(),
+    code: new Set(), weapon: new Set(), corp: new Set(),
   };
   type SortKey = 'power' | 'name' | 'element' | 'elementAtk';
   // 처음 보이는 순서는 전투력 높은 순이다 — 목록에서 먼저 찾는 것이 «내가 키운
@@ -2177,7 +2181,6 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     { key: 'code', title: '코드', values: ['작열', '수냉', '풍압', '전격', '철갑'] },
     { key: 'weapon', title: '무기', values: ['AR', 'SMG', 'SG', 'SR', 'RL', 'MG'] },
     { key: 'corp', title: '기업', values: ['엘리시온', '미실리스', '테트라', '필그림', '어브노말'] },
-    { key: 'favorite', title: '애장품', values: ['있음', '없음'] },
   ];
 
   const labelOf = (key: FilterKey, value: string) =>
@@ -2285,10 +2288,24 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     }
   };
 
+  const setFilterPanel = (open: boolean) => {
+    filterOpen.setAttribute('aria-expanded', String(open));
+    filterPanel.hidden = !open;
+  };
   filterOpen.addEventListener('click', () => {
-    const next = filterOpen.getAttribute('aria-expanded') !== 'true';
-    filterOpen.setAttribute('aria-expanded', String(next));
-    filterPanel.hidden = !next;
+    setFilterPanel(filterOpen.getAttribute('aria-expanded') !== 'true');
+  });
+  // 목록 위에 얹히는 판이라 드롭다운과 같은 규칙을 따른다 — 바깥을 누르거나
+  // Esc면 닫힌다. 판 안과 판을 여는 줄(«필터 지우기» 포함)은 바깥이 아니다.
+  const pickerBar = element<HTMLElement>(root, '.picker-bar');
+  document.addEventListener('pointerdown', (event) => {
+    if (filterPanel.hidden) return;
+    const target = event.target as Node | null;
+    if (target && (filterPanel.contains(target) || pickerBar.contains(target))) return;
+    setFilterPanel(false);
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !filterPanel.hidden) setFilterPanel(false);
   });
   filterReset.addEventListener('click', () => {
     for (const set of Object.values(picked)) set.clear();
@@ -2311,8 +2328,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         && hit('class', char.className)
         && hit('code', char.elementCode)
         && hit('weapon', char.weaponType)
-        && hit('corp', char.manufacturer)
-        && hit('favorite', meta?.favoriteItem ? '있음' : '없음');
+        && hit('corp', char.manufacturer);
     });
     sortRoster(narrowed);
     // 칩으로 먼저 좁히고 검색어로 세운다. 검색은 초성과 구분자까지 받아

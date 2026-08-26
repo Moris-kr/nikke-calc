@@ -100,6 +100,7 @@ h2 { margin: 0; font-size: 24px; letter-spacing: -.035em; }
 .picker-head h3 { margin: 0; font-size: 12px; font-weight: 800; letter-spacing: .04em; }
 .picker-head h3 span { color: var(--muted); font-weight: 600; }
 .picker-target { margin: 0; color: var(--cyan); font: 700 11px ui-monospace, monospace; }
+.picker-body { position: relative; }
 .picker-scroll { max-height: 300px; overflow-y: auto; padding-right: 2px; }
 .roster-search { width: 100%; margin: 10px 0 10px; padding: 9px 11px; background: rgba(3,9,16,.7); border: 1px solid var(--line); border-radius: 8px; color: var(--ink); font: inherit; font-size: 12px; }
 .roster-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 10px; }
@@ -294,7 +295,13 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .filter-reset[hidden] { display: none; }
 .filter-summary { color: var(--muted); font: 600 10px ui-monospace, monospace; }
 
-.filter-panel { margin: 0 0 12px; padding: 14px 16px 4px; border: 1px solid rgba(69,214,208,.2); border-radius: 10px; background: rgba(3,9,16,.6); }
+/* 목록 위에 얹히는 판. 칸을 다 차지하지 않고 «칩이 실제로 쓰는 만큼»만 넓고,
+   뒤가 살짝 비쳐 무엇을 가리고 있는지 보인다(글자는 blur로 지킨다). */
+.filter-panel { position: absolute; z-index: 20; top: 0; left: 0; width: max-content; max-width: 100%;
+  max-height: 300px; overflow-y: auto; margin: 0; padding: 14px 16px 4px;
+  border: 1px solid rgba(69,214,208,.34); border-radius: 10px;
+  background: rgba(8,19,31,.72); backdrop-filter: blur(7px);
+  box-shadow: 0 18px 44px rgba(0,0,0,.62); }
 .filter-panel[hidden] { display: none; }
 .filter-rule { height: 1px; margin: 12px 0 14px; background: linear-gradient(90deg, rgba(69,214,208,.34), transparent); }
 .filter-section { margin-bottom: 12px; }
@@ -594,6 +601,7 @@ footer a { color: #93aabd; text-decoration: none; font-weight: 800; letter-spaci
      카드에 찍혀 있어 순서는 접혀도 읽힌다. */
   .squad-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); overflow-x: visible; }
   .picker-scroll { max-height: 240px; }
+  .filter-panel { max-height: 240px; }
   .picker { padding: 10px; }
   .field-grid { grid-template-columns: 1fr; }
   .toggle-field { grid-column: auto; }
