@@ -344,15 +344,15 @@ describe('character settings editor', () => {
     expect(value?.collection).toEqual({ stage: '없음', favorite: 0 });
   });
 
-  it('keeps 컨트롤 beside the stat settings, both folded, not one inside the other', () => {
+  it('keeps 컨트롤 beside the stat settings, both closed, not one inside the other', () => {
     characterName = '라피';
     render();
     setToggle('[data-custom-toggle]', true);
 
-    const stats = root.querySelector<HTMLElement>('[data-settings-open]')!;
-    const control = root.querySelector<HTMLElement>('[data-control-open]')!;
+    const stats = root.querySelector<HTMLElement>('[data-char-panel-open="settings"]')!;
+    const control = root.querySelector<HTMLElement>('[data-char-panel-open="control"]')!;
 
-    // 둘 다 접힌 채로 시작한다 — 개별 설정을 켜는 것과 펼치는 것은 별개다.
+    // 둘 다 닫힌 채로 시작한다 — 개별 설정을 켜는 것과 여는 것은 별개다.
     expect(stats.getAttribute('aria-expanded')).toBe('false');
     expect(control.getAttribute('aria-expanded')).toBe('false');
 
@@ -491,9 +491,9 @@ describe('character settings editor', () => {
       [{ label: '크확 대상', buff: '웨이크업! 4', targets: [], count: 0 }]);
     let row = root.querySelector<HTMLElement>('[data-buff-target]')!;
     expect(row.textContent).toBe('크확 대상 : []');
-    // 스탯 요약과 개별 설정 사이에 선다.
+    // 스탯 요약 바로 뒤, 같은 접이 안에 선다.
     expect(row.previousElementSibling?.className).toContain('loadout-summary');
-    expect(row.nextElementSibling?.className).toContain('inline-check');
+    expect(row.closest('[data-loadout-fold]')).not.toBeNull();
 
     renderCharacterSettings(root, characterName, settings, value, (next) => { value = next; },
       [{ label: '크확 대상', buff: '웨이크업! 4', targets: ['리버렐리오'], count: 3 }]);
@@ -547,6 +547,36 @@ describe('character settings editor', () => {
     expect(box.title).toContain('계산하는 중');
   });
 
+  it('hands the panel to whoever can show it in a window', () => {
+    // 창을 열 수 있는 자리(계산기 화면)에서는 그 자리에서 펼치지 않고 넘긴다.
+    const opened: Array<{ kind: string; label: string; hasBurst: boolean }> = [];
+    renderCharacterSettings(
+      root, characterName, settings, value, (next) => { value = next; }, undefined, undefined,
+      (kind, panel, label) => opened.push({
+        kind, label, hasBurst: panel.querySelector('.burst-editor') !== null,
+      }),
+    );
+    setToggle('[data-custom-toggle]', true);
+    root.querySelector<HTMLButtonElement>('[data-char-panel-open="control"]')!.click();
+    expect(opened).toEqual([{ kind: 'control', label: '컨트롤 · 버스트', hasBurst: true }]);
+    // 넘겼으면 제자리에서 펼치지는 않는다 — 같은 것이 두 곳에 보이면 안 된다.
+    expect(root.querySelector<HTMLElement>('[data-char-panel="control"]')!.hidden).toBe(true);
+  });
+
+  it('folds the loadout summary away until it is asked for', () => {
+    render();
+    const fold = root.querySelector<HTMLElement>('[data-loadout-fold]')!;
+    const open = root.querySelector<HTMLButtonElement>('[data-loadout-open]')!;
+    expect(fold.hidden).toBe(true);
+    expect(root.querySelector('[data-loadout-summary]')!.textContent).toContain('스킬');
+
+    open.click();
+    expect(fold.hidden).toBe(false);
+    // 다시 그려도 펼친 채로 남는다 — 값 하나 바꿀 때마다 접히면 못 쓴다.
+    setToggle('[data-custom-toggle]', true);
+    expect(root.querySelector<HTMLElement>('[data-loadout-fold]')!.hidden).toBe(false);
+  });
+
   it('omits the buff-target row for characters without a watched buff', () => {
     render();
     expect(root.querySelector('[data-buff-target]')).toBeNull();
@@ -554,7 +584,7 @@ describe('character settings editor', () => {
 
   it('keeps 버스트 운용 inside the 컨트롤 · 버스트 fold', () => {
     setToggle('[data-custom-toggle]', true);
-    const fold = root.querySelector<HTMLElement>('[data-control-open]')!;
+    const fold = root.querySelector<HTMLElement>('[data-char-panel-open="control"]')!;
     expect(fold.querySelector('.disclosure-label')!.textContent).toBe('컨트롤 · 버스트');
     // 접이판 안에 있고, 본문(돌파·스킬·오버로드·큐브)에는 남아 있지 않다.
     expect(fold.nextElementSibling!.querySelector('.burst-editor')).not.toBeNull();

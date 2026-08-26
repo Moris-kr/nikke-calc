@@ -99,6 +99,9 @@ function summaryText(name: string, catalog: SettingsCatalog, value?: CharacterOv
     + `${cube.name} Lv${cube.level} · ${controlSummary}`;
 }
 
+/** 창으로 여는 설정 뭉치의 종류. */
+export type CharPanelKind = 'settings' | 'control';
+
 export function renderCharacterSettings(
   container: HTMLElement,
   name: string,
@@ -107,6 +110,11 @@ export function renderCharacterSettings(
   onChange: (next: CharacterOverrides | undefined) => void,
   buffTargets?: BuffTargetRow[],
   onShowOrder?: (row: BuffTargetRow) => void,
+  /**
+   * 설정 뭉치를 **창으로** 여는 자리. 안 주면 그 자리에서 펼친다 —
+   * 이 모듈만 따로 그리는 곳(테스트·미리보기)에서도 쓸 수 있어야 한다.
+   */
+  onOpenPanel?: (kind: CharPanelKind, panel: HTMLElement, label: string) => void,
 ): void {
   const advancedWasOpen = container.querySelector<HTMLInputElement>('[data-advanced-toggle]')?.checked ?? false;
   // 펼침 상태는 다시 그려도 유지한다. 값을 하나 바꿀 때마다 접히면 쓸 수 없다.
@@ -114,48 +122,77 @@ export function renderCharacterSettings(
   // 늘 펼쳐져 있으면 편성 자체가 안 보인다.
   const wasOpen = (flag: string): boolean =>
     container.querySelector<HTMLElement>(`[${flag}]`)?.getAttribute('aria-expanded') === 'true';
-  const bodyWasOpen = wasOpen('data-settings-open');
-  const controlWasOpen = wasOpen('data-control-open');
+  const summaryWasOpen = wasOpen('data-loadout-open');
 
-  /** 눌러서 펼치는 머리. 접힌 채로 시작하고, 무엇이 들었는지 이름으로 알린다. */
-  const disclosure = (label: string, flag: string, open: boolean) => {
+  /**
+   * 눌러서 여는 설정 뭉치. 카드가 좁아 그 자리에서 펼치면 다섯 장이 서로를 밀어낸다 —
+   * 필터 판처럼 창으로 띄운다. 창을 못 여는 자리에서는 제자리 펼치기로 물러난다.
+   */
+  const panelOpener = (label: string, kind: CharPanelKind) => {
     const head = document.createElement('button');
     head.type = 'button';
-    head.className = 'disclosure';
-    head.setAttribute(flag, '');
-    head.setAttribute('aria-expanded', String(open));
+    head.className = 'char-panel-open';
+    head.dataset.charPanelOpen = kind;
+    head.setAttribute('aria-expanded', 'false');
     const title = document.createElement('span');
     title.className = 'disclosure-label';
     title.textContent = label;
     const hint = document.createElement('span');
     hint.className = 'disclosure-hint';
-    hint.textContent = open ? '접기' : '펼치기';
+    hint.textContent = '열기';
     head.append(title, hint);
     const panel = document.createElement('div');
-    panel.className = 'disclosure-panel';
-    panel.hidden = !open;
+    panel.className = 'disclosure-panel char-panel';
+    panel.dataset.charPanel = kind;
+    panel.hidden = true;
     head.addEventListener('click', () => {
+      if (onOpenPanel) { onOpenPanel(kind, panel, label); return; }
       const next = head.getAttribute('aria-expanded') !== 'true';
       head.setAttribute('aria-expanded', String(next));
       panel.hidden = !next;
-      const hint = head.querySelector('.disclosure-hint');
-      if (hint) hint.textContent = next ? '접기' : '펼치기';
+      hint.textContent = next ? '접기' : '열기';
     });
     return { head, panel };
   };
+
   container.replaceChildren();
   container.className = 'character-settings';
 
   const commit = (next: CharacterOverrides | undefined) => {
     onChange(next);
-    renderCharacterSettings(container, name, catalog, next, onChange, buffTargets, onShowOrder);
+    renderCharacterSettings(
+      container, name, catalog, next, onChange, buffTargets, onShowOrder, onOpenPanel);
   };
+
+  // 카드가 좁아졌다 — 요약(«1돌 · 호감도 20 · 스킬 10…»)과 버프 수령자는 접어 두고
+  // 필요한 사람만 펼친다. 편성 화면에서 늘 읽는 줄은 아니다.
+  const summaryFold = document.createElement('button');
+  summaryFold.type = 'button';
+  summaryFold.className = 'loadout-open';
+  summaryFold.dataset.loadoutOpen = '';
+  summaryFold.setAttribute('aria-expanded', String(summaryWasOpen));
+  summaryFold.append(document.createTextNode('개별값'));
+  const summaryCaret = document.createElement('b');
+  summaryCaret.className = 'loadout-caret';
+  summaryCaret.textContent = summaryWasOpen ? '▴' : '▾';
+  summaryFold.append(summaryCaret);
+  const summaryBox = document.createElement('div');
+  summaryBox.className = 'loadout-fold';
+  summaryBox.dataset.loadoutFold = '';
+  summaryBox.hidden = !summaryWasOpen;
+  summaryFold.addEventListener('click', () => {
+    const next = summaryFold.getAttribute('aria-expanded') !== 'true';
+    summaryFold.setAttribute('aria-expanded', String(next));
+    summaryBox.hidden = !next;
+    summaryCaret.textContent = next ? '▴' : '▾';
+  });
+  container.append(summaryFold, summaryBox);
 
   const summary = document.createElement('p');
   summary.className = 'loadout-summary';
   summary.dataset.loadoutSummary = '';
   summary.textContent = summaryText(name, catalog, value);
-  container.append(summary);
+  summaryBox.append(summary);
 
   // 「누가 이 버프를 받았나」. 대상이 공격력 순위로 갈려 편성만 보고는 알 수 없고
   // 전투 중에 바뀌기도 해서, 추정하지 않고 **실제 발동 로그**의 수령자를 띄운다.
@@ -196,7 +233,7 @@ export function renderCharacterSettings(
       open.addEventListener('click', () => onShowOrder(row));
       box.append(open);
     }
-    container.append(box);
+    summaryBox.append(box);
   }
 
   const toggleLabel = document.createElement('label');
@@ -727,7 +764,7 @@ export function renderCharacterSettings(
   controlWarning.className = 'field-note warning';
   controlWarning.textContent = '여러 캐릭터 동시 컨트롤은 실제 한 명 조작보다 유리한 상한일 수 있습니다.';
   // 컨트롤은 따로 접는다. 손대는 사람은 적은데 자리는 가장 많이 먹는다.
-  const controlFold = disclosure('컨트롤 · 버스트', 'data-control-open', controlWasOpen);
+  const controlFold = panelOpener('컨트롤 · 버스트', 'control');
   controlFold.panel.append(controlMode, recommendation, controlGrid, controlWarning, burstEditor);
   controlEditor.append(controlFold.head, controlFold.panel);
   // 컨트롤은 돌파·스킬·오버로드·큐브와 **형제**로 둔다. 그 안에 넣으면 컨트롤만
@@ -823,7 +860,7 @@ export function renderCharacterSettings(
     advanced.hidden = !advancedToggle.checked;
   });
   body.append(advanced);
-  const bodyFold = disclosure('돌파 · 스킬 · 오버로드 · 큐브', 'data-settings-open', bodyWasOpen);
+  const bodyFold = panelOpener('돌파 · 스킬 · 오버로드 · 큐브', 'settings');
   bodyFold.panel.append(body);
   container.append(bodyFold.head, bodyFold.panel, controlEditor);
 }
