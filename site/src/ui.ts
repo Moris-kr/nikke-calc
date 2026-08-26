@@ -153,6 +153,66 @@ function topScorers(entry: DeckResultEntry): Map<string, number> {
 }
 
 /**
+ * 캐릭터별 결과 줄. 초상화 오른쪽에 막대와 총딜이 선다 — 덱을 갈아 가며 볼 때는
+ * 카드보다 이쪽이 짧고, 막대 길이로 «누가 캐리했나»가 곧바로 읽힌다.
+ * 여기서도 **편성 순서 그대로**이고, 딜 1·2위는 뱃지와 테두리로만 표시한다.
+ */
+function renderCharacterRows(
+  container: HTMLElement,
+  entry: DeckResultEntry,
+  imageOf: (name: string) => string | undefined,
+): void {
+  const rows = document.createElement('div');
+  rows.className = 'result-rows';
+  const tops = topScorers(entry);
+  const best = Math.max(...entry.request.squad.map((name) => entry.result.charTotals[name] ?? 0), 0);
+
+  for (const name of entry.request.squad) {
+    const value = entry.result.charTotals[name] ?? 0;
+    const share = entry.result.squadTotal > 0 ? value / entry.result.squadTotal * 100 : 0;
+    const rank = tops.get(name);
+    const row = document.createElement('article');
+    row.className = 'character-result result-row'
+      + (rank === 1 ? ' is-first' : rank === 2 ? ' is-second' : '');
+    row.dataset.characterResult = name;
+    if (rank) row.dataset.dmgRank = String(rank);
+
+    const portrait = document.createElement('div');
+    portrait.className = 'result-row-face';
+    const source = imageOf(name);
+    if (source) {
+      const image = document.createElement('img');
+      image.src = source;
+      image.alt = '';
+      image.loading = 'lazy';
+      portrait.append(image);
+    }
+    if (rank) portrait.append(createText('b', String(rank), 'result-rank-badge'));
+    row.append(portrait);
+
+    const body = document.createElement('div');
+    body.className = 'result-row-body';
+    const head = document.createElement('p');
+    head.className = 'result-row-name';
+    head.append(
+      createText('b', name),
+      createText('span', `${share.toFixed(1)}% · ${formatDps(value / entry.result.duration)}`),
+    );
+    const track = document.createElement('div');
+    track.className = 'share-track';
+    const bar = document.createElement('i');
+    bar.style.width = `${best > 0 ? Math.max(2, value / best * 100) : 2}%`;
+    track.append(bar);
+    body.append(head, track);
+    row.append(body);
+
+    row.append(createText('strong', Math.round(value).toLocaleString('ko-KR'), 'result-row-total'));
+    rows.append(row);
+  }
+  container.append(rows);
+}
+
+/**
  * 캐릭터별 결과 카드. **편성 순서 그대로** 왼쪽에서 오른쪽으로 선다 — 위 편성 카드와
  * 자리가 맞아야 «누가 얼마나»를 눈으로 그대로 잇는다. 딜 1·2위는 자리를 옮기지 않고
  * 뱃지와 테두리로만 표시한다.
@@ -2194,7 +2254,10 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         section.append(badge);
       }
       if (entry.result.previewNote) section.append(createText('p', entry.result.previewNote, 'preview-warning'));
-      renderCharacterCards(section, entry, portraitOf);
+      // 덱을 갈아 가며 볼 때는 줄이 짧고 비교가 쉽다. 한 덱만 볼 때는 카드가 편성과
+      // 자리가 맞아 낫다 — 화면의 목적이 달라서 모양도 다르다.
+      if (batch.decks.length > 1) renderCharacterRows(section, entry, portraitOf);
+      else renderCharacterCards(section, entry, portraitOf);
       const facts = document.createElement('div');
       facts.className = 'result-facts';
       facts.append(

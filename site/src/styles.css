@@ -553,7 +553,27 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .total-block strong { color: var(--amber); font-size: clamp(30px, 4vw, 52px); line-height: 1.1; letter-spacing: -.05em; }
 .total-block small { color: var(--cyan); font-size: 11px; }
 .preview-warning { padding: 9px 12px; background: rgba(255,119,135,.1); border-left: 3px solid var(--danger); color: #ffc2ca; font-size: 11px; }
-.result-rows { margin-top: 20px; display: grid; gap: 14px; }
+.result-rows { margin-top: 16px; display: grid; gap: 8px; }
+
+/* 캐릭터 결과 줄 — 초상화 오른쪽에 막대, 그 오른쪽 끝에 총딜.
+   덱을 갈아 가며 볼 때 쓰는 모양이라 짧고, 막대 길이가 곧 «누가 캐리했나»다. */
+.result-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center;
+  gap: 14px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px;
+  background: rgba(7,15,25,.5); }
+.result-row.is-first { border-color: rgba(255,191,60,.45); background: rgba(255,191,60,.06); }
+.result-row.is-second { border-color: rgba(146,176,201,.38); }
+.result-row-face { position: relative; width: 44px; height: 44px; border-radius: 8px; overflow: hidden;
+  background: linear-gradient(135deg,#18293a,#09131e); }
+.result-row-face img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 16%; display: block; }
+.result-row-face .result-rank-badge { top: auto; left: auto; right: 0; bottom: 0; padding: 0 4px;
+  border-radius: 5px 0 0 0; font-size: 9px; }
+.result-row-name { display: flex; align-items: baseline; gap: 9px; margin: 0 0 7px; }
+.result-row-name b { font-size: 13px; }
+.result-row-name span { color: var(--muted); font: 600 10px ui-monospace, monospace; }
+.result-row .share-track { margin: 0; height: 6px; border-radius: 3px; }
+.result-row .share-track i { border-radius: 3px; }
+.result-row-total { color: var(--ink); font: 800 15px ui-monospace, monospace; white-space: nowrap; }
+.result-row.is-first .result-row-total { color: var(--amber); }
 .character-result { padding: 0 0 13px; border-bottom: 1px solid rgba(146,176,201,.1); }
 .result-row-top { display: flex; justify-content: space-between; gap: 16px; align-items: end; }
 .result-row-top h3 { margin: 0 0 3px; font-size: 14px; }
