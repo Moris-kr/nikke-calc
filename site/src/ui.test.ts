@@ -639,6 +639,58 @@ describe('calculator UI', () => {
     expect(root.querySelector<HTMLElement>('[data-notice-modal]')!.hidden).toBe(false);
   });
 
+  it('keeps the control window in step with the card it came from', async () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    root.querySelector<HTMLButtonElement>('[data-notice-dismiss]')!.click();
+    const card = root.querySelector<HTMLElement>('[data-slot-card="0"]')!;
+    card.querySelector<HTMLInputElement>('[data-custom-toggle]')!.click();
+    card.querySelector<HTMLButtonElement>('[data-char-panel-open="control"]')!.click();
+
+    const inWindow = (selector: string) =>
+      root.querySelector<HTMLInputElement>(`[data-char-panel-body] ${selector}`);
+    // 창에는 컨트롤 뭉치가 실려 있고, 처음엔 «추천 자동 적용»이라 체크박스가 잠겨 있다.
+    expect(inWindow('[data-control-mode="manual"]')).not.toBeNull();
+    expect(inWindow('[data-control="reload"]')!.disabled).toBe(true);
+
+    // «직접 설정»을 고르면 카드가 다시 그려진다 — 창도 새 뭉치로 갈려야 한다.
+    inWindow('[data-control-mode="manual"]')!.click();
+    await Promise.resolve();
+    expect(inWindow('[data-control="reload"]')!.disabled).toBe(false);
+    // 그리고 그 체크박스가 실제로 먹는다.
+    inWindow('[data-control="reload"]')!.click();
+    await Promise.resolve();
+    expect(inWindow('[data-control="reload"]')!.checked).toBe(true);
+  });
+
+  it('does not yank the page back to the squad when results arrive', async () => {
+    const client = new FakeClient();
+    mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });
+    root.querySelector<HTMLButtonElement>('[data-notice-dismiss]')!.click();
+    // jsdom에는 scrollIntoView가 없다 — 누가 불렀는지 보려고 심는다.
+    const pulled: string[] = [];
+    const proto = Element.prototype as unknown as { scrollIntoView?: () => void };
+    proto.scrollIntoView = function record(this: HTMLElement) {
+      if (this.dataset.slotChoose) pulled.push(this.dataset.slotChoose);
+    };
+    const frame = () => new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+    try {
+      // 칸을 직접 누르면 끌어온다 — 좁은 화면에서 겨냥한 칸이 밖에 있을 수 있다.
+      root.querySelector<HTMLButtonElement>('[data-slot-choose="2"]')!.click();
+      await frame();
+      expect(pulled).toContain('2');
+
+      // 결과가 도착해 편성이 다시 그려질 때는 끌어오지 않는다.
+      pulled.length = 0;
+      root.querySelector<HTMLFormElement>('form')!.requestSubmit();
+      await flush();
+      await frame();
+      expect(root.querySelectorAll('[data-character-result]').length).toBeGreaterThan(0);
+      expect(pulled).toEqual([]);
+    } finally {
+      delete proto.scrollIntoView;
+    }
+  });
+
   it('empties just the deck being viewed', () => {
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
     expect(root.querySelectorAll('[data-slot-choose] strong')[0]!.textContent).toBe('리타');

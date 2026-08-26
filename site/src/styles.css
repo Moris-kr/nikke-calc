@@ -99,11 +99,14 @@ a:focus-visible {
 /* 조건 창 — 항목이 많아 공유 창보다 넓다. */
 .custom-card.battle-card { width: min(860px, 100%); }
 
-/* 조건 줄 + 실행 단추 = 한 막대. 둘이 같은 높이로 맞물려 하나처럼 보인다. */
-.cond-bar { display: flex; align-items: stretch; }
-.cond-bar .battle-open { border-radius: 8px 0 0 8px; border-right: none; }
-.cond-bar .run-inline { flex: none; width: auto; min-height: 0; margin: 0; padding: 0 22px;
-  border-radius: 0 8px 8px 0; gap: 10px; font-size: 13px; white-space: nowrap; }
+/* 조건 줄 + 실행 단추 = 한 막대. 조건이 70%, 실행이 30%다 — 실행은 이 화면에서 가장
+   자주 누르는 단추라 손이 갈 자리를 넉넉히 준다. */
+.cond-bar { display: grid; grid-template-columns: 7fr 3fr; align-items: stretch; }
+.cond-bar .battle-open { min-width: 0; border-radius: 8px 0 0 8px; border-right: none; }
+.cond-bar .run-inline { width: 100%; min-height: 0; margin: 0; padding: 0 18px;
+  border-radius: 0 8px 8px 0; gap: 10px; font-size: 13px; white-space: nowrap;
+  justify-content: center; }
+.cond-bar .run-inline b { margin-left: 4px; }
 .settings-panel .status { margin: 10px 0 0; }
 .settings-panel .error-box { margin-top: 12px; }
 .section-heading { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 16px 24px; margin-bottom: 24px; }

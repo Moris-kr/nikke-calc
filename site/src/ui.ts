@@ -333,6 +333,10 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   decks[0]!.squad = initialSquad(catalog);
   let activeDeckId = 1;
   let activeSlot = 0;
+  // 겨냥한 칸을 화면으로 끌어오는 것은 **사용자가 칸을 바꿨을 때만** 한다.
+  // 결과가 도착해도 편성은 다시 그려지는데, 그때마다 끌어오면 결과를 보던 사람이
+  // 편성 쪽으로 튕겨 올라간다.
+  let pullActiveSlot = false;
   let fiveDeckMode = false;
   let activity: 'preparing' | 'ready' | 'running' | 'complete' | 'cached' | 'error' = 'preparing';
 
@@ -1303,13 +1307,14 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       ));
       choose.addEventListener('click', () => {
         activeSlot = index;
+        pullActiveSlot = true;
         renderSquad();
         renderRosterGrid();
       });
       // 좁은 화면에서는 슬롯 줄이 옆으로 밀린다. 겨냥한 칸이 화면 밖에 있으면
       // 판이 어디를 채우는지 알 수 없으므로 끌어다 보여 준다.
       // jsdom에는 scrollIntoView가 없다. 없다고 렌더가 깨질 일은 아니므로 건너뛴다.
-      if (activeSlot === index && typeof choose.scrollIntoView === 'function') {
+      if (pullActiveSlot && activeSlot === index && typeof choose.scrollIntoView === 'function') {
         requestAnimationFrame(() => choose.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
       }
 
@@ -1337,6 +1342,22 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       if (char) {
         const editor = document.createElement('div');
         const cname = char.name;
+        /**
+         * 창 안의 뭉치를 카드가 방금 그린 새 것으로 바꾼다. 값 하나를 바꾸면
+         * `renderCharacterSettings`가 스스로 카드를 다시 그리는데, 그때 창에는 **옛
+         * 뭉치**가 남아 있어 «직접 설정»으로 켠 체크박스가 여전히 잠겨 보였다.
+         */
+        const syncOpenPanel = () => {
+          if (openCharPanel?.name !== cname || charPanelModal.hidden) return;
+          const kind = openCharPanel.kind;
+          // 그 뭉치를 여는 단추가 사라졌으면(개별 설정을 껐다) 창도 닫는다.
+          const opener = editor.querySelector<HTMLElement>(`[data-char-panel-open="${kind}"]`);
+          if (!opener) { closeCharPanel(); return; }
+          // 없으면 이미 창에 있는 것이 최신이다 — 두 번 불려도 닫지 않는다.
+          const fresh = editor.querySelector<HTMLElement>(`[data-char-panel="${kind}"]`);
+          if (!fresh) return;
+          placeCharPanel(fresh, cname, opener.querySelector('.disclosure-label')?.getAttribute('title') ?? '');
+        };
         const renderEditor = () => {
           renderCharacterSettings(editor, cname, settings, deck.characters[cname], (next) => {
             if (next) deck.characters[cname] = next;
@@ -1344,20 +1365,14 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             saveState();
             // 개별 설정 안 드롭다운으로 돌파를 바꿔도 초상화의 별이 따라가게 한다.
             renderGrowthStepper();
+            // 이 콜백은 카드가 다시 그려지기 **직전**에 불린다 — 다 그린 뒤에 창을 맞춘다.
+            queueMicrotask(syncOpenPanel);
           }, buffTargetRowsFor(deck.id, cname), (row) => showBuffOrder(cname, row),
           (kind, panel, label) => {
             openCharPanel = { name: cname, kind };
             placeCharPanel(panel, cname, label);
           });
-          // 값을 바꿔 카드가 다시 그려지면 창 안의 뭉치는 옛 것이다 — 새 것으로 바꾼다.
-          if (openCharPanel?.name === cname && !charPanelModal.hidden) {
-            const fresh = editor.querySelector<HTMLElement>(`[data-char-panel="${openCharPanel.kind}"]`);
-            const label = editor
-              .querySelector<HTMLElement>(`[data-char-panel-open="${openCharPanel.kind}"] .disclosure-label`)
-              ?.textContent ?? '';
-            if (fresh) placeCharPanel(fresh, cname, label);
-            else closeCharPanel();
-          }
+          syncOpenPanel();
         };
 
         // 초상화 우측하단의 돌파·코어 강화 스테퍼. blablalink 도감처럼 별 + 진화 숫자로
@@ -1436,6 +1451,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       }
       squadGrid.append(card);
     }
+    pullActiveSlot = false;
     // 편성·개별 설정·덱 전환이 모두 이 함수를 지난다 — 미리 계산 예약은 여기 한 곳.
     prefetchBuffTargets();
   };
@@ -2837,6 +2853,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     // 연달아 채울 수 있게 다음 빈 칸으로 옮겨 간다. 다 찼으면 방금 넣은 칸에 머문다.
     const next = deck.squad.findIndex((member) => !member);
     activeSlot = next < 0 ? slot : next;
+    pullActiveSlot = true;
     showErrors([]);
     saveState();
     renderDeckTabs();
