@@ -435,25 +435,25 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
               <p class="picker-target" data-roster-desc></p>
             </div>
             <input type="search" class="roster-search" data-roster-search placeholder="이름 · 초성 · 속성으로 찾기 (ㄹㅍ, 라피레드, 전격)" autocomplete="off" aria-label="니케 이름 검색" />
-            <div class="roster-filters" data-roster-filters>
-              <span class="roster-filter-group" data-filter-burst>
-                <button type="button" class="roster-chip is-on" data-burst="">전체</button>
-                <button type="button" class="roster-chip" data-burst="1">B1</button>
-                <button type="button" class="roster-chip" data-burst="2">B2</button>
-                <button type="button" class="roster-chip" data-burst="3">B3</button>
-              </span>
-              <span class="roster-filter-group" data-filter-rarity>
-                <button type="button" class="roster-chip is-on" data-rarity="">등급 전체</button>
-                <button type="button" class="roster-chip" data-rarity="SSR">SSR만</button>
-              </span>
-              <span class="roster-filter-group" data-filter-code>
-                <button type="button" class="roster-chip is-on" data-code="">속성 전체</button>
-                <button type="button" class="roster-chip" data-code="작열">작열</button>
-                <button type="button" class="roster-chip" data-code="수냉">수냉</button>
-                <button type="button" class="roster-chip" data-code="풍압">풍압</button>
-                <button type="button" class="roster-chip" data-code="전격">전격</button>
-                <button type="button" class="roster-chip" data-code="철갑">철갑</button>
-              </span>
+            <!-- 정렬·필터는 판을 눌러 펼친다. 칩을 늘 깔아 두면 목록이 화면 밖으로
+                 밀리고, 필터가 몇 개 걸렸는지도 한눈에 안 들어온다. -->
+            <div class="picker-bar">
+              <button type="button" class="filter-open" data-filter-open aria-expanded="false">
+                <span>정렬 및 필터</span>
+                <b class="filter-badge" data-filter-badge hidden></b>
+                <span class="filter-caret" aria-hidden="true">▾</span>
+              </button>
+              <button type="button" class="filter-reset" data-filter-reset hidden>필터 지우기</button>
+              <span class="filter-summary" data-filter-summary></span>
+            </div>
+            <div class="filter-panel" data-filter-panel hidden>
+              <div class="filter-section">
+                <p class="filter-title">정렬</p>
+                <div class="filter-chips" data-sort-group></div>
+              </div>
+              <div class="filter-rule"></div>
+              <p class="filter-title">필터</p>
+              <div class="filter-groups" data-filter-groups></div>
             </div>
             <div class="picker-scroll"><div class="roster-grid" data-roster-grid></div></div>
             <p class="roster-empty" data-roster-empty hidden>검색과 일치하는 니케가 없습니다.</p>
@@ -2103,20 +2103,160 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const rosterEmpty = element<HTMLElement>(root, '[data-roster-empty]');
   const rosterCount = element<HTMLElement>(root, '[data-roster-count]');
   const rosterDesc = element<HTMLElement>(root, '[data-roster-desc]');
-  let burstFilter = '';
-  let codeFilter = '';
-  // SR·R은 실전에서 거의 안 쓴다 — 목록에서 걷어내 SSR만 보는 스위치(유저 피드백).
-  let rarityFilter = '';
+  // 필터는 **그룹 안에서는 OR, 그룹 사이에서는 AND**다. 무기 SG·SMG를 함께 켜면
+  // 둘 중 하나면 통과하고, 거기에 클래스 화력형을 더하면 «화력형이면서 SG나 SMG»가 된다.
+  // 인게임 도감이 이 방식이라 익숙하고, 하나만 고르는 것보다 훨씬 빨리 좁혀진다.
+  type FilterKey = 'burst' | 'rarity' | 'class' | 'code' | 'weapon' | 'corp' | 'favorite';
+  const picked: Record<FilterKey, Set<string>> = {
+    burst: new Set(), rarity: new Set(), class: new Set(),
+    code: new Set(), weapon: new Set(), corp: new Set(), favorite: new Set(),
+  };
+  type SortKey = 'name' | 'burst' | 'code' | 'weapon' | 'class';
+  let sortKey: SortKey = 'name';
+
+  // ── 정렬 · 필터 판 ──────────────────────────────────────────────────────
+  const SORTS: Array<{ key: SortKey; label: string }> = [
+    { key: 'name', label: '이름' },
+    { key: 'burst', label: '버스트' },
+    { key: 'code', label: '속성' },
+    { key: 'weapon', label: '무기' },
+    { key: 'class', label: '클래스' },
+  ];
+
+  const FILTER_GROUPS: Array<{ key: FilterKey; title: string; values: string[] }> = [
+    { key: 'burst', title: '버스트', values: ['1', '2', '3'] },
+    { key: 'rarity', title: '등급', values: ['SSR', 'SR', 'R'] },
+    { key: 'class', title: '클래스', values: ['화력형', '방어형', '지원형'] },
+    { key: 'code', title: '코드', values: ['작열', '수냉', '풍압', '전격', '철갑'] },
+    { key: 'weapon', title: '무기', values: ['AR', 'SMG', 'SG', 'SR', 'RL', 'MG'] },
+    { key: 'corp', title: '기업', values: ['엘리시온', '미실리스', '테트라', '필그림', '어브노말'] },
+    { key: 'favorite', title: '애장품', values: ['있음', '없음'] },
+  ];
+
+  const labelOf = (key: FilterKey, value: string) =>
+    key === 'burst' ? `B${value}` : value;
+
+  /** 고른 필터 개수. 0이면 뱃지를 감춘다. */
+  const pickedCount = (): number =>
+    Object.values(picked).reduce((sum, set) => sum + set.size, 0);
+
+  function sortRoster(list: CharacterMeta[]): void {
+    const byName = (a: CharacterMeta, b: CharacterMeta) => a.name.localeCompare(b.name, 'ko');
+    const keyOf = (char: CharacterMeta): string => {
+      switch (sortKey) {
+        case 'burst': return char.burstStage;
+        case 'code': return char.elementCode;
+        case 'weapon': return char.weaponType;
+        case 'class': return char.className;
+        default: return '';
+      }
+    };
+    // 같은 값 안에서는 늘 이름순 — 정렬을 바꿔도 목록이 요동치지 않는다.
+    list.sort((a, b) => keyOf(a).localeCompare(keyOf(b), 'ko') || byName(a, b));
+  }
+
+  const filterPanel = element<HTMLElement>(root, '[data-filter-panel]');
+  const filterOpen = element<HTMLButtonElement>(root, '[data-filter-open]');
+  const filterBadge = element<HTMLElement>(root, '[data-filter-badge]');
+  const filterReset = element<HTMLButtonElement>(root, '[data-filter-reset]');
+  const filterSummary = element<HTMLElement>(root, '[data-filter-summary]');
+
+  const renderFilterState = () => {
+    const count = pickedCount();
+    filterBadge.hidden = count === 0;
+    filterBadge.textContent = String(count);
+    filterReset.hidden = count === 0;
+    // 판을 접어도 무엇이 걸려 있는지 알 수 있게 요약을 남긴다.
+    const parts: string[] = [];
+    if (sortKey !== 'name') {
+      parts.push(`${SORTS.find((s) => s.key === sortKey)?.label}순`);
+    }
+    for (const group of FILTER_GROUPS) {
+      const set = picked[group.key];
+      if (set.size > 0) {
+        parts.push([...set].map((v) => labelOf(group.key, v)).join('·'));
+      }
+    }
+    filterSummary.textContent = parts.join(' · ');
+  };
+
+  const renderFilterPanel = () => {
+    const sortBox = element<HTMLElement>(root, '[data-sort-group]');
+    sortBox.replaceChildren();
+    for (const option of SORTS) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'filter-chip' + (sortKey === option.key ? ' is-on' : '');
+      chip.dataset.sort = option.key;
+      chip.textContent = option.label;
+      chip.addEventListener('click', () => {
+        sortKey = option.key;
+        renderFilterPanel();
+        renderFilterState();
+        renderRosterGrid();
+      });
+      sortBox.append(chip);
+    }
+
+    const box = element<HTMLElement>(root, '[data-filter-groups]');
+    box.replaceChildren();
+    for (const group of FILTER_GROUPS) {
+      const section = document.createElement('div');
+      section.className = 'filter-section';
+      section.append(createText('p', group.title, 'filter-title'));
+      const chips = document.createElement('div');
+      chips.className = 'filter-chips';
+      for (const value of group.values) {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        const on = picked[group.key].has(value);
+        chip.className = 'filter-chip' + (on ? ' is-on' : '');
+        chip.dataset.filterChip = `${group.key}:${value}`;
+        chip.textContent = labelOf(group.key, value);
+        chip.addEventListener('click', () => {
+          // 같은 칩을 다시 누르면 꺼진다 — 「전체」 칩을 따로 두지 않아도 된다.
+          if (on) picked[group.key].delete(value);
+          else picked[group.key].add(value);
+          renderFilterPanel();
+          renderFilterState();
+          renderRosterGrid();
+        });
+        chips.append(chip);
+      }
+      section.append(chips);
+      box.append(section);
+    }
+  };
+
+  filterOpen.addEventListener('click', () => {
+    const next = filterOpen.getAttribute('aria-expanded') !== 'true';
+    filterOpen.setAttribute('aria-expanded', String(next));
+    filterPanel.hidden = !next;
+  });
+  filterReset.addEventListener('click', () => {
+    for (const set of Object.values(picked)) set.clear();
+    sortKey = 'name';
+    renderFilterPanel();
+    renderFilterState();
+    renderRosterGrid();
+  });
 
   const renderRosterGrid = () => {
     // 직접 추가한 니케까지 포함해 지금 고를 수 있는 전체를 보여준다.
     const all = [...catalogByName.values()].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
     const narrowed = all.filter((char) => {
-      if (burstFilter && char.burstStage !== burstFilter) return false;
-      if (codeFilter && char.elementCode !== codeFilter) return false;
-      if (rarityFilter && settings.characters[char.name]?.rarity !== rarityFilter) return false;
-      return true;
+      const meta = settings.characters[char.name];
+      const hit = (key: FilterKey, value: string | undefined) =>
+        picked[key].size === 0 || (value !== undefined && picked[key].has(value));
+      return hit('burst', char.burstStage)
+        && hit('rarity', meta?.rarity)
+        && hit('class', char.className)
+        && hit('code', char.elementCode)
+        && hit('weapon', char.weaponType)
+        && hit('corp', char.manufacturer)
+        && hit('favorite', meta?.favoriteItem ? '있음' : '없음');
     });
+    sortRoster(narrowed);
     // 칩으로 먼저 좁히고 검색어로 세운다. 검색은 초성과 구분자까지 받아
     // 「ㅋㄹㅇ」·「라피레드」가 걸리고, 친 이름이 맨 앞에 온다.
     const shown = filterByQuery(narrowed, rosterSearch.value, buildIndex);
@@ -2191,34 +2331,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       : `${activeSlot + 1}번 빈 칸을 채웁니다 · ${filled}/5명`;
   };
 
+  renderFilterPanel();
+  renderFilterState();
   rosterSearch.addEventListener('input', renderRosterGrid);
-  element<HTMLElement>(root, '[data-filter-burst]').addEventListener('click', (event) => {
-    const chip = (event.target as HTMLElement).closest<HTMLElement>('.roster-chip');
-    if (!chip) return;
-    burstFilter = chip.dataset.burst ?? '';
-    for (const other of root.querySelectorAll<HTMLElement>('[data-filter-burst] .roster-chip')) {
-      other.classList.toggle('is-on', other === chip);
-    }
-    renderRosterGrid();
-  });
-  element<HTMLElement>(root, '[data-filter-rarity]').addEventListener('click', (event) => {
-    const chip = (event.target as HTMLElement).closest<HTMLElement>('.roster-chip');
-    if (!chip) return;
-    rarityFilter = chip.dataset.rarity ?? '';
-    for (const other of root.querySelectorAll<HTMLElement>('[data-filter-rarity] .roster-chip')) {
-      other.classList.toggle('is-on', other === chip);
-    }
-    renderRosterGrid();
-  });
-  element<HTMLElement>(root, '[data-filter-code]').addEventListener('click', (event) => {
-    const chip = (event.target as HTMLElement).closest<HTMLElement>('.roster-chip');
-    if (!chip) return;
-    codeFilter = chip.dataset.code ?? '';
-    for (const other of root.querySelectorAll<HTMLElement>('[data-filter-code] .roster-chip')) {
-      other.classList.toggle('is-on', other === chip);
-    }
-    renderRosterGrid();
-  });
 
   // 완전 초기화 — 이 브라우저에 쌓인 저장 상태를 전부 버린다. 메모리 변수까지
   // 하나씩 되돌리는 대신 저장소를 비우고 페이지를 다시 띄워, 새로 방문한 것과

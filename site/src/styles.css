@@ -280,6 +280,33 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .buff-target { display: flex; align-items: baseline; gap: 4px; margin: 0 0 8px; padding: 6px 8px; border: 1px solid var(--amber); border-radius: 6px; background: rgba(255,191,60,.09); color: #d9c79a; font: 700 10px/1.4 ui-monospace, monospace; word-break: keep-all; }
 .buff-target b { color: var(--amber); font-weight: 900; }
 
+/* 정렬·필터 판 — 칩을 늘 깔아 두면 목록이 화면 밖으로 밀린다. 눌러서 펼친다. */
+.picker-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0 8px; }
+.filter-open { display: flex; align-items: center; gap: 7px; padding: 8px 13px; border: 1px solid rgba(69,214,208,.32); border-radius: 8px; background: rgba(69,214,208,.09); color: #cfeceb; font: 800 11px ui-monospace, monospace; cursor: pointer; }
+.filter-open:hover { background: rgba(69,214,208,.2); border-color: var(--cyan); }
+.filter-open[aria-expanded="true"] { border-color: var(--cyan); background: rgba(69,214,208,.18); }
+.filter-open[aria-expanded="true"] .filter-caret { transform: rotate(180deg); }
+.filter-caret { color: var(--cyan); font-size: 9px; transition: transform .15s ease; }
+.filter-badge { min-width: 17px; padding: 1px 5px; border-radius: 999px; background: var(--amber); color: #1b1200; font: 900 9.5px ui-monospace, monospace; text-align: center; }
+.filter-badge[hidden] { display: none; }
+.filter-reset { padding: 7px 11px; border: 1px solid rgba(255,119,135,.38); border-radius: 8px; background: rgba(255,119,135,.08); color: var(--danger); font: 700 10px ui-monospace, monospace; cursor: pointer; }
+.filter-reset:hover { background: rgba(255,119,135,.18); border-color: var(--danger); }
+.filter-reset[hidden] { display: none; }
+.filter-summary { color: var(--muted); font: 600 10px ui-monospace, monospace; }
+
+.filter-panel { margin: 0 0 12px; padding: 14px 16px 4px; border: 1px solid rgba(69,214,208,.2); border-radius: 10px; background: rgba(3,9,16,.6); }
+.filter-panel[hidden] { display: none; }
+.filter-rule { height: 1px; margin: 12px 0 14px; background: linear-gradient(90deg, rgba(69,214,208,.34), transparent); }
+.filter-section { margin-bottom: 12px; }
+.filter-title { margin: 0 0 7px; color: var(--muted); font: 800 9.5px ui-monospace, monospace; letter-spacing: .1em; }
+.filter-groups .filter-title { color: #7f93a5; }
+.filter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.filter-chip { padding: 7px 13px; border: 1px solid rgba(146,176,201,.22); border-radius: 7px; background: rgba(7,15,25,.7); color: var(--muted); font: 700 10.5px ui-monospace, monospace; cursor: pointer; }
+.filter-chip:hover { border-color: rgba(69,214,208,.5); color: var(--ink); }
+.filter-chip.is-on { border-color: var(--cyan); background: rgba(69,214,208,.16); color: #d9f4f2; }
+/* 정렬은 하나만 고른다 — 켜진 칩을 앰버로 구분해 다중선택 필터와 헷갈리지 않게 한다. */
+[data-sort-group] .filter-chip.is-on { border-color: var(--amber); background: rgba(255,191,60,.14); color: var(--amber); }
+
 /* ENIKK 제외 니케 — 안 가진 니케가 낀 덱을 목록에서 걷어낸다. */
 .enikk-exclude { margin: 12px 0; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: rgba(7,15,25,.4); }
 .enikk-exclude-label { display: block; margin-bottom: 6px; color: var(--ink); font-size: 11px; font-weight: 800; }

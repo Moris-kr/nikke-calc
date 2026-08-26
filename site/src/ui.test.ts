@@ -389,6 +389,9 @@ describe('calculator UI', () => {
     expect(shown()).toBe('크확 대상 : []');
   });
 
+  const chip = (root: HTMLElement, key: string, value: string) =>
+    root.querySelector<HTMLButtonElement>(`[data-filter-chip="${key}:${value}"]`)!;
+
   it('filters the picker down to SSR only', () => {
     // SR·R은 실전에서 거의 안 쓴다 — 목록에서 걷어낸다(유저 피드백).
     const withSR: SettingsCatalog = {
@@ -397,10 +400,54 @@ describe('calculator UI', () => {
     };
     mountCalculator(root, { catalog, settings: withSR, version: 'v1', client: new FakeClient(), storage: localStorage });
     expect(rosterNames(root)).toContain('나가');
-    root.querySelector<HTMLButtonElement>('[data-filter-rarity] [data-rarity="SSR"]')!.click();
+    chip(root, 'rarity', 'SSR').click();
     expect(rosterNames(root)).not.toContain('나가');
-    root.querySelector<HTMLButtonElement>('[data-filter-rarity] [data-rarity=""]')!.click();
+    // 같은 칩을 다시 누르면 꺼진다 — 「전체」 칩이 따로 없다.
+    chip(root, 'rarity', 'SSR').click();
     expect(rosterNames(root)).toContain('나가');
+  });
+
+  it('ORs within a filter group and ANDs across groups', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    // 무기 둘을 켜면 둘 중 하나면 통과한다(그룹 안 OR).
+    chip(root, 'weapon', 'SR').click();
+    chip(root, 'weapon', 'AR').click();
+    expect(rosterNames(root).sort()).toEqual(['앨리스', '프리바티']);
+
+    // 거기에 속성을 더하면 둘 다 만족해야 한다(그룹 사이 AND).
+    chip(root, 'code', '수냉').click();
+    expect(rosterNames(root).sort()).toEqual(['앨리스', '프리바티']);
+    chip(root, 'code', '수냉').click();
+    chip(root, 'code', '작열').click();
+    expect(rosterNames(root)).toEqual([]);
+  });
+
+  it('counts the active filters and clears them all at once', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const badge = root.querySelector<HTMLElement>('[data-filter-badge]')!;
+    const reset = root.querySelector<HTMLButtonElement>('[data-filter-reset]')!;
+    expect(badge.hidden).toBe(true);
+    expect(reset.hidden).toBe(true);
+
+    chip(root, 'weapon', 'SR').click();
+    chip(root, 'class', '화력형').click();
+    expect(badge.textContent).toBe('2');
+    expect(reset.hidden).toBe(false);
+
+    reset.click();
+    expect(badge.hidden).toBe(true);
+    expect(rosterNames(root).length).toBe(catalog.length);
+  });
+
+  it('sorts by the picked key, breaking ties by name', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    // 기본은 이름순.
+    expect(rosterNames(root)).toEqual([...rosterNames(root)].sort((a, b) => a.localeCompare(b, 'ko')));
+
+    root.querySelector<HTMLButtonElement>('[data-sort="burst"]')!.click();
+    const stages = rosterNames(root)
+      .map((name) => catalog.find((c) => c.name === name)!.burstStage);
+    expect(stages).toEqual([...stages].sort());
   });
 
   it('empties just the deck being viewed', () => {
