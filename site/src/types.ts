@@ -147,6 +147,12 @@ export interface BattleSettings {
   console: ConsoleLevels;
   burstRegenTime: number;
   /**
+   * 덱마다 다른 버스트 게이지 충전 시간(초). 덱 번호 → 초.
+   * 비어 있으면 모든 덱이 `burstRegenTime` 하나를 함께 쓴다 — 버스트 쿨이 밀리는 덱만
+   * 따로 잡으려고 두는 값이다.
+   */
+  burstRegenPerDeck?: Record<number, number>;
+  /**
    * 버스트 반응속도(초). 조건이 갖춰진 뒤 실제로 누르기까지 걸리는 시간이며,
    * **버스트 하나하나마다** 더해진다 — 3단계까지 쓰면 그 세 배만큼 늦어진다.
    */

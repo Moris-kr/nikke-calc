@@ -616,11 +616,15 @@ def normalize_character_overrides(
             raise ValueError("큐브 설정은 name과 level만 포함해야 한다")
         name = cube.get("name")
         level = cube.get("level")
-        if name not in CUBE_NAMES:
-            raise ValueError(f"큐브는 {', '.join(CUBE_NAMES)} 중 하나여야 한다")
-        if isinstance(level, bool) or not isinstance(level, int) or not 1 <= level <= 15:
-            raise ValueError("큐브 레벨은 1~15 정수여야 한다")
-        result["cube"] = {"name": name, "level": level}
+        # 「없음」은 큐브를 안 낀 상태다. 레벨은 뜻이 없으므로 0으로 못 박는다.
+        if name == "없음":
+            result["cube"] = {"name": "없음", "level": 0}
+        else:
+            if name not in CUBE_NAMES:
+                raise ValueError(f"큐브는 없음, {', '.join(CUBE_NAMES)} 중 하나여야 한다")
+            if isinstance(level, bool) or not isinstance(level, int) or not 1 <= level <= 15:
+                raise ValueError("큐브 레벨은 1~15 정수여야 한다")
+            result["cube"] = {"name": name, "level": level}
 
     equip_levels = raw.get("equipLevels")
     if equip_levels is not None:

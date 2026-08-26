@@ -242,7 +242,8 @@ export function requestForDeck(
     immuneBlocksBurst: battle.immuneBlocksBurst,
     normalHitCoeff: battle.normalHitCoeff,
     console: battle.console,
-    burstRegenTime: battle.burstRegenTime,
+    // 덱마다 따로 잡아 뒀으면 그 값이 이긴다 — 버스트 쿨이 밀리는 덱만 달리 잰다.
+    burstRegenTime: battle.burstRegenPerDeck?.[deck.id] ?? battle.burstRegenTime,
     burstReaction: battle.burstReaction,
   });
 }

@@ -229,8 +229,9 @@ def calc_base_stats(char: dict) -> dict:
     for part, part_data in equip_inst.items():
         equip_s = _add(equip_s, _equip_stat(cls, part, part_data, meta["manufacturer"]))
 
-    # 큐브 플랫 스탯
-    cube_s = _CUBE["_stats"][str(cube_inst["level"])]
+    # 큐브 플랫 스탯. 「없음」은 큐브를 아예 안 낀 상태라 스탯도 붙지 않는다
+    # (미란다처럼 큐브 효과가 오히려 손해인 조합을 재려고 둔 선택지다).
+    cube_s = _zero() if cube_inst.get("name") == "없음" else _CUBE["_stats"][str(cube_inst["level"])]
 
     # 소장품 플랫 스탯
     coll_s = collection_stat(coll_stage)

@@ -727,6 +727,9 @@ class BuffManager:
         `type: instant` + 트리거 타이밍으로 오는 것도 있다. instant는 duration이 없다
         (`parsed_skills.json`의 instant와 같은 모양이어야 타임라인 핸들러가 받는다).
         """
+        # 큐브를 안 끼면 «공통»(우월 코드 대미지)도 붙지 않는다 — 그것도 큐브의 스킬이다.
+        if cube_name == "없음":
+            return []
         names = ["공통"]
         if cube_name != "공통":
             names.append(cube_name)

@@ -232,6 +232,39 @@ class BrowserBridgeTest(unittest.TestCase):
         # 그래도 전투는 돌아간다 — 다른 캐릭터는 계속 버스트를 쓴다.
         self.assertTrue(skipped["timeline"]["bursts"]["나가"])
 
+    def test_no_cube_drops_both_its_stats_and_its_effect(self):
+        """「없음」은 큐브를 안 낀 상태다 — 스탯도, 우월 코드 효과도 붙지 않는다."""
+        base = {
+            "squad": ["리타"],
+            "duration": 20,
+            "enemyDef": 31_784,
+            "enemyCode": "",
+            "corePx": 0,
+            "hasParts": False,
+            "seed": 42,
+        }
+        withCube = json.loads(run_request(json.dumps(base, ensure_ascii=False)))
+        without = json.loads(run_request(json.dumps({
+            **base, "characters": {"리타": {"cube": {"name": "없음", "level": 0}}},
+        }, ensure_ascii=False)))
+
+        self.assertLess(without["squadTotal"], withCube["squadTotal"])
+
+    def test_rejects_an_unknown_cube_name(self):
+        payload = {
+            "squad": ["리타"],
+            "duration": 10,
+            "enemyDef": 31_784,
+            "enemyCode": "",
+            "corePx": 0,
+            "hasParts": False,
+            "seed": 42,
+            "characters": {"리타": {"cube": {"name": "없는큐브", "level": 5}}},
+        }
+
+        with self.assertRaisesRegex(ValueError, "큐브는"):
+            run_request(json.dumps(payload, ensure_ascii=False))
+
     def test_rejects_a_bad_burst_reaction(self):
         payload = {
             "squad": ["리타"],

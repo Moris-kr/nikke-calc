@@ -96,8 +96,11 @@ function summaryText(name: string, catalog: SettingsCatalog, value?: CharacterOv
   return `${value ? '개별값' : '기본값'} · ${growth.label} · 호감도 ${growth.affinity} · ${skillSummary} · `
     + `우코 ${numberText(overload.element_bonus ?? 0)} · `
     + `공증 ${numberText(overload.atk_pct ?? 0)} · 장탄 ${numberText(overload.max_ammo_pct ?? 0)} · `
-    + `${cube.name} Lv${cube.level} · ${controlSummary}`;
+    + `${cube.name === NO_CUBE ? '큐브 없음' : `${cube.name} Lv${cube.level}`} · ${controlSummary}`;
 }
+
+/** 큐브를 끼지 않은 상태. 데이터가 아니라 화면이 만드는 선택지다. */
+export const NO_CUBE = '없음';
 
 /** 막바지 최우선의 기본 구간(초). 엔진 기본값(`calculator/customization.py`)과 같다. */
 const ENDGAME_DEFAULT = 20;
@@ -456,10 +459,18 @@ export function renderCharacterSettings(
       option.textContent = label;
       partSelect.append(option);
     };
+    // 실전에서 쓰는 것만 남긴다 — T1~T8은 사실상 안 쓴다. 「기업」은 오해를 사서
+    // (기업 장비 등급으로 읽힌다) 인게임 표기대로 「오버로드」로 적는다.
     addOption('없음', '미장착');
-    for (let tier = 1; tier <= 9; tier += 1) addOption(`T${tier}`, `T${tier}`);
-    for (let lv = 0; lv <= 5; lv += 1) addOption(String(lv), `기업 Lv${lv}`);
-    partSelect.value = String(current.equipLevels?.[part] ?? 5);
+    addOption('T9', 'T9 (일반)');
+    addOption('0', 'T9 기업 (강화 없음)');
+    for (let lv = 1; lv <= 5; lv += 1) addOption(String(lv), `오버로드 ${lv}강`);
+    const currentEquip = String(current.equipLevels?.[part] ?? 5);
+    // 옛 설정이 T1~T8을 가리키면 그 값도 목록에 남겨 둔다 — 조용히 바뀌면 안 된다.
+    if (![...partSelect.options].some((option) => option.value === currentEquip)) {
+      addOption(currentEquip, `${currentEquip} (옛 설정)`);
+    }
+    partSelect.value = currentEquip;
     partSelect.addEventListener('change', () => {
       const next = cloneOverrides(current);
       const levels = { ...(next.equipLevels ?? {}) };
@@ -474,7 +485,8 @@ export function renderCharacterSettings(
   }
   const equipNote = document.createElement('p');
   equipNote.className = 'field-note';
-  equipNote.textContent = '부위별 장비 · 미장착 / 일반 T1~T9(강화 없음) / 기업·오버로드 강화 0~5. 오버로드 옵션과 별개인 장비 기본 스탯입니다.';
+  equipNote.textContent = '부위별 장비 · 미장착 / T9(일반) / T9 기업 / 오버로드 1~5강. '
+    + '오버로드 «옵션»(우코·공증 등)과는 별개인 장비 기본 스탯입니다.';
   equipEditor.append(equipHeading, equipGrid, equipNote);
   body.append(equipEditor);
 
@@ -556,6 +568,12 @@ export function renderCharacterSettings(
   const cubeSelect = document.createElement('select');
   cubeSelect.dataset.cubeName = '';
   // 선택지는 카탈로그(=cube.json)에서 그대로 온다. 새 큐브가 추가돼도 코드는 그대로다.
+  // 맨 앞의 «없음»만 데이터가 아니라 화면이 만든다 — 큐브 효과가 오히려 손해인 조합
+  // (미란다 버프 등)을 재려면 안 낀 상태도 고를 수 있어야 한다.
+  const noneOption = document.createElement('option');
+  noneOption.value = NO_CUBE;
+  noneOption.textContent = '없음 (큐브 미착용)';
+  cubeSelect.append(noneOption);
   for (const cubeName of Object.keys(catalog.cubes)) {
     const option = document.createElement('option');
     option.value = cubeName;
@@ -565,8 +583,10 @@ export function renderCharacterSettings(
   // 저장된 편성이 지금 카탈로그에 없는 큐브를 가리킬 수 있다(데이터 갱신·구버전 상태).
   // 그때는 목록의 첫 큐브로 되돌려 UI가 통째로 죽지 않게 한다.
   const cubeNames = Object.keys(catalog.cubes);
-  const cubeName = catalog.cubes[current.cube.name] ? current.cube.name : cubeNames[0]!;
-  const cubeMeta = catalog.cubes[cubeName]!;
+  const noCube = current.cube.name === NO_CUBE;
+  const cubeName = noCube ? NO_CUBE
+    : (catalog.cubes[current.cube.name] ? current.cube.name : cubeNames[0]!);
+  const cubeMeta = catalog.cubes[cubeName] ?? catalog.cubes[cubeNames[0]!]!;
   cubeSelect.value = cubeName;
   const levelSelect = document.createElement('select');
   levelSelect.dataset.cubeLevel = '';
@@ -578,10 +598,17 @@ export function renderCharacterSettings(
     option.textContent = `Lv${level}`;
     levelSelect.append(option);
   }
-  levelSelect.value = String(current.cube.level);
+  levelSelect.value = String(noCube ? 15 : current.cube.level);
+  levelSelect.disabled = noCube;
   cubeSelect.addEventListener('change', () => {
     const next = cloneOverrides(current);
-    next.cube = { name: cubeSelect.value as CubeName, level: current.cube!.level };
+    if (cubeSelect.value === NO_CUBE) {
+      // 안 낀 상태에는 레벨이 없다 — 0으로 못 박아 엔진과 같은 뜻으로 보낸다.
+      next.cube = { name: NO_CUBE, level: 0 };
+      commit(next);
+      return;
+    }
+    next.cube = { name: cubeSelect.value as CubeName, level: current.cube!.level || 15 };
     if (!catalog.cubes[next.cube.name]?.levels[String(next.cube.level)]) {
       next.cube.level = 15;
     }
@@ -593,10 +620,12 @@ export function renderCharacterSettings(
     commit(next);
   });
   cubeControls.append(cubeSelect, levelSelect);
-  const level = cubeMeta.levels[String(current.cube.level)];
+  const level = noCube ? undefined : cubeMeta.levels[String(current.cube.level)];
   const cubeSummary = document.createElement('p');
   cubeSummary.className = 'cube-summary';
-  if (level) {
+  if (noCube) {
+    cubeSummary.textContent = '큐브를 끼지 않습니다 — 큐브의 스탯도, 우월 코드 효과도 붙지 않습니다.';
+  } else if (level) {
     const effect = cubeMeta.template.replace('{0}', String(level.effect));
     cubeSummary.textContent = `공격 ${level.atk.toLocaleString('en-US')} · 방어 ${level.def.toLocaleString('en-US')} · `
       + `체력 ${level.hp.toLocaleString('en-US')} · ${effect} · 우월 코드 ${level.commonElement}%`;
@@ -604,7 +633,7 @@ export function renderCharacterSettings(
   cubeBox.append(cubeHeading, cubeControls, cubeSummary);
   // 고유 스킬이 계산에 안 들어가는 큐브는 그 사실을 숨기지 않는다. 스탯은 붙으므로
   // 선택 자체는 의미가 있고, 표시된 효과 수치만 결과에 반영되지 않는다.
-  if (cubeMeta.unsupported) {
+  if (!noCube && cubeMeta.unsupported) {
     const note = document.createElement('p');
     note.className = 'cube-unsupported-note';
     note.dataset.cubeUnsupported = '';

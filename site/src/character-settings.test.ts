@@ -208,10 +208,14 @@ describe('character settings editor', () => {
 
     const head = root.querySelector<HTMLSelectElement>('[data-equip-level="머리"]')!;
     const arm = root.querySelector<HTMLSelectElement>('[data-equip-level="팔"]')!;
-    // 장비는 세 갈래다 — 미장착 / 일반 T1~T9 / 기업 강화 0~5.
+    // 실전에서 쓰는 것만 남긴다 — 미장착 / T9(일반) / T9 기업 / 오버로드 1~5강.
     // 강화 레벨은 스킬 레벨과 같은 방향(오름차순)으로 통일했다.
     expect([...head.options].map((option) => option.value)).toEqual(
-      ['없음', 'T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', '0', '1', '2', '3', '4', '5'],
+      ['없음', 'T9', '0', '1', '2', '3', '4', '5'],
+    );
+    expect([...head.options].map((option) => option.textContent)).toEqual(
+      ['미장착', 'T9 (일반)', 'T9 기업 (강화 없음)', '오버로드 1강', '오버로드 2강',
+        '오버로드 3강', '오버로드 4강', '오버로드 5강'],
     );
     expect(head.value).toBe('5');
     expect(root.querySelectorAll('[data-equip-level]').length).toBe(4);
@@ -590,6 +594,35 @@ describe('character settings editor', () => {
     // 설명도 «가급적»이 아니라 아예 안 쓴다고 적는다.
     expect(root.querySelector('.burst-editor .field-note')!.textContent)
       .toContain('버스트를 아예 쓰지 않습니다');
+  });
+
+  it('keeps an older T1~T8 setting selectable instead of silently moving it', () => {
+    value = { equipLevels: { 머리: 'T3', 몸통: 5, 팔: 5, 다리: 5 } };
+    render();
+    const head = root.querySelector<HTMLSelectElement>('[data-equip-level="머리"]')!;
+    expect(head.value).toBe('T3');
+    expect([...head.options].map((option) => option.textContent)).toContain('T3 (옛 설정)');
+  });
+
+  it('lets a character wear no cube at all', () => {
+    setToggle('[data-custom-toggle]', true);
+    const cube = root.querySelector<HTMLSelectElement>('[data-cube-name]')!;
+    expect([...cube.options][0]!.value).toBe('없음');
+
+    cube.value = '없음';
+    cube.dispatchEvent(new Event('change'));
+    // 레벨은 뜻이 없으므로 0으로 못 박고, 레벨 칸도 잠근다.
+    expect(value?.cube).toEqual({ name: '없음', level: 0 });
+    expect(root.querySelector<HTMLSelectElement>('[data-cube-level]')!.disabled).toBe(true);
+    expect(root.querySelector('.cube-summary')!.textContent).toContain('큐브를 끼지 않습니다');
+    expect(root.querySelector('[data-loadout-summary]')!.textContent).toContain('큐브 없음');
+
+    // 다시 큐브를 고르면 레벨이 되살아난다.
+    const first = root.querySelector<HTMLSelectElement>('[data-cube-name]')!.options[1]!.value;
+    const back = root.querySelector<HTMLSelectElement>('[data-cube-name]')!;
+    back.value = first;
+    back.dispatchEvent(new Event('change'));
+    expect(value?.cube).toEqual({ name: first, level: 15 });
   });
 
   it('offers an endgame-first burst window and sends it as seconds', () => {
