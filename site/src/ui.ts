@@ -54,6 +54,7 @@ import type {
   BatchResult,
   BattleSettings,
   BuffTargetRow,
+  CombatPowerRequest,
   ElementWindow,
   PhaseWindow,
   RngMode,
@@ -71,6 +72,8 @@ const DEFAULT_SQUAD = ['리타', '크라운', '라피 : 레드 후드', '앨리�
 export interface CalculatorClientLike {
   prepare(): Promise<void>;
   simulate(request: SimulationRequest): Promise<SimulationResult>;
+  /** 목록 정렬용 전투력. 없는 구현(테스트 대역)도 있어 선택으로 둔다. */
+  combatPower?(request: CombatPowerRequest): Promise<Record<string, number>>;
   dispose(): void;
 }
 
@@ -2111,7 +2114,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     burst: new Set(), rarity: new Set(), class: new Set(),
     code: new Set(), weapon: new Set(), corp: new Set(), favorite: new Set(),
   };
-  type SortKey = 'name' | 'element' | 'elementAtk';
+  type SortKey = 'power' | 'name' | 'element' | 'elementAtk';
   let sortKey: SortKey = 'name';
   // 같은 항목을 다시 누르면 뒤집는다. 항목마다 «자연스러운» 방향이 달라서
   // (이름은 가나다순, 수치는 높은 순) 처음 고를 때는 그 방향으로 잡는다.
@@ -2121,6 +2124,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   // 정렬은 «내 로스터에서 이 캐릭터가 얼마나 굴려졌나»를 본다. 오버로드 수치가
   // 그 척도라, CSV·프로필로 불러온 내 값이 있으면 그걸 쓰고 없으면 기본 스펙을 쓴다.
   const SORTS: Array<{ key: SortKey; label: string; hint: string }> = [
+    { key: 'power', label: '전투력', hint: '인게임 투력 — 다시 누르면 뒤집습니다' },
     { key: 'name', label: '이름', hint: '가나다순 — 다시 누르면 뒤집습니다' },
     { key: 'element', label: '우월코드', hint: '오버로드 우월 코드 대미지 — 다시 누르면 뒤집습니다' },
     { key: 'elementAtk', label: '우공합', hint: '우월 코드 + 공격력 증가 합 — 다시 누르면 뒤집습니다' },
@@ -2132,6 +2136,36 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   /** 이 캐릭터에게 실제로 적용될 오버로드 — 내 로스터 값이 우선이다. */
   const overloadOf = (name: string): Record<string, number> =>
     roster[name]?.overload ?? settings.characters[name]?.overload ?? {};
+
+  // 전투력은 엔진이 기본 스탯까지 계산해야 나온다 — 워커를 한 번 돌려 받아 둔다.
+  // 로스터를 바꾸면 값이 달라지므로 서명이 어긋나면 다시 받는다.
+  let combatPower: Record<string, number> = {};
+  let powerSig = '';
+  let powerLoading = false;
+
+  const loadCombatPower = async () => {
+    if (!client.combatPower) return;
+    const sig = JSON.stringify(roster);
+    if (powerLoading || powerSig === sig) return;
+    powerLoading = true;
+    try {
+      await prepared;
+      const custom = customPayload();
+      const got = await client.combatPower({
+        names: catalog.map((meta) => meta.name),
+        characters: roster,
+        ...(Object.keys(custom).length > 0 ? { customCharacters: custom } : {}),
+      });
+      combatPower = got;
+      powerSig = sig;
+      renderFilterState();
+      renderRosterGrid();
+    } catch {
+      /* 전투력은 정렬 편의 기능이다 — 실패해도 목록은 그대로 쓴다 */
+    } finally {
+      powerLoading = false;
+    }
+  };
 
   const FILTER_GROUPS: Array<{ key: FilterKey; title: string; values: string[] }> = [
     { key: 'burst', title: '버스트', values: ['1', '2', '3'] },
@@ -2155,6 +2189,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     const flip = sortDesc ? -1 : 1;
     if (sortKey === 'name') { list.sort((a, b) => flip * byName(a, b)); return; }
     const scoreOf = (char: CharacterMeta): number => {
+      if (sortKey === 'power') return combatPower[char.name] ?? 0;
       const over = overloadOf(char.name);
       const element = over.element_bonus ?? 0;
       return sortKey === 'element' ? element : element + (over.atk_pct ?? 0);
@@ -2178,7 +2213,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     const parts: string[] = [];
     if (sortKey !== 'name' || sortDesc) {
       const label = SORTS.find((s) => s.key === sortKey)?.label;
-      parts.push(`${label}${sortDesc ? ' ▼' : ' ▲'}`);
+      const pending = sortKey === 'power' && Object.keys(combatPower).length === 0;
+      parts.push(`${label}${pending ? ' 계산중' : sortDesc ? ' ▼' : ' ▲'}`);
     }
     for (const group of FILTER_GROUPS) {
       const set = picked[group.key];
@@ -2207,6 +2243,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         // 같은 항목을 다시 누르면 뒤집고, 다른 항목이면 그 항목의 기본 방향으로 간다.
         if (active) sortDesc = !sortDesc;
         else { sortKey = option.key; sortDesc = defaultDesc(option.key); }
+        // 전투력은 무거우니 고를 때 받는다. 오는 동안은 이름순으로 서 있는다.
+        if (sortKey === 'power') void loadCombatPower();
         renderFilterPanel();
         renderFilterState();
         renderRosterGrid();

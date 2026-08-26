@@ -50,7 +50,7 @@ async function initialize(id) {
 import sys
 if "${APP_ROOT}" not in sys.path:
     sys.path.insert(0, "${APP_ROOT}")
-from bridge import run_request
+from bridge import run_request, run_combat_power
 `);
   return manifest.version;
 }
@@ -72,6 +72,13 @@ async function handle(message) {
     const version = await ensureRuntime(id);
     if (type === 'prepare') {
       post(id, 'ready', version);
+      return;
+    }
+    // 전투력은 목록 정렬용이라 타임라인 계산과 별개로 돈다 — 훨씬 가볍다.
+    if (type === 'combatPower') {
+      pyodide.globals.set('__nikke_request_json', JSON.stringify(payload ?? {}));
+      const cp = await pyodide.runPythonAsync('run_combat_power(__nikke_request_json)');
+      post(id, 'result', JSON.parse(cp));
       return;
     }
     if (type !== 'simulate' || !payload) {

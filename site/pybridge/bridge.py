@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 
+from calculator.combat_power import combat_power
 from calculator.customization import (
     BUFF_TARGET_WATCH,
     normalize_burst_regen,
@@ -181,6 +182,34 @@ def _build_buff_targets(result, names: list[str]) -> dict:
         if rows:
             out[caster] = rows
     return out
+
+
+def run_combat_power(raw: str) -> str:
+    """캐릭터별 인게임 전투력. 목록 정렬에만 쓰고 딜 계산과는 무관하다.
+
+    `{"characters": {이름: 오버라이드}}` 를 받아 `{이름: 전투력}` 을 준다.
+    오버라이드가 없는 캐릭터는 기본 스펙으로 잰다 — 안 가진 니케도 목록에는 있어야
+    하고, 그때는 «만렙이면 이 정도»가 가장 덜 틀린 값이다.
+    """
+    payload = json.loads(raw)
+    _inject_custom_characters(payload.get("customCharacters") or {})
+    raw_characters = payload.get("characters") or {}
+    names = [str(n) for n in (payload.get("names") or raw_characters)]
+
+    overrides = {
+        name: normalize_character_overrides(raw_characters.get(name), character_name=name)
+        for name in names
+        if name in raw_characters
+    }
+    out: dict[str, float] = {}
+    for name in names:
+        try:
+            char = char_spec.build_squad([name], overrides)[0]
+            out[name] = round(combat_power(char), 2)
+        except Exception:
+            # 한 명이 걸려도 목록 전체가 죽으면 안 된다 — 그 캐릭터만 뺀다.
+            continue
+    return json.dumps(out, ensure_ascii=False, separators=(",", ":"))
 
 
 def run_request(raw: str) -> str:

@@ -22,6 +22,7 @@ const runtimeFiles = [
   'calculator/__init__.py',
   'calculator/base_stat.py',
   'calculator/buff_manager.py',
+  'calculator/combat_power.py',
   'calculator/customization.py',
   'calculator/damage.py',
   'calculator/sim_result.py',

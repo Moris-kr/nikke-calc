@@ -287,10 +287,17 @@ export interface BatchResult {
   decks: DeckResultEntry[];
 }
 
+/** 전투력은 목록 정렬용이라 딜 계산과 별개로 돈다 — 훨씬 가볍다. */
+export interface CombatPowerRequest {
+  names: string[];
+  characters?: Record<string, CharacterOverrides>;
+  customCharacters?: SimulationRequest['customCharacters'];
+}
+
 export interface WorkerRequest {
   id: number;
-  type: 'prepare' | 'simulate';
-  payload?: SimulationRequest;
+  type: 'prepare' | 'simulate' | 'combatPower';
+  payload?: SimulationRequest | CombatPowerRequest;
 }
 
 export interface WorkerResponse {

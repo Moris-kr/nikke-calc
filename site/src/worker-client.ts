@@ -1,6 +1,7 @@
 import type {
   SimulationRequest,
   SimulationResult,
+  CombatPowerRequest,
   WorkerRequest,
   WorkerResponse,
 } from './types';
@@ -56,6 +57,11 @@ export class CalculatorWorkerClient {
     return this.send<SimulationResult>('simulate', 'result', request);
   }
 
+  /** 캐릭터별 인게임 전투력. 목록 정렬에만 쓴다. */
+  combatPower(request: CombatPowerRequest): Promise<Record<string, number>> {
+    return this.send<Record<string, number>>('combatPower', 'result', request);
+  }
+
   dispose(): void {
     this.worker.terminate();
     this.rejectAll(new Error('계산기가 종료되었습니다.'));
@@ -65,7 +71,7 @@ export class CalculatorWorkerClient {
   private send<T>(
     type: WorkerRequest['type'],
     expected: PendingRequest<T>['expected'],
-    payload?: SimulationRequest,
+    payload?: WorkerRequest['payload'],
   ): Promise<T> {
     const id = this.nextId;
     this.nextId += 1;
