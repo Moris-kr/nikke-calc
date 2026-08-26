@@ -87,9 +87,15 @@ describe('auto summaries', () => {
       { squad: ['앨리스', '나가', '', '', ''] },
       { squad: ['', '', '', '', ''] },
     ];
-    expect(summarizeSquad(decks, false)).toBe('리타·크라운');
+    expect(summarizeSquad(decks, false)).toBe('리타/크라운');
     expect(summarizeSquad(decks, true)).toBe('2덱 · 4명');
     // 5덱 모드라도 실제로 한 덱만 찼으면 이름이 더 쓸모 있다.
-    expect(summarizeSquad([decks[0]!], true)).toBe('리타·크라운');
+    expect(summarizeSquad([decks[0]!], true)).toBe('리타/크라운');
+
+    // 이름 안에 «:»가 든 캐릭터가 섞여도 한 명씩 끊어 읽힌다.
+    expect(summarizeSquad(
+      [{ squad: ['크라운', '아니스 : 스타', '라피 : 레드 후드', '미하라 : 본딩 체인', '마스트 : 로망틱 메이드'] }],
+      false,
+    )).toBe('크라운/아니스 : 스타/라피 : 레드 후드/미하라 : 본딩 체인/마스트 : 로망틱 메이드');
   });
 });

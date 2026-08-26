@@ -115,15 +115,20 @@ export function summarizeBattle(battle: BattleShare): string {
   return parts.join(' · ');
 }
 
-/** 5덱이면 덱 수와 인원만, 한 덱이면 이름을 그대로 적는다. */
+/**
+ * 5덱이면 덱 수와 인원만, 한 덱이면 이름을 그대로 적는다.
+ *
+ * 이름 사이는 슬래시로 가른다 — «라피 : 레드 후드»처럼 이름 자체에 구분점이 들어가는
+ * 캐릭터가 많아, 가운뎃점으로 이으면 어디서 한 명이 끝나는지 읽히지 않는다.
+ */
 export function summarizeSquad(
   decks: Array<{ squad: string[] }>,
   fiveDeckMode: boolean,
 ): string {
   const filled = decks.map((deck) => deck.squad.filter((name) => name.trim() !== ''));
-  if (!fiveDeckMode) return filled[0]?.join('·') ?? '';
+  if (!fiveDeckMode) return filled[0]?.join('/') ?? '';
   const used = filled.filter((squad) => squad.length > 0);
   const total = used.reduce((sum, squad) => sum + squad.length, 0);
-  if (used.length <= 1) return used[0]?.join('·') ?? '';
+  if (used.length <= 1) return used[0]?.join('/') ?? '';
   return `${used.length}덱 · ${total}명`;
 }
