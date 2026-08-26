@@ -2226,14 +2226,17 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         const rank = ranking.get(entry.deckId)!;
         const tab = document.createElement('button');
         tab.type = 'button';
+        // 순위는 다섯 덱 모두에 적고, 1·2위만 색으로 강조한다. 자리는 덱 번호 순 그대로다.
         tab.className = 'deck-result-tab'
           + (rank === 1 ? ' is-first' : rank === 2 ? ' is-second' : '');
         tab.dataset.deckResultTab = String(entry.deckId);
-        if (rank <= 2) tab.dataset.deckRank = String(rank);
+        tab.dataset.deckRank = String(rank);
         const head = document.createElement('b');
         head.append(document.createTextNode(`덱 ${entry.deckId}`));
-        if (rank <= 2) head.append(createText('em', `${rank}위`, 'deck-tab-rank'));
-        tab.append(head, createText('span', formatDamage(entry.result.squadTotal)));
+        head.append(createText('em', `${rank}위`, 'deck-tab-rank'));
+        // 덱끼리 견주는 자리라 줄이지 않고 온전한 숫자를 적는다 — «1.14억»으로는
+        // 2위와의 차이가 읽히지 않는다.
+        tab.append(head, createText('span', Math.round(entry.result.squadTotal).toLocaleString('ko-KR')));
         tab.addEventListener('click', () => show(entry));
         buttons.set(entry.deckId, tab);
         tabs.append(tab);

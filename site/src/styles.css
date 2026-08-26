@@ -581,30 +581,32 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .deviations { margin: 14px 0 0; padding: 12px; max-height: 110px; overflow: auto; background: rgba(3,9,16,.65); color: #7e91a2; font: 10px/1.55 ui-monospace, monospace; white-space: pre-wrap; }
 /* 덱 탭 — 덱마다 하나, **덱 번호 순서 그대로** 선다. 딜 1·2위는 자리를 옮기지 않고
    뱃지와 테두리로만 표시한다. 고른 덱만 아래에 자세히 편다. */
-.deck-result-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
-.deck-result-tab { display: grid; gap: 2px; padding: 8px 14px; border: 1px solid var(--line);
-  border-radius: 9px; background: rgba(7,15,25,.6); color: var(--muted); cursor: pointer; text-align: left; }
-.deck-result-tab b { display: flex; align-items: center; gap: 6px; color: var(--ink);
+/* 덱 탭이 곧 요약이다 — 다섯 덱의 순위와 총딜이 한 줄에 다 선다. 자리는 덱 번호 순
+   그대로이고, 딜 1·2위만 색으로 강조한다. */
+.deck-result-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.deck-result-tab { display: grid; gap: 3px; padding: 9px 16px; border: 1px solid var(--line);
+  border-radius: 10px; background: rgba(7,15,25,.6); color: var(--muted); cursor: pointer; text-align: left; }
+.deck-result-tab b { display: flex; align-items: center; gap: 7px; color: var(--ink);
   font: 800 12px ui-monospace, monospace; }
-.deck-result-tab span { font: 600 10px ui-monospace, monospace; }
-.deck-result-tab:hover { border-color: rgba(69,214,208,.45); }
-.deck-result-tab.is-on { border-color: var(--cyan); background: rgba(69,214,208,.14); }
-.deck-result-tab.is-on b, .deck-result-tab.is-on span { color: #d9f4f2; }
-.deck-tab-rank { padding: 1px 5px; border-radius: 4px; background: rgba(146,176,201,.16);
-  color: var(--muted); font: 800 9px ui-monospace, monospace; font-style: normal; }
-.deck-result-tab.is-first { border-color: rgba(255,191,60,.5); }
-.deck-result-tab.is-first .deck-tab-rank { background: rgba(255,191,60,.2); color: var(--amber); }
-.deck-result-tab.is-second { border-color: rgba(146,176,201,.4); }
-.deck-result-tab.is-second .deck-tab-rank { background: rgba(214,229,238,.16); color: #cfdbe6; }
+.deck-result-tab span { color: var(--muted); font: 700 12px ui-monospace, monospace; }
+.deck-result-tab:hover { border-color: rgba(255,191,60,.45); }
+.deck-result-tab.is-on { border-color: var(--amber); background: rgba(255,191,60,.12); }
+.deck-result-tab.is-on b, .deck-result-tab.is-on span,
+.deck-result-tab.is-on .deck-tab-rank { color: var(--amber); }
+.deck-tab-rank { color: var(--muted); font: 800 11px ui-monospace, monospace; font-style: normal; }
+.deck-result-tab.is-first .deck-tab-rank { color: var(--amber); }
+.deck-result-tab.is-second .deck-tab-rank { color: #cfdbe6; }
 .timeline-tabs { margin: 0 0 12px; }
 
-/* 캐릭터 결과 카드 — 편성 카드와 같은 배열로 다섯을 나란히. */
-.result-cards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+/* 캐릭터 결과 카드 — 편성 카드와 **같은 폭·같은 자리**로 다섯을 나란히. 폭을 안 묶으면
+   패널을 그대로 5등분해 초상화가 280px까지 커지고, 정작 읽어야 할 수치가 밑에 깔린다. */
+.result-cards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+  width: min(100%, 940px); margin: 16px auto 0; gap: 10px; }
 .result-card { padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: rgba(7,15,25,.55); }
 .result-card.is-first { border-color: rgba(255,191,60,.5); background: rgba(255,191,60,.07); }
 .result-card.is-second { border-color: rgba(146,176,201,.42); }
 .result-card-face { position: relative; overflow: hidden; border-radius: 7px;
-  background: linear-gradient(135deg,#18293a,#09131e); aspect-ratio: 1 / 1; }
+  background: linear-gradient(135deg,#18293a,#09131e); aspect-ratio: 1 / .78; }
 .result-card-face img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 18%; display: block; }
 .result-rank-badge { position: absolute; top: 5px; left: 5px; padding: 2px 6px; border-radius: 5px;
   background: rgba(3,10,17,.82); color: var(--muted); font: 800 9.5px ui-monospace, monospace; }
@@ -612,7 +614,8 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .result-card.is-second .result-rank-badge { background: rgba(214,229,238,.85); color: #101922; }
 .result-card h3 { margin: 8px 0 2px; font-size: 12px; line-height: 1.3; word-break: keep-all; }
 .result-card-share { display: block; color: var(--muted); font: 600 10px ui-monospace, monospace; }
-.result-card strong { display: block; margin-top: 6px; color: var(--ink); font: 800 14px ui-monospace, monospace; }
+.result-card strong { display: block; margin-top: 6px; color: var(--amber); font: 800 17px ui-monospace, monospace; letter-spacing: -.02em; }
+.result-card.is-first strong { color: var(--amber); }
 .result-card small { display: block; color: var(--cyan); font: 600 10px ui-monospace, monospace; }
 .result-card .share-track { margin-top: 8px; }
 .result-card .dmg-split { margin-top: 8px; }
