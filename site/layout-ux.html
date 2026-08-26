@@ -343,7 +343,11 @@ const timelineFull = () => `
 /** 화면에 뜨는 창들 — 어느 안에서나 같이 쓴다 */
 const modals = () => `
   <section class="mt-6">
-    <p class="eyebrow mb-3 text-white/30">창 (모든 안 공통)</p>
+    <p class="eyebrow mb-3 text-white/30">창 (모든 안 공통) — 조건을 창으로 여는 안에서는 이 모양으로 뜹니다</p>
+    <div class="bezel mb-4"><div class="core p-5">
+      <div class="mb-3 flex items-center justify-between"><h4 class="text-[13px] font-extrabold">전투 조건</h4><button class="text-white/30">✕</button></div>
+      ${conditionFull()}
+    </div></div>
     <div class="grid gap-4 lg:grid-cols-3">
       <div class="bezel"><div class="core p-4">
         <div class="flex items-center justify-between"><h4 class="text-[13px] font-extrabold">전투 조건 공유</h4><button class="text-white/30">✕</button></div>
