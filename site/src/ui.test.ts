@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { StorageLike } from './cache';
+import { LATEST_NOTICE_ID } from './notices';
 import { mountCalculator, type CalculatorClientLike } from './ui';
 import './styles.css';
 import type {
@@ -607,6 +608,35 @@ describe('calculator UI', () => {
     root.querySelector<HTMLButtonElement>('[data-battle-share-apply]')!.click();
     // 남의 조건을 얹어도 내 레벨은 그대로다.
     expect(root.querySelector<HTMLInputElement>('#synchro-level')!.value).toBe('700');
+  });
+
+  it('shows the update notice once, and not again after it is closed', () => {
+    // 처음 온 사람에게는 뜬다.
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const modal = () => root.querySelector<HTMLElement>('[data-notice-modal]')!;
+    expect(modal().hidden).toBe(false);
+    expect(root.querySelectorAll('[data-notice]').length).toBeGreaterThan(0);
+
+    root.querySelector<HTMLButtonElement>('[data-notice-dismiss]')!.click();
+    expect(modal().hidden).toBe(true);
+    expect(localStorage.getItem('nikke-notice-seen')).toBe(LATEST_NOTICE_ID);
+
+    // 다시 들어와도 뜨지 않는다.
+    root.remove();
+    root = document.createElement('main');
+    document.body.append(root);
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    expect(root.querySelector<HTMLElement>('[data-notice-modal]')!.hidden).toBe(true);
+    // 그래도 언제든 다시 열어 볼 수 있다.
+    root.querySelector<HTMLButtonElement>('[data-notice-open]')!.click();
+    expect(root.querySelector<HTMLElement>('[data-notice-modal]')!.hidden).toBe(false);
+  });
+
+  it('shows the notice again when a newer one is published', () => {
+    // 옛 공지까지만 본 사람에게는 새 공지가 다시 뜬다.
+    localStorage.setItem('nikke-notice-seen', '2000-01-01');
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    expect(root.querySelector<HTMLElement>('[data-notice-modal]')!.hidden).toBe(false);
   });
 
   it('empties just the deck being viewed', () => {

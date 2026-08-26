@@ -771,6 +771,27 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
 .slot-pick { margin-top: 6px; padding: 6px 8px; width: 100%; border: 1px solid rgba(69,214,208,.28); background: rgba(69,214,208,.08); color: #cfeceb; font-size: 11px; font-weight: 700; border-radius: 6px; cursor: pointer; }
 .slot-pick:hover { background: rgba(69,214,208,.18); border-color: var(--cyan); }
 
+/* 업데이트 공지 */
+.notice-open { padding: 6px 12px; border: 1px solid rgba(255,191,60,.35); border-radius: 999px;
+  background: rgba(255,191,60,.1); color: var(--amber); font: 700 11px ui-monospace, monospace;
+  cursor: pointer; }
+.notice-open:hover { background: rgba(255,191,60,.2); border-color: var(--amber); }
+.custom-card.notice-card { width: min(680px, 100%); }
+.notice-body { max-height: 60vh; overflow-y: auto; margin-top: 14px; padding-right: 4px; }
+.notice-entry { padding: 14px 0; border-top: 1px solid var(--line); }
+.notice-entry:first-child { border-top: 0; padding-top: 4px; }
+.notice-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+.notice-head b { color: var(--cyan); font: 800 11px ui-monospace, monospace; letter-spacing: .04em; }
+.notice-head span { color: var(--ink); font-size: 14px; font-weight: 800; }
+.notice-entry ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.notice-entry li { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 10px;
+  color: #c6d3de; font-size: 12.5px; line-height: 1.65; }
+.notice-tag { align-self: start; padding: 2px 0; border-radius: 5px; text-align: center;
+  font: 800 9.5px ui-monospace, monospace; font-style: normal; }
+.notice-tag[data-notice-tag="새 기능"] { background: rgba(255,191,60,.16); color: var(--amber); }
+.notice-tag[data-notice-tag="개선"] { background: rgba(69,214,208,.14); color: var(--cyan); }
+.notice-tag[data-notice-tag="고침"] { background: rgba(146,176,201,.16); color: #cfdbe6; }
+
 /* 캐릭터 설정 — 카드에서 창으로 여는 뭉치 */
 .char-panel-open { display: flex; align-items: center; justify-content: space-between; gap: 6px;
   width: 100%; margin-top: 5px; padding: 7px 8px; border: 1px solid rgba(69,214,208,.24);

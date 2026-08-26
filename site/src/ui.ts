@@ -39,6 +39,7 @@ import {
 import {
   applyShareToDecks, decodeBattleCode, decodeShareCode, encodeBattleCode, encodeShareCode,
 } from './share-code';
+import { LATEST_NOTICE_ID, NOTICES, noticeToShow } from './notices';
 import { mountSharePanel, squadPreview, type SharePanel } from './share-panel';
 import { ShareServer, summarizeBattle, summarizeSquad } from './share-server';
 import { createTimelineBlock } from './timeline';
@@ -454,7 +455,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           <p class="eyebrow">BROWSER SIM <span>·</span> 60 FPS TIMELINE</p>
           <h1><span>NIKKE</span> 스쿼드 계산기</h1>
           <p class="hero-lede">캐릭터별 오버로드와 큐브, 전투 조건을 반영해 프레임 단위 예상 대미지를 계산합니다.</p>
-          <div class="trust-row" aria-label="서비스 특징"><span>${catalog.length}명 지원</span><a class="credit-link" href="https://github.com/Jgaram/nikke-calc" target="_blank" rel="noreferrer noopener" title="이 계산기의 원본 저장소">원본 알고리즘 개발자에게 무한한 감사를</a></div>
+          <div class="trust-row" aria-label="서비스 특징"><span>${catalog.length}명 지원</span><button type="button" class="notice-open" data-notice-open title="지금까지 무엇이 바뀌었는지 봅니다">업데이트 내역</button><a class="credit-link" href="https://github.com/Jgaram/nikke-calc" target="_blank" rel="noreferrer noopener" title="이 계산기의 원본 저장소">원본 알고리즘 개발자에게 무한한 감사를</a></div>
         </div>
         <div class="hero-orbit" aria-hidden="true"><span>01</span><strong>LOCAL<br />SIM</strong></div>
       </header>
@@ -697,6 +698,18 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             </div>
           </div>
           <p class="share-msg" data-battle-share-msg hidden></p>
+        </div>
+      </div>
+
+      <!-- 업데이트 공지. 새 내용이 있을 때 처음 들어오면 한 번 뜨고, 닫으면 그 판을
+           본 것으로 적어 다시 뜨지 않는다. 「업데이트 내역」으로 언제든 다시 연다. -->
+      <div class="custom-modal" data-notice-modal hidden>
+        <div class="custom-card notice-card" role="dialog" aria-label="업데이트 내역">
+          <div class="custom-head"><h2>업데이트 내역</h2><button type="button" class="custom-close" data-notice-close aria-label="닫기">✕</button></div>
+          <div class="notice-body" data-notice-body></div>
+          <div class="deck-copy-actions">
+            <button type="button" class="deck-copy-apply" data-notice-dismiss>확인 · 다시 보지 않기</button>
+          </div>
         </div>
       </div>
 
@@ -1129,6 +1142,64 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   buffOrderModal.addEventListener('click', (event) => {
     if (event.target === buffOrderModal) buffOrderModal.hidden = true;
   });
+
+  // ── 업데이트 공지 ───────────────────────────────────────────────────────
+  // 본 적 있는 공지 id를 적어 둔다. 새 공지가 올라오면 id가 달라져 다시 뜬다.
+  const NOTICE_KEY = 'nikke-notice-seen';
+  const noticeModal = element<HTMLElement>(root, '[data-notice-modal]');
+  const noticeBody = element<HTMLElement>(root, '[data-notice-body]');
+
+  const renderNotices = () => {
+    noticeBody.replaceChildren();
+    for (const notice of NOTICES) {
+      const block = document.createElement('section');
+      block.className = 'notice-entry';
+      block.dataset.notice = notice.id;
+      const head = document.createElement('div');
+      head.className = 'notice-head';
+      head.append(createText('b', notice.date), createText('span', notice.title));
+      block.append(head);
+      const list = document.createElement('ul');
+      for (const item of notice.items) {
+        const row = document.createElement('li');
+        const tag = createText('em', item.tag, 'notice-tag');
+        tag.dataset.noticeTag = item.tag;
+        row.append(tag, createText('span', item.text));
+        list.append(row);
+      }
+      block.append(list);
+      noticeBody.append(block);
+    }
+  };
+
+  const openNotice = () => {
+    renderNotices();
+    noticeModal.hidden = false;
+  };
+  /** 닫으면 최신 공지를 본 것으로 적는다 — 새 공지가 나오기 전까지 다시 뜨지 않는다. */
+  const closeNotice = () => {
+    noticeModal.hidden = true;
+    try {
+      resolveStorage()?.setItem(NOTICE_KEY, LATEST_NOTICE_ID);
+    } catch {
+      /* 저장 실패는 무시 — 다음에 한 번 더 뜰 뿐이다 */
+    }
+  };
+  element<HTMLButtonElement>(root, '[data-notice-open]').addEventListener('click', openNotice);
+  element<HTMLButtonElement>(root, '[data-notice-close]').addEventListener('click', closeNotice);
+  element<HTMLButtonElement>(root, '[data-notice-dismiss]').addEventListener('click', closeNotice);
+  noticeModal.addEventListener('click', (event) => {
+    if (event.target === noticeModal) closeNotice();
+  });
+  {
+    let seen: string | null = null;
+    try {
+      seen = resolveStorage()?.getItem(NOTICE_KEY) ?? null;
+    } catch {
+      /* 못 읽으면 처음 온 것으로 본다 */
+    }
+    if (noticeToShow(seen)) openNotice();
+  }
 
   // ── 캐릭터 설정 창 ──────────────────────────────────────────────────────
   // 어떤 캐릭터의 어느 뭉치를 보고 있는지 기억한다. 값을 바꾸면 카드가 다시 그려지고
