@@ -131,18 +131,21 @@ export function renderCharacterSettings(
    * 눌러서 여는 설정 뭉치. 카드가 좁아 그 자리에서 펼치면 다섯 장이 서로를 밀어낸다 —
    * 필터 판처럼 창으로 띄운다. 창을 못 여는 자리에서는 제자리 펼치기로 물러난다.
    */
-  const panelOpener = (label: string, kind: CharPanelKind) => {
+  const panelOpener = (label: string, kind: CharPanelKind, short = label) => {
     const head = document.createElement('button');
     head.type = 'button';
     head.className = 'char-panel-open';
     head.dataset.charPanelOpen = kind;
     head.setAttribute('aria-expanded', 'false');
+    // 카드에는 짧은 이름을, 창 제목에는 온전한 이름을 쓴다 — 좁은 칸에서 라벨이
+    // 줄줄이 깨지면 무엇을 여는 단추인지부터 읽히지 않는다.
     const title = document.createElement('span');
     title.className = 'disclosure-label';
-    title.textContent = label;
+    title.textContent = short;
+    title.title = label;
     const hint = document.createElement('span');
     hint.className = 'disclosure-hint';
-    hint.textContent = '열기';
+    hint.textContent = '›';
     head.append(title, hint);
     const panel = document.createElement('div');
     panel.className = 'disclosure-panel char-panel';
@@ -189,7 +192,10 @@ export function renderCharacterSettings(
     summaryBox.hidden = !next;
     summaryCaret.textContent = next ? '▴' : '▾';
   });
-  container.append(summaryFold, summaryBox);
+  const settingsRow = document.createElement('div');
+  settingsRow.className = 'settings-row';
+  settingsRow.append(summaryFold);
+  container.append(settingsRow, summaryBox);
 
   const summary = document.createElement('p');
   summary.className = 'loadout-summary';
@@ -248,7 +254,7 @@ export function renderCharacterSettings(
   const toggleText = document.createElement('span');
   toggleText.textContent = '개별 설정';
   toggleLabel.append(toggle, toggleText);
-  container.append(toggleLabel);
+  settingsRow.append(toggleLabel);
   toggle.addEventListener('change', () => {
     commit(toggle.checked ? defaultCharacterOverrides(name, catalog) : undefined);
   });
@@ -794,7 +800,7 @@ export function renderCharacterSettings(
   controlWarning.className = 'field-note warning';
   controlWarning.textContent = '여러 캐릭터 동시 컨트롤은 실제 한 명 조작보다 유리한 상한일 수 있습니다.';
   // 컨트롤은 따로 접는다. 손대는 사람은 적은데 자리는 가장 많이 먹는다.
-  const controlFold = panelOpener('컨트롤 · 버스트', 'control');
+  const controlFold = panelOpener('컨트롤 · 버스트', 'control', '컨트롤 · 버스트');
   controlFold.panel.append(controlMode, recommendation, controlGrid, controlWarning, burstEditor);
   controlEditor.append(controlFold.head, controlFold.panel);
   // 컨트롤은 돌파·스킬·오버로드·큐브와 **형제**로 둔다. 그 안에 넣으면 컨트롤만
@@ -890,7 +896,7 @@ export function renderCharacterSettings(
     advanced.hidden = !advancedToggle.checked;
   });
   body.append(advanced);
-  const bodyFold = panelOpener('돌파 · 스킬 · 오버로드 · 큐브', 'settings');
+  const bodyFold = panelOpener('돌파 · 스킬 · 오버로드 · 큐브', 'settings', '수치 설정');
   bodyFold.panel.append(body);
   container.append(bodyFold.head, bodyFold.panel, controlEditor);
 }

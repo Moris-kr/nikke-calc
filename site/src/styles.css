@@ -234,10 +234,15 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .deck-copy-actions { display: flex; gap: 8px; margin-top: 12px; }
 .deck-copy-actions button { padding: 6px 12px; font-size: 10px; cursor: pointer; border: 1px solid rgba(69,214,208,.22); background: rgba(69,214,208,.07); color: #a9c7cb; }
 .deck-copy-actions .deck-copy-apply { background: rgba(69,214,208,.18); color: #d7ecef; }
-/* 칸 하나를 원래의 60%로 줄이고 줄 전체를 가운데 세운다 — 카드가 작아진 만큼
-   목록과 결과가 같은 화면에 더 들어온다. */
-.squad-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 132px)); justify-content: center;
-  gap: 10px; align-items: start; overflow-x: auto; padding-bottom: 6px; }
+/* 칸을 줄이고 줄 전체를 가운데 세운다 — 카드가 작아진 만큼 목록과 결과가 같은
+   화면에 더 들어온다. 다만 고정 폭으로 조이면 한글 라벨이 줄줄이 깨져 오히려
+   답답해진다. 줄 전체에 상한을 두고 그 안에서 다섯이 고르게 나눠 갖는다. */
+.squad-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+  width: min(100%, 940px); margin: 0 auto;
+  gap: 10px; align-items: stretch; overflow-x: auto; padding-bottom: 6px; }
+/* 이름이 두 줄인 카드 때문에 아래 줄이 어긋나지 않게 — 카드는 서로 같은 높이다. */
+.squad-slot { display: flex; flex-direction: column; }
+.squad-slot .character-settings { margin-top: auto; }
 .squad-slot { position: relative; min-width: 0; padding: 9px 9px 12px; border: 1px solid rgba(146,176,201,.15); background: rgba(5,13,22,.68); transition: transform .18s ease, border-color .18s ease; }
 .squad-slot:hover { transform: translateY(-3px); border-color: rgba(255,191,60,.42); }
 .squad-slot > label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
@@ -264,7 +269,7 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 /* 칸을 누르면 아래 판이 그 칸을 겨냥한다. 검색·드롭다운·교체 버튼은 판으로 옮겼다. */
 .slot-identity { position: relative; }
 .slot-choose { display: grid; gap: 3px; width: 100%; min-height: 46px; padding: 8px 26px 8px 9px; border: 1px solid rgba(146,176,201,.22); background: rgba(2,9,16,.72); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
-.slot-choose strong { font-size: 12px; font-weight: 800; line-height: 1.3; word-break: keep-all; }
+.slot-choose strong { min-height: 2.6em; font-size: 12px; font-weight: 800; line-height: 1.3; word-break: keep-all; }
 .slot-choose span { color: var(--muted); font: 600 9.5px ui-monospace, monospace; }
 .slot-choose:hover { border-color: rgba(69,214,208,.45); }
 .slot-choose[aria-pressed="true"] { border-color: var(--cyan); background: rgba(69,214,208,.12); box-shadow: inset 0 0 0 1px rgba(69,214,208,.28); }
@@ -692,12 +697,20 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
 
 /* 캐릭터 설정 — 카드에서 창으로 여는 뭉치 */
 .char-panel-open { display: flex; align-items: center; justify-content: space-between; gap: 6px;
-  width: 100%; margin-top: 6px; padding: 7px 9px; border: 1px solid rgba(69,214,208,.24);
+  width: 100%; margin-top: 5px; padding: 7px 8px; border: 1px solid rgba(69,214,208,.24);
   border-radius: 7px; background: rgba(69,214,208,.08); color: #cfeceb; font: inherit;
   font-size: 10.5px; font-weight: 700; text-align: left; cursor: pointer; }
 .char-panel-open:hover { border-color: var(--cyan); background: rgba(69,214,208,.18); }
-.char-panel-open .disclosure-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.char-panel-open .disclosure-hint { flex: none; color: var(--muted); font-weight: 600; }
+/* 라벨은 한 줄로 끝낸다 — 좁은 카드에서 «돌파 · 스킬 · 오 / 버로드 · 큐브»로 깨지면
+   무엇을 여는 단추인지부터 읽히지 않는다. */
+.char-panel-open .disclosure-label { min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; }
+.char-panel-open .disclosure-hint { flex: none; color: var(--muted); font-weight: 700; font-size: 12px; }
+
+/* 개별값·개별 설정은 한 줄에 나란히 — 줄 수를 줄이는 게 이 카드의 전부다. */
+.character-settings .loadout-open { flex: 1; margin-top: 8px; }
+.settings-row { display: flex; align-items: center; gap: 8px; }
+.settings-row .inline-check { margin: 8px 0 0; white-space: nowrap; }
 .custom-card.char-panel-card { width: min(720px, 100%); }
 .char-panel-body .char-panel { display: block; }
 

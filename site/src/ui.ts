@@ -398,7 +398,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       <form class="calculator-layout" data-view="calc" novalidate>
         <section class="panel settings-panel" aria-labelledby="settings-heading">
           <div class="section-heading compact target-heading">
-            <div><p class="step">02 / TARGET</p><h2 id="settings-heading">전투 조건</h2></div>
+            <div><p class="step">01 / TARGET</p><h2 id="settings-heading">전투 조건</h2></div>
             <div class="target-actions">
               <button type="button" class="reset-enemy" data-battle-share-open title="전투 조건을 코드로 만들어 공유하거나, 받은 코드를 붙여넣어 적용합니다">전투 조건 공유</button>
               <button type="button" class="reset-enemy" data-reset-enemy>적 수치 초기화</button>
@@ -467,7 +467,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
         <section class="panel squad-panel" aria-labelledby="squad-heading">
           <div class="section-heading">
-            <div><p class="step">01 / SQUAD</p><h2 id="squad-heading">편성 및 캐릭터 설정</h2></div>
+            <div><p class="step">02 / SQUAD</p><h2 id="squad-heading">편성 및 캐릭터 설정</h2></div>
             <div class="squad-tools">
               <span class="roster-import-group">
                 <label class="roster-import" title="렛츠도로 니케정보 CSV를 불러와 모든 니케 설정에 적용">
