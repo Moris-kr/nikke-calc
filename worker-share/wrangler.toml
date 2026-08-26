@@ -13,4 +13,4 @@ VOTE_SALT = "nikke-calc-share"
 #   npx wrangler kv namespace create SHARE
 [[kv_namespaces]]
 binding = "SHARE"
-id = "PUT_KV_NAMESPACE_ID_HERE"
+id = "95dbf20ea4454b0aa1154810df5f90dc"

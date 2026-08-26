@@ -13,6 +13,7 @@ site/.env.local
 
 # wrangler 로컬 상태 (계정 캐시 등)
 worker/.wrangler/
+worker-share/.wrangler/
 
 # 개인 계정 데이터 — AGENTS.md가 통째로 gitignore라고 규정한다.
 # 규정만 있고 규칙이 없어 실제로는 추적 대상이었다(2026-08-24).
