@@ -1081,9 +1081,12 @@ describe('calculator UI', () => {
     const splits = [...root.querySelectorAll<HTMLElement>('[data-dmg-split]')];
     // 분해 정보를 준 캐릭터에만 붙는다.
     expect(splits).toHaveLength(1);
+    // 접힌 줄에는 비율, 펼치면 실제 대미지가 보인다 — 카드가 좁아 둘을 나눠 담는다.
+    expect(splits[0]!.querySelector<HTMLElement>('summary')!.textContent).toContain('평타 75%');
+    expect(splits[0]!.querySelector<HTMLElement>('summary')!.textContent).toContain('스킬 25%');
     const legend = splits[0]!.querySelector<HTMLElement>('.split-legend')!.textContent!;
-    expect(legend).toContain('75.0%');
-    expect(legend).toContain('25.0%');
+    expect(legend).toContain('45,000');
+    expect(legend).toContain('15,000');
     expect(splits[0]!.querySelector<HTMLElement>('.split-normal')!.style.width).toBe('75%');
     expect(splits[0]!.querySelector<HTMLElement>('.split-skill')!.style.width).toBe('25%');
     expect(splits[0]!.querySelector('.skill-breakdown li')!.textContent).toContain('버스트');
@@ -1354,11 +1357,16 @@ describe('calculator UI', () => {
     expect(client.requests[1]?.characters?.리타?.skillLevels?.['1']).toBe(7);
     expect(client.requests[0]?.characters?.리타?.growthStage).toBe(1);
     expect(client.requests[1]?.characters?.리타?.growthStage).toBe(7);
-    expect(root.querySelectorAll('[data-deck-result]')).toHaveLength(2);
-    // 덱이 둘 이상이면 가로로 나란히 선다 — 한 화면에서 비교하려는 것이다.
-    const row = root.querySelector('.deck-result-row')!;
-    expect(row).not.toBeNull();
-    expect(row.querySelectorAll('[data-deck-result]')).toHaveLength(2);
+    // 덱이 둘 이상이면 탭으로 갈라 한 번에 하나만 편다. 탭은 **덱 번호 순서 그대로**다.
+    const deckTabs = [...root.querySelectorAll<HTMLButtonElement>('[data-deck-result-tab]')];
+    expect(deckTabs.map((tab) => tab.dataset.deckResultTab)).toEqual(['1', '2']);
+    expect(root.querySelectorAll('[data-deck-result]')).toHaveLength(1);
+    expect(root.querySelector<HTMLElement>('[data-deck-result]')!.dataset.deckResult).toBe('1');
+    // 딜 순위는 자리를 옮기지 않고 표시로만 붙는다.
+    expect(deckTabs.map((tab) => tab.dataset.deckRank)).toEqual(['1', '2']);
+
+    deckTabs[1]!.click();
+    expect(root.querySelector<HTMLElement>('[data-deck-result]')!.dataset.deckResult).toBe('2');
     expect(root.querySelector('[data-batch-total]')?.textContent).toContain('246,912');
     expect(root.querySelector('[data-status]')?.textContent).toContain('2개 덱 계산 완료');
   });

@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>전투 결과 UI 시안</title>
+<link rel="stylesheet" href="src/styles.css" />
+<style>
+  .mock-shell { width: min(1240px, calc(100% - 40px)); margin: 0 auto; padding: 24px 0 80px; }
+  .mock-bar { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; padding: 12px 14px;
+    margin: 0 0 16px; border: 1px solid var(--line); border-radius: 12px; background: rgba(7,15,25,.6); }
+  .mock-group { display: flex; align-items: center; gap: 8px; }
+  .mock-group .filter-title { margin: 0 4px 0 0; }
+  .mock-note { margin: 14px 0 0; color: var(--muted); font-size: 12.5px; line-height: 1.75; }
+  .mock-note b { color: var(--amber); }
+
+  /* ── 공통 조각 ─────────────────────────────────────────────────────── */
+  .r-face { width: 100%; aspect-ratio: 1/1; object-fit: cover; object-position: 50% 18%; border-radius: 6px;
+    background: linear-gradient(135deg,#18293a,#09131e); }
+  .r-face.sm { width: 30px; height: 30px; aspect-ratio: auto; border-radius: 5px; }
+  .r-face.md { width: 44px; height: 44px; aspect-ratio: auto; }
+  .r-bar { position: relative; height: 6px; border-radius: 3px; background: rgba(146,176,201,.14); overflow: hidden; }
+  .r-bar i { position: absolute; inset: 0 auto 0 0; border-radius: 3px;
+    background: linear-gradient(90deg, var(--amber), var(--amber-hot)); }
+  .r-bar.cyan i { background: linear-gradient(90deg, rgba(69,214,208,.9), rgba(69,214,208,.45)); }
+  .r-num { color: var(--ink); font: 800 15px ui-monospace, monospace; }
+  .r-sub { color: var(--muted); font: 600 10px ui-monospace, monospace; }
+
+  /* 1덱 A — 카드 그리드 */
+  .one-grid { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 10px; margin-top: 16px; }
+  .one-card { padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: rgba(7,15,25,.55); }
+  .one-card h4 { margin: 8px 0 2px; font-size: 12px; }
+  .one-card .r-bar { margin-top: 8px; }
+
+  /* 1덱 B — 랭킹 막대 */
+  .one-rank { display: grid; gap: 8px; margin-top: 16px; }
+  .one-rank-row { display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 12px;
+    padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: rgba(7,15,25,.5); }
+  .one-rank-row.is-top { border-color: rgba(255,191,60,.42); background: rgba(255,191,60,.07); }
+  .one-rank-name { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+  .one-rank-name b { font-size: 13px; }
+
+  /* 1덱 C — 도넛 + 표 */
+  .one-split { display: grid; grid-template-columns: 220px 1fr; gap: 22px; align-items: center; margin-top: 16px; }
+  .one-legend { display: grid; gap: 6px; }
+  .one-legend-row { display: grid; grid-template-columns: 10px 30px 1fr auto auto; align-items: center; gap: 10px;
+    padding: 6px 4px; border-bottom: 1px solid rgba(146,176,201,.1); font-size: 12px; }
+  .swatch { width: 10px; height: 10px; border-radius: 3px; }
+
+  /* 1덱 D — 초상화 스트립 */
+  .one-strip { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 8px; margin-top: 8px; }
+  .one-strip-cell { position: relative; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); }
+  .one-strip-cell img { width: 100%; aspect-ratio: 1/1.15; object-fit: cover; object-position: 50% 16%; display: block; }
+  .one-strip-cap { position: absolute; inset: auto 0 0; padding: 20px 8px 7px; text-align: center;
+    background: linear-gradient(transparent, rgba(3,10,17,.94) 55%); }
+  .one-strip-cap b { display: block; font-size: 11px; }
+  .one-hero { display: grid; place-items: center; gap: 2px; padding: 6px 0 14px; text-align: center; }
+  .one-hero strong { color: var(--amber); font-size: clamp(34px, 5vw, 58px); line-height: 1; letter-spacing: -.05em; }
+
+  /* 5덱 A — 표 */
+  .five-table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 12px; }
+  .five-table th, .five-table td { padding: 10px 8px; border-bottom: 1px solid rgba(146,176,201,.12); text-align: left; }
+  .five-table th { color: var(--muted); font: 700 10px ui-monospace, monospace; letter-spacing: .06em; }
+  .five-table td.num { text-align: right; font: 800 13px ui-monospace, monospace; }
+  .five-table tr.is-top td { background: rgba(255,191,60,.06); }
+  .five-table .faces { display: flex; gap: 3px; }
+
+  /* 5덱 B — 순위 막대 */
+  .five-rank { display: grid; gap: 10px; margin-top: 14px; }
+  .five-rank-row { display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: center;
+    padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: rgba(7,15,25,.5); }
+  .five-rank-row.is-top { border-color: rgba(255,191,60,.42); }
+  .five-rank-no { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px;
+    background: rgba(146,176,201,.12); color: var(--muted); font: 900 12px ui-monospace, monospace; }
+  .five-rank-row.is-top .five-rank-no { background: rgba(255,191,60,.2); color: var(--amber); }
+  .five-rank-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 7px; }
+  .five-rank-faces { display: flex; gap: 3px; }
+
+  /* 5덱 C — 덱 탭 */
+  .five-tabs { display: flex; gap: 6px; margin-top: 14px; flex-wrap: wrap; }
+  .five-tab { display: grid; gap: 2px; padding: 8px 14px; border: 1px solid var(--line); border-radius: 9px;
+    background: rgba(7,15,25,.6); color: var(--muted); cursor: pointer; text-align: left; }
+  .five-tab b { color: var(--ink); font: 800 12px ui-monospace, monospace; }
+  .five-tab span { font: 600 10px ui-monospace, monospace; }
+  .five-tab.is-on { border-color: var(--amber); background: rgba(255,191,60,.12); }
+  .five-tab.is-on b, .five-tab.is-on span { color: var(--amber); }
+
+  /* 5덱 D — 1위 강조 */
+  .five-podium { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 12px; margin-top: 14px; }
+  .five-podium .p-card { padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: rgba(7,15,25,.5); }
+  .five-podium .p-card.is-top { grid-row: span 2; border-color: rgba(255,191,60,.45);
+    background: linear-gradient(160deg, rgba(255,191,60,.12), rgba(7,15,25,.5)); }
+  .p-card h4 { margin: 0 0 6px; color: var(--cyan); font-size: 12px; }
+  .p-card .faces { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
+
+  /* 5덱 E — 가로 행렬(현재) */
+  .five-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 360px));
+    justify-content: center; gap: 14px; margin-top: 14px; zoom: .85; }
+  .five-row .deck-result { margin-top: 0; padding: 14px; border: 1px solid var(--line); border-radius: 10px; }
+</style>
+</head>
+<body>
+<div class="mock-shell">
+  <p class="eyebrow">UX 시안 · <span>전투 결과</span></p>
+  <h1 style="margin:0 0 6px;font-size:26px;letter-spacing:-.03em;">결과를 어떻게 보여줄까</h1>
+  <p class="mock-note" style="margin:0 0 16px;">실제 사이트 CSS와 실제 초상화를 쓴 <b>동작하는 시안</b>입니다. 덱 수와 시안을 바꿔 가며 보세요(수치는 예시).</p>
+
+  <div class="mock-bar">
+    <div class="mock-group"><p class="filter-title">덱 수</p><div class="filter-chips" id="mode-chips"></div></div>
+    <div class="mock-group"><p class="filter-title">시안</p><div class="filter-chips" id="plan-chips"></div></div>
+  </div>
+
+  <section class="panel result-panel" id="stage" style="zoom:1"></section>
+  <p class="mock-note" id="plan-note"></p>
+</div>
+
+<script type="module">
+const BASE = '/nikke-calc/';
+const SQUAD = [
+  { name: '리타', img: '050.webp', dmg: 402_551_180, normal: 62, skill: 38 },
+  { name: '크라운', img: '159.webp', dmg: 118_902_441, normal: 41, skill: 59 },
+  { name: '라피 : 레드 후드', img: '032.webp', dmg: 612_337_905, normal: 55, skill: 45 },
+  { name: '앨리스', img: '125.webp', dmg: 288_114_002, normal: 78, skill: 22 },
+  { name: '나가', img: '006.webp', dmg: 60_999_585, normal: 33, skill: 67 },
+];
+const DECKS = [
+  { id: 1, total: 1_482_905_113, squad: ['050.webp', '159.webp', '032.webp', '125.webp', '006.webp'], names: ['리타', '크라운', '라피 : 레드 후드', '앨리스', '나가'] },
+  { id: 2, total: 1_338_220_004, squad: ['188.webp', '014.webp', '021.webp', '180.webp', '159.webp'], names: ['홍련', '노아', '도로시', '프리바티', '크라운'] },
+  { id: 3, total: 1_201_776_910, squad: ['032.webp', '021.webp', '050.webp', '006.webp', '125.webp'], names: ['라피 : 레드 후드', '도로시', '리타', '나가', '앨리스'] },
+  { id: 4, total: 998_450_233, squad: ['180.webp', '188.webp', '014.webp', '050.webp', '159.webp'], names: ['프리바티', '홍련', '노아', '리타', '크라운'] },
+  { id: 5, total: 774_010_651, squad: ['006.webp', '125.webp', '021.webp', '188.webp', '014.webp'], names: ['나가', '앨리스', '도로시', '홍련', '노아'] },
+];
+const DURATION = 180;
+const TOTAL = SQUAD.reduce((sum, c) => sum + c.dmg, 0);
+const COLORS = ['#ffbf3c', '#45d6d0', '#8f7dff', '#ff7787', '#5fd08a'];
+
+const won = (n) => n.toLocaleString('ko-KR');
+const dps = (n) => `${(n / DURATION / 1e6).toFixed(2)}M DPS`;
+const face = (img, cls = 'sm') => `<img class="r-face ${cls}" src="${BASE}characters/${img}" alt="" loading="lazy" />`;
+const pct = (v, total) => (v / total * 100);
+
+const header = (title, total) => `
+  <div class="result-header">
+    <div><p class="step">03 / RESULT</p><h2>${title}</h2></div>
+    <div class="total-block"><span>${title.includes('5덱') ? '전체 덱 총 대미지' : '스쿼드 총 대미지'}</span>
+      <strong>${won(total)}</strong><small>${dps(total)}</small></div>
+  </div>`;
+
+const ranked = [...SQUAD].sort((a, b) => b.dmg - a.dmg);
+
+/* ── 1덱 시안 ──────────────────────────────────────────────────────── */
+const ONE = {
+  1: {
+    label: '1 · 지금 (세로 목록)',
+    note: '<b>지금 화면</b> — 캐릭터마다 한 줄씩 쌓고 기여 막대와 평타/스킬 분해를 붙입니다. 정보는 가장 많지만 다섯 명이면 세로로 길어 한눈에 안 들어옵니다.',
+    html: () => header('전투 결과', TOTAL) + `<div class="result-rows">${SQUAD.map((c) => `
+      <article class="character-result">
+        <div class="result-row-top">
+          <div><h3>${c.name}</h3><span>${pct(c.dmg, TOTAL).toFixed(1)}% 기여</span></div>
+          <div><strong>${won(c.dmg)}</strong><small>${dps(c.dmg)}</small></div>
+        </div>
+        <div class="share-track"><i style="width:${pct(c.dmg, TOTAL)}%"></i></div>
+        <div class="dmg-split"><div class="split-track">
+          <i class="split-normal" style="width:${c.normal}%"></i><i class="split-skill" style="width:${c.skill}%"></i>
+        </div><p class="split-legend"><span class="legend-normal">평타 ${c.normal}%</span><span class="legend-skill">스킬 ${c.skill}%</span></p></div>
+      </article>`).join('')}</div>`,
+  },
+  2: {
+    label: '2 · 카드 다섯 장',
+    note: '<b>카드 그리드</b> — 편성 카드와 같은 배열로 다섯을 나란히 놓습니다. 위쪽 편성과 자리가 그대로 맞아 «누가 얼마나»를 눈으로 잇기 쉽습니다. 세부(스킬별 내역)는 카드가 좁아 접어야 합니다.',
+    html: () => header('전투 결과', TOTAL) + `<div class="one-grid">${SQUAD.map((c) => `
+      <div class="one-card">
+        ${face(c.img, '')}
+        <h4>${c.name}</h4>
+        <p class="r-sub">${pct(c.dmg, TOTAL).toFixed(1)}% 기여</p>
+        <p class="r-num" style="margin:6px 0 0">${won(c.dmg)}</p>
+        <p class="r-sub">${dps(c.dmg)}</p>
+        <div class="r-bar"><i style="width:${pct(c.dmg, TOTAL)}%"></i></div>
+      </div>`).join('')}</div>`,
+  },
+  3: {
+    label: '3 · 기여 랭킹',
+    note: '<b>기여 랭킹</b> — 딜 순으로 세우고 막대 길이로 차이를 보입니다. «누가 캐리했나»가 첫눈에 읽히고, 1위는 색으로 표시합니다. 편성 순서가 사라지는 것이 단점입니다.',
+    html: () => header('전투 결과', TOTAL) + `<div class="one-rank">${ranked.map((c, i) => `
+      <div class="one-rank-row${i === 0 ? ' is-top' : ''}">
+        ${face(c.img, 'md')}
+        <div>
+          <div class="one-rank-name"><b>${c.name}</b><span class="r-sub">${pct(c.dmg, TOTAL).toFixed(1)}% · ${dps(c.dmg)}</span></div>
+          <div class="r-bar"><i style="width:${pct(c.dmg, ranked[0].dmg)}%"></i></div>
+        </div>
+        <span class="r-num">${won(c.dmg)}</span>
+      </div>`).join('')}</div>`,
+  },
+  4: {
+    label: '4 · 도넛 + 표',
+    note: '<b>도넛 + 표</b> — 기여 비중을 원 하나로 보이고 옆에 수치를 표로 붙입니다. 비중이 주인공일 때 가장 빨리 읽히지만, 다섯 조각이 비슷하면 원만으로는 구분이 어렵습니다.',
+    html: () => {
+      let acc = 0;
+      const stops = SQUAD.map((c, i) => {
+        const from = acc; acc += pct(c.dmg, TOTAL);
+        return `${COLORS[i]} ${from}% ${acc}%`;
+      }).join(', ');
+      return header('전투 결과', TOTAL) + `<div class="one-split">
+        <div style="display:grid;place-items:center">
+          <div style="width:200px;height:200px;border-radius:50%;background:conic-gradient(${stops});
+                      -webkit-mask:radial-gradient(circle, transparent 56%, #000 57%);
+                      mask:radial-gradient(circle, transparent 56%, #000 57%)"></div>
+        </div>
+        <div class="one-legend">${SQUAD.map((c, i) => `
+          <div class="one-legend-row">
+            <span class="swatch" style="background:${COLORS[i]}"></span>
+            ${face(c.img, 'sm')}
+            <b>${c.name}</b>
+            <span class="r-sub">${pct(c.dmg, TOTAL).toFixed(1)}%</span>
+            <span class="r-num">${won(c.dmg)}</span>
+          </div>`).join('')}</div>
+      </div>`;
+    },
+  },
+  5: {
+    label: '5 · 큰 총합 + 스트립',
+    note: '<b>큰 총합 + 초상화 스트립</b> — 총 대미지를 화면 한가운데 크게 두고, 아래에 초상화 다섯을 띠로 깝니다. 결과를 캡처해 공유하기에 가장 좋은 모양입니다. 대신 세부 수치는 한 단계 안으로 들어갑니다.',
+    html: () => `<div class="one-hero">
+        <p class="step">03 / RESULT</p>
+        <span class="r-sub">스쿼드 총 대미지</span>
+        <strong>${won(TOTAL)}</strong>
+        <span class="r-sub" style="color:var(--cyan)">${dps(TOTAL)} · ${DURATION}초 전투</span>
+      </div>
+      <div class="one-strip">${SQUAD.map((c) => `
+        <div class="one-strip-cell">
+          <img src="${BASE}characters/${c.img}" alt="" loading="lazy" />
+          <div class="one-strip-cap">
+            <b>${c.name}</b>
+            <span class="r-sub">${pct(c.dmg, TOTAL).toFixed(1)}% · ${won(c.dmg)}</span>
+          </div>
+        </div>`).join('')}</div>`,
+  },
+};
+
+/* ── 5덱 시안 ──────────────────────────────────────────────────────── */
+const best = DECKS[0].total;
+const FIVE = {
+  1: {
+    label: '1 · 지금 (가로 행렬)',
+    note: '<b>지금 화면</b> — 덱 카드 다섯을 가로로 늘어놓습니다. 한 화면에 다 들어오지만 칸이 좁아 캐릭터별 내역이 눌리고, 덱끼리 수치를 견주기가 오히려 어렵습니다.',
+    html: () => header('5덱 전투 결과', DECKS.reduce((s, d) => s + d.total, 0)) + `<div class="five-row">${DECKS.map((d, i) => `
+      <section class="deck-result">
+        <div class="deck-result-header"><h3>덱 ${d.id}</h3><strong>${won(d.total)}</strong><small>${dps(d.total)}</small></div>
+        <p class="deck-rank${i === 0 ? ' is-best' : ''}">${i === 0 ? '1위 · 기준' : `${i + 1}위 · ${((d.total / best - 1) * 100).toFixed(1)}%`}</p>
+        <div class="five-rank-faces" style="margin-top:8px">${d.squad.map((f) => face(f)).join('')}</div>
+      </section>`).join('')}</div>`,
+  },
+  2: {
+    label: '2 · 비교 표',
+    note: '<b>비교 표</b> — 행이 덱, 열이 수치입니다. 다섯을 같은 잣대로 견주는 데는 표를 이길 방법이 없고, 세로로도 짧습니다. 대신 가장 «자료» 같아 보이는 모양입니다.',
+    html: () => header('5덱 전투 결과', DECKS.reduce((s, d) => s + d.total, 0)) + `
+      <table class="five-table">
+        <thead><tr><th>순위</th><th>덱</th><th>편성</th><th style="text-align:right">총 대미지</th><th style="text-align:right">DPS</th><th style="text-align:right">1위 대비</th></tr></thead>
+        <tbody>${DECKS.map((d, i) => `
+          <tr class="${i === 0 ? 'is-top' : ''}">
+            <td><b style="color:${i === 0 ? 'var(--amber)' : 'var(--muted)'}">${i + 1}</b></td>
+            <td>덱 ${d.id}</td>
+            <td><div class="faces">${d.squad.map((f) => face(f)).join('')}</div></td>
+            <td class="num">${won(d.total)}</td>
+            <td class="num" style="color:var(--cyan)">${dps(d.total)}</td>
+            <td class="num" style="color:${i === 0 ? 'var(--amber)' : 'var(--muted)'}">${i === 0 ? '기준' : `${((d.total / best - 1) * 100).toFixed(1)}%`}</td>
+          </tr>`).join('')}</tbody>
+      </table>`,
+  },
+  3: {
+    label: '3 · 순위 막대',
+    note: '<b>순위 막대</b> — 덱마다 한 줄, 막대 길이가 곧 총딜입니다. 차이의 «크기»가 숫자보다 먼저 보이고 초상화도 크게 들어갑니다. 세로 길이는 표보다 깁니다.',
+    html: () => header('5덱 전투 결과', DECKS.reduce((s, d) => s + d.total, 0)) + `<div class="five-rank">${DECKS.map((d, i) => `
+      <div class="five-rank-row${i === 0 ? ' is-top' : ''}">
+        <span class="five-rank-no">${i + 1}</span>
+        <div>
+          <div class="five-rank-head">
+            <div class="five-rank-faces">${d.squad.map((f) => face(f)).join('')}</div>
+            <div style="text-align:right"><span class="r-num">${won(d.total)}</span>
+              <span class="r-sub" style="margin-left:8px">${i === 0 ? '기준' : `${((d.total / best - 1) * 100).toFixed(1)}%`}</span></div>
+          </div>
+          <div class="r-bar"><i style="width:${d.total / best * 100}%"></i></div>
+        </div>
+      </div>`).join('')}</div>`,
+  },
+  4: {
+    label: '4 · 요약 + 덱 탭',
+    note: '<b>요약 + 덱 탭</b> — 위에는 다섯 덱의 총딜만 탭으로 늘어놓고, 아래에는 고른 덱 하나를 1덱 화면 그대로 자세히 보입니다. 비교와 상세를 모두 얻지만 한 번에 한 덱만 자세히 볼 수 있습니다.',
+    html: () => header('5덱 전투 결과', DECKS.reduce((s, d) => s + d.total, 0)) + `
+      <div class="five-tabs">${DECKS.map((d, i) => `
+        <button type="button" class="five-tab${i === pickedDeck ? ' is-on' : ''}" data-deck="${i}">
+          <b>덱 ${d.id} · ${i + 1}위</b><span>${won(d.total)}</span>
+        </button>`).join('')}</div>
+      <div class="one-rank" style="margin-top:16px">${ranked.map((c, i) => `
+        <div class="one-rank-row${i === 0 ? ' is-top' : ''}">
+          ${face(c.img, 'md')}
+          <div>
+            <div class="one-rank-name"><b>${c.name}</b><span class="r-sub">${pct(c.dmg, TOTAL).toFixed(1)}% · ${dps(c.dmg)}</span></div>
+            <div class="r-bar"><i style="width:${pct(c.dmg, ranked[0].dmg)}%"></i></div>
+          </div>
+          <span class="r-num">${won(c.dmg)}</span>
+        </div>`).join('')}</div>`,
+  },
+  5: {
+    label: '5 · 1위 크게',
+    note: '<b>1위 크게</b> — 이긴 덱을 큰 카드로 세우고 나머지를 작은 카드로 둘러 놓습니다. «어느 덱을 쓸까»가 목적일 때 결론이 가장 빨리 보입니다. 대신 2~5위끼리의 비교는 약합니다.',
+    html: () => header('5덱 전투 결과', DECKS.reduce((s, d) => s + d.total, 0)) + `<div class="five-podium">
+      ${DECKS.map((d, i) => `
+        <div class="p-card${i === 0 ? ' is-top' : ''}">
+          <h4>덱 ${d.id} · ${i + 1}위${i === 0 ? ' 🏆' : ''}</h4>
+          <div class="r-num" style="font-size:${i === 0 ? '26px' : '15px'};color:${i === 0 ? 'var(--amber)' : 'var(--ink)'}">${won(d.total)}</div>
+          <div class="r-sub">${dps(d.total)}${i === 0 ? '' : ` · 1위 대비 ${((d.total / best - 1) * 100).toFixed(1)}%`}</div>
+          <div class="faces">${d.squad.map((f) => face(f, i === 0 ? 'md' : 'sm')).join('')}</div>
+        </div>`).join('')}
+    </div>`,
+  },
+};
+
+let mode = 'one';
+let plan = 1;
+let pickedDeck = 0;
+
+function render() {
+  const set = mode === 'one' ? ONE : FIVE;
+  document.getElementById('stage').innerHTML = set[plan].html();
+  document.getElementById('mode-chips').innerHTML = [['one', '1덱'], ['five', '5덱']]
+    .map(([key, label]) => `<button type="button" class="filter-chip${key === mode ? ' is-on' : ''}" data-mode="${key}">${label}</button>`).join('');
+  document.getElementById('plan-chips').innerHTML = Object.entries(set)
+    .map(([key, p]) => `<button type="button" class="filter-chip${Number(key) === plan ? ' is-on' : ''}" data-plan="${key}">${p.label}</button>`).join('');
+  document.getElementById('plan-note').innerHTML = set[plan].note;
+}
+
+document.addEventListener('click', (event) => {
+  const target = event.target instanceof Element ? event.target : null;
+  if (!target) return;
+  const modeBtn = target.closest('[data-mode]');
+  if (modeBtn) { mode = modeBtn.dataset.mode; plan = 1; render(); return; }
+  const planBtn = target.closest('[data-plan]');
+  if (planBtn) { plan = Number(planBtn.dataset.plan); render(); return; }
+  const deckBtn = target.closest('[data-deck]');
+  if (deckBtn) { pickedDeck = Number(deckBtn.dataset.deck); render(); }
+});
+
+render();
+</script>
+</body>
+</html>

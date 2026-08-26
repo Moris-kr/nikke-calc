@@ -142,40 +142,78 @@ const emptyDeck = (id: number): DeckState => ({
   characters: {},
 });
 
-function renderCharacterRows(container: HTMLElement, entry: DeckResultEntry): void {
-  const rows = document.createElement('div');
-  rows.className = 'result-rows';
+/** 딜 1·2위 이름. 순서는 그대로 두고 «표시»만 얹기 위해 이름만 뽑는다. */
+function topScorers(entry: DeckResultEntry): Map<string, number> {
+  const ranked = [...new Set(entry.request.squad)]
+    .map((name) => [name, entry.result.charTotals[name] ?? 0] as const)
+    .filter(([, value]) => value > 0)
+    .sort((a, b) => b[1] - a[1]);
+  return new Map(ranked.slice(0, 2).map(([name], index) => [name, index + 1]));
+}
+
+/**
+ * 캐릭터별 결과 카드. **편성 순서 그대로** 왼쪽에서 오른쪽으로 선다 — 위 편성 카드와
+ * 자리가 맞아야 «누가 얼마나»를 눈으로 그대로 잇는다. 딜 1·2위는 자리를 옮기지 않고
+ * 뱃지와 테두리로만 표시한다.
+ */
+function renderCharacterCards(
+  container: HTMLElement,
+  entry: DeckResultEntry,
+  imageOf: (name: string) => string | undefined,
+): void {
+  const grid = document.createElement('div');
+  grid.className = 'result-cards';
+  const tops = topScorers(entry);
+  const best = Math.max(...entry.request.squad.map((name) => entry.result.charTotals[name] ?? 0), 0);
+
   for (const name of entry.request.squad) {
     const value = entry.result.charTotals[name] ?? 0;
     const share = entry.result.squadTotal > 0 ? value / entry.result.squadTotal * 100 : 0;
-    const row = document.createElement('article');
-    row.className = 'character-result';
-    row.dataset.characterResult = '';
-    const top = document.createElement('div');
-    top.className = 'result-row-top';
-    const identity = document.createElement('div');
-    identity.append(createText('h3', name), createText('span', `${share.toFixed(1)}% 기여`));
-    const values = document.createElement('div');
-    values.append(
-      createText('strong', formatDamage(value)),
-      createText('small', formatDps(value / entry.result.duration)),
-    );
-    top.append(identity, values);
+    const rank = tops.get(name);
+    const card = document.createElement('article');
+    card.className = 'character-result result-card'
+      + (rank === 1 ? ' is-first' : rank === 2 ? ' is-second' : '');
+    card.dataset.characterResult = name;
+    if (rank) card.dataset.dmgRank = String(rank);
+
+    const portrait = document.createElement('div');
+    portrait.className = 'result-card-face';
+    const source = imageOf(name);
+    if (source) {
+      const image = document.createElement('img');
+      image.src = source;
+      image.alt = '';
+      image.loading = 'lazy';
+      portrait.append(image);
+    }
+    if (rank) portrait.append(createText('b', `${rank}위`, 'result-rank-badge'));
+    card.append(portrait);
+
+    card.append(createText('h3', name));
+    card.append(createText('span', `${share.toFixed(1)}% 기여`, 'result-card-share'));
+    card.append(createText('strong', formatDamage(value)));
+    card.append(createText('small', formatDps(value / entry.result.duration)));
+
     const track = document.createElement('div');
     track.className = 'share-track';
     const bar = document.createElement('i');
-    bar.style.width = `${Math.max(1, share)}%`;
+    // 막대는 «1위 대비»로 그린다 — 기여%로 그리면 다섯이 다 짧아 차이가 안 보인다.
+    bar.style.width = `${best > 0 ? Math.max(2, value / best * 100) : 2}%`;
     track.append(bar);
-    row.append(top, track);
+    card.append(track);
 
-    // 평타/스킬 딜 분해. 구버전 캐시 결과에는 없으므로 있을 때만 그린다.
+    // 평타/스킬 분해와 스킬별 내역. 카드가 좁으니 접어 둔다.
     const breakdown = entry.result.charBreakdown?.[name];
     if (breakdown && value > 0) {
-      const split = document.createElement('div');
-      split.className = 'dmg-split';
-      split.dataset.dmgSplit = '';
+      const details = document.createElement('details');
+      details.className = 'dmg-split';
+      details.dataset.dmgSplit = '';
       const normalPct = breakdown.normal / value * 100;
       const skillPct = breakdown.skill / value * 100;
+      const summary = document.createElement('summary');
+      summary.append(createText('span', `평타 ${normalPct.toFixed(0)}%`, 'legend-normal'));
+      summary.append(createText('span', `스킬 ${skillPct.toFixed(0)}%`, 'legend-skill'));
+      details.append(summary);
 
       const splitTrack = document.createElement('div');
       splitTrack.className = 'split-track';
@@ -186,22 +224,19 @@ function renderCharacterRows(container: HTMLElement, entry: DeckResultEntry): vo
       skillBar.className = 'split-skill';
       skillBar.style.width = `${skillPct}%`;
       splitTrack.append(normalBar, skillBar);
+      details.append(splitTrack);
 
       const legend = document.createElement('p');
       legend.className = 'split-legend';
       legend.append(
-        createText('span', `평타 ${formatDamage(breakdown.normal)} (${normalPct.toFixed(1)}%)`, 'legend-normal'),
-        createText('span', `스킬 ${formatDamage(breakdown.skill)} (${skillPct.toFixed(1)}%)`, 'legend-skill'),
+        createText('span', `평타 ${formatDamage(breakdown.normal)}`, 'legend-normal'),
+        createText('span', `스킬 ${formatDamage(breakdown.skill)}`, 'legend-skill'),
       );
-      split.append(splitTrack, legend);
+      details.append(legend);
 
       if (breakdown.skills.length > 0) {
-        const details = document.createElement('details');
-        details.className = 'skill-breakdown';
-        const summary = document.createElement('summary');
-        summary.textContent = `스킬 ${breakdown.skills.length}종 세부`;
-        details.append(summary);
         const list = document.createElement('ul');
+        list.className = 'skill-breakdown';
         for (const skill of breakdown.skills) {
           const item = document.createElement('li');
           item.append(
@@ -211,13 +246,12 @@ function renderCharacterRows(container: HTMLElement, entry: DeckResultEntry): vo
           list.append(item);
         }
         details.append(list);
-        split.append(details);
       }
-      row.append(split);
+      card.append(details);
     }
-    rows.append(row);
+    grid.append(card);
   }
-  container.append(rows);
+  container.append(grid);
 }
 
 // 블라블라링크 조회 프록시. 빌드 때 `VITE_BLABLA_PROXY`로 박히고, 비어 있으면 연동 UI를
@@ -2116,16 +2150,18 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     reportTools.append(historySave, historyOpen, reportButton);
     resultPanel.append(reportTools);
 
-    // 덱 순위 — 딜 내림차순. 표시는 편성 순서를 지키고 등수만 얹는다.
+    // 덱 순위 — 딜 내림차순으로 «등수»만 구한다. 세우는 순서는 끝까지 덱 번호 그대로다.
     const ordered = [...batch.decks].sort((a, b) => b.result.squadTotal - a.result.squadTotal);
     const ranking = new Map(ordered.map((entry, index) => [entry.deckId, index + 1]));
     const best = ordered[0]?.result.squadTotal ?? 0;
+    const portraitOf = (name: string): string | undefined => {
+      const image = catalogByName.get(name)?.image;
+      return image ? `${import.meta.env.BASE_URL}${image}` : undefined;
+    };
 
-    // 덱이 둘 이상이면 가로로 나란히 세운다 — 한 화면에서 비교하려는 것이다.
-    const deckRow = document.createElement('div');
-    deckRow.className = batch.decks.length > 1 ? 'deck-result-row' : '';
-    resultPanel.append(deckRow);
-    for (const entry of batch.decks) {
+    /** 덱 하나의 속. 캐릭터 카드와 사실 줄, 이탈 목록. */
+    const renderDeckDetail = (host: HTMLElement, entry: DeckResultEntry) => {
+      host.replaceChildren();
       const section = document.createElement('section');
       section.className = 'deck-result';
       section.dataset.deckResult = String(entry.deckId);
@@ -2137,7 +2173,6 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         createText('small', formatDps(entry.result.squadTotal / entry.result.duration)),
       );
       section.append(deckHeader);
-      // 덱이 둘 이상이면 «어느 쪽이 얼마나 센가»가 알고 싶은 전부다 — 순위와 1위 대비 차이를 붙인다.
       if (ranking.size > 1) {
         const rank = ranking.get(entry.deckId)!;
         const gap = best > 0 ? (entry.result.squadTotal / best - 1) * 100 : 0;
@@ -2153,7 +2188,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         section.append(badge);
       }
       if (entry.result.previewNote) section.append(createText('p', entry.result.previewNote, 'preview-warning'));
-      renderCharacterRows(section, entry);
+      renderCharacterCards(section, entry, portraitOf);
       const facts = document.createElement('div');
       facts.className = 'result-facts';
       facts.append(
@@ -2162,11 +2197,52 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         createText('span', `시드 ${entry.request.seed}`),
       );
       section.append(facts, createText('pre', entry.result.deviations, 'deviations'));
-      deckRow.append(section);
-    }
+      host.append(section);
+    };
 
+    const detail = document.createElement('div');
+    detail.className = 'deck-detail';
+    if (batch.decks.length > 1) {
+      // 덱마다 탭 하나. **덱 번호 순서 그대로** 왼쪽에서 오른쪽으로 세우고, 딜 1·2위는
+      // 자리를 옮기지 않고 뱃지로만 표시한다. 고른 덱만 아래에 자세히 편다.
+      const tabs = document.createElement('div');
+      tabs.className = 'deck-result-tabs';
+      tabs.dataset.deckResultTabs = '';
+      const buttons = new Map<number, HTMLButtonElement>();
+      const show = (entry: DeckResultEntry) => {
+        for (const [id, button] of buttons) {
+          button.classList.toggle('is-on', id === entry.deckId);
+          button.setAttribute('aria-pressed', String(id === entry.deckId));
+        }
+        renderDeckDetail(detail, entry);
+      };
+      for (const entry of batch.decks) {
+        const rank = ranking.get(entry.deckId)!;
+        const tab = document.createElement('button');
+        tab.type = 'button';
+        tab.className = 'deck-result-tab'
+          + (rank === 1 ? ' is-first' : rank === 2 ? ' is-second' : '');
+        tab.dataset.deckResultTab = String(entry.deckId);
+        if (rank <= 2) tab.dataset.deckRank = String(rank);
+        const head = document.createElement('b');
+        head.append(document.createTextNode(`덱 ${entry.deckId}`));
+        if (rank <= 2) head.append(createText('em', `${rank}위`, 'deck-tab-rank'));
+        tab.append(head, createText('span', formatDamage(entry.result.squadTotal)));
+        tab.addEventListener('click', () => show(entry));
+        buttons.set(entry.deckId, tab);
+        tabs.append(tab);
+      }
+      resultPanel.append(tabs);
+      show(batch.decks[0]!);
+    } else if (batch.decks[0]) {
+      renderDeckDetail(detail, batch.decks[0]);
+    }
+    resultPanel.append(detail);
+
+    // 타임라인도 한 번에 하나만 본다 — 다섯을 세로로 쌓으면 어느 덱을 보고 있는지
+    // 스크롤 중에 놓친다. 탭은 결과와 같이 **덱 번호 순서 그대로** 선다.
     timelineBody.replaceChildren();
-    let timelineCount = 0;
+    const blocks = new Map<number, HTMLElement>();
     for (const entry of batch.decks) {
       // 버스트 핀에 쓸 초상화. 캔버스가 직접 그리므로 URL만 넘긴다.
       const portraitUrls: Record<string, string> = {};
@@ -2175,14 +2251,38 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         if (image) portraitUrls[name] = `${import.meta.env.BASE_URL}${image}`;
       }
       const timelineBlock = createTimelineBlock(entry, portraitUrls);
-      if (!timelineBlock) continue;
-      if (batch.decks.length > 1) {
-        timelineBlock.prepend(createText('h3', `덱 ${entry.deckId}`, 'timeline-deck-label'));
-      }
-      timelineBody.append(timelineBlock);
-      timelineCount += 1;
+      if (timelineBlock) blocks.set(entry.deckId, timelineBlock);
     }
-    timelineHasContent = timelineCount > 0;
+    if (blocks.size > 1) {
+      const tabs = document.createElement('div');
+      tabs.className = 'deck-result-tabs timeline-tabs';
+      tabs.dataset.timelineTabs = '';
+      const stage = document.createElement('div');
+      stage.dataset.timelineStage = '';
+      const buttons = new Map<number, HTMLButtonElement>();
+      const show = (deckId: number) => {
+        for (const [id, button] of buttons) {
+          button.classList.toggle('is-on', id === deckId);
+          button.setAttribute('aria-pressed', String(id === deckId));
+        }
+        stage.replaceChildren(blocks.get(deckId)!);
+      };
+      for (const deckId of blocks.keys()) {
+        const tab = document.createElement('button');
+        tab.type = 'button';
+        tab.className = 'deck-result-tab';
+        tab.dataset.timelineTab = String(deckId);
+        tab.append(createText('b', `덱 ${deckId}`));
+        tab.addEventListener('click', () => show(deckId));
+        buttons.set(deckId, tab);
+        tabs.append(tab);
+      }
+      timelineBody.append(tabs, stage);
+      show([...blocks.keys()][0]!);
+    } else {
+      for (const block of blocks.values()) timelineBody.append(block);
+    }
+    timelineHasContent = blocks.size > 0;
     timelinePanel.hidden = !timelineHasContent || currentView !== 'calc';
   };
 
