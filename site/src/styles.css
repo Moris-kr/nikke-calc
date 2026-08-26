@@ -249,9 +249,11 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .squad-slot { position: relative; min-width: 0; padding: 9px 9px 12px; border: 1px solid rgba(146,176,201,.15); background: rgba(5,13,22,.68); transition: transform .18s ease, border-color .18s ease; }
 .squad-slot:hover { transform: translateY(-3px); border-color: rgba(255,191,60,.42); }
 .squad-slot > label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
-.portrait-wrap { position: relative; aspect-ratio: 1.22 / 1; overflow: hidden; background: linear-gradient(135deg, #18293a, #09131e); margin-bottom: 8px; }
+/* 초상화를 세로로 조금 늘린다 — 돌파 스테퍼가 얼굴(입 언저리)을 가리던 자리를
+   비우려는 것이다. 잘라내는 위치도 함께 올려 얼굴이 위쪽에 앉게 한다. */
+.portrait-wrap { position: relative; aspect-ratio: 1 / 1.02; overflow: hidden; background: linear-gradient(135deg, #18293a, #09131e); margin-bottom: 8px; }
 .portrait-wrap::after { content: ""; position: absolute; inset: auto 0 0; height: 42%; background: linear-gradient(transparent, rgba(3,10,17,.86)); pointer-events: none; }
-.portrait-wrap img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 28%; display: block; }
+.portrait-wrap img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 20%; display: block; }
 .portrait-fallback { position: absolute; inset: 22%; border: 1px solid rgba(69,214,208,.2); transform: rotate(45deg); }
 /* 속성(코드) 아이콘 — 육각 뱃지. 원본 63×73 비율을 지킨다. */
 .element-icon { flex: none; width: 18px; height: 21px; background-repeat: no-repeat; background-size: contain; background-position: center; filter: drop-shadow(0 1px 2px rgba(0,0,0,.6)); }
@@ -281,7 +283,7 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .slot-clear:hover { background: rgba(255,119,135,.16); color: var(--danger); }
 .squad-slot.is-preview::after { content: "PREVIEW"; position: absolute; top: 8px; right: 8px; z-index: 3; padding: 3px 5px; background: var(--danger); color: #21050a; font-size: 8px; font-weight: 900; }
 /* 돌파·코어 강화 스테퍼 — 초상화 우측하단. 별 + 진화 숫자로 명함~풀코를 보이고 −/+로 조절. */
-.growth-stepper { position: absolute; z-index: 2; right: 7px; bottom: 7px; display: flex; align-items: center; gap: 4px; padding: 3px; border: 1px solid rgba(146,176,201,.22); border-radius: 7px; background: rgba(3,10,17,.78); backdrop-filter: blur(2px); }
+.growth-stepper { position: absolute; z-index: 2; right: 7px; bottom: 5px; display: flex; align-items: center; gap: 4px; padding: 3px; border: 1px solid rgba(146,176,201,.22); border-radius: 7px; background: rgba(3,10,17,.78); backdrop-filter: blur(2px); }
 /* 버튼은 별 장식 위에 온다 — 아래 pointer-events와 짝이다. */
 .growth-step { position: relative; z-index: 1; width: 20px; height: 20px; padding: 0; display: grid; place-items: center; border: 1px solid rgba(146,176,201,.28); background: rgba(3,10,17,.6); color: #cfeceb; font: 800 13px/1 ui-monospace, monospace; border-radius: 5px; cursor: pointer; }
 .growth-step:hover:not(:disabled) { background: rgba(69,214,208,.22); border-color: var(--cyan); }
