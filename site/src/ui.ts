@@ -402,23 +402,23 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <div class="target-actions">
               <button type="button" class="reset-enemy" data-battle-share-open title="전투 조건을 코드로 만들어 공유하거나, 받은 코드를 붙여넣어 적용합니다">전투 조건 공유</button>
               <button type="button" class="reset-enemy" data-reset-enemy>적 수치 초기화</button>
+              <button type="button" class="reset-enemy" data-clear-cache title="같은 조건에 저장된 결과를 지우고 다음 실행부터 새로 계산합니다">저장된 결과 지우기</button>
             </div>
           </div>
           <!-- 조건은 한 번 정해 두면 계속 쓰는 값이다. 그 자리에서 펼치면 편성이 화면
                밖으로 밀리므로 창으로 띄우고, 이 줄에는 무엇으로 재는지만 한 줄로 남긴다. -->
-          <button type="button" class="battle-open" data-battle-open aria-expanded="false">
-            <span class="battle-open-label">전투 조건</span>
-            <span class="battle-summary" data-battle-summary></span>
-            <span class="disclosure-hint" aria-hidden="true">열기 ›</span>
-          </button>
-          <p class="battle-first-note" data-battle-first-note>계산하기 전에 <b>전투 조건을 한 번 확인해 주세요</b> — 몇 초짜리 전투인지, 적 코드가 무엇인지에 따라 결과가 완전히 달라집니다.</p>
-          <!-- 실행은 조건 줄 바로 아래다. 조건을 보고 곧바로 누르는 자리이고,
-               창 «안»에 두면 조건을 열지 않고는 못 누르게 된다. -->
-          <div class="run-row">
-            <button class="calculate-button" type="submit"><span>시뮬레이션 실행</span><b aria-hidden="true">→</b></button>
-            <button type="button" class="clear-cache" data-clear-cache title="같은 조건에 저장된 결과를 지우고 다음 실행부터 새로 계산합니다">저장된 결과 지우기</button>
-            <p class="status" data-status aria-live="polite">계산 엔진 준비 중…</p>
+          <!-- 조건과 실행을 한 막대로 붙인다. 패널 사이에 단추만 덩그러니 뜨는 자리를
+               없애고, «이 조건으로 → 실행»이 한 줄로 읽히게 하려는 것이다. -->
+          <div class="cond-bar">
+            <button type="button" class="battle-open" data-battle-open aria-expanded="false">
+              <span class="battle-open-label">전투 조건</span>
+              <span class="battle-summary" data-battle-summary></span>
+              <span class="disclosure-hint" aria-hidden="true">열기 ›</span>
+            </button>
+            <button class="calculate-button run-inline" type="submit"><span>시뮬레이션 실행</span><b aria-hidden="true">→</b></button>
           </div>
+          <p class="status" data-status aria-live="polite">계산 엔진 준비 중…</p>
+          <p class="battle-first-note" data-battle-first-note>계산하기 전에 <b>전투 조건을 한 번 확인해 주세요</b> — 몇 초짜리 전투인지, 적 코드가 무엇인지에 따라 결과가 완전히 달라집니다.</p>
           <!-- 막힌 이유는 누른 단추 바로 아래에서 읽혀야 한다. -->
           <div class="error-box" data-errors hidden role="alert"></div>
 
