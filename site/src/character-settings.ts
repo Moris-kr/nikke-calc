@@ -99,6 +99,9 @@ function summaryText(name: string, catalog: SettingsCatalog, value?: CharacterOv
     + `${cube.name} Lv${cube.level} · ${controlSummary}`;
 }
 
+/** 막바지 최우선의 기본 구간(초). 엔진 기본값(`calculator/customization.py`)과 같다. */
+const ENDGAME_DEFAULT = 20;
+
 /** 창으로 여는 설정 뭉치의 종류. */
 export type CharPanelKind = 'settings' | 'control';
 
@@ -340,13 +343,15 @@ export function renderCharacterSettings(
   burstHeading.textContent = '버스트 운용';
   const burstMode = current.burst?.mode ?? 'auto';
   const burstEvery = current.burst?.mode === 'priority' ? current.burst.every : 1;
+  const burstLast = current.burst?.mode === 'endgame' ? current.burst.seconds : ENDGAME_DEFAULT;
 
   const burstRow = document.createElement('div');
   burstRow.className = 'burst-row';
   const burstSelect = document.createElement('select');
   burstSelect.dataset.burstAssignment = '';
   for (const [optionValue, optionLabel] of [
-    ['auto', '자동'], ['priority', 'n의 배수 우선 사용'], ['skip', '가급적 안 씀'],
+    ['auto', '자동'], ['priority', 'n의 배수 우선 사용'],
+    ['endgame', '막바지 최우선'], ['skip', '가급적 안 씀'],
   ] as Array<[string, string]>) {
     const option = document.createElement('option');
     option.value = optionValue;
@@ -367,7 +372,25 @@ export function renderCharacterSettings(
   const everyText = document.createElement('span');
   everyText.textContent = '의 배수 사이클마다';
   everyWrap.append(everyInput, everyText);
-  burstRow.append(burstSelect, everyWrap);
+
+  // 막바지 최우선 — 큰 한 방을 전투 끝에 맞추려는 운용이다.
+  const lastWrap = document.createElement('label');
+  lastWrap.className = 'burst-every';
+  lastWrap.hidden = burstMode !== 'endgame';
+  const lastText = document.createElement('span');
+  lastText.textContent = '남은 시간';
+  const lastInput = document.createElement('input');
+  lastInput.type = 'number';
+  lastInput.min = '1';
+  lastInput.max = '180';
+  lastInput.step = '1';
+  lastInput.value = String(burstLast);
+  lastInput.dataset.burstLast = '';
+  const lastUnit = document.createElement('span');
+  lastUnit.textContent = '초 미만일 때';
+  lastWrap.append(lastText, lastInput, lastUnit);
+
+  burstRow.append(burstSelect, everyWrap, lastWrap);
 
   const applyBurst = () => {
     const next = cloneOverrides(current);
@@ -375,6 +398,9 @@ export function renderCharacterSettings(
     if (mode === 'priority') {
       const n = Math.max(1, Math.trunc(Number(everyInput.value) || 1));
       next.burst = { mode: 'priority', every: n };
+    } else if (mode === 'endgame') {
+      const seconds = Math.min(180, Math.max(1, Math.trunc(Number(lastInput.value) || ENDGAME_DEFAULT)));
+      next.burst = { mode: 'endgame', seconds };
     } else if (mode === 'skip') {
       next.burst = { mode: 'skip' };
     } else {
@@ -384,14 +410,18 @@ export function renderCharacterSettings(
   };
   burstSelect.addEventListener('change', () => {
     everyWrap.hidden = burstSelect.value !== 'priority';
+    lastWrap.hidden = burstSelect.value !== 'endgame';
     applyBurst();
   });
   everyInput.addEventListener('input', applyBurst);
+  lastInput.addEventListener('input', applyBurst);
 
   const burstNote = document.createElement('p');
   burstNote.className = 'field-note';
   burstNote.textContent =
-    '같은 버스트 단계 후보가 여럿일 때, n의 배수 사이클마다 이 캐릭터를 우선 사용합니다(쿨타임 한도 내). n=1이면 매 사이클.';
+    '같은 버스트 단계 후보가 여럿일 때 누가 먼저 쓰는지를 정합니다(쿨타임 한도 내).'
+    + ' «n의 배수»는 그 사이클마다 우선 사용하고(n=1이면 매 사이클),'
+    + ' «막바지 최우선»은 전투가 그만큼 남았을 때부터 누구보다 먼저 씁니다 — 그 전에는 평소 순서입니다.';
   burstEditor.append(burstHeading, burstRow, burstNote);
   // `body`가 아니라 아래 «컨트롤 · 버스트» 접이판에 넣는다 — 버스트 운용도 결국
   // 조작 방식이라 컨트롤과 한자리에 있는 편이 찾기 쉽다.

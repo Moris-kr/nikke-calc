@@ -161,6 +161,43 @@ class BrowserBridgeTest(unittest.TestCase):
         for name in ("리타", "크라운"):
             self.assertLess(lower["charTotals"][name], default["charTotals"][name])
 
+    def test_endgame_burst_waits_for_the_last_seconds(self):
+        """막바지 최우선 — 남은 시간이 N초 미만일 때 그 캐릭터가 먼저 나간다."""
+        base = {
+            "squad": ["리타", "크라운", "라피 : 레드 후드", "앨리스", "나가"],
+            "duration": 60,
+            "enemyDef": 31_784,
+            "enemyCode": "",
+            "corePx": 0,
+            "hasParts": False,
+            "seed": 42,
+        }
+        auto = json.loads(run_request(json.dumps(base, ensure_ascii=False)))
+        endgame = json.loads(run_request(json.dumps({
+            **base,
+            # 나가와 크라운이 같은 2단계 후보다 — 순서가 갈릴 자리가 있어야
+            # 이 설정이 뜻을 갖는다.
+            "characters": {"나가": {"burst": {"mode": "endgame", "seconds": 20}}},
+        }, ensure_ascii=False)))
+
+        # 순서가 실제로 달라져야 한다 — 안 달라지면 설정이 흘러가 버린 것이다.
+        self.assertNotEqual(endgame["squadTotal"], auto["squadTotal"])
+
+    def test_rejects_a_bad_endgame_burst_window(self):
+        payload = {
+            "squad": ["리타"],
+            "duration": 10,
+            "enemyDef": 31_784,
+            "enemyCode": "",
+            "corePx": 0,
+            "hasParts": False,
+            "seed": 42,
+            "characters": {"리타": {"burst": {"mode": "endgame", "seconds": 0}}},
+        }
+
+        with self.assertRaisesRegex(ValueError, "막바지 최우선"):
+            run_request(json.dumps(payload, ensure_ascii=False))
+
     def test_rejects_synchro_level_outside_the_stat_table(self):
         payload = {
             "squad": ["리타"],

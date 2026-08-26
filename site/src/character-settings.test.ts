@@ -182,7 +182,8 @@ describe('character settings editor', () => {
     setToggle('[data-custom-toggle]', true);
 
     const burst = root.querySelector<HTMLSelectElement>('[data-burst-assignment]')!;
-    expect([...burst.options].map((option) => option.value)).toEqual(['auto', 'priority', 'skip']);
+    expect([...burst.options].map((option) => option.value))
+      .toEqual(['auto', 'priority', 'endgame', 'skip']);
     expect(burst.value).toBe('auto');
     expect(root.querySelector<HTMLElement>('.burst-every')?.hidden).toBe(true);
 
@@ -575,6 +576,37 @@ describe('character settings editor', () => {
     // 다시 그려도 펼친 채로 남는다 — 값 하나 바꿀 때마다 접히면 못 쓴다.
     setToggle('[data-custom-toggle]', true);
     expect(root.querySelector<HTMLElement>('[data-loadout-fold]')!.hidden).toBe(false);
+  });
+
+  it('offers an endgame-first burst window and sends it as seconds', () => {
+    setToggle('[data-custom-toggle]', true);
+    const select = root.querySelector<HTMLSelectElement>('[data-burst-assignment]')!;
+    expect([...select.options].map((option) => option.value))
+      .toEqual(['auto', 'priority', 'endgame', 'skip']);
+
+    const window = () => root.querySelector<HTMLInputElement>('[data-burst-last]')!;
+    // 고르기 전에는 칸이 숨어 있다.
+    expect(window().closest('label')!.hidden).toBe(true);
+
+    select.value = 'endgame';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(root.querySelector<HTMLInputElement>('[data-burst-last]')!.closest('label')!.hidden)
+      .toBe(false);
+    expect(value?.burst).toEqual({ mode: 'endgame', seconds: 20 });
+
+    const input = root.querySelector<HTMLInputElement>('[data-burst-last]')!;
+    input.value = '12';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(value?.burst).toEqual({ mode: 'endgame', seconds: 12 });
+
+    // 비우거나 0을 넣으면 기본값으로 돌아가고, 상한을 넘으면 잘라 담는다 —
+    // 엔진이 거절하는 값을 보내지 않는다.
+    input.value = '0';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(value?.burst).toEqual({ mode: 'endgame', seconds: 20 });
+    input.value = '500';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(value?.burst).toEqual({ mode: 'endgame', seconds: 180 });
   });
 
   it('omits the buff-target row for characters without a watched buff', () => {

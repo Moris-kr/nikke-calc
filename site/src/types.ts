@@ -35,6 +35,8 @@ export interface CharacterControl {
 // priority = n의 배수 사이클마다 우선 사용(every=n), skip = 가급적 안 씀.
 export type BurstAssignment =
   | { mode: 'priority'; every: number }
+  /** 남은 시간이 `seconds`초 미만이면 누구보다 먼저 쓴다. 그 전에는 평소 순서. */
+  | { mode: 'endgame'; seconds: number }
   | { mode: 'skip' };
 export type EquipPart = '머리' | '몸통' | '팔' | '다리';
 export type EquipTier = '없음' | 'T1' | 'T2' | 'T3' | 'T4' | 'T5' | 'T6' | 'T7' | 'T8' | 'T9';

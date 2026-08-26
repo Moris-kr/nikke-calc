@@ -282,6 +282,11 @@ BURST_REGEN_DEFAULT = 2.0
 BURST_REGEN_MIN = 0.0
 BURST_REGEN_MAX = 20.0
 
+# 막바지 최우선(`endgame`) — 남은 시간이 이 값 미만이면 그 캐릭터를 먼저 쓴다.
+# 상한은 전투 시간 최대치와 같다.
+ENDGAME_DEFAULT = 20.0
+ENDGAME_MAX = 180.0
+
 # 싱크로 레벨. 기본 스탯표(`level_stats.json`)가 1~1000레벨을 담고 있어 그 범위만 받는다.
 SYNCHRO_MIN = 1
 SYNCHRO_MAX = 1000
@@ -515,8 +520,8 @@ def normalize_character_overrides(
     burst = raw.get("burst")
     if burst is not None:
         # 버스트 운용 배정: 같은 단계 후보가 여럿일 때 누가 그 단계 버스트를 쓰는지.
-        # priority = n의 배수 사이클마다 우선 사용, skip = 가급적 안 씀.
-        # 러너(pybridge.bridge)가 config["burst_pattern"]으로 옮긴다.
+        # priority = n의 배수 사이클마다 우선 사용, endgame = 남은 시간이 n초 미만이면
+        # 최우선, skip = 가급적 안 씀. 러너(pybridge.bridge)가 config["burst_pattern"]으로 옮긴다.
         if not isinstance(burst, dict):
             raise ValueError("버스트 운용 설정은 객체여야 합니다")
         mode = burst.get("mode")
@@ -527,8 +532,14 @@ def normalize_character_overrides(
             if isinstance(every, bool) or not isinstance(every, int) or every < 1:
                 raise ValueError("버스트 우선 사용 주기(n)는 1 이상 정수여야 합니다")
             result["_burst_assignment"] = {"mode": "priority", "every": every}
+        elif mode == "endgame":
+            seconds = burst.get("seconds", ENDGAME_DEFAULT)
+            if isinstance(seconds, bool) or not isinstance(seconds, (int, float)) \
+                    or not math.isfinite(seconds) or not 0 < float(seconds) <= ENDGAME_MAX:
+                raise ValueError(f"막바지 최우선 시간은 0 초과 {ENDGAME_MAX}초 이하여야 합니다")
+            result["_burst_assignment"] = {"mode": "endgame", "seconds": float(seconds)}
         else:
-            raise ValueError("버스트 운용 mode는 priority 또는 skip이어야 합니다")
+            raise ValueError("버스트 운용 mode는 priority · endgame · skip 중 하나여야 합니다")
     if "growthStage" in raw:
         growth_stage = raw["growthStage"]
         if character_name is None:

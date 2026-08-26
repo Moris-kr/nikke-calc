@@ -1678,6 +1678,8 @@ class BurstController:
         # 예: 마스트 : 로망틱 메이드 `every:3` + B2 20초 동료 → 3의 배수 사이클에만 실제 사용.
         # `burst_sequence`(명시 순서)를 준 경우에는 그쪽이 전부 결정하므로 무시된다.
         self._burst_pattern: dict = config.get("burst_pattern") or {}
+        # `last:N`(막바지 최우선)이 남은 시간을 재려면 전투 길이를 알아야 한다.
+        self._sim_duration: float = float(config.get("duration", 180.0))
 
         # 단계별 우선순위 목록 (입력 순서) — tick마다 _rebuild_burst_order()로 갱신
         self.burst_order: dict[str, list[str]] = {"1": [], "2": [], "3": []}
@@ -1900,12 +1902,13 @@ class BurstController:
 
         return events
 
-    def _pattern_rank(self, name: str, cycle: int) -> int:
+    def _pattern_rank(self, name: str, cycle: int, t: float) -> int:
         """이번 사이클의 우선순위 등급. 낮을수록 먼저 쓴다 (`sorted`는 안정 정렬이라
         같은 등급끼리는 입력 순서가 유지된다).
 
+         -1 — `last:N` — 전투가 N초 안 남았다. **지금 아니면 못 쓴다**
           0 — 패턴이 있고 **이번 사이클이 그 차례**다. 패턴 없는 동료보다 앞선다
-          1 — 패턴이 없다. 평소 순서
+          1 — 패턴이 없다. 평소 순서. `last:N`인데 아직 그 구간이 아닌 경우도 여기다
           2 — 패턴이 있지만 이번 사이클이 아니다. 맨 뒤 — 앞사람이 전부 쿨이면 그래도 나간다
 
         빈 목록(`[]`)은 "어느 사이클도 차례가 아니다" = 항상 등급 2다. 패턴 없음(`None`)과
@@ -1914,6 +1917,11 @@ class BurstController:
         pat = self._burst_pattern.get(name)
         if pat is None:
             return 1
+        if isinstance(pat, str) and pat.startswith("last:"):
+            # 막바지 전용 — 남은 시간이 N초 미만이면 누구보다 먼저 쓴다. 그 전에는
+            # 평소 순서다(빼지 않는다). 큰 한 방을 전투 끝에 맞추려는 운용이다.
+            seconds = float(pat.split(":", 1)[1])
+            return -1 if self._sim_duration - t < seconds else 1
         if isinstance(pat, str) and pat.startswith("every:"):
             n = int(pat.split(":", 1)[1])
             due = n > 0 and cycle % n == 0
@@ -1937,7 +1945,7 @@ class BurstController:
             candidates = self.burst_order.get(stage, [])
             if self._burst_pattern:
                 cycle = self._burst_count + 1   # 1-based — 유저가 세는 "N번째 버스트"
-                candidates = sorted(candidates, key=lambda n: self._pattern_rank(n, cycle))
+                candidates = sorted(candidates, key=lambda n: self._pattern_rank(n, cycle, t))
         # 쿨 대기 플래그는 매번 새로 판정한다 (아래 대기 분기에서만 다시 세운다)
         self._cd_wait_candidates = None
 

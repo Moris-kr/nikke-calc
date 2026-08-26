@@ -261,6 +261,9 @@ def run_request(raw: str) -> str:
             continue
         if assignment.get("mode") == "priority":
             burst_pattern[name] = f"every:{int(assignment.get('every', 1))}"
+        elif assignment.get("mode") == "endgame":
+            # 남은 시간이 N초 미만이면 최우선. 그 전에는 평소 순서다.
+            burst_pattern[name] = f"last:{float(assignment.get('seconds', 20.0))}"
         elif assignment.get("mode") == "skip":
             burst_pattern[name] = []
     if burst_pattern:
