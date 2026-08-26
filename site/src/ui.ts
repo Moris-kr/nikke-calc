@@ -404,15 +404,30 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
               <button type="button" class="reset-enemy" data-reset-enemy>적 수치 초기화</button>
             </div>
           </div>
-          <!-- 조건은 한 번 정해 두면 계속 쓰는 값이다. 펼쳐 두면 편성이 화면 밖으로
-               밀리므로 접어 두고, 접힌 채로도 무엇으로 재는지 한 줄로 알린다. -->
+          <!-- 조건은 한 번 정해 두면 계속 쓰는 값이다. 그 자리에서 펼치면 편성이 화면
+               밖으로 밀리므로 창으로 띄우고, 이 줄에는 무엇으로 재는지만 한 줄로 남긴다. -->
           <button type="button" class="battle-open" data-battle-open aria-expanded="false">
             <span class="battle-open-label">전투 조건</span>
             <span class="battle-summary" data-battle-summary></span>
-            <span class="filter-caret" aria-hidden="true">▾</span>
+            <span class="disclosure-hint" aria-hidden="true">열기 ›</span>
           </button>
           <p class="battle-first-note" data-battle-first-note>계산하기 전에 <b>전투 조건을 한 번 확인해 주세요</b> — 몇 초짜리 전투인지, 적 코드가 무엇인지에 따라 결과가 완전히 달라집니다.</p>
-          <div class="battle-body" data-battle-body hidden>
+          <!-- 실행은 조건 줄 바로 아래다. 조건을 보고 곧바로 누르는 자리이고,
+               창 «안»에 두면 조건을 열지 않고는 못 누르게 된다. -->
+          <div class="run-row">
+            <button class="calculate-button" type="submit"><span>시뮬레이션 실행</span><b aria-hidden="true">→</b></button>
+            <button type="button" class="clear-cache" data-clear-cache title="같은 조건에 저장된 결과를 지우고 다음 실행부터 새로 계산합니다">저장된 결과 지우기</button>
+            <p class="status" data-status aria-live="polite">계산 엔진 준비 중…</p>
+          </div>
+          <!-- 막힌 이유는 누른 단추 바로 아래에서 읽혀야 한다. -->
+          <div class="error-box" data-errors hidden role="alert"></div>
+
+          <!-- 창은 조건 패널 «안»에 둔다 — 설정 입력을 지켜보는 리스너가 이 패널을
+               기준으로 걸려 있어, 밖으로 빼면 값을 바꿔도 저장되지 않는다. -->
+          <div class="custom-modal" data-battle-modal hidden>
+          <div class="custom-card battle-card" role="dialog" aria-label="전투 조건">
+          <div class="custom-head"><h2>전투 조건</h2><button type="button" class="custom-close" data-battle-modal-close aria-label="닫기">✕</button></div>
+          <div class="battle-body" data-battle-body>
           <div class="field-grid">
             <label><span>전투 시간</span><div class="input-unit"><input id="duration" type="number" min="10" max="180" step="1" value="180" /><em>초</em></div></label>
             <label><span>적 코드</span><select id="enemy-code"><option value="">없음</option><option value="풍압">풍압(작열weak)</option><option value="수냉">수냉(전격weak)</option><option value="작열">작열(수냉weak)</option><option value="전격">전격(철갑weak)</option><option value="철갑">철갑(풍압weak)</option></select></label>
@@ -462,6 +477,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <div class="console-grid" data-console-grid></div>
             <p class="field-note">계정 설정이라 스쿼드 전원에게 같이 적용됩니다. 클래스·기업은 인게임에서 소속별로 따로 크므로 각각 받습니다. 기업은 공격력, 공통·클래스는 체력을 올립니다 — 체력 계수를 쓰는 캐릭터(신데렐라 등)는 공통·클래스도 딜에 반영됩니다.</p>
           </section>
+          </div>
+          </div>
           </div>
         </section>
 
@@ -544,17 +561,6 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <p class="roster-empty" data-roster-empty hidden>검색과 일치하는 니케가 없습니다.</p>
           </section>
         </section>
-
-        <!-- 조건 → 편성 → **실행** → 결과. 두 패널 사이에 두면 위에서 아래로 차례대로
-             누르는 흐름이 그대로 화면 순서가 된다. -->
-        <div class="run-step">
-          <div class="error-box" data-errors hidden role="alert"></div>
-          <div class="run-row">
-            <button class="calculate-button" type="submit"><span>시뮬레이션 실행</span><b aria-hidden="true">→</b></button>
-            <button type="button" class="clear-cache" data-clear-cache title="같은 조건에 저장된 결과를 지우고 다음 실행부터 새로 계산합니다">저장된 결과 지우기</button>
-            <p class="status" data-status aria-live="polite">계산 엔진 준비 중…</p>
-          </div>
-        </div>
 
         <section class="panel result-panel" aria-labelledby="result-heading" data-result-panel>
           <div class="result-empty"><p class="step">03 / RESULT</p><h2 id="result-heading">전투 결과</h2><div class="radar-mark" aria-hidden="true"><i></i><i></i><i></i></div><p>편성과 조건을 확인한 뒤<br />시뮬레이션을 실행해 주세요.</p></div>
@@ -1586,22 +1592,28 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   // 조건은 한 번 정해 두면 계속 쓰는 값이라 접어 두고, 접힌 채로도 «무엇으로 재는지»를
   // 한 줄로 남긴다. 요약 문구는 공유 목록에 쓰는 것과 같은 함수를 쓴다.
   const battleOpen = element<HTMLButtonElement>(root, '[data-battle-open]');
-  const battleBody = element<HTMLElement>(root, '[data-battle-body]');
+  const battleModal = element<HTMLElement>(root, '[data-battle-modal]');
   const battleSummary = element<HTMLElement>(root, '[data-battle-summary]');
   const battleFirstNote = element<HTMLElement>(root, '[data-battle-first-note]');
   const refreshBattleSummary = () => {
     battleSummary.textContent = summarizeBattle(readBattle());
   };
-  /** 첫 계산 전 강조. 한 번이라도 펼쳐 봤거나 계산을 돌렸으면 더 붙잡지 않는다. */
+  /** 첫 계산 전 강조. 한 번이라도 열어 봤거나 계산을 돌렸으면 더 붙잡지 않는다. */
   const settleBattleNote = () => { battleFirstNote.hidden = true; };
   const setBattleOpen = (open: boolean) => {
     battleOpen.setAttribute('aria-expanded', String(open));
-    battleBody.hidden = !open;
+    battleModal.hidden = !open;
     refreshBattleSummary();
     if (open) settleBattleNote();
   };
-  battleOpen.addEventListener('click', () => {
-    setBattleOpen(battleOpen.getAttribute('aria-expanded') !== 'true');
+  battleOpen.addEventListener('click', () => { setBattleOpen(true); });
+  element<HTMLButtonElement>(root, '[data-battle-modal-close]')
+    .addEventListener('click', () => setBattleOpen(false));
+  battleModal.addEventListener('click', (event) => {
+    if (event.target === battleModal) setBattleOpen(false);
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !battleModal.hidden) setBattleOpen(false);
   });
 
   const validateCharacterValues = (deck: DeckState): string[] => {
