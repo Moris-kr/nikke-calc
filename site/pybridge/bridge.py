@@ -270,6 +270,7 @@ def run_request(raw: str) -> str:
     # 버스트 운용 배정 → config["burst_pattern"]. solo는 매 사이클 우선(전담),
     # skip은 가급적 안 씀. build_config는 여기서 준 값을 그대로 살린다(caller 우선).
     burst_pattern: dict = {}
+    no_burst: list[str] = []
     for name, overrides in characters.items():
         assignment = overrides.get("_burst_assignment")
         if not isinstance(assignment, dict):
@@ -280,9 +281,13 @@ def run_request(raw: str) -> str:
             # 남은 시간이 N초 미만이면 최우선. 그 전에는 평소 순서다.
             burst_pattern[name] = f"last:{float(assignment.get('seconds', 20.0))}"
         elif assignment.get("mode") == "skip":
-            burst_pattern[name] = []
+            # 「안 씀」은 뒤로 미는 게 아니라 후보에서 빼는 것이다 — 앞사람이 전부
+            # 쿨이어도 나가지 않는다.
+            no_burst.append(name)
     if burst_pattern:
         config_in["burst_pattern"] = burst_pattern
+    if no_burst:
+        config_in["no_burst_chars"] = no_burst
     # 버스트 반응속도 — 조건이 갖춰진 뒤 누르기까지. 전투 조건이라 config에 둔다.
     reaction = normalize_burst_reaction(payload.get("burstReaction"))
     if reaction is not None:

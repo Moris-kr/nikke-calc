@@ -357,7 +357,7 @@ export function renderCharacterSettings(
   burstSelect.dataset.burstAssignment = '';
   for (const [optionValue, optionLabel] of [
     ['auto', '자동'], ['priority', 'n의 배수 우선 사용'],
-    ['endgame', '막바지 최우선'], ['skip', '가급적 안 씀'],
+    ['endgame', '막바지 최우선'], ['skip', '안 씀'],
   ] as Array<[string, string]>) {
     const option = document.createElement('option');
     option.value = optionValue;
@@ -427,7 +427,9 @@ export function renderCharacterSettings(
   burstNote.textContent =
     '같은 버스트 단계 후보가 여럿일 때 누가 먼저 쓰는지를 정합니다(쿨타임 한도 내).'
     + ' «n의 배수»는 그 사이클마다 우선 사용하고(n=1이면 매 사이클),'
-    + ' «막바지 최우선»은 전투가 그만큼 남았을 때부터 누구보다 먼저 씁니다 — 그 전에는 평소 순서입니다.';
+    + ' «막바지 최우선»은 전투가 그만큼 남았을 때부터 누구보다 먼저 씁니다 — 그 전에는 평소 순서입니다.'
+    + ' «안 씀»은 이 캐릭터가 버스트를 아예 쓰지 않습니다 — 같은 단계 동료가 전부 쿨이어도 나가지 않으므로,'
+    + ' 그 단계를 맡을 동료가 없으면 버스트 사이클 자체가 멈춥니다.';
   burstEditor.append(burstHeading, burstRow, burstNote);
   // `body`가 아니라 아래 «컨트롤 · 버스트» 접이판에 넣는다 — 버스트 운용도 결국
   // 조작 방식이라 컨트롤과 한자리에 있는 편이 찾기 쉽다.

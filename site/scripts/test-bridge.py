@@ -208,6 +208,30 @@ class BrowserBridgeTest(unittest.TestCase):
         self.assertLess(slow["squadTotal"], default["squadTotal"])
         self.assertGreater(instant["squadTotal"], slow["squadTotal"])
 
+    def test_skip_means_never_bursting_at_all(self):
+        """「안 씀」은 뒤로 미는 게 아니라 후보에서 빼는 것이다."""
+        base = {
+            "squad": ["리타", "크라운", "라피 : 레드 후드", "앨리스", "나가"],
+            "duration": 90,
+            "enemyDef": 31_784,
+            "enemyCode": "",
+            "corePx": 0,
+            "hasParts": False,
+            "seed": 42,
+        }
+        auto = json.loads(run_request(json.dumps(base, ensure_ascii=False)))
+        # 크라운과 나가가 같은 2단계 후보다 — 크라운을 빼도 나가가 그 단계를 맡는다.
+        skipped = json.loads(run_request(json.dumps({
+            **base, "characters": {"크라운": {"burst": {"mode": "skip"}}},
+        }, ensure_ascii=False)))
+
+        self.assertNotEqual(skipped["squadTotal"], auto["squadTotal"])
+        # 버스트를 아예 안 썼으므로 크라운의 버스트 시각이 하나도 없어야 한다.
+        self.assertTrue(auto["timeline"]["bursts"]["크라운"])
+        self.assertEqual(skipped["timeline"]["bursts"]["크라운"], [])
+        # 그래도 전투는 돌아간다 — 다른 캐릭터는 계속 버스트를 쓴다.
+        self.assertTrue(skipped["timeline"]["bursts"]["나가"])
+
     def test_rejects_a_bad_burst_reaction(self):
         payload = {
             "squad": ["리타"],

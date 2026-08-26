@@ -3,356 +3,494 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>레이아웃 시안 5</title>
+<title>레이아웃 시안 · 전체 요소</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.min.css" />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet" />
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://code.iconify.design/iconify-icon/2.3.0/iconify-icon.min.js"></script>
 <script>
-  tailwind.config = {
-    theme: {
-      extend: {
-        fontFamily: {
-          sans: ['Pretendard', 'Outfit', 'system-ui', 'sans-serif'],
-          display: ['Outfit', 'Pretendard', 'sans-serif'],
-          mono: ['ui-monospace', 'SFMono-Regular', 'monospace'],
-        },
-        colors: {
-          ink: '#eaf2f8',
-          base: { 950: '#050b13', 900: '#08131f', 800: '#0e1b2a' },
-          accent: { DEFAULT: '#ffbf3c', hot: '#ff9d1f' },
-          sea: '#45d6d0',
-        },
-      },
-    },
-  };
+  tailwind.config = { theme: { extend: {
+    fontFamily: { sans: ['Pretendard','Outfit','system-ui','sans-serif'], display: ['Outfit','Pretendard','sans-serif'] },
+    colors: { ink:'#eaf2f8', base:{950:'#050b13',900:'#08131f',800:'#0e1b2a'}, accent:{DEFAULT:'#ffbf3c',hot:'#ff9d1f'}, sea:'#45d6d0', rose:'#ff7787' },
+  } } };
 </script>
 <style>
   :root { color-scheme: dark; }
-  body { background: #050b13; }
-  /* 스프링 이징 — 모든 상호작용의 서명 */
-  .spring { transition: all .5s cubic-bezier(0.16, 1, 0.3, 1); }
-  /* 결이 도는 배경 — 평평한 단색 대신 */
-  .mesh::before {
-    content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
-    background:
-      radial-gradient(60rem 40rem at 8% -5%, rgba(69,214,208,.10), transparent 60%),
-      radial-gradient(50rem 36rem at 96% 8%, rgba(255,167,48,.09), transparent 60%),
-      radial-gradient(40rem 30rem at 50% 110%, rgba(69,214,208,.05), transparent 60%);
-  }
-  /* 그레인 — 고정 레이어에만 */
-  .grain { position: fixed; inset: 0; z-index: 60; pointer-events: none; opacity: .035;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E"); }
-  /* 더블 베젤 — 알루미늄 트레이에 얹힌 유리판 */
-  .bezel { background: rgba(255,255,255,.045); box-shadow: 0 0 0 1px rgba(255,255,255,.08); padding: 6px; border-radius: 26px; }
-  .bezel > .core { background: linear-gradient(160deg, rgba(14,27,42,.96), rgba(8,19,31,.96));
-    box-shadow: inset 0 1px 1px rgba(255,255,255,.14); border-radius: 20px; }
-  .hair { box-shadow: 0 0 0 1px rgba(255,255,255,.07); }
-  .eyebrow { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; }
-  .num { font-family: ui-monospace, SFMono-Regular, monospace; font-variant-numeric: tabular-nums; }
-  [data-variant] { display: none; }
-  [data-variant].is-on { display: block; }
-  .fade-up { animation: fadeUp .6s cubic-bezier(0.16,1,0.3,1) both; animation-delay: calc(var(--i, 0) * 60ms); }
-  @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  body { background:#050b13; }
+  .spring { transition: all .5s cubic-bezier(0.16,1,0.3,1); }
+  .mesh::before { content:''; position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background: radial-gradient(60rem 40rem at 6% -6%, rgba(69,214,208,.10), transparent 60%),
+                radial-gradient(52rem 36rem at 98% 6%, rgba(255,167,48,.09), transparent 60%); }
+  .grain { position:fixed; inset:0; z-index:60; pointer-events:none; opacity:.03;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E"); }
+  .bezel { background:rgba(255,255,255,.045); box-shadow:0 0 0 1px rgba(255,255,255,.08); padding:6px; border-radius:24px; }
+  .bezel > .core { background:linear-gradient(160deg, rgba(14,27,42,.96), rgba(8,19,31,.96));
+    box-shadow:inset 0 1px 1px rgba(255,255,255,.13); border-radius:18px; }
+  .hair { box-shadow:0 0 0 1px rgba(255,255,255,.07); }
+  .eyebrow { font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; }
+  .num { font-family:ui-monospace,SFMono-Regular,monospace; font-variant-numeric:tabular-nums; }
+  .fld { background:rgba(3,9,16,.7); box-shadow:0 0 0 1px rgba(146,176,201,.16); border-radius:10px; }
+  .chip { box-shadow:0 0 0 1px rgba(146,176,201,.2); border-radius:8px; }
+  .chip.on { box-shadow:0 0 0 1px rgba(255,191,60,.7); background:rgba(255,191,60,.14); color:#ffbf3c; }
+  .kbd { box-shadow:0 0 0 1px rgba(255,255,255,.09); border-radius:6px; }
+  ::-webkit-scrollbar { width:8px; height:8px }
+  ::-webkit-scrollbar-thumb { background:rgba(146,176,201,.2); border-radius:99px }
 </style>
 </head>
 <body class="mesh font-sans text-ink antialiased min-h-[100dvh]">
 <div class="grain"></div>
 
-<!-- 시안 고르는 플로팅 글래스 바 -->
-<nav class="sticky top-4 z-40 mx-auto mt-4 w-max max-w-[calc(100%-2rem)] rounded-full border border-white/10 bg-white/5 px-2 py-2 backdrop-blur-xl">
+<nav class="sticky top-3 z-40 mx-auto mt-3 w-max max-w-[calc(100%-1.5rem)] rounded-full border border-white/10 bg-black/40 px-2 py-2 backdrop-blur-xl">
   <div class="flex items-center gap-1 overflow-x-auto" id="switch"></div>
 </nav>
 
-<main class="mx-auto max-w-7xl px-4 pb-32 pt-10 sm:px-6 lg:px-8">
-  <header class="mb-10">
-    <span class="eyebrow rounded-full bg-accent/10 px-3 py-1 font-medium text-accent">Layout Study</span>
-    <h1 class="mt-4 font-display text-4xl font-extrabold leading-snug tracking-tight md:text-5xl" style="word-break:keep-all">
-      계산기 레이아웃, 다섯 가지 방식
-    </h1>
-    <p class="mt-3 max-w-[60ch] leading-relaxed text-white/55" style="word-break:keep-all">
-      위 알약을 눌러 바꿔 보세요. 내용은 실제 화면과 같은 것들이고, 배치와 밀도만 다릅니다.
-    </p>
-    <p class="mt-2 text-sm text-white/40" id="note" style="word-break:keep-all"></p>
-  </header>
-
+<main class="mx-auto max-w-[1600px] px-4 pb-24 pt-6 sm:px-6">
+  <p class="mb-1 text-xs text-white/35" id="note" style="word-break:keep-all"></p>
   <div id="stage"></div>
 </main>
 
 <script type="module">
-const BASE = '/nikke-calc/characters/';
+const B = '/nikke-calc/characters/';
 const SQUAD = [
-  { name: '리타', img: '050.webp', dmg: 402_551_180, share: 27.1 },
-  { name: '크라운', img: '159.webp', dmg: 118_902_441, share: 8.0 },
-  { name: '라피 : 레드 후드', img: '032.webp', dmg: 612_337_905, share: 41.3 },
-  { name: '앨리스', img: '125.webp', dmg: 288_114_002, share: 19.4 },
-  { name: '나가', img: '006.webp', dmg: 60_999_585, share: 4.1 },
+  { n:'리타', i:'050.webp', b:'1', c:'철갑', w:'SMG', dmg:402_551_180, sh:27.1, st:3, core:0 },
+  { n:'크라운', i:'159.webp', b:'2', c:'철갑', w:'MG', dmg:118_902_441, sh:8.0, st:3, core:0 },
+  { n:'라피 : 레드 후드', i:'032.webp', b:'3', c:'작열', w:'MG', dmg:612_337_905, sh:41.3, st:3, core:7 },
+  { n:'앨리스', i:'125.webp', b:'3', c:'작열', w:'SR', dmg:288_114_002, sh:19.4, st:3, core:0 },
+  { n:'나가', i:'006.webp', b:'2', c:'전격', w:'SG', dmg:60_999_585, sh:4.1, st:3, core:0 },
 ];
-const TOTAL = SQUAD.reduce((s, c) => s + c.dmg, 0);
-const BEST = Math.max(...SQUAD.map((c) => c.dmg));
-const won = (n) => n.toLocaleString('ko-KR');
+const ROSTER = ['188.webp','014.webp','021.webp','180.webp','050.webp','159.webp','032.webp','125.webp','006.webp','188.webp','014.webp','021.webp'];
+const TOTAL = SQUAD.reduce((s,c)=>s+c.dmg,0), BEST = Math.max(...SQUAD.map(c=>c.dmg));
+const won = n => n.toLocaleString('ko-KR');
+const ic = (n,c='') => `<iconify-icon icon="solar:${n}" class="${c}"></iconify-icon>`;
 
-const icon = (name, cls = '') => `<iconify-icon icon="solar:${name}" class="${cls}"></iconify-icon>`;
+/* ── 조각 ─────────────────────────────────────────────────────────── */
+const eyebrow = (step,label,extra='') => `
+  <div class="flex items-center gap-2.5">
+    <span class="eyebrow num rounded-full bg-accent/10 px-2 py-0.5 font-bold text-accent">${step}</span>
+    <h2 class="text-[15px] font-extrabold tracking-tight">${label}</h2>${extra}
+  </div>`;
 
-/** 조건 요약 알약 — 어느 안에서나 같은 정보를 쓴다. */
-const condChips = () => ['180초', '무속성', '코어 없음', '기대값', '싱크로 400']
-  .map((t) => `<span class="rounded-full bg-white/5 px-3 py-1 text-[11px] text-white/60 hair">${t}</span>`).join('');
+const toolBtn = (label, tone='') => `<button class="spring chip whitespace-nowrap px-3 py-1.5 text-[11px] ${tone||'text-white/60'} hover:bg-white/5">${label}</button>`;
 
-const runBtn = (size = 'lg') => `
-  <button class="spring group flex items-center gap-3 rounded-full bg-gradient-to-r from-accent to-accent-hot ${size === 'lg' ? 'px-8 py-4 text-[15px]' : 'px-5 py-3 text-[13px]'} font-extrabold text-[#171006] hover:scale-[1.02] hover:shadow-[0_0_36px_rgba(255,191,60,.28)] active:scale-[0.98]">
-    시뮬레이션 실행
-    <span class="flex h-8 w-8 items-center justify-center rounded-full bg-black/10">
-      ${icon('arrow-right-linear', 'spring text-lg group-hover:translate-x-0.5')}
-    </span>
-  </button>`;
+const hero = () => `
+  <header class="mb-4 flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <p class="eyebrow text-sea">Browser Sim · 60 FPS Timeline</p>
+      <h1 class="mt-1.5 font-display text-3xl font-extrabold tracking-tight md:text-4xl">
+        <span class="text-accent">NIKKE</span> 스쿼드 계산기
+      </h1>
+      <p class="mt-1.5 text-[13px] text-white/45" style="word-break:keep-all">캐릭터별 오버로드와 큐브, 전투 조건을 반영해 프레임 단위 예상 대미지를 계산합니다.</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="chip px-3 py-1.5 text-[11px] text-white/55">199명 지원</span>
+      <button class="spring rounded-full bg-accent/10 px-3 py-1.5 text-[11px] font-bold text-accent hover:bg-accent/20">업데이트 내역</button>
+      <a class="chip px-3 py-1.5 text-[11px] text-white/45 hover:bg-white/5">원본 알고리즘 개발자에게 무한한 감사를</a>
+    </div>
+  </header>`;
 
-/** 편성 슬롯 — 초상화 카드 다섯 */
-const slot = (c, i) => `
-  <article class="fade-up spring group overflow-hidden rounded-2xl hair bg-white/[.03] hover:bg-white/[.06]" style="--i:${i}">
-    <div class="relative aspect-[1/1.05] overflow-hidden">
-      <img src="${BASE}${c.img}" alt="" loading="lazy" decoding="async"
-           class="spring h-full w-full object-cover object-[50%_16%] group-hover:scale-[1.04]" />
-      <span class="absolute left-2 top-2 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-bold num backdrop-blur-sm">0${i + 1}</span>
-      <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#050b13] via-[#050b13]/70 to-transparent px-3 pb-2 pt-8">
-        <p class="truncate text-[12px] font-bold" style="word-break:keep-all">${c.name}</p>
+const viewTabs = () => `
+  <div class="mb-4 grid grid-cols-2 gap-1 rounded-2xl hair bg-white/[.02] p-1">
+    <button class="spring rounded-xl bg-accent/15 py-2.5 text-[13px] font-bold text-accent">계산기</button>
+    <button class="spring rounded-xl py-2.5 text-[13px] text-white/45 hover:bg-white/5">ENIKK 조합 가져오기</button>
+  </div>`;
+
+const squadTools = () => `
+  <div class="flex flex-wrap items-center gap-1.5">
+    <span class="flex items-center gap-1">${toolBtn('렛츠도로 CSV 불러오기')}<button class="spring chip h-[26px] w-[26px] text-[11px] text-white/45 hover:bg-white/5">i</button></span>
+    ${toolBtn('블라블라링크 연동')}${toolBtn('새 니케 추가')}${toolBtn('편성 프리셋')}${toolBtn('조합 공유')}
+    <button class="spring chip whitespace-nowrap px-3 py-1.5 text-[11px] text-rose/80 hover:bg-rose/10" style="box-shadow:0 0 0 1px rgba(255,119,135,.35)">완전 초기화</button>
+    <label class="ml-1 flex cursor-pointer items-center gap-2 text-[12px] text-white/60">
+      <span class="relative h-5 w-9 rounded-full bg-accent/70"><span class="absolute right-0.5 top-0.5 h-4 w-4 rounded-full bg-[#171006]"></span></span>5덱 모드
+    </label>
+  </div>`;
+
+const deckBar = () => `
+  <div class="mt-3 grid grid-cols-5 gap-1 rounded-xl hair bg-white/[.02] p-1">
+    ${[1,2,3,4,5].map(n=>`<button class="spring num rounded-lg py-2 text-[11.5px] ${n===1?'bg-white/10 font-bold text-ink':'text-white/40 hover:bg-white/5'}">덱 ${n}${n===1?' · 5':''}</button>`).join('')}
+  </div>
+  <div class="mt-2 flex flex-wrap items-center gap-1.5">
+    <button class="spring chip h-[26px] w-[26px] text-white/45 hover:bg-white/5">‹</button>
+    <button class="spring chip h-[26px] w-[26px] text-white/45 hover:bg-white/5">›</button>
+    ${toolBtn('덱 비우기','text-rose/70')}${toolBtn('현재 덱 복사')}
+    <span class="ml-1 text-[11px] text-white/30">덱 사이에는 같은 캐릭터를 다시 편성할 수 있습니다.</span>
+  </div>`;
+
+/** 편성 카드 — 초상화·슬롯번호·속성·이동·돌파 스테퍼·이름·개별값·설정 창 단추까지 */
+const slotCard = (c,i) => `
+  <article class="spring overflow-hidden rounded-2xl hair bg-white/[.03] hover:bg-white/[.055]">
+    <div class="relative aspect-[1/1.02] overflow-hidden">
+      <img src="${B}${c.i}" class="h-full w-full object-cover object-[50%_16%]" alt="" loading="lazy" decoding="async" />
+      <div class="absolute left-1.5 top-1.5 flex items-center gap-1">
+        <span class="num rounded-md bg-accent px-1.5 py-0.5 text-[10px] font-black text-[#171006]">0${i+1}</span>
+        <span class="grid h-[18px] w-[16px] place-items-center rounded-[3px] bg-black/60 text-[9px] text-sea">${c.c[0]}</span>
       </div>
+      <div class="absolute right-1.5 top-1.5 flex gap-1">
+        <button class="spring grid h-5 w-5 place-items-center rounded bg-black/55 text-[10px] text-white/60 hover:bg-black/80">‹</button>
+        <button class="spring grid h-5 w-5 place-items-center rounded bg-black/55 text-[10px] text-white/60 hover:bg-black/80">›</button>
+      </div>
+      <div class="absolute inset-x-1.5 bottom-1.5 flex items-center justify-between gap-1 rounded-lg bg-black/70 px-1.5 py-1 backdrop-blur-sm">
+        <button class="spring grid h-4 w-4 place-items-center rounded text-[11px] text-white/70 hover:bg-white/10">−</button>
+        <span class="flex items-center gap-0.5">
+          ${[0,1,2].map(s=>`<span class="text-[10px] ${s<Math.min(c.st,3)?'text-accent':'text-white/20'}">★</span>`).join('')}
+          <span class="num ml-0.5 rounded bg-fuchsia-500/25 px-1 text-[9px] text-fuchsia-200">${c.core}</span>
+        </span>
+        <button class="spring grid h-4 w-4 place-items-center rounded text-[11px] text-white/70 hover:bg-white/10">+</button>
+      </div>
+    </div>
+    <div class="relative p-2">
+      <button class="spring absolute right-1.5 top-1.5 grid h-5 w-5 place-items-center rounded text-[11px] text-white/35 hover:bg-white/10 hover:text-rose">✕</button>
+      <p class="truncate pr-6 text-[12px] font-bold" style="word-break:keep-all">${c.n}</p>
+      <p class="num mt-0.5 text-[9.5px] text-white/40">B${c.b} · ${c.c} · ${c.w}</p>
+      <div class="mt-2 flex items-center gap-1.5">
+        <button class="spring chip flex flex-1 items-center justify-between px-2 py-1 text-[10px] text-white/50 hover:bg-white/5">개별값 ${ic('alt-arrow-down-linear','text-[9px]')}</button>
+        <label class="flex cursor-pointer items-center gap-1 text-[10px] text-white/50">
+          <input type="checkbox" class="h-3 w-3 accent-accent" ${i<3?'checked':''} /> 개별 설정
+        </label>
+      </div>
+      ${i<3?`
+      <button class="spring mt-1.5 flex w-full items-center justify-between rounded-lg bg-sea/[.07] px-2 py-1.5 text-[10.5px] font-bold text-sea/90 hair hover:bg-sea/15">수치 설정 ${ic('alt-arrow-right-linear')}</button>
+      <button class="spring mt-1 flex w-full items-center justify-between rounded-lg bg-sea/[.07] px-2 py-1.5 text-[10.5px] font-bold text-sea/90 hair hover:bg-sea/15">컨트롤 · 버스트 ${ic('alt-arrow-right-linear')}</button>`:''}
     </div>
   </article>`;
 
-const squadGrid = (cols = 'grid-cols-5') => `<div class="grid ${cols} gap-3">${SQUAD.map(slot).join('')}</div>`;
+const squadGrid = () => `<div class="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">${SQUAD.map(slotCard).join('')}</div>`;
 
-/** 결과 한 줄 — 초상화 · 막대 · 숫자 */
-const resultRow = (c, i) => `
-  <div class="fade-up flex items-center gap-4 rounded-2xl hair bg-white/[.03] px-4 py-3" style="--i:${i}">
-    <img src="${BASE}${c.img}" alt="" loading="lazy" class="h-11 w-11 shrink-0 rounded-xl object-cover object-[50%_16%]" />
-    <div class="min-w-0 flex-1">
-      <div class="mb-2 flex items-baseline gap-2">
-        <b class="truncate text-[13px]" style="word-break:keep-all">${c.name}</b>
-        <span class="num text-[10px] text-white/40">${c.share}%</span>
-      </div>
-      <div class="h-1.5 overflow-hidden rounded-full bg-white/10">
-        <i class="block h-full rounded-full bg-gradient-to-r from-accent/70 to-accent-hot" style="width:${(c.dmg / BEST * 100).toFixed(1)}%"></i>
+/** 니케 고르기 — 검색·정렬/필터·버스트 칩·로스터 그리드·필터 판까지 */
+const picker = (open=false) => `
+  <section class="mt-4 rounded-2xl hair bg-white/[.02] p-4">
+    <div class="flex flex-wrap items-baseline justify-between gap-2">
+      <h3 class="text-[12px] font-extrabold">니케 고르기 <span class="num font-normal text-white/35">199명</span></h3>
+      <p class="num text-[11px] text-sea">1번 칸을 리타 대신 채웁니다 · 5/5명</p>
+    </div>
+    <input class="fld mt-2.5 w-full px-3 py-2 text-[12px] placeholder:text-white/25" placeholder="이름 · 초성 · 속성으로 찾기 (ㄹㅍ, 라피레드, 전격)" />
+    <div class="mt-2.5 flex flex-wrap items-center gap-1.5">
+      <button class="spring flex items-center gap-1.5 rounded-lg bg-sea/10 px-3 py-1.5 text-[11px] font-bold text-sea hair">
+        정렬 및 필터 <span class="num rounded bg-sea/25 px-1 text-[9px]">2</span> ${ic('alt-arrow-down-linear','text-[10px]')}
+      </button>
+      ${['B1','B2','B3','BA'].map((b,i)=>`<button class="spring chip ${i===2?'on':'text-white/50'} px-2.5 py-1.5 text-[10.5px] num hover:bg-white/5">${b}</button>`).join('')}
+      <button class="spring chip px-2.5 py-1.5 text-[10.5px] text-rose/70 hover:bg-rose/10">필터 지우기</button>
+      <span class="num text-[10px] text-white/35">전투력 ▼ · B3</span>
+    </div>
+    <div class="relative mt-3">
+      ${open?`
+      <div class="absolute left-0 top-0 z-20 w-max max-w-full rounded-xl bg-[#08131f]/95 p-4 backdrop-blur-md hair" style="box-shadow:0 24px 60px rgba(0,0,0,.6)">
+        <p class="eyebrow mb-2 text-white/35">정렬</p>
+        <div class="flex flex-wrap gap-1.5">${['전투력 ▼','이름','우월코드','우공합'].map((s,i)=>`<button class="chip ${i===0?'on':'text-white/50'} px-2.5 py-1 text-[10.5px] num">${s}</button>`).join('')}</div>
+        <div class="my-3 h-px bg-gradient-to-r from-sea/30 to-transparent"></div>
+        <p class="eyebrow mb-2 text-white/35">필터</p>
+        ${[['등급',['SSR','SR','R']],['클래스',['화력형','방어형','지원형']],['코드',['작열','수냉','풍압','전격','철갑']],['무기',['AR','SMG','SG','SR','RL','MG']],['기업',['엘리시온','미실리스','테트라','필그림','어브노말']]]
+          .map(([t,vs])=>`<p class="eyebrow mb-1.5 mt-2.5 text-white/30">${t}</p><div class="flex flex-wrap gap-1.5">${vs.map(v=>`<button class="chip px-2.5 py-1 text-[10.5px] text-white/50">${v}</button>`).join('')}</div>`).join('')}
+      </div>`:''}
+      <div class="grid max-h-[280px] grid-cols-4 gap-2 overflow-y-auto sm:grid-cols-6 lg:grid-cols-8">
+        ${ROSTER.map((f,i)=>`
+          <button class="spring overflow-hidden rounded-xl hair ${i===2?'ring-1 ring-accent':''} hover:-translate-y-0.5">
+            <img src="${B}${f}" class="aspect-square w-full object-cover object-[50%_14%]" alt="" loading="lazy" />
+          </button>`).join('')}
       </div>
     </div>
-    <span class="num w-[10.5ch] shrink-0 text-right text-[13px] font-extrabold">${won(c.dmg)}</span>
+  </section>`;
+
+/** 전투 조건 — 창을 펼쳤을 때의 전체 폼 */
+const conditionFull = () => `
+  <div class="grid gap-3">
+    <div class="grid gap-3 sm:grid-cols-2">
+      ${[['전투 시간','180','초'],['싱크로 레벨','400','Lv']].map(([l,v,u])=>`
+        <label class="grid gap-1"><span class="text-[11px] text-white/45">${l}</span>
+          <span class="fld flex items-center px-3 py-2"><input class="num w-full bg-transparent text-[13px] outline-none" value="${v}" /><em class="text-[10px] not-italic text-white/35">${u}</em></span>
+        </label>`).join('')}
+      <label class="grid gap-1"><span class="text-[11px] text-white/45">적 코드</span>
+        <span class="fld flex items-center justify-between px-3 py-2 text-[13px]">없음 ${ic('alt-arrow-down-linear','text-white/35')}</span>
+      </label>
+      <label class="grid gap-1"><span class="text-[11px] text-white/45">코어 직경</span>
+        <span class="fld flex items-center px-3 py-2"><input class="num w-full bg-transparent text-[13px] text-white/30 outline-none" value="52" /><em class="text-[10px] not-italic text-white/35">px</em></span>
+      </label>
+    </div>
+    <div class="flex flex-wrap gap-4">
+      ${['코어 있음','파괴 가능 파츠','족자 중 버스트 충전 정지'].map((t,i)=>`
+        <label class="flex cursor-pointer items-center gap-2 text-[12px] text-white/60">
+          <span class="relative h-5 w-9 rounded-full ${i===2?'bg-accent/70':'bg-white/10'}"><span class="absolute ${i===2?'right-0.5':'left-0.5'} top-0.5 h-4 w-4 rounded-full ${i===2?'bg-[#171006]':'bg-white/40'}"></span></span>${t}
+        </label>`).join('')}
+    </div>
+    <fieldset class="rounded-xl hair p-3">
+      <legend class="px-1 text-[11px] text-white/45">적정거리</legend>
+      <div class="flex flex-wrap gap-3">${['AR','SMG','SG','MG','SR','RL'].map(w=>`<label class="flex items-center gap-1.5 text-[11px] text-white/50"><input type="checkbox" class="h-3 w-3 accent-accent" />${w}</label>`).join('')}</div>
+      <p class="mt-2 text-[10.5px] leading-relaxed text-white/30" style="word-break:keep-all">고른 무기군의 <b class="text-white/50">일반 공격</b>에만 대미지 보너스 +30%가 붙습니다.</p>
+    </fieldset>
+    <button class="spring flex items-center justify-between rounded-xl hair px-3 py-2.5 text-[12px] text-white/55 hover:bg-white/5">고급 설정 <span class="text-[10px] text-white/30">펼치기 ▾</span></button>
+    <div class="grid gap-3 rounded-xl hair bg-black/20 p-3">
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        ${[['적 방어력','31784',''],['난수 시드','42',''],['버스트 게이지 충전','2','초'],['버스트 반응속도','0.05','초']].map(([l,v,u])=>`
+          <label class="grid gap-1"><span class="text-[11px] text-white/45">${l}</span>
+            <span class="fld flex items-center px-3 py-2"><input class="num w-full bg-transparent text-[13px] outline-none" value="${v}" />${u?`<em class="text-[10px] not-italic text-white/35">${u}</em>`:''}</span>
+          </label>`).join('')}
+      </div>
+      <label class="grid gap-1"><span class="text-[11px] text-white/45">난수 처리</span>
+        <span class="fld flex items-center justify-between px-3 py-2 text-[13px]">기대값 (권장) ${ic('alt-arrow-down-linear','text-white/35')}</span>
+      </label>
+      <fieldset class="rounded-xl hair p-3">
+        <legend class="px-1 text-[11px] text-white/45">평타 계수</legend>
+        <div class="grid grid-cols-3 gap-2 sm:grid-cols-6">${[['AR','1.00'],['SMG','1.00'],['SG','0.90'],['MG','1.00'],['SR','1.00'],['RL','1.00']].map(([w,v])=>`<label class="grid gap-1 text-[10px] text-white/40">${w}<span class="fld px-2 py-1 num text-[11px] text-ink">${v}</span></label>`).join('')}</div>
+      </fieldset>
+      <fieldset class="rounded-xl hair p-3">
+        <legend class="px-1 text-[11px] text-white/45">보스 페이즈</legend>
+        <div class="flex gap-2">
+          <button class="spring chip px-2.5 py-1 text-[10.5px] text-white/55">족자 추가 +</button>
+          <button class="spring chip px-2.5 py-1 text-[10.5px] text-white/55">속저 추가 +</button>
+        </div>
+        <div class="mt-2 flex items-center gap-2 rounded-lg hair px-2.5 py-1.5 text-[10.5px] text-white/50">
+          <span class="rounded bg-rose/20 px-1.5 text-rose">족자</span><span class="num">10.0 – 30.0초</span>
+          <button class="ml-auto text-white/30">✕</button>
+        </div>
+      </fieldset>
+    </div>
+    <section class="rounded-xl hair p-3">
+      <h4 class="text-[12px] font-bold">콘솔 <span class="font-normal text-white/35">전초기지 재활용 연구실</span></h4>
+      <div class="mt-2 grid gap-3 sm:grid-cols-3">
+        ${[['공통',['전체']],['기업',['엘리시온','테트라','미실리스']],['클래스',['화력형','방어형','지원형']]].map(([t,ks])=>`
+          <div><p class="eyebrow mb-1.5 text-white/30">${t}</p>
+            ${ks.map(k=>`<label class="mb-1.5 grid gap-1"><span class="text-[10px] text-white/40">${k}</span><span class="fld px-2.5 py-1.5 num text-[12px]">${t==='공통'?'180':'100'}</span></label>`).join('')}
+          </div>`).join('')}
+      </div>
+    </section>
   </div>`;
 
-const resultRows = () => `<div class="grid gap-2">${SQUAD.map(resultRow).join('')}</div>`;
+/** 조건 요약 줄 + 실행(7:3) + 상태 + 강조 */
+const conditionBar = (stacked=false) => `
+  <div class="grid ${stacked?'':'grid-cols-1 md:grid-cols-[7fr_3fr]'} gap-2">
+    <button class="spring flex items-center gap-3 rounded-xl bg-sea/[.08] px-4 py-3 text-left hair hover:bg-sea/[.15]">
+      <span class="eyebrow shrink-0 font-bold text-sea">전투 조건</span>
+      <span class="num min-w-0 flex-1 truncate text-[11.5px] text-white/45">180초 · 무속성 · 코어 없음 · 기대값</span>
+      <span class="num shrink-0 text-[11px] text-white/35">열기 ›</span>
+    </button>
+    <button class="spring group flex items-center justify-center gap-2.5 rounded-xl bg-gradient-to-r from-accent to-accent-hot px-5 py-3 text-[13.5px] font-extrabold text-[#171006] hover:scale-[1.01] hover:shadow-[0_0_30px_rgba(255,191,60,.25)] active:scale-[0.99]">
+      시뮬레이션 실행
+      <span class="grid h-7 w-7 place-items-center rounded-full bg-black/10">${ic('arrow-right-linear','spring text-base group-hover:translate-x-0.5')}</span>
+    </button>
+  </div>
+  <p class="mt-2 text-[11px] text-white/35">계산 준비 완료 · 모든 연산은 이 기기에서 실행됩니다.</p>
+  <p class="mt-2 rounded-lg border-l-2 border-accent bg-accent/[.07] px-3 py-2 text-[11px] leading-relaxed text-accent/90" style="word-break:keep-all">
+    계산하기 전에 <b>전투 조건을 한 번 확인해 주세요</b> — 몇 초짜리 전투인지, 적 코드가 무엇인지에 따라 결과가 완전히 달라집니다.
+  </p>`;
 
-const totalBlock = (size = 'text-5xl') => `
-  <div class="text-right">
-    <p class="eyebrow text-white/40">스쿼드 총 대미지</p>
-    <p class="num ${size} font-extrabold leading-none tracking-tight text-accent">${won(TOTAL)}</p>
-    <p class="num mt-1 text-xs text-sea">8.24M DPS · 180초</p>
+const targetTools = () => `<div class="flex flex-wrap gap-1.5">${toolBtn('전투 조건 공유')}${toolBtn('적 수치 초기화')}${toolBtn('저장된 결과 지우기')}</div>`;
+
+/** 결과 — 총딜·도구·덱 탭·순위·캐릭터 줄(분해 접이)·facts·이탈 */
+const resultFull = () => `
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    ${eyebrow('03','전투 결과')}
+    <div class="text-right">
+      <p class="eyebrow text-white/35">전체 덱 총 대미지</p>
+      <p class="num text-4xl font-extrabold leading-none tracking-tight text-accent">${won(TOTAL)}</p>
+      <p class="num mt-1 text-[11px] text-sea">8.24M DPS</p>
+    </div>
+  </div>
+  <div class="mt-3 flex flex-wrap gap-1.5">${toolBtn('결과 저장')}${toolBtn('결과 불러오기')}${toolBtn('보고서 이미지 만들기','text-accent')}</div>
+  <div class="mt-3 flex flex-wrap gap-2">
+    ${[1,2,3,4,5].map(n=>`
+      <button class="spring grid gap-0.5 rounded-xl px-4 py-2 text-left hair ${n===1?'bg-accent/12 ring-1 ring-accent/50':'bg-white/[.02] hover:bg-white/[.06]'}">
+        <b class="num flex items-center gap-1.5 text-[11.5px] ${n===1?'text-accent':'text-ink'}">덱 ${n}<em class="not-italic ${n<=2?(n===1?'text-accent':'text-white/70'):'text-white/30'}">${n}위</em></b>
+        <span class="num text-[11px] ${n===1?'text-accent':'text-white/45'}">${won([1482905113,1338220004,1201776910,998450233,774010651][n-1])}</span>
+      </button>`).join('')}
+  </div>
+  <div class="mt-4 rounded-2xl hair bg-white/[.02] p-4">
+    <div class="flex items-end justify-between gap-4">
+      <div><h3 class="text-[15px] font-extrabold text-sea">덱 1</h3><p class="num mt-0.5 text-[11px] text-accent">1위 · 기준</p></div>
+      <div class="text-right"><p class="num text-lg font-extrabold">${won(TOTAL)}</p><p class="num text-[10.5px] text-sea">8.24M DPS</p></div>
+    </div>
+    <div class="mt-3 grid gap-2">
+      ${SQUAD.map((c,i)=>`
+        <div class="rounded-xl hair ${i===2?'bg-accent/[.06] ring-1 ring-accent/40':'bg-white/[.02]'} px-3 py-2.5">
+          <div class="grid grid-cols-[44px_minmax(0,1fr)_11ch] items-center gap-3">
+            <span class="relative"><img src="${B}${c.i}" class="h-11 w-11 rounded-xl object-cover object-[50%_16%]" alt="" loading="lazy" />
+              ${i<2||i===2?`<b class="num absolute -bottom-0.5 -right-0.5 rounded px-1 text-[9px] ${i===2?'bg-accent text-[#171006]':'bg-white/80 text-black'}">${i===2?1:2}</b>`:''}</span>
+            <div class="min-w-0">
+              <div class="mb-1.5 flex items-baseline gap-2"><b class="truncate text-[12.5px]">${c.n}</b><span class="num text-[10px] text-white/40">${c.sh}% · 3.40M/초</span></div>
+              <div class="h-1.5 overflow-hidden rounded-full bg-white/10"><i class="block h-full rounded-full bg-gradient-to-r ${i===2?'from-accent to-accent-hot':'from-accent/60 to-accent-hot/80'}" style="width:${(c.dmg/BEST*100).toFixed(1)}%"></i></div>
+            </div>
+            <span class="num text-right text-[13px] font-extrabold ${i===2?'text-accent':''}">${won(c.dmg)}</span>
+          </div>
+          <details class="mt-2"><summary class="num cursor-pointer text-[10px] text-white/35">평타 62% · 스킬 38%</summary>
+            <div class="mt-2 flex h-1.5 overflow-hidden rounded-full bg-white/10"><i class="block h-full bg-sea/70" style="width:62%"></i><i class="block h-full bg-accent/70" style="width:38%"></i></div>
+            <ul class="mt-2 grid gap-1 text-[10px] text-white/40"><li class="flex justify-between"><span>버스트 스킬</span><span class="num">${won(Math.round(c.dmg*0.38))} · 12히트</span></li></ul>
+          </details>
+        </div>`).join('')}
+    </div>
+    <div class="mt-3 flex flex-wrap gap-1.5">${['180초 전투','27,517 히트','시드 42'].map(t=>`<span class="rounded-lg bg-sea/[.06] px-2 py-1 text-[10px] text-sea/80 hair">${t}</span>`).join('')}</div>
+    <pre class="num mt-2 max-h-[70px] overflow-auto rounded-lg bg-black/40 p-2.5 text-[9.5px] leading-relaxed text-white/30">기본 layer · 이탈 없음
+싱크로 400 · 콘솔 180/100/100</pre>
   </div>`;
 
-const timeline = (h = 'h-40') => `
-  <div class="relative ${h} overflow-hidden rounded-2xl hair bg-black/30">
+const timelineFull = () => `
+  ${eyebrow('04','타임라인')}
+  <div class="mt-3 flex flex-wrap gap-1.5">${[1,2,3,4,5].map(n=>`<button class="spring num chip ${n===1?'on':'text-white/45'} px-3 py-1.5 text-[11px]">덱 ${n}</button>`).join('')}</div>
+  <div class="relative mt-3 h-44 overflow-hidden rounded-2xl hair bg-black/35">
     <svg viewBox="0 0 600 120" preserveAspectRatio="none" class="h-full w-full">
+      ${[0,1,2,3].map(i=>`<line x1="0" y1="${i*30}" x2="600" y2="${i*30}" stroke="rgba(255,255,255,.05)" />`).join('')}
+      <rect x="90" y="0" width="70" height="120" fill="rgba(255,119,135,.08)" />
+      <rect x="330" y="0" width="50" height="120" fill="rgba(69,214,208,.08)" />
       <polyline fill="none" stroke="#ffbf3c" stroke-width="1.6" points="0,110 40,96 80,60 120,74 160,30 200,66 240,52 280,20 320,58 360,44 400,70 440,26 480,62 520,48 560,78 600,40" />
       <polyline fill="none" stroke="#45d6d0" stroke-width="1.4" opacity=".75" points="0,116 40,108 80,96 120,100 160,72 200,92 240,84 280,60 320,88 360,80 400,96 440,66 480,90 520,82 560,100 600,74" />
     </svg>
     <div class="absolute inset-x-0 bottom-0 flex items-center gap-1.5 px-3 pb-2">
-      ${SQUAD.map((c) => `<img src="${BASE}${c.img}" class="h-6 w-6 rounded-full object-cover object-[50%_16%] ring-2 ring-[#050b13]" alt="" loading="lazy" />`).join('')}
-      <span class="num ml-auto text-[10px] text-white/35">버스트 시각</span>
+      ${SQUAD.map(c=>`<img src="${B}${c.i}" class="h-6 w-6 rounded-full object-cover object-[50%_16%] ring-2 ring-[#050b13]" alt="" loading="lazy" />`).join('')}
+      <span class="num ml-auto text-[10px] text-white/30">족자 · 속저 밴드 · 버스트 핀</span>
     </div>
+  </div>
+  <div class="mt-2 flex flex-wrap gap-2 text-[10px] text-white/40">
+    ${SQUAD.slice(0,3).map((c,i)=>`<span class="flex items-center gap-1.5"><i class="h-2 w-2 rounded-full" style="background:${['#ffbf3c','#45d6d0','#8f7dff'][i]}"></i>${c.n}</span>`).join('')}
   </div>`;
 
-const eyebrow = (step, label) =>
-  `<div class="mb-4 flex items-center gap-3">
-     <span class="eyebrow rounded-full bg-accent/10 px-2.5 py-1 font-semibold text-accent num">${step}</span>
-     <h2 class="text-lg font-extrabold tracking-tight">${label}</h2>
-   </div>`;
-
-/* ── 다섯 안 ──────────────────────────────────────────────────────── */
-const VARIANTS = {
-  A: {
-    label: '사이드 조건',
-    note: '조건을 왼쪽에 세워 두고 오른쪽을 작업 캔버스로 씁니다. 조건이 늘 보이므로 «무엇으로 잰 값인지» 헷갈릴 일이 없고, 실행이 사이드 맨 아래에 고정됩니다. 화면이 좁으면 조건이 위로 접힙니다.',
-    html: () => `
-      <div class="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
-        <aside class="bezel h-max lg:sticky lg:top-24">
-          <div class="core p-5">
-            ${eyebrow('01', '전투 조건')}
-            <div class="flex flex-wrap gap-1.5">${condChips()}</div>
-            <button class="spring mt-4 flex w-full items-center justify-between rounded-xl hair bg-white/[.03] px-4 py-3 text-[13px] hover:bg-white/[.07]">
-              <span class="text-white/70">조건 자세히</span>${icon('alt-arrow-right-linear', 'text-white/40')}
-            </button>
-            <div class="mt-5 border-t border-white/5 pt-5">${runBtn('sm')}</div>
-            <p class="mt-3 text-[11px] leading-relaxed text-white/35" style="word-break:keep-all">모든 연산은 이 기기에서 실행됩니다.</p>
-          </div>
-        </aside>
-        <div class="grid gap-6">
-          <section class="bezel"><div class="core p-6">
-            ${eyebrow('02', '편성')}
-            ${squadGrid()}
-          </div></section>
-          <section class="bezel"><div class="core p-6">
-            <div class="mb-5 flex items-end justify-between gap-6">
-              ${eyebrow('03', '전투 결과').replace('mb-4', 'mb-0')}
-              ${totalBlock('text-4xl')}
-            </div>
-            ${resultRows()}
-          </div></section>
+/** 화면에 뜨는 창들 — 어느 안에서나 같이 쓴다 */
+const modals = () => `
+  <section class="mt-6">
+    <p class="eyebrow mb-3 text-white/30">창 (모든 안 공통)</p>
+    <div class="grid gap-4 lg:grid-cols-3">
+      <div class="bezel"><div class="core p-4">
+        <div class="flex items-center justify-between"><h4 class="text-[13px] font-extrabold">전투 조건 공유</h4><button class="text-white/30">✕</button></div>
+        <div class="mt-3 flex gap-1 border-b border-white/8">
+          ${['올리기','내려받기 4','코드'].map((t,i)=>`<button class="spring -mb-px rounded-t-lg px-3 py-2 text-[11px] ${i===1?'bg-sea/10 text-sea hair':'text-white/40'}">${t}</button>`).join('')}
         </div>
-      </div>`,
-  },
-
-  B: {
-    label: '커맨드 바 + 벤토',
-    note: '조건과 실행을 화면 맨 위 한 줄(커맨드 바)로 압축하고, 아래를 비대칭 벤토 그리드로 짭니다. 편성이 가장 큰 칸을 차지하고 결과·타임라인이 옆에 붙어, 스크롤 없이 한 판이 보입니다.',
-    html: () => `
-      <div class="bezel mb-6"><div class="core flex flex-wrap items-center gap-4 px-5 py-4">
-        <span class="eyebrow shrink-0 rounded-full bg-accent/10 px-2.5 py-1 font-semibold text-accent num">01</span>
-        <div class="flex min-w-0 flex-1 flex-wrap gap-1.5">${condChips()}</div>
-        <button class="spring shrink-0 rounded-full hair px-4 py-2 text-[12px] text-white/60 hover:bg-white/5">조건 열기</button>
-        ${runBtn('sm')}
+        <input class="fld mt-3 w-full px-3 py-2 text-[11.5px] placeholder:text-white/25" placeholder="이름 · 업로더 · 설명으로 찾기" />
+        <div class="mt-2 grid gap-2">
+          ${[['솔레 인디비리아 3페','모리스',42,3,12],['유니온 레이드 60초','익명',18,1,4]].map(([n,by,up,dn,us])=>`
+            <div class="flex items-center gap-2 rounded-xl hair bg-white/[.02] p-2.5">
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-[12px] font-bold">${n}</p>
+                <p class="num truncate text-[10px] text-white/40">90초 · 적 수냉 · 코어 60px</p>
+                <p class="text-[10px] text-white/30">${by} · 3일 전 · 적용 ${us}</p>
+              </div>
+              <button class="chip num px-2 py-1 text-[10px] text-white/60">👍 ${up}</button>
+              <button class="chip num px-2 py-1 text-[10px] text-white/60">👎 ${dn}</button>
+              <button class="spring rounded-lg bg-sea/15 px-2.5 py-1 text-[10.5px] font-bold text-sea">적용</button>
+            </div>`).join('')}
+        </div>
       </div></div>
-      <div class="grid gap-4 md:grid-cols-3">
-        <section class="bezel md:col-span-2"><div class="core p-6">
-          ${eyebrow('02', '편성')}
-          ${squadGrid()}
-        </div></section>
-        <section class="bezel"><div class="core flex h-full flex-col justify-between p-6">
-          ${eyebrow('03', '결과')}
-          ${totalBlock('text-4xl')}
-          <div class="mt-5 grid gap-2">
-            ${SQUAD.slice(0, 3).map((c, i) => `
-              <div class="flex items-center gap-2" style="--i:${i}">
-                <img src="${BASE}${c.img}" class="h-7 w-7 rounded-lg object-cover object-[50%_16%]" alt="" loading="lazy" />
-                <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
-                  <i class="block h-full rounded-full bg-accent/80" style="width:${(c.dmg / BEST * 100).toFixed(0)}%"></i>
-                </div>
-                <span class="num text-[10px] text-white/45">${c.share}%</span>
-              </div>`).join('')}
-          </div>
-        </div></section>
-        <section class="bezel md:col-span-3"><div class="core p-6">
-          ${eyebrow('04', '타임라인')}
-          ${timeline('h-44')}
-        </div></section>
-      </div>`,
-  },
 
-  C: {
-    label: '스텝 캔버스',
-    note: '지금 구조를 그대로 두되 숨통을 틔운 안입니다. 단계마다 큰 여백과 번호를 주고, 왼쪽에 진행 축을 세워 «지금 어디까지 왔는지»를 보이게 합니다. 가장 안전한 변화입니다.',
-    html: () => `
-      <div class="grid gap-8 lg:grid-cols-[64px_minmax(0,1fr)]">
+      <div class="bezel"><div class="core p-4">
+        <div class="flex items-center justify-between"><h4 class="text-[13px] font-extrabold">리타 · 컨트롤 · 버스트</h4><button class="text-white/30">✕</button></div>
+        <div class="mt-3 flex gap-4 text-[11.5px]">
+          ${['추천 자동 적용','직접 설정'].map((t,i)=>`<label class="flex items-center gap-1.5 ${i?'text-ink':'text-white/50'}"><input type="radio" name="cm" ${i?'checked':''} class="accent-accent" />${t}</label>`).join('')}
+        </div>
+        <p class="mt-2 text-[10.5px] text-white/30">현재 기본 추천: 재장전 컨트롤</p>
+        <div class="mt-2.5 grid gap-1.5">
+          ${['재장전 컨트롤','버스트 엄폐 컨트롤'].map((t,i)=>`<label class="flex items-center gap-2 rounded-lg hair bg-white/[.02] px-2.5 py-1.5 text-[11px] text-white/60"><input type="checkbox" class="h-3 w-3 accent-accent" ${i?'':'checked'} />${t}</label>`).join('')}
+        </div>
+        <div class="mt-3 rounded-xl hair p-2.5">
+          <p class="text-[11.5px] font-bold">버스트 운용</p>
+          <div class="mt-1.5 flex flex-wrap items-center gap-2">
+            <span class="fld px-2.5 py-1.5 text-[11px]">막바지 최우선 ▾</span>
+            <span class="text-[10.5px] text-white/40">남은 시간</span>
+            <span class="fld num px-2 py-1.5 text-[11px]">20</span>
+            <span class="text-[10.5px] text-white/40">초 미만일 때</span>
+          </div>
+        </div>
+      </div></div>
+
+      <div class="bezel"><div class="core p-4">
+        <div class="flex items-center justify-between"><h4 class="text-[13px] font-extrabold">업데이트 내역</h4><button class="text-white/30">✕</button></div>
+        <div class="mt-3 grid gap-2.5">
+          ${[['새 기능','니케 고르기가 전투력 높은 순으로 열립니다.'],['개선','전투 조건이 창으로 열립니다.'],['고침','조합 공유 목록이 초상화로 보입니다.']].map(([tag,txt])=>`
+            <div class="grid grid-cols-[52px_minmax(0,1fr)] gap-2.5 text-[11.5px] text-white/60">
+              <span class="num rounded px-1 py-0.5 text-center text-[9px] font-bold ${tag==='새 기능'?'bg-accent/15 text-accent':tag==='개선'?'bg-sea/15 text-sea':'bg-white/10 text-white/60'}">${tag}</span>
+              <span style="word-break:keep-all">${txt}</span>
+            </div>`).join('')}
+        </div>
+        <button class="spring mt-3 w-full rounded-lg bg-sea/15 py-2 text-[11.5px] font-bold text-sea">확인 · 다시 보지 않기</button>
+      </div></div>
+    </div>
+  </section>`;
+
+const card = (inner, cls='') => `<section class="bezel ${cls}"><div class="core p-5">${inner}</div></section>`;
+
+/* ── 다섯 배치 ─────────────────────────────────────────────────────── */
+const V = {
+  A: { label:'3단 워크벤치', note:'조건 전부를 왼쪽에 펼쳐 두고, 가운데는 편성과 니케 고르기, 오른쪽은 결과와 타임라인. 창을 여닫지 않고 모든 것이 한 화면에 있습니다. 넓은 모니터 전용이고, 좁아지면 세로로 접힙니다.',
+    html: () => `${hero()}${viewTabs()}
+      <div class="grid gap-4 xl:grid-cols-[360px_minmax(0,1.15fr)_minmax(0,1fr)]">
+        <div class="grid gap-4">
+          ${card(`<div class="flex items-center justify-between gap-2">${eyebrow('02','전투 조건')}</div>
+                  <div class="mt-3">${targetTools()}</div>
+                  <div class="mt-3">${conditionFull()}</div>`)}
+        </div>
+        <div class="grid gap-4">
+          ${card(`<div class="flex flex-wrap items-center justify-between gap-3">${eyebrow('01','편성 및 캐릭터 설정')}</div>
+                  <div class="mt-3">${squadTools()}</div>${deckBar()}${squadGrid()}${picker()}`)}
+        </div>
+        <div class="grid gap-4">
+          ${card(conditionBar(true))}
+          ${card(resultFull())}
+          ${card(timelineFull())}
+        </div>
+      </div>${modals()}` },
+
+  B: { label:'커맨드 바 + 2열', note:'조건 요약·실행·도구를 화면 맨 위 한 줄로 모으고, 아래를 왼쪽(편성+고르기) 오른쪽(결과+타임라인) 두 열로 나눕니다. 조건 상세는 창으로 엽니다 — 지금 구조에서 가장 적게 바꾸면서 결과를 항상 옆에 두는 안입니다.',
+    html: () => `${hero()}${viewTabs()}
+      <div class="bezel sticky top-16 z-30 mb-4"><div class="core p-4">
+        <div class="flex flex-wrap items-center gap-3">
+          <div class="min-w-[280px] flex-1">${conditionBar()}</div>
+          <div class="flex flex-col gap-1.5">${targetTools()}</div>
+        </div>
+      </div></div>
+      <div class="grid gap-4 xl:grid-cols-2">
+        ${card(`${eyebrow('01','편성 및 캐릭터 설정')}<div class="mt-3">${squadTools()}</div>${deckBar()}${squadGrid()}${picker()}`)}
+        <div class="grid gap-4">${card(resultFull())}${card(timelineFull())}</div>
+      </div>${modals()}` },
+
+  C: { label:'세로 흐름 (개선판)', note:'지금과 같은 위→아래 흐름이되 숨통을 틔운 안입니다. 왼쪽에 진행 축을 세우고 단계마다 여백을 크게 줬습니다. 조건은 접힌 줄 + 창, 니케 고르기 판은 필터를 펼친 상태로 보여 줍니다. 가장 안전한 변화입니다.',
+    html: () => `${hero()}${viewTabs()}
+      <div class="grid gap-6 lg:grid-cols-[56px_minmax(0,1fr)]">
         <div class="hidden lg:flex lg:flex-col lg:items-center lg:gap-2 lg:pt-6">
-          ${['01', '02', '03'].map((n, i) => `
-            <span class="num flex h-10 w-10 items-center justify-center rounded-full text-[12px] font-bold ${i === 1 ? 'bg-accent text-[#171006]' : 'hair bg-white/[.03] text-white/45'}">${n}</span>
-            ${i < 2 ? '<span class="h-24 w-px bg-gradient-to-b from-white/15 to-transparent"></span>' : ''}`).join('')}
+          ${['01','02','03','04'].map((n,i)=>`
+            <span class="num grid h-9 w-9 place-items-center rounded-full text-[11px] font-bold ${i===0?'bg-accent text-[#171006]':'hair bg-white/[.03] text-white/40'}">${n}</span>
+            ${i<3?'<span class="h-20 w-px bg-gradient-to-b from-white/12 to-transparent"></span>':''}`).join('')}
         </div>
-        <div class="grid gap-8">
-          <section class="bezel"><div class="core flex flex-wrap items-center gap-4 p-6">
-            ${eyebrow('01', '전투 조건').replace('mb-4', 'mb-0')}
-            <div class="flex min-w-0 flex-1 flex-wrap gap-1.5">${condChips()}</div>
-            <button class="spring rounded-full hair px-4 py-2 text-[12px] text-white/60 hover:bg-white/5">열기</button>
-          </div></section>
-          <section class="bezel"><div class="core p-8">
-            ${eyebrow('02', '편성 및 캐릭터 설정')}
-            <div class="mx-auto max-w-3xl">${squadGrid()}</div>
-            <div class="mt-8 flex justify-center">${runBtn()}</div>
-          </div></section>
-          <section class="bezel"><div class="core p-8">
-            <div class="mb-6 flex items-end justify-between gap-6">
-              ${eyebrow('03', '전투 결과').replace('mb-4', 'mb-0')}
-              ${totalBlock()}
-            </div>
-            ${resultRows()}
-          </div></section>
+        <div class="grid gap-6">
+          ${card(`<div class="flex flex-wrap items-center justify-between gap-3">${eyebrow('01','편성 및 캐릭터 설정')}${squadTools()}</div>${deckBar()}${squadGrid()}${picker(true)}`)}
+          ${card(`<div class="flex flex-wrap items-center justify-between gap-3">${eyebrow('02','전투 조건')}${targetTools()}</div><div class="mt-3">${conditionBar()}</div>`)}
+          ${card(resultFull())}
+          ${card(timelineFull())}
         </div>
-      </div>`,
-  },
+      </div>${modals()}` },
 
-  D: {
-    label: '결과 우선',
-    note: '결과를 화면 맨 위 주인공으로 올리고, 조건·편성을 그 아래 조작 스트립으로 내립니다. 값을 조금씩 바꿔 가며 반복해서 돌리는 사람에게 가장 빠릅니다 — 숫자가 늘 같은 자리에 있으니까요.',
-    html: () => `
-      <section class="bezel mb-4"><div class="core relative overflow-hidden p-8">
-        <div class="pointer-events-none absolute -right-16 -top-24 h-72 w-72 rounded-full bg-accent/10 blur-3xl"></div>
-        <div class="relative flex flex-wrap items-end justify-between gap-8">
-          <div>
-            <span class="eyebrow rounded-full bg-accent/10 px-2.5 py-1 font-semibold text-accent">RESULT</span>
-            <p class="num mt-4 text-6xl font-extrabold leading-none tracking-tighter text-accent md:text-7xl">${won(TOTAL)}</p>
-            <p class="num mt-3 text-sm text-sea">8.24M DPS · 180초 전투 · 27,517 히트</p>
-          </div>
-          <div class="flex items-center gap-2">
-            ${SQUAD.map((c) => `<img src="${BASE}${c.img}" class="spring h-12 w-12 rounded-xl object-cover object-[50%_16%] hair hover:-translate-y-1" alt="" title="${c.name}" loading="lazy" />`).join('')}
-          </div>
+  D: { label:'결과 우선 대시보드', note:'총 대미지와 덱 순위를 화면 맨 위에 고정하고, 편성·조건은 그 아래 작업대로 내립니다. 값을 조금씩 바꿔 가며 여러 번 돌릴 때 숫자가 늘 같은 자리에 있어 가장 빠릅니다.',
+    html: () => `${hero()}${viewTabs()}
+      ${card(resultFull(),'mb-4')}
+      <div class="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+        ${card(`${eyebrow('01','편성 및 캐릭터 설정')}<div class="mt-3">${squadTools()}</div>${deckBar()}${squadGrid()}${picker()}`)}
+        <div class="grid gap-4">
+          ${card(`<div class="flex flex-wrap items-center justify-between gap-3">${eyebrow('02','전투 조건')}${targetTools()}</div><div class="mt-3">${conditionBar(true)}</div><div class="mt-4 border-t border-white/6 pt-4">${conditionFull()}</div>`)}
+          ${card(timelineFull())}
         </div>
-        <div class="relative mt-8 grid gap-2">${SQUAD.map(resultRow).join('')}</div>
-      </div></section>
-      <div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_320px]">
-        <section class="bezel"><div class="core p-6">
-          ${eyebrow('01', '편성')}
-          ${squadGrid()}
-        </div></section>
-        <section class="bezel"><div class="core flex h-full flex-col p-6">
-          ${eyebrow('02', '전투 조건')}
-          <div class="flex flex-wrap gap-1.5">${condChips()}</div>
-          <div class="mt-auto pt-6">${runBtn('sm')}</div>
-        </div></section>
-      </div>`,
-  },
+      </div>${modals()}` },
 
-  E: {
-    label: '워크스페이스',
-    note: '왼쪽 아이콘 레일로 화면을 갈아 끼웁니다. 한 번에 하나만 크게 보므로 좁은 화면·노트북에서 가장 편하고, 5덱처럼 내용이 많아질수록 유리합니다. 대신 «조건과 결과를 나란히» 보지는 못합니다.',
-    html: () => `
-      <div class="grid gap-4 md:grid-cols-[72px_minmax(0,1fr)]">
-        <aside class="bezel h-max md:sticky md:top-24"><div class="core flex flex-row justify-around gap-1 p-2 md:flex-col">
-          ${[['target-linear', '조건'], ['users-group-rounded-linear', '편성'], ['chart-square-linear', '결과'], ['clock-circle-linear', '타임라인']]
-            .map(([ic, label], i) => `
-              <button class="spring flex flex-col items-center gap-1 rounded-xl px-2 py-3 text-[10px] ${i === 1 ? 'bg-accent/15 text-accent' : 'text-white/40 hover:bg-white/5 hover:text-white/70'}">
-                ${icon(ic, 'text-xl')}<span>${label}</span>
-              </button>`).join('')}
+  E: { label:'좌측 레일 워크스페이스', note:'왼쪽 레일로 화면을 갈아 끼웁니다. 한 번에 하나를 크게 보므로 노트북에서 편하고, 5덱처럼 내용이 많아질수록 유리합니다. 조건 요약과 실행은 레일 아래에 늘 붙어 있어 어느 화면에서든 누를 수 있습니다.',
+    html: () => `${hero()}
+      <div class="grid gap-4 md:grid-cols-[84px_minmax(0,1fr)]">
+        <aside class="bezel h-max md:sticky md:top-16"><div class="core flex flex-row gap-1 p-2 md:flex-col">
+          ${[['users-group-rounded-linear','편성',1],['target-linear','조건',0],['chart-square-linear','결과',0],['clock-circle-linear','타임라인',0],['import-linear','ENIKK',0]]
+            .map(([i,l,on])=>`<button class="spring grid place-items-center gap-1 rounded-xl px-2 py-3 text-[10px] ${on?'bg-accent/15 text-accent':'text-white/40 hover:bg-white/5 hover:text-white/70'}">${ic(i,'text-xl')}<span>${l}</span></button>`).join('')}
+          <div class="mt-auto hidden md:block">
+            <button class="spring mt-2 grid w-full place-items-center gap-1 rounded-xl bg-gradient-to-b from-accent to-accent-hot px-2 py-3 text-[10px] font-extrabold text-[#171006]">${ic('play-linear','text-lg')}실행</button>
+          </div>
         </div></aside>
         <div class="grid gap-4">
-          <section class="bezel"><div class="core p-6">
-            <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
-              ${eyebrow('02', '편성 및 캐릭터 설정').replace('mb-4', 'mb-0')}
-              <div class="flex items-center gap-2">
-                <div class="flex gap-1 rounded-full hair bg-white/[.03] p-1">
-                  ${[1, 2, 3, 4, 5].map((n) => `<button class="spring rounded-full px-3 py-1 text-[11px] num ${n === 1 ? 'bg-white/10 text-ink' : 'text-white/40 hover:text-white/70'}">덱 ${n}</button>`).join('')}
-                </div>
-                ${runBtn('sm')}
-              </div>
-            </div>
-            ${squadGrid()}
-            <div class="mt-6 rounded-2xl hair bg-white/[.02] p-4">
-              <div class="flex flex-wrap items-center gap-2">
-                <span class="text-[11px] text-white/40">지금 조건</span>${condChips()}
-              </div>
-            </div>
-          </div></section>
-          <section class="bezel"><div class="core p-6">
-            <div class="mb-5 flex items-end justify-between gap-6">
-              ${eyebrow('03', '전투 결과').replace('mb-4', 'mb-0')}
-              ${totalBlock('text-4xl')}
-            </div>
-            ${resultRows()}
-          </div></section>
+          ${card(`<div class="flex flex-wrap items-center justify-between gap-3">${eyebrow('01','편성 및 캐릭터 설정')}${squadTools()}</div>${deckBar()}${squadGrid()}${picker()}
+                  <div class="mt-4 rounded-xl hair bg-white/[.02] p-3">${conditionBar()}</div>`)}
+          <div class="grid gap-4 xl:grid-cols-2">${card(resultFull())}${card(timelineFull())}</div>
         </div>
-      </div>`,
-  },
+      </div>${modals()}` },
 };
 
-let current = 'A';
+let cur = 'A';
 function render() {
-  document.getElementById('stage').innerHTML =
-    `<div data-variant class="is-on">${VARIANTS[current].html()}</div>`;
-  document.getElementById('note').textContent = VARIANTS[current].note;
-  document.getElementById('switch').innerHTML = Object.entries(VARIANTS).map(([key, v]) => `
-    <button data-go="${key}" class="spring whitespace-nowrap rounded-full px-4 py-2 text-[12px] font-semibold ${key === current ? 'bg-accent text-[#171006]' : 'text-white/55 hover:bg-white/5 hover:text-white'}">
-      ${key} · ${v.label}
-    </button>`).join('');
+  document.getElementById('stage').innerHTML = V[cur].html();
+  document.getElementById('note').textContent = V[cur].note;
+  document.getElementById('switch').innerHTML = Object.entries(V).map(([k,v])=>`
+    <button data-go="${k}" class="spring whitespace-nowrap rounded-full px-3.5 py-2 text-[11.5px] font-semibold ${k===cur?'bg-accent text-[#171006]':'text-white/55 hover:bg-white/5 hover:text-white'}">${k} · ${v.label}</button>`).join('');
 }
-document.addEventListener('click', (event) => {
-  const go = event.target.closest?.('[data-go]');
-  if (go) { current = go.dataset.go; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+document.addEventListener('click', e => {
+  const go = e.target.closest?.('[data-go]');
+  if (go) { cur = go.dataset.go; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
 });
 render();
 </script>

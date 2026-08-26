@@ -578,6 +578,20 @@ describe('character settings editor', () => {
     expect(root.querySelector<HTMLElement>('[data-loadout-fold]')!.hidden).toBe(false);
   });
 
+  it('names the skip option «안 씀» — it drops the burst, not just delays it', () => {
+    setToggle('[data-custom-toggle]', true);
+    const select = root.querySelector<HTMLSelectElement>('[data-burst-assignment]')!;
+    expect([...select.options].map((option) => option.textContent))
+      .toEqual(['자동', 'n의 배수 우선 사용', '막바지 최우선', '안 씀']);
+
+    select.value = 'skip';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(value?.burst).toEqual({ mode: 'skip' });
+    // 설명도 «가급적»이 아니라 아예 안 쓴다고 적는다.
+    expect(root.querySelector('.burst-editor .field-note')!.textContent)
+      .toContain('버스트를 아예 쓰지 않습니다');
+  });
+
   it('offers an endgame-first burst window and sends it as seconds', () => {
     setToggle('[data-custom-toggle]', true);
     const select = root.querySelector<HTMLSelectElement>('[data-burst-assignment]')!;

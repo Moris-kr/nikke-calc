@@ -1674,6 +1674,9 @@ class BurstController:
         self._burst_sequence: list[dict] | None = config.get("burst_sequence")
         self._burst_count: int = 0
         self._no_burst_char: str | None = config.get("no_burst_char")
+        # 버스트를 아예 안 쓰는 캐릭터들. 「가급적 안 씀」(맨 뒤로 미는 패턴)과 달리
+        # **후보에서 통째로 빠진다** — 앞사람이 전부 쿨이어도 나가지 않는다.
+        self._no_burst_names: set[str] = set(config.get("no_burst_chars") or ())
 
         # 캐릭터별 버스트 사용 패턴 — {이름: "every:3" | [1, 3, 5, ...]}.
         # **후보에서 빼는 게 아니라 그 단계의 맨 뒤로 미는 것**이다. 그래서 대신 쓸 사람이
@@ -2041,7 +2044,9 @@ class BurstController:
         """
         order: dict[str, list[str]] = {"1": [], "2": [], "3": []}
         for name in self.squad_names:
-            if name == self._no_burst_char and self._burst_sequence is None:
+            if self._burst_sequence is None and (
+                name == self._no_burst_char or name in self._no_burst_names
+            ):
                 continue
             stage = bm_active_stages.get(name) or self._default_burst_stage.get(name, "")
             if stage == "A":

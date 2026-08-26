@@ -538,7 +538,8 @@ def normalize_character_overrides(
     if burst is not None:
         # 버스트 운용 배정: 같은 단계 후보가 여럿일 때 누가 그 단계 버스트를 쓰는지.
         # priority = n의 배수 사이클마다 우선 사용, endgame = 남은 시간이 n초 미만이면
-        # 최우선, skip = 가급적 안 씀. 러너(pybridge.bridge)가 config["burst_pattern"]으로 옮긴다.
+        # 최우선, skip = **아예 안 씀**(후보에서 통째로 빠진다).
+        # 러너(pybridge.bridge)가 config의 burst_pattern·no_burst_chars로 옮긴다.
         if not isinstance(burst, dict):
             raise ValueError("버스트 운용 설정은 객체여야 합니다")
         mode = burst.get("mode")
