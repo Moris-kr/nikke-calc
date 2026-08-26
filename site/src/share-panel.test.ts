@@ -8,7 +8,7 @@ import type { ShareServer } from './share-server';
 
 const item = (over: Partial<ShareItem> = {}): ShareItem => ({
   id: 'a1', name: '솔레 3페', auto: '90초 · 적 수냉', by: '', at: '2026-08-20T00:00:00.000Z',
-  up: 0, down: 0, code: 'NK3-aaa', ...over,
+  up: 0, down: 0, uses: 0, code: 'NK3-aaa', ...over,
 });
 
 /** 서버 대역. 무엇을 물어봤는지 그대로 들고 있는다. */
@@ -19,7 +19,7 @@ class FakeServer {
 
   uploads: Array<Record<string, string>> = [];
 
-  reply: ShareListResult = { items: [item()], mine: {} };
+  reply: ShareListResult = { items: [item()], mine: {}, applied: {} };
 
   failList: string | null = null;
 
@@ -40,6 +40,14 @@ class FakeServer {
   async upload(input: Record<string, string>): Promise<{ item: ShareItem; existed: boolean }> {
     this.uploads.push(input);
     return { item: item({ name: input.name! }), existed: false };
+  }
+
+  applies: string[] = [];
+
+  async apply(_kind: string, id: string): Promise<{ id: string; uses: number; counted: boolean }> {
+    this.applies.push(id);
+    const found = this.reply.items.find((entry) => entry.id === id)!;
+    return { id, uses: (found.uses ?? 0) + 1, counted: true };
   }
 }
 
@@ -107,7 +115,7 @@ describe('share panel', () => {
 
   it('votes once per item, cancelling on a second press and swapping sides', async () => {
     const server = new FakeServer();
-    server.reply = { items: [item({ up: 5, down: 1 })], mine: {} };
+    server.reply = { items: [item({ up: 5, down: 1 })], mine: {}, applied: {} };
     const { host, panel } = mount(server);
     panel.open();
     await flush();
@@ -140,7 +148,7 @@ describe('share panel', () => {
 
   it('puts the count back when the server refuses the vote', async () => {
     const server = new FakeServer();
-    server.reply = { items: [item({ up: 5 })], mine: {} };
+    server.reply = { items: [item({ up: 5 })], mine: {}, applied: {} };
     server.vote = async () => { throw new Error('너무 자주 눌렀습니다.'); };
     const { host, panel, messages } = mount(server);
     panel.open();
@@ -154,7 +162,7 @@ describe('share panel', () => {
 
   it('marks what this browser already voted for', async () => {
     const server = new FakeServer();
-    server.reply = { items: [item({ up: 3 })], mine: { a1: 1 } };
+    server.reply = { items: [item({ up: 3 })], mine: { a1: 1 }, applied: {} };
     const { host, panel } = mount(server);
     panel.open();
     await flush();
@@ -169,6 +177,67 @@ describe('share panel', () => {
     await flush();
     host.querySelector<HTMLButtonElement>('[data-share-apply="a1"]')!.click();
     expect(applied).toEqual(['NK3-aaa']);
+  });
+
+  it('counts an apply once per browser and shows it in the row', async () => {
+    const server = new FakeServer();
+    server.reply = { items: [item({ uses: 4 })], mine: {}, applied: {} };
+    const { host, panel } = mount(server);
+    panel.open();
+    await flush();
+    expect(host.querySelector('[data-share-item]')!.textContent).toContain('적용 4');
+
+    host.querySelector<HTMLButtonElement>('[data-share-apply="a1"]')!.click();
+    // 서버를 기다리지 않고 먼저 올린다.
+    expect(host.querySelector('[data-share-item]')!.textContent).toContain('적용 5');
+    await flush();
+    expect(server.applies).toEqual(['a1']);
+
+    // 같은 브라우저가 또 적용해도 숫자는 그대로다.
+    host.querySelector<HTMLButtonElement>('[data-share-apply="a1"]')!.click();
+    await flush();
+    expect(host.querySelector('[data-share-item]')!.textContent).toContain('적용 5');
+  });
+
+  it('does not count an apply that failed, and stays quiet when only counting fails', async () => {
+    const server = new FakeServer();
+    server.reply = { items: [item({ uses: 2 })], mine: {}, applied: {} };
+    const { host, panel, messages } = mount(server, {
+      apply: () => { throw new Error('코드를 해석하지 못했습니다.'); },
+    });
+    panel.open();
+    await flush();
+    host.querySelector<HTMLButtonElement>('[data-share-apply="a1"]')!.click();
+    await flush();
+    // 못 얹었으면 «쓰인 것»이 아니다.
+    expect(server.applies).toEqual([]);
+    expect(messages.at(-1)!.text).toBe('코드를 해석하지 못했습니다.');
+
+    // 반대로 적용은 됐는데 세는 데만 실패하면 숫자만 되돌리고 조용히 넘어간다.
+    const quiet = new FakeServer();
+    quiet.reply = { items: [item({ uses: 2 })], mine: {}, applied: {} };
+    quiet.apply = async () => { throw new Error('서버가 응답하지 않았습니다.'); };
+    const second = mount(quiet);
+    second.panel.open();
+    await flush();
+    const before = second.messages.length;
+    second.host.querySelector<HTMLButtonElement>('[data-share-apply="a1"]')!.click();
+    await flush();
+    expect(second.host.querySelector('[data-share-item]')!.textContent).toContain('적용 2');
+    expect(second.messages.length).toBe(before);
+  });
+
+  it('does not count again for an item this browser already applied', async () => {
+    const server = new FakeServer();
+    server.reply = { items: [item({ uses: 7 })], mine: {}, applied: { a1: 1 } };
+    const { host, panel } = mount(server);
+    panel.open();
+    await flush();
+    host.querySelector<HTMLButtonElement>('[data-share-apply="a1"]')!.click();
+    await flush();
+    // 서버에는 알리되(집계는 서버가 판단한다) 화면 숫자를 미리 올리지는 않는다.
+    expect(host.querySelector('[data-share-item]')!.textContent).toContain('적용 8');
+    expect(server.applies).toEqual(['a1']);
   });
 
   it('requires a name, sends the auto summary, and never sends before the button', async () => {

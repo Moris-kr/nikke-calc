@@ -45,6 +45,7 @@ import { createTimelineBlock } from './timeline';
 import {
   aggregateDeckResults,
   cacheKey,
+  DEFAULT_SYNCHRO_LEVEL,
   formatDamage,
   formatDps,
   requestForDeck,
@@ -486,6 +487,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           <div class="field-grid">
             <label><span>전투 시간</span><div class="input-unit"><input id="duration" type="number" min="10" max="180" step="1" value="180" /><em>초</em></div></label>
             <label><span>적 코드</span><select id="enemy-code"><option value="">없음</option><option value="풍압">풍압(작열weak)</option><option value="수냉">수냉(전격weak)</option><option value="작열">작열(수냉weak)</option><option value="전격">전격(철갑weak)</option><option value="철갑">철갑(풍압weak)</option></select></label>
+            <label><span>싱크로 레벨</span><div class="input-unit"><input id="synchro-level" type="number" min="1" max="1000" step="1" value="${DEFAULT_SYNCHRO_LEVEL}" title="싱크로 디바이스 소대에 넣은 니케는 전원이 이 레벨이 됩니다. 계정 육성 상태라 전투 조건 공유 코드에는 담기지 않습니다" /><em>Lv</em></div></label>
             <label class="toggle-field"><input id="has-core" type="checkbox" /><span class="toggle"></span><span>코어 있음</span></label>
             <label data-core-size><span>코어 직경</span><div class="input-unit"><input id="core-px" type="number" min="0" max="1000" step="1" value="52" disabled /><em>px</em></div></label>
             <label class="toggle-field"><input id="has-parts" type="checkbox" /><span class="toggle"></span><span>파괴 가능 파츠</span></label>
@@ -557,9 +559,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       </div>
 
       <div class="custom-modal" data-battle-share-modal hidden>
-        <div class="custom-card" role="dialog" aria-label="전투 조건 공유">
+        <div class="custom-card share-card" role="dialog" aria-label="전투 조건 공유">
           <div class="custom-head"><h2>전투 조건 공유</h2><button type="button" class="custom-close" data-battle-share-close aria-label="닫기">✕</button></div>
-          <p class="custom-desc">전투 시간·적 코드·코어·족자·속저·난수 처리 같은 <b>«어떤 상황에서 쟀나»</b>를 주고받습니다. <b>콘솔은 담기지 않습니다</b> — 계정 육성 상태라 남의 값이 딸려 오면 자기 스펙으로 잰 결과가 아니게 됩니다. 편성과 개인 스펙도 담기지 않습니다(그쪽은 «조합 공유»).</p>
+          <p class="custom-desc">전투 시간·적 코드·코어·족자·속저·난수 처리 같은 <b>«어떤 상황에서 쟀나»</b>를 주고받습니다. <b>콘솔과 싱크로 레벨은 담기지 않습니다</b> — 계정 육성 상태라 남의 값이 딸려 오면 자기 스펙으로 잰 결과가 아니게 됩니다. 편성과 개인 스펙도 담기지 않습니다(그쪽은 «조합 공유»).</p>
           ${SHARE_API ? '<div class="share-tabs" data-battle-share-tabs></div>' : ''}
           <div class="share-pane" data-battle-share-pane="upload" hidden></div>
           <div class="share-pane" data-battle-share-pane="list" hidden></div>
@@ -588,7 +590,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       </div>
 
       <div class="custom-modal" data-share-modal hidden>
-        <div class="custom-card" role="dialog" aria-label="조합 공유">
+        <div class="custom-card share-card" role="dialog" aria-label="조합 공유">
           <div class="custom-head"><h2>조합 공유</h2><button type="button" class="custom-close" data-share-close aria-label="닫기">✕</button></div>
           <p class="custom-desc">누가 편성됐는지(캐릭터 조합)만 주고받습니다. 5덱 모드면 5개 덱이 한 번에 담깁니다. <b>오버로드·공격력·돌파 같은 개인 스펙과 전투 조건은 담기지 않습니다</b> — 적용하면 캐릭터만 바뀌고 스펙은 각자 자기 설정(CSV 로스터를 넣었다면 그 값)이 그대로 쓰입니다. ${SHARE_API ? '<b>서버로는 «올리기»를 누를 때만 전송됩니다.</b>' : '서버로 전송되지 않습니다.'}</p>
           ${SHARE_API ? '<div class="share-tabs" data-share-tabs></div>' : ''}
@@ -1465,6 +1467,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
   const readBattle = (): BattleSettings => ({
     duration: Number(element<HTMLInputElement>(root, '#duration').value),
+    synchroLevel: Number(element<HTMLInputElement>(root, '#synchro-level').value),
     enemyDef: Number(element<HTMLInputElement>(root, '#enemy-def').value),
     enemyCode: element<HTMLSelectElement>(root, '#enemy-code').value as BattleSettings['enemyCode'],
     coreEnabled: coreToggle.checked,
@@ -1489,6 +1492,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
   const writeBattle = (battle: BattleSettings) => {
     element<HTMLInputElement>(root, '#duration').value = String(battle.duration);
+    // 싱크로 레벨이 없던 시절에 저장된 설정을 되살릴 때가 있다 — 기본값으로 채운다.
+    element<HTMLInputElement>(root, '#synchro-level').value =
+      String(battle.synchroLevel ?? DEFAULT_SYNCHRO_LEVEL);
     element<HTMLInputElement>(root, '#enemy-def').value = String(battle.enemyDef);
     element<HTMLSelectElement>(root, '#enemy-code').value = battle.enemyCode;
     coreToggle.checked = battle.coreEnabled;
@@ -2115,10 +2121,11 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     battleShareMsg.classList.toggle('is-ok', ok);
   };
 
-  /** 받은 전투 조건을 얹는다. 콘솔은 코드에 없으므로 내 값을 그대로 둔다. */
+  /** 받은 전투 조건을 얹는다. 콘솔과 싱크로 레벨은 코드에 없으므로 내 값을 그대로 둔다. */
   const applyBattleCode = (code: string): void => {
     const applied = decodeBattleCode(code);
-    writeBattle({ ...applied, console: readBattle().console });
+    const mine = readBattle();
+    writeBattle({ ...applied, console: mine.console, synchroLevel: mine.synchroLevel });
     corePxInput.disabled = !applied.coreEnabled;
     saveState();
     showErrors([]);

@@ -65,6 +65,7 @@ export function mountSharePanel(hosts: SharePanelHosts, deps: SharePanelDeps): S
   let tab: TabKey = 'list';
   let items: ShareItem[] = [];
   let mine: Record<string, VoteValue> = {};
+  let applied: Record<string, 1> = {};
   let loaded = false;
   let loading = false;
   let listError = '';
@@ -112,6 +113,7 @@ export function mountSharePanel(hosts: SharePanelHosts, deps: SharePanelDeps): S
       const got = await deps.server.list(deps.kind);
       items = got.items;
       mine = got.mine;
+      applied = got.applied;
       loaded = true;
     } catch (error) {
       listError = error instanceof Error ? error.message : String(error);
@@ -195,6 +197,8 @@ export function mountSharePanel(hosts: SharePanelHosts, deps: SharePanelDeps): S
       if (item.by) by.append(el('span', undefined, item.by));
       else by.append(el('span', 'anon', '익명'));
       by.append(el('span', undefined, ` · ${agoText(item.at)}`));
+      // 몇 명이 실제로 가져다 썼나. 엄지보다 조용한 신호라 업로더 줄에 붙인다.
+      if (item.uses > 0) by.append(el('span', 'share-uses', ` · 적용 ${item.uses}`));
       body.append(by);
 
       const votes = el('div', 'vote-pill');
@@ -208,7 +212,10 @@ export function mountSharePanel(hosts: SharePanelHosts, deps: SharePanelDeps): S
           deps.apply(item);
         } catch (error) {
           deps.notify(error instanceof Error ? error.message : String(error));
+          return;
         }
+        // 적용이 성사된 뒤에만 센다 — 코드가 깨져 못 얹었으면 «쓰인 것»이 아니다.
+        void countApply(item);
       });
 
       row.append(body, votes, apply);
@@ -219,6 +226,31 @@ export function mountSharePanel(hosts: SharePanelHosts, deps: SharePanelDeps): S
       'p', 'share-foot',
       '엄지는 IP당 한 표입니다 — 다시 누르면 취소, 반대쪽을 누르면 갈아탑니다.',
     ));
+  }
+
+  /**
+   * 적용 횟수 올리기. 이미 쓴 적 있으면 서버가 세지 않으므로 화면도 올리지 않는다.
+   * 실패해도 알리지 않는다 — 적용 자체는 이미 됐고, 세는 데 실패한 것뿐이다.
+   */
+  async function countApply(item: ShareItem): Promise<void> {
+    if (!deps.server.apply) return;
+    const already = Boolean(applied[item.id]);
+    if (!already) {
+      item.uses += 1;
+      applied[item.id] = 1;
+      renderList();
+    }
+    try {
+      const result = await deps.server.apply(deps.kind, item.id);
+      item.uses = result.uses;
+      renderList();
+    } catch {
+      if (!already) {
+        item.uses = Math.max(0, item.uses - 1);
+        delete applied[item.id];
+        renderList();
+      }
+    }
   }
 
   /* ── 올리기 ───────────────────────────────────────────────────────── */

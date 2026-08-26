@@ -166,7 +166,7 @@ describe('applyShareToDecks', () => {
 describe('전투 조건 공유 코드 (NK3)', () => {
   const COEFF = { AR: 1, SMG: 1, SG: 0.9, MG: 1, SR: 1, RL: 1 };
   const base = {
-    duration: 180, enemyDef: 31_784, enemyCode: '' as const, coreEnabled: false,
+    duration: 180, synchroLevel: 400, enemyDef: 31_784, enemyCode: '' as const, coreEnabled: false,
     corePx: 52, hasParts: false, seed: 42, optimalRangeWeapons: [],
     normalHitCoeff: { ...COEFF }, immuneWindows: [], elementWindows: [],
     rngMode: 'expected' as const, immuneBlocksBurst: true, burstRegenTime: 2,
@@ -190,7 +190,7 @@ describe('전투 조건 공유 코드 (NK3)', () => {
     };
     const code = encodeBattleCode(battle, COEFF);
     expect(code.length).toBeLessThan(200);   // 붙여넣기 한도(약 400자)의 절반 아래
-    const { console: _drop, ...expected } = battle;
+    const { console: _drop, synchroLevel: _level, ...expected } = battle;
     expect(decodeBattleCode(code)).toEqual({ ...expected, normalHitCoeff: {} });
   });
 
@@ -208,6 +208,15 @@ describe('전투 조건 공유 코드 (NK3)', () => {
     const body = atob(code.slice(4).replace(/-/g, '+').replace(/_/g, '/'));
     expect(body).not.toContain('common_level');
     expect(body).not.toContain('390');
+  });
+
+  it('싱크로 레벨도 담지 않는다 — 콘솔과 같은 계정 육성 상태다', () => {
+    const code = encodeBattleCode({ ...base, synchroLevel: 777 }, COEFF);
+    expect(decodeBattleCode(code)).not.toHaveProperty('synchroLevel');
+    const body = atob(code.slice(4).replace(/-/g, '+').replace(/_/g, '/'));
+    expect(body).not.toContain('777');
+    // 레벨이 달라도 같은 전투 조건이면 코드가 같다.
+    expect(encodeBattleCode({ ...base, synchroLevel: 100 }, COEFF)).toBe(code);
   });
 
   it('족자 중 버스트 충전 정지는 기본이 켜짐이다', () => {

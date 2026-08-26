@@ -15,6 +15,7 @@ from calculator.customization import (
     normalize_immune_windows,
     normalize_normal_hit_coeff,
     normalize_optimal_range,
+    normalize_synchro_level,
 )
 # `_is_normal`은 히트 태그로 일반공격을 가려내는 엔진 정본이다. 포크에서 다시
 # 구현하면 태그가 늘어날 때 조용히 어긋나므로 그대로 빌려 쓴다 (이름이 바뀌면
@@ -238,6 +239,12 @@ def run_request(raw: str) -> str:
             overrides["console"] = {
                 **char_spec.DEFAULT_CHAR["console"], **console,
             }
+    # 싱크로 레벨도 계정 속성이다 — 소대에 넣은 니케는 전원이 같은 레벨이 된다.
+    # 공유 코드에는 담기지 않으므로 남의 조건을 받아도 내 레벨 그대로 계산한다.
+    synchro = normalize_synchro_level(payload.get("synchroLevel"))
+    if synchro is not None:
+        for name in names:
+            characters.setdefault(name, {})["level"] = synchro
     # 버스트 게이지 충전 시간도 계정/전투 단위다 — 전원에게 같은 값을 얹는다.
     burst_regen = normalize_burst_regen(payload.get("burstRegenTime"))
     if burst_regen is not None:

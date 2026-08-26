@@ -43,6 +43,7 @@ VITE_SHARE_API=https://nikke-calc-share.<계정>.workers.dev
 | `GET /list?kind=boss\|squad` | 목록 + **이 IP가 이미 누른 표**(`mine`) |
 | `POST /upload` | `{kind, name, by, auto, code}` → 새 항목(같은 코드가 있으면 그 항목) |
 | `POST /vote` | `{kind, id, value: 1\|-1\|0}` → 바뀐 표 수 |
+| `POST /apply` | `{kind, id}` → 적용 횟수. **IP당 한 번만** 오르고 취소가 없다 |
 
 이름은 필수, 업로더(`by`)는 비우면 빈 문자열로 남고 사이트가 «익명»으로 적는다. 코드는 종류에
 맞는 접두사(`NK3-` 전투 조건 · `NK2-` 조합)여야 받는다.
@@ -62,6 +63,7 @@ VITE_SHARE_API=https://nikke-calc-share.<계정>.workers.dev
 |---|---|
 | `catalog:<kind>` | 항목 전부(`{items:[…]}`) — 목록 한 번에 한 번 읽는다 |
 | `votes:<kind>:<해시>` | 그 사람이 누른 표 `{항목id: 1\|-1}` |
+| `uses:<kind>:<해시>` | 그 사람이 이미 적용해 본 항목 `{항목id: 1}` |
 | `rate:<해시>` | 하루 업로드 수 |
 
 목록을 키 하나에 모아 두면 조회가 읽기 한 번으로 끝나지만, **동시에 들어온 투표는 서로를 덮을

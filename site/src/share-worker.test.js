@@ -95,6 +95,31 @@ describe('설정 공유 서버', () => {
     expect(list.mine[item.id]).toBe(1);
   });
 
+  it('적용 횟수는 IP당 한 번만 오르고, 목록이 이미 쓴 항목을 알려 준다', async () => {
+    const kv = fakeKv();
+    const { item } = await (await upload(kv)).json();
+    const apply = (ip) => call(kv, '/apply', { method: 'POST', body: { kind: 'boss', id: item.id }, ip });
+
+    expect(await (await apply('1.1.1.1')).json()).toMatchObject({ uses: 1, counted: true });
+    // 같은 IP가 또 적용해도 오르지 않는다.
+    expect(await (await apply('1.1.1.1')).json()).toMatchObject({ uses: 1, counted: false });
+    // 다른 IP는 따로 센다.
+    expect(await (await apply('2.2.2.2')).json()).toMatchObject({ uses: 2, counted: true });
+
+    const list = await (await call(kv, '/list?kind=boss', { ip: '1.1.1.1' })).json();
+    expect(list.items[0].uses).toBe(2);
+    expect(list.applied[item.id]).toBe(1);
+    // 적용한 적 없는 사람에게는 표시가 없다.
+    const other = await (await call(kv, '/list?kind=boss', { ip: '3.3.3.3' })).json();
+    expect(other.applied).toEqual({});
+  });
+
+  it('사라진 항목을 적용했다고 알리면 404로 답한다', async () => {
+    const kv = fakeKv();
+    const response = await call(kv, '/apply', { method: 'POST', body: { kind: 'boss', id: 'nope' } });
+    expect(response.status).toBe(404);
+  });
+
   it('사라진 항목에 투표하면 404로 알린다', async () => {
     const kv = fakeKv();
     const response = await call(kv, '/vote', { method: 'POST', body: { kind: 'boss', id: 'nope', value: 1 } });

@@ -585,6 +585,30 @@ describe('calculator UI', () => {
     expect(titles).toEqual(['등급', '클래스', '코드', '무기', '기업']);
   });
 
+  it('sends the synchro level from the battle panel, and keeps it out of shared codes', async () => {
+    const client = new FakeClient();
+    mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });
+    const level = root.querySelector<HTMLInputElement>('#synchro-level')!;
+    // 기본은 엔진 기본 스펙과 같은 400이다.
+    expect(level.value).toBe('400');
+
+    level.value = '250';
+    level.dispatchEvent(new Event('input', { bubbles: true }));
+    root.querySelector<HTMLFormElement>('form')!.dispatchEvent(
+      new Event('submit', { bubbles: true, cancelable: true }));
+    await flush();
+    expect(client.lastRequest?.synchroLevel).toBe(250);
+
+    // 공유 코드에는 담기지 않는다 — 콘솔과 같은 계정 육성 상태다.
+    root.querySelector<HTMLButtonElement>('[data-battle-share-open]')!.click();
+    const code = root.querySelector<HTMLTextAreaElement>('[data-battle-share-out]')!.value;
+    root.querySelector<HTMLTextAreaElement>('[data-battle-share-in]')!.value = code;
+    level.value = '700';
+    root.querySelector<HTMLButtonElement>('[data-battle-share-apply]')!.click();
+    // 남의 조건을 얹어도 내 레벨은 그대로다.
+    expect(root.querySelector<HTMLInputElement>('#synchro-level')!.value).toBe('700');
+  });
+
   it('empties just the deck being viewed', () => {
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
     expect(root.querySelectorAll('[data-slot-choose] strong')[0]!.textContent).toBe('리타');

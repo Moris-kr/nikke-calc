@@ -17,6 +17,8 @@ export interface ShareItem {
   at: string;
   up: number;
   down: number;
+  /** 몇 명이 실제로 가져다 썼나. IP당 한 번만 오르고 취소가 없다. */
+  uses: number;
   /** 적용에 쓰는 공유 코드. 목록과 함께 온다 — 받아서 바로 적용할 수 있다. */
   code: string;
 }
@@ -25,6 +27,8 @@ export interface ShareListResult {
   items: ShareItem[];
   /** 이 브라우저(정확히는 이 IP)가 이미 누른 표. 항목 id → 1 · -1 */
   mine: Record<string, 1 | -1>;
+  /** 이 IP가 이미 적용해 본 항목. 다시 적용해도 횟수가 오르지 않는다. */
+  applied: Record<string, 1>;
 }
 
 export interface ShareUploadInput {
@@ -39,6 +43,13 @@ export interface ShareUploadResult {
   item: ShareItem;
   /** 같은 코드가 이미 있어 새로 만들지 않았다는 뜻. */
   existed: boolean;
+}
+
+export interface ShareApplyResult {
+  id: string;
+  uses: number;
+  /** 이번 적용으로 실제로 숫자가 올랐는지. 이미 쓴 적 있으면 false다. */
+  counted: boolean;
 }
 
 export interface ShareVoteResult {
@@ -78,7 +89,11 @@ export class ShareServer {
   async list(kind: ShareKind): Promise<ShareListResult> {
     const response = await this.fetcher(`${this.base}/list?kind=${kind}`);
     const result = await unwrap<ShareListResult>(response);
-    return { items: result.items ?? [], mine: result.mine ?? {} };
+    return {
+      items: (result.items ?? []).map((item) => ({ ...item, uses: item.uses ?? 0 })),
+      mine: result.mine ?? {},
+      applied: result.applied ?? {},
+    };
   }
 
   async upload(input: ShareUploadInput): Promise<ShareUploadResult> {
@@ -88,6 +103,16 @@ export class ShareServer {
       body: JSON.stringify(input),
     });
     return unwrap<ShareUploadResult>(response);
+  }
+
+  /** 「가져다 썼다」를 알린다. 세는 것은 서버이고, IP당 한 번만 오른다. */
+  async apply(kind: ShareKind, id: string): Promise<ShareApplyResult> {
+    const response = await this.fetcher(`${this.base}/apply`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind, id }),
+    });
+    return unwrap<ShareApplyResult>(response);
   }
 
   async vote(kind: ShareKind, id: string, value: VoteValue): Promise<ShareVoteResult> {

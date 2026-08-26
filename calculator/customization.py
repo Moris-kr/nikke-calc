@@ -282,6 +282,10 @@ BURST_REGEN_DEFAULT = 2.0
 BURST_REGEN_MIN = 0.0
 BURST_REGEN_MAX = 20.0
 
+# 싱크로 레벨. 기본 스탯표(`level_stats.json`)가 1~1000레벨을 담고 있어 그 범위만 받는다.
+SYNCHRO_MIN = 1
+SYNCHRO_MAX = 1000
+
 
 def normalize_burst_regen(raw: Any) -> float | None:
     """버스트 게이지 충전 시간 → 엔진 `burst_regen_time`. 안 주면 기본값을 쓴다."""
@@ -293,6 +297,24 @@ def normalize_burst_regen(raw: Any) -> float | None:
     if not BURST_REGEN_MIN <= value <= BURST_REGEN_MAX:
         raise ValueError(
             f"버스트 게이지 충전 시간은 {BURST_REGEN_MIN}~{BURST_REGEN_MAX}초여야 한다")
+    return value
+
+
+def normalize_synchro_level(raw: Any) -> int | None:
+    """싱크로 레벨 → 캐릭터 `level`. 안 주면 기본 스펙 레벨을 그대로 쓴다.
+
+    싱크로 디바이스는 계정 속성이라 캐릭터마다 다를 수 없다. 그래서 콘솔과 같이
+    전투 조건 층에서 받아 스쿼드 전원에게 똑같이 얹는다.
+    """
+    if raw is None:
+        return None
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        raise ValueError("싱크로 레벨은 숫자여야 한다")
+    if float(raw) != int(raw):
+        raise ValueError("싱크로 레벨은 정수여야 한다")
+    value = int(raw)
+    if not SYNCHRO_MIN <= value <= SYNCHRO_MAX:
+        raise ValueError(f"싱크로 레벨은 {SYNCHRO_MIN}~{SYNCHRO_MAX}이어야 한다")
     return value
 
 

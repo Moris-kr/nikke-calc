@@ -50,6 +50,8 @@ async function voterId(request, env) {
 
 const catalogKey = (kind) => `catalog:${kind}`;
 const votesKey = (kind, voter) => `votes:${kind}:${voter}`;
+// 적용 횟수도 한 사람이 여러 번 올릴 수 없다 — 누가 이미 적용했는지 따로 적어 둔다.
+const usesKey = (kind, voter) => `uses:${kind}:${voter}`;
 const rateKey = (voter) => `rate:${voter}`;
 
 const readJson = async (env, key, fallback) => {
@@ -71,6 +73,8 @@ const publicItem = (item) => ({
   at: item.at,
   up: item.up,
   down: item.down,
+  // 몇 명이 실제로 가져다 썼나. 엄지와 달리 취소가 없다.
+  uses: item.uses ?? 0,
   code: item.code,
 });
 
@@ -89,11 +93,13 @@ const kindOf = (value) => {
 
 async function handleList(request, env, url) {
   const kind = kindOf(url.searchParams.get('kind'));
-  const [catalog, mine] = await Promise.all([
+  const voter = await voterId(request, env);
+  const [catalog, mine, applied] = await Promise.all([
     readJson(env, catalogKey(kind), { items: [] }),
-    voterId(request, env).then((voter) => readJson(env, votesKey(kind, voter), {})),
+    readJson(env, votesKey(kind, voter), {}),
+    readJson(env, usesKey(kind, voter), {}),
   ]);
-  return { items: catalog.items.map(publicItem), mine };
+  return { items: catalog.items.map(publicItem), mine, applied };
 }
 
 async function handleUpload(request, env, body) {
@@ -132,6 +138,7 @@ async function handleUpload(request, env, body) {
     at: new Date().toISOString(),
     up: 0,
     down: 0,
+    uses: 0,
     owner: voter,
   };
   catalog.items.push(item);
@@ -170,6 +177,31 @@ async function handleVote(request, env, body) {
   return { id, up: item.up, down: item.down, mine: after };
 }
 
+/**
+ * 적용 횟수. 한 사람이 같은 항목을 몇 번 적용하든 1로 센다 — 무엇이 실제로 쓰이는지
+ * 보려는 숫자라, 같은 사람이 여러 번 눌러 부풀릴 수 있으면 뜻이 없어진다.
+ * 엄지와 달리 취소는 없다: 이미 가져다 쓴 일이 되돌려지지는 않는다.
+ */
+async function handleApply(request, env, body) {
+  const kind = kindOf(body.kind);
+  const id = text(body.id, 40, '항목', true);
+
+  const voter = await voterId(request, env);
+  const [catalog, applied] = await Promise.all([
+    readJson(env, catalogKey(kind), { items: [] }),
+    readJson(env, usesKey(kind, voter), {}),
+  ]);
+  const item = catalog.items.find((entry) => entry.id === id);
+  if (!item) throw new Fail(404, '이미 사라진 항목입니다.');
+
+  if (applied[id]) return { id, uses: item.uses ?? 0, counted: false };
+  item.uses = (item.uses ?? 0) + 1;
+  applied[id] = 1;
+  await env.SHARE.put(catalogKey(kind), JSON.stringify(catalog));
+  await env.SHARE.put(usesKey(kind, voter), JSON.stringify(applied));
+  return { id, uses: item.uses, counted: true };
+}
+
 export default {
   async fetch(request, env) {
     const origin = request.headers.get('Origin');
@@ -196,6 +228,9 @@ export default {
       }
       if (request.method === 'POST' && url.pathname === '/vote') {
         return json(await handleVote(request, env, await request.json()));
+      }
+      if (request.method === 'POST' && url.pathname === '/apply') {
+        return json(await handleApply(request, env, await request.json()));
       }
       return json({ error: '없는 경로입니다.' }, 404);
     } catch (error) {

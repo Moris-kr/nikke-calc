@@ -106,6 +106,8 @@ export interface SimulationRequest {
   // 스킬·버스트와 변신 모드 사격에는 붙지 않는다. 안 주면 데이터 기본값을 쓴다.
   normalHitCoeff?: Record<string, number>;
   console?: ConsoleLevels;
+  /** 싱크로 레벨. 안 주면 엔진 기본 스펙 레벨(400)을 쓴다. */
+  synchroLevel?: number;
   // 버스트 게이지 충전 시간(초). 게이지 누적 대신 쓰는 고정 시간이다.
   burstRegenTime?: number;
 }
@@ -119,6 +121,11 @@ export type RngMode = 'random' | 'expected';
 
 export interface BattleSettings {
   duration: number;
+  /**
+   * 싱크로 디바이스 레벨. 소대에 넣은 니케는 전원이 이 레벨이 되므로 캐릭터 설정이
+   * 아니라 전투 조건에 둔다. 계정 육성 상태라 **공유 코드에는 담기지 않는다**(콘솔과 같다).
+   */
+  synchroLevel: number;
   enemyDef: number;
   enemyCode: ElementCode;
   coreEnabled: boolean;

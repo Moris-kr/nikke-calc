@@ -136,6 +136,46 @@ class BrowserBridgeTest(unittest.TestCase):
         self.assertGreater(result["hitCount"], 0)
         self.assertEqual(list(result["charTotals"]), ["리타"])
 
+    def test_synchro_level_applies_to_everyone_and_changes_the_result(self):
+        """싱크로 레벨은 계정 속성이라 스쿼드 전원에게 같은 값으로 얹힌다."""
+        payload = {
+            "squad": ["리타", "크라운"],
+            "duration": 10,
+            "enemyDef": 31_784,
+            "enemyCode": "",
+            "corePx": 0,
+            "hasParts": False,
+            "seed": 42,
+        }
+
+        default = json.loads(run_request(json.dumps(payload, ensure_ascii=False)))
+        # 기본 스펙 레벨이 400이므로 400을 명시해도 결과가 같아야 한다.
+        same = json.loads(run_request(json.dumps(
+            {**payload, "synchroLevel": 400}, ensure_ascii=False)))
+        lower = json.loads(run_request(json.dumps(
+            {**payload, "synchroLevel": 200}, ensure_ascii=False)))
+
+        self.assertEqual(same["squadTotal"], default["squadTotal"])
+        self.assertLess(lower["squadTotal"], default["squadTotal"])
+        # 한 명만이 아니라 전원이 낮아진다.
+        for name in ("리타", "크라운"):
+            self.assertLess(lower["charTotals"][name], default["charTotals"][name])
+
+    def test_rejects_synchro_level_outside_the_stat_table(self):
+        payload = {
+            "squad": ["리타"],
+            "duration": 10,
+            "enemyDef": 31_784,
+            "enemyCode": "",
+            "corePx": 0,
+            "hasParts": False,
+            "seed": 42,
+            "synchroLevel": 1_001,
+        }
+
+        with self.assertRaisesRegex(ValueError, "싱크로 레벨"):
+            run_request(json.dumps(payload, ensure_ascii=False))
+
     def test_character_overrides_are_forwarded_to_the_engine(self):
         payload = {
             "squad": ["리타"],

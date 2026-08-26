@@ -10,6 +10,9 @@ import type {
 const integerInRange = (value: number, min: number, max: number): boolean =>
   Number.isInteger(value) && value >= min && value <= max;
 
+/** 엔진 기본 스펙과 같은 값. 이것과 같으면 요청에 싣지 않는다(캐시 키가 갈리지 않게). */
+export const DEFAULT_SYNCHRO_LEVEL = 400;
+
 export function normalizeRequest(request: SimulationRequest): SimulationRequest {
   const squad = request.squad.map((name) => name.trim()).filter(Boolean);
   const characters = normalizeCharacters(request.characters, squad);
@@ -42,6 +45,9 @@ export function normalizeRequest(request: SimulationRequest): SimulationRequest 
       ? { normalHitCoeff: normalizeRecord(request.normalHitCoeff)! } : {}),
     ...(request.burstRegenTime !== undefined
       ? { burstRegenTime: request.burstRegenTime } : {}),
+    // 기본 레벨(400)은 요청에서 뺀다 — 엔진이 같은 값을 쓰므로 옛 캐시 키와 갈리지 않는다.
+    ...(request.synchroLevel !== undefined && request.synchroLevel !== DEFAULT_SYNCHRO_LEVEL
+      ? { synchroLevel: Math.trunc(request.synchroLevel) } : {}),
     ...(request.console ? { console: {
       common_level: Math.trunc(request.console.common_level),
       class_level: normalizeBuckets(request.console.class_level),
@@ -130,6 +136,9 @@ export function validateRequest(request: SimulationRequest): string[] {
   if (!integerInRange(request.duration, 10, 180)) {
     errors.push('전투 시간은 10~180초여야 합니다.');
   }
+  if (request.synchroLevel !== undefined && !integerInRange(request.synchroLevel, 1, 1_000)) {
+    errors.push('싱크로 레벨은 1~1000이어야 합니다.');
+  }
   if (!integerInRange(request.enemyDef, 0, 999_999)) {
     errors.push('적 방어력은 0~999999여야 합니다.');
   }
@@ -210,6 +219,7 @@ export function requestForDeck(
     characters: deck.characters,
     ...(customCharacters ? { customCharacters } : {}),
     duration: battle.duration,
+    synchroLevel: battle.synchroLevel,
     enemyDef: battle.enemyDef,
     enemyCode: battle.enemyCode,
     corePx: battle.coreEnabled ? battle.corePx : 0,

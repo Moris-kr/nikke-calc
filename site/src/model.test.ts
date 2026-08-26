@@ -23,6 +23,7 @@ const valid: SimulationRequest = {
 };
 
 const battle: BattleSettings = {
+  synchroLevel: 400,
   burstRegenTime: 2,
   optimalRangeWeapons: [],
   immuneWindows: [],
@@ -207,6 +208,24 @@ describe('multi-deck model', () => {
     expect(requestForDeck(deck(1, ['리타']), { ...battle, coreEnabled: true })).toMatchObject({
       corePx: 52,
     });
+  });
+
+  it('sends the synchro level only when it differs from the engine default', () => {
+    // 기본값(400)은 싣지 않는다 — 엔진이 같은 값을 쓰므로 옛 캐시 키와 갈리면 손해다.
+    expect(requestForDeck(deck(1, ['리타']), battle)).not.toHaveProperty('synchroLevel');
+    expect(requestForDeck(deck(1, ['리타']), { ...battle, synchroLevel: 250 }))
+      .toMatchObject({ synchroLevel: 250 });
+    // 값이 다르면 캐시 키도 갈려야 한다 — 레벨이 다른 결과가 섞이면 안 된다.
+    expect(cacheKey(requestForDeck(deck(1, ['리타']), { ...battle, synchroLevel: 250 }), 'v1'))
+      .not.toBe(cacheKey(requestForDeck(deck(1, ['리타']), battle), 'v1'));
+  });
+
+  it('rejects a synchro level outside the stat table', () => {
+    expect(validateRequest({ ...valid, synchroLevel: 0 }))
+      .toContain('싱크로 레벨은 1~1000이어야 합니다.');
+    expect(validateRequest({ ...valid, synchroLevel: 1_001 }))
+      .toContain('싱크로 레벨은 1~1000이어야 합니다.');
+    expect(validateRequest({ ...valid, synchroLevel: 400 })).toEqual([]);
   });
 
   it('preserves independent character skill levels in each deck request', () => {
