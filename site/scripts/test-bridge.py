@@ -298,11 +298,11 @@ class BrowserBridgeTest(unittest.TestCase):
         result = json.loads(run_request(json.dumps(payload, ensure_ascii=False)))
         timeline = result["timeline"]
 
-        self.assertEqual(timeline["bucket"], 0.1)
-        self.assertEqual(timeline["buckets"], 300)
+        self.assertEqual(timeline["bucket"], 1)
+        self.assertEqual(timeline["buckets"], 30)
         for name in payload["squad"]:
             row = timeline["damage"][name]
-            self.assertEqual(len(row), 300)
+            self.assertEqual(len(row), 30)
             # 버킷 합은 전 구간 대미지와 일치해야 한다 — 잘게 쪼개도 히트가 새지 않는다
             # (부동소수 나눗셈이 앞 칸으로 흘리기 쉬운 자리다).
             self.assertEqual(sum(row), result["charTotals"][name])

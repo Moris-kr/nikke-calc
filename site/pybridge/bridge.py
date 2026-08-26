@@ -26,14 +26,14 @@ from calculator.timeline import simulate
 from context import spec as char_spec
 
 
-# 타임라인 버킷 크기(초). 1초로 뭉치면 버스트 한 번에 몰린 딜이 통째로 한 칸이 되어
-# «언제 터졌나»가 사라진다. 0.1초면 그 안을 볼 수 있고, 늘어나는 건 배열 칸 수뿐이다
-# (버킷 나누기는 히트를 한 번 훑는 일이라 칸을 몇 개로 쪼개든 비용이 같다).
-TIMELINE_BUCKET = 0.1
+# 타임라인 버킷 크기(초). 0.1초까지 쪼개 봤지만 선이 잘게 떨려 오히려 읽기 어려웠다 —
+# 1초로 되돌린다. 이 값은 응답에 실려 나가고 화면이 그것으로 «몇 번째 칸이 몇 초인지»를
+# 환산하므로, 여기만 바꾸면 그림·눈금·툴팁이 모두 따라온다.
+TIMELINE_BUCKET = 1
 
 
 def _build_timeline(result, names: list[str]) -> dict:
-    """캐릭터별 대미지 · 버스트 시각 · 풀버스트 구간을 0.1초 버킷으로 요약한다.
+    """캐릭터별 대미지 · 버스트 시각 · 풀버스트 구간을 `TIMELINE_BUCKET` 단위로 요약한다.
 
     브라우저 타임라인 시각화용. 대미지는 result.hits(항상 채워짐)에서,
     버스트·풀버스트 구간은 verbose 로그(result.log)에서 만든다.
