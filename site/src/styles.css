@@ -553,11 +553,14 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .total-block strong { color: var(--amber); font-size: clamp(30px, 4vw, 52px); line-height: 1.1; letter-spacing: -.05em; }
 .total-block small { color: var(--cyan); font-size: 11px; }
 .preview-warning { padding: 9px 12px; background: rgba(255,119,135,.1); border-left: 3px solid var(--danger); color: #ffc2ca; font-size: 11px; }
-.result-rows { margin-top: 16px; display: grid; gap: 8px; }
+/* 줄이 화면 끝까지 늘어나면 막대만 길어지고 읽히는 건 없다 — 폭을 묶어 가운데 세운다. */
+.result-rows { width: min(100%, 1120px); margin: 16px auto 0; display: grid; gap: 8px; }
 
 /* 캐릭터 결과 줄 — 초상화 오른쪽에 막대, 그 오른쪽 끝에 총딜.
    덱을 갈아 가며 볼 때 쓰는 모양이라 짧고, 막대 길이가 곧 «누가 캐리했나»다. */
-.result-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center;
+/* 숫자 칸은 **고정 폭**이다. 자릿수에 따라 칸이 늘었다 줄었다 하면 막대가 끝나는
+   자리가 줄마다 달라져 길이를 견줄 수가 없다(그게 «들쭉날쭉»의 정체다). */
+.result-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) 13ch; align-items: center;
   gap: 14px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px;
   background: rgba(7,15,25,.5); }
 .result-row.is-first { border-color: rgba(255,191,60,.45); background: rgba(255,191,60,.06); }
@@ -571,8 +574,13 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .result-row-name b { font-size: 13px; }
 .result-row-name span { color: var(--muted); font: 600 10px ui-monospace, monospace; }
 .result-row .share-track { margin: 0; height: 6px; border-radius: 3px; }
-.result-row .share-track i { border-radius: 3px; }
-.result-row-total { color: var(--ink); font: 800 15px ui-monospace, monospace; white-space: nowrap; }
+/* 막대는 한 가지 색으로 칠한다. 그러데이션을 막대마다 새로 그리면 짧은 막대는 청록,
+   긴 막대는 주황으로 끝나 «길이»가 아니라 색이 먼저 눈에 들어온다. */
+.result-row .share-track i { border-radius: 3px; box-shadow: none;
+  background: linear-gradient(90deg, rgba(255,191,60,.75), var(--amber-hot)); }
+.result-row.is-first .share-track i { background: linear-gradient(90deg, var(--amber), var(--amber-hot)); }
+.result-row-total { overflow: hidden; text-overflow: ellipsis; text-align: right;
+  color: var(--ink); font: 800 14px ui-monospace, monospace; white-space: nowrap; }
 .result-row.is-first .result-row-total { color: var(--amber); }
 .character-result { padding: 0 0 13px; border-bottom: 1px solid rgba(146,176,201,.1); }
 .result-row-top { display: flex; justify-content: space-between; gap: 16px; align-items: end; }
