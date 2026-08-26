@@ -25,6 +25,7 @@ const valid: SimulationRequest = {
 const battle: BattleSettings = {
   synchroLevel: 400,
   burstRegenTime: 2,
+  burstReaction: 0.05,
   optimalRangeWeapons: [],
   immuneWindows: [],
   elementWindows: [],

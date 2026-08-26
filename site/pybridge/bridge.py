@@ -14,6 +14,7 @@ from calculator.customization import (
     normalize_element_windows,
     normalize_immune_windows,
     normalize_normal_hit_coeff,
+    normalize_burst_reaction,
     normalize_optimal_range,
     normalize_synchro_level,
 )
@@ -268,6 +269,10 @@ def run_request(raw: str) -> str:
             burst_pattern[name] = []
     if burst_pattern:
         config_in["burst_pattern"] = burst_pattern
+    # 버스트 반응속도 — 조건이 갖춰진 뒤 누르기까지. 전투 조건이라 config에 둔다.
+    reaction = normalize_burst_reaction(payload.get("burstReaction"))
+    if reaction is not None:
+        config_in["burst_reaction"] = reaction
     # 난수 처리: "random"(인게임과 같은 분산) / "expected"(기대값, 결정론적).
     rng_mode = str(payload.get("rngMode") or "random")
     if rng_mode not in ("random", "expected"):

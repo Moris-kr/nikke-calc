@@ -12,6 +12,8 @@ const integerInRange = (value: number, min: number, max: number): boolean =>
 
 /** 엔진 기본 스펙과 같은 값. 이것과 같으면 요청에 싣지 않는다(캐시 키가 갈리지 않게). */
 export const DEFAULT_SYNCHRO_LEVEL = 400;
+/** 버스트 반응속도 기본값(초). 엔진 `DEFAULT_CONFIG`와 같은 값이다. */
+export const DEFAULT_BURST_REACTION = 0.05;
 
 export function normalizeRequest(request: SimulationRequest): SimulationRequest {
   const squad = request.squad.map((name) => name.trim()).filter(Boolean);
@@ -45,6 +47,9 @@ export function normalizeRequest(request: SimulationRequest): SimulationRequest 
       ? { normalHitCoeff: normalizeRecord(request.normalHitCoeff)! } : {}),
     ...(request.burstRegenTime !== undefined
       ? { burstRegenTime: request.burstRegenTime } : {}),
+    // 기본값(0.05초)은 요청에서 뺀다 — 엔진이 같은 값을 쓰므로 옛 캐시 키와 갈리지 않는다.
+    ...(request.burstReaction !== undefined && request.burstReaction !== DEFAULT_BURST_REACTION
+      ? { burstReaction: request.burstReaction } : {}),
     // 기본 레벨(400)은 요청에서 뺀다 — 엔진이 같은 값을 쓰므로 옛 캐시 키와 갈리지 않는다.
     ...(request.synchroLevel !== undefined && request.synchroLevel !== DEFAULT_SYNCHRO_LEVEL
       ? { synchroLevel: Math.trunc(request.synchroLevel) } : {}),
@@ -153,6 +158,11 @@ export function validateRequest(request: SimulationRequest): string[] {
         && request.burstRegenTime >= 0 && request.burstRegenTime <= 20)) {
     errors.push('버스트 게이지 충전 시간은 0~20초여야 합니다.');
   }
+  if (request.burstReaction !== undefined
+      && !(Number.isFinite(request.burstReaction)
+        && request.burstReaction >= 0 && request.burstReaction <= 3)) {
+    errors.push('버스트 반응속도는 0~3초여야 합니다.');
+  }
   // 보스 페이즈 — 시작이 끝보다 뒤면 조용히 뒤집지 않고 막는다. 엔진도 같은 규칙이다.
   const windows: Array<[{ from: number; to: number }, string]> = [
     ...(request.immuneWindows ?? []).map((w) => [w, '족자'] as [typeof w, string]),
@@ -233,6 +243,7 @@ export function requestForDeck(
     normalHitCoeff: battle.normalHitCoeff,
     console: battle.console,
     burstRegenTime: battle.burstRegenTime,
+    burstReaction: battle.burstReaction,
   });
 }
 

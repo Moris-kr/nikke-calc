@@ -18,6 +18,7 @@ const battle: BattleShare = {
   rngMode: 'random',
   immuneBlocksBurst: false,
   burstRegenTime: 0,
+  burstReaction: 0.05,
 };
 
 /** 응답 하나짜리 가짜 fetch. 무엇을 보냈는지도 함께 들여다본다. */

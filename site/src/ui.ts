@@ -45,6 +45,7 @@ import { createTimelineBlock } from './timeline';
 import {
   aggregateDeckResults,
   cacheKey,
+  DEFAULT_BURST_REACTION,
   DEFAULT_SYNCHRO_LEVEL,
   formatDamage,
   formatDps,
@@ -430,95 +431,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       </section>
 
       <form class="calculator-layout" data-view="calc" novalidate>
-        <section class="panel settings-panel" aria-labelledby="settings-heading">
-          <div class="section-heading compact target-heading">
-            <div><p class="step">01 / TARGET</p><h2 id="settings-heading">전투 조건</h2></div>
-            <div class="target-actions">
-              <button type="button" class="reset-enemy" data-battle-share-open title="전투 조건을 코드로 만들어 공유하거나, 받은 코드를 붙여넣어 적용합니다">전투 조건 공유</button>
-              <button type="button" class="reset-enemy" data-reset-enemy>적 수치 초기화</button>
-              <button type="button" class="reset-enemy" data-clear-cache title="같은 조건에 저장된 결과를 지우고 다음 실행부터 새로 계산합니다">저장된 결과 지우기</button>
-            </div>
-          </div>
-          <!-- 조건은 한 번 정해 두면 계속 쓰는 값이다. 그 자리에서 펼치면 편성이 화면
-               밖으로 밀리므로 창으로 띄우고, 이 줄에는 무엇으로 재는지만 한 줄로 남긴다. -->
-          <!-- 조건과 실행을 한 막대로 붙인다. 패널 사이에 단추만 덩그러니 뜨는 자리를
-               없애고, «이 조건으로 → 실행»이 한 줄로 읽히게 하려는 것이다. -->
-          <div class="cond-bar">
-            <button type="button" class="battle-open" data-battle-open aria-expanded="false">
-              <span class="battle-open-label">전투 조건</span>
-              <span class="battle-summary" data-battle-summary></span>
-              <span class="disclosure-hint" aria-hidden="true">열기 ›</span>
-            </button>
-            <button class="calculate-button run-inline" type="submit"><span>시뮬레이션 실행</span><b aria-hidden="true">→</b></button>
-          </div>
-          <p class="status" data-status aria-live="polite">계산 엔진 준비 중…</p>
-          <p class="battle-first-note" data-battle-first-note>계산하기 전에 <b>전투 조건을 한 번 확인해 주세요</b> — 몇 초짜리 전투인지, 적 코드가 무엇인지에 따라 결과가 완전히 달라집니다.</p>
-          <!-- 막힌 이유는 누른 단추 바로 아래에서 읽혀야 한다. -->
-          <div class="error-box" data-errors hidden role="alert"></div>
-
-          <!-- 창은 조건 패널 «안»에 둔다 — 설정 입력을 지켜보는 리스너가 이 패널을
-               기준으로 걸려 있어, 밖으로 빼면 값을 바꿔도 저장되지 않는다. -->
-          <div class="custom-modal" data-battle-modal hidden>
-          <div class="custom-card battle-card" role="dialog" aria-label="전투 조건">
-          <div class="custom-head"><h2>전투 조건</h2><button type="button" class="custom-close" data-battle-modal-close aria-label="닫기">✕</button></div>
-          <div class="battle-body" data-battle-body>
-          <div class="field-grid">
-            <label><span>전투 시간</span><div class="input-unit"><input id="duration" type="number" min="10" max="180" step="1" value="180" /><em>초</em></div></label>
-            <label><span>적 코드</span><select id="enemy-code"><option value="">없음</option><option value="풍압">풍압(작열weak)</option><option value="수냉">수냉(전격weak)</option><option value="작열">작열(수냉weak)</option><option value="전격">전격(철갑weak)</option><option value="철갑">철갑(풍압weak)</option></select></label>
-            <label><span>싱크로 레벨</span><div class="input-unit"><input id="synchro-level" type="number" min="1" max="1000" step="1" value="${DEFAULT_SYNCHRO_LEVEL}" title="싱크로 디바이스 소대에 넣은 니케는 전원이 이 레벨이 됩니다. 계정 육성 상태라 전투 조건 공유 코드에는 담기지 않습니다" /><em>Lv</em></div></label>
-            <label class="toggle-field"><input id="has-core" type="checkbox" /><span class="toggle"></span><span>코어 있음</span></label>
-            <label data-core-size><span>코어 직경</span><div class="input-unit"><input id="core-px" type="number" min="0" max="1000" step="1" value="52" disabled /><em>px</em></div></label>
-            <label class="toggle-field"><input id="has-parts" type="checkbox" /><span class="toggle"></span><span>파괴 가능 파츠</span></label>
-          </div>
-          <fieldset class="range-field">
-            <legend>적정거리</legend>
-            <div class="range-options" data-optimal-range></div>
-            <p class="field-note">고른 무기군의 <b>일반 공격</b>에만 대미지 보너스 +30%가 붙습니다 — 스킬 대미지에는 붙지 않습니다. 적과의 거리에 달린 조건이라 무기군 단위로 켭니다.</p>
-          </fieldset>
-
-          <!-- 고급 설정 — 자주 손대지 않는 값과 보스 페이즈를 한자리에 접어 둔다. -->
-          <button type="button" class="disclosure" data-advanced-battle aria-expanded="false">
-            <span class="disclosure-label">고급 설정</span><span class="disclosure-hint">펼치기</span>
-          </button>
-          <div class="disclosure-panel" data-advanced-battle-panel hidden>
-            <div class="field-grid">
-              <label><span>적 방어력</span><input id="enemy-def" type="number" min="0" max="999999" step="1" value="31784" /></label>
-              <label><span>난수 시드</span><input id="seed" type="number" min="0" max="2147483647" step="1" value="42" /></label>
-              <label title="게이지 충전만의 시간입니다. 여기에 단계 전환 0.3초와 버스트 쿨 여유가 더해져 실제 공백은 더 깁니다."><span>버스트 게이지 충전</span><div class="input-unit"><input id="burst-regen" type="number" min="0" max="20" step="0.1" value="2" /><em>초</em></div></label>
-              <label><span>난수 처리</span><select id="rng-mode"><option value="expected">기대값 (권장)</option><option value="random">난수</option></select></label>
-              <label class="toggle-field" title="족자 구간에는 평타가 빗나가므로 게이지도 차지 않는 것으로 계산합니다. 켜면 그만큼 버스트가 밀립니다."><input id="immune-blocks-burst" type="checkbox" checked /><span class="toggle"></span><span>족자 중 버스트 충전 정지</span></label>
-            </div>
-            <p class="field-note">기대값은 확률 대신 기대치를 태워 <b>같은 설정이면 언제나 같은 값</b>이 나옵니다. 난수는 인게임과 같은 분산을 재현하며 시드에 따라 결과가 흔들립니다.</p>
-
-            <fieldset class="range-field">
-              <legend>평타 계수</legend>
-              <div class="coeff-options" data-hit-coeff></div>
-              <p class="field-note">실전에서 탄퍼짐으로 빗나가는 탄을 보정합니다. <b>평타에만</b> 곱하며 스킬·버스트와 변신 모드 사격은 조준 판정이라 손대지 않습니다. 기본값은 실측 대조로 뽑은 값이고(SG 0.90), 1.00이면 보정 없음입니다.</p>
-            </fieldset>
-
-            <fieldset class="range-field phase-field">
-              <legend>보스 페이즈</legend>
-              <div class="phase-head">
-                <button type="button" class="phase-add" data-phase-add="immune">족자 추가 <b>+</b></button>
-                <button type="button" class="phase-add" data-phase-add="element">속저 추가 <b>+</b></button>
-              </div>
-              <div class="phase-list" data-phase-list></div>
-              <p class="field-note"><b>족자</b>는 평타만 빗나갑니다. 지속 대미지·스킬 대미지와 평타로 발동한 후속 공격은 계속 들어갑니다. <b>속저</b>는 고른 속성에 <b>우월한</b> 캐릭터의 딜만 통과시킵니다 — 풍압으로 두면 작열 캐릭터만 들어갑니다. 인게임처럼 <b>우월 코드 버프</b>로 우월해진 캐릭터도 통과합니다(라피 : 레드 후드 «부착형 유탄» 등).</p>
-            </fieldset>
-          </div>
-          <section class="console-editor">
-            <h3>콘솔 <span>전초기지 재활용 연구실</span></h3>
-            <div class="console-grid" data-console-grid></div>
-            <p class="field-note">계정 설정이라 스쿼드 전원에게 같이 적용됩니다. 클래스·기업은 인게임에서 소속별로 따로 크므로 각각 받습니다. 기업은 공격력, 공통·클래스는 체력을 올립니다 — 체력 계수를 쓰는 캐릭터(신데렐라 등)는 공통·클래스도 딜에 반영됩니다.</p>
-          </section>
-          </div>
-          </div>
-          </div>
-        </section>
-
         <section class="panel squad-panel" aria-labelledby="squad-heading">
           <div class="section-heading">
-            <div><p class="step">02 / SQUAD</p><h2 id="squad-heading">편성 및 캐릭터 설정</h2></div>
+            <div><p class="step">01 / SQUAD</p><h2 id="squad-heading">편성 및 캐릭터 설정</h2></div>
             <div class="squad-tools">
               <span class="roster-import-group">
                 <label class="roster-import" title="렛츠도로 니케정보 CSV를 불러와 모든 니케 설정에 적용">
@@ -594,6 +509,93 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             </div>
             <p class="roster-empty" data-roster-empty hidden>검색과 일치하는 니케가 없습니다.</p>
           </section>
+        </section>
+
+        <section class="panel settings-panel" aria-labelledby="settings-heading">
+          <div class="section-heading compact target-heading">
+            <div><p class="step">02 / TARGET</p><h2 id="settings-heading">전투 조건</h2></div>
+            <div class="target-actions">
+              <button type="button" class="reset-enemy" data-battle-share-open title="전투 조건을 코드로 만들어 공유하거나, 받은 코드를 붙여넣어 적용합니다">전투 조건 공유</button>
+              <button type="button" class="reset-enemy" data-reset-enemy>적 수치 초기화</button>
+              <button type="button" class="reset-enemy" data-clear-cache title="같은 조건에 저장된 결과를 지우고 다음 실행부터 새로 계산합니다">저장된 결과 지우기</button>
+            </div>
+          </div>
+          <!-- 조건은 한 번 정해 두면 계속 쓰는 값이다. 그 자리에서 펼치면 편성이 화면
+               밖으로 밀리므로 창으로 띄우고, 이 줄에는 무엇으로 재는지만 한 줄로 남긴다. -->
+          <!-- 조건과 실행을 한 막대로 붙인다. 패널 사이에 단추만 덩그러니 뜨는 자리를
+               없애고, «이 조건으로 → 실행»이 한 줄로 읽히게 하려는 것이다. -->
+          <div class="cond-bar">
+            <button type="button" class="battle-open" data-battle-open aria-expanded="false">
+              <span class="battle-open-label">전투 조건</span>
+              <span class="battle-summary" data-battle-summary></span>
+              <span class="disclosure-hint" aria-hidden="true">열기 ›</span>
+            </button>
+            <button class="calculate-button run-inline" type="submit"><span>시뮬레이션 실행</span><b aria-hidden="true">→</b></button>
+          </div>
+          <p class="status" data-status aria-live="polite">계산 엔진 준비 중…</p>
+          <p class="battle-first-note" data-battle-first-note>계산하기 전에 <b>전투 조건을 한 번 확인해 주세요</b> — 몇 초짜리 전투인지, 적 코드가 무엇인지에 따라 결과가 완전히 달라집니다.</p>
+          <!-- 막힌 이유는 누른 단추 바로 아래에서 읽혀야 한다. -->
+          <div class="error-box" data-errors hidden role="alert"></div>
+
+          <!-- 창은 조건 패널 «안»에 둔다 — 설정 입력을 지켜보는 리스너가 이 패널을
+               기준으로 걸려 있어, 밖으로 빼면 값을 바꿔도 저장되지 않는다. -->
+          <div class="custom-modal" data-battle-modal hidden>
+          <div class="custom-card battle-card" role="dialog" aria-label="전투 조건">
+          <div class="custom-head"><h2>전투 조건</h2><button type="button" class="custom-close" data-battle-modal-close aria-label="닫기">✕</button></div>
+          <div class="battle-body" data-battle-body>
+          <div class="field-grid">
+            <label><span>전투 시간</span><div class="input-unit"><input id="duration" type="number" min="10" max="180" step="1" value="180" /><em>초</em></div></label>
+            <label><span>적 코드</span><select id="enemy-code"><option value="">없음</option><option value="풍압">풍압(작열weak)</option><option value="수냉">수냉(전격weak)</option><option value="작열">작열(수냉weak)</option><option value="전격">전격(철갑weak)</option><option value="철갑">철갑(풍압weak)</option></select></label>
+            <label><span>싱크로 레벨</span><div class="input-unit"><input id="synchro-level" type="number" min="1" max="1000" step="1" value="${DEFAULT_SYNCHRO_LEVEL}" title="싱크로 디바이스 소대에 넣은 니케는 전원이 이 레벨이 됩니다. 계정 육성 상태라 전투 조건 공유 코드에는 담기지 않습니다" /><em>Lv</em></div></label>
+            <label class="toggle-field"><input id="has-core" type="checkbox" /><span class="toggle"></span><span>코어 있음</span></label>
+            <label data-core-size><span>코어 직경</span><div class="input-unit"><input id="core-px" type="number" min="0" max="1000" step="1" value="52" disabled /><em>px</em></div></label>
+            <label class="toggle-field"><input id="has-parts" type="checkbox" /><span class="toggle"></span><span>파괴 가능 파츠</span></label>
+          </div>
+          <fieldset class="range-field">
+            <legend>적정거리</legend>
+            <div class="range-options" data-optimal-range></div>
+            <p class="field-note">고른 무기군의 <b>일반 공격</b>에만 대미지 보너스 +30%가 붙습니다 — 스킬 대미지에는 붙지 않습니다. 적과의 거리에 달린 조건이라 무기군 단위로 켭니다.</p>
+          </fieldset>
+
+          <!-- 고급 설정 — 자주 손대지 않는 값과 보스 페이즈를 한자리에 접어 둔다. -->
+          <button type="button" class="disclosure" data-advanced-battle aria-expanded="false">
+            <span class="disclosure-label">고급 설정</span><span class="disclosure-hint">펼치기</span>
+          </button>
+          <div class="disclosure-panel" data-advanced-battle-panel hidden>
+            <div class="field-grid">
+              <label><span>적 방어력</span><input id="enemy-def" type="number" min="0" max="999999" step="1" value="31784" /></label>
+              <label><span>난수 시드</span><input id="seed" type="number" min="0" max="2147483647" step="1" value="42" /></label>
+              <label title="게이지 충전만의 시간입니다. 여기에 단계 전환 0.3초와 버스트 쿨 여유가 더해져 실제 공백은 더 깁니다."><span>버스트 게이지 충전</span><div class="input-unit"><input id="burst-regen" type="number" min="0" max="20" step="0.1" value="2" /><em>초</em></div></label>
+              <label title="조건이 갖춰진 뒤 실제로 버스트를 누르기까지 걸리는 시간입니다. 버스트 하나하나마다 더해지므로 3단계까지 쓰면 그 세 배만큼 늦어집니다."><span>버스트 반응속도</span><div class="input-unit"><input id="burst-reaction" type="number" min="0" max="3" step="0.01" value="${DEFAULT_BURST_REACTION}" /><em>초</em></div></label>
+              <label><span>난수 처리</span><select id="rng-mode"><option value="expected">기대값 (권장)</option><option value="random">난수</option></select></label>
+              <label class="toggle-field" title="족자 구간에는 평타가 빗나가므로 게이지도 차지 않는 것으로 계산합니다. 켜면 그만큼 버스트가 밀립니다."><input id="immune-blocks-burst" type="checkbox" checked /><span class="toggle"></span><span>족자 중 버스트 충전 정지</span></label>
+            </div>
+            <p class="field-note">기대값은 확률 대신 기대치를 태워 <b>같은 설정이면 언제나 같은 값</b>이 나옵니다. 난수는 인게임과 같은 분산을 재현하며 시드에 따라 결과가 흔들립니다.</p>
+
+            <fieldset class="range-field">
+              <legend>평타 계수</legend>
+              <div class="coeff-options" data-hit-coeff></div>
+              <p class="field-note">실전에서 탄퍼짐으로 빗나가는 탄을 보정합니다. <b>평타에만</b> 곱하며 스킬·버스트와 변신 모드 사격은 조준 판정이라 손대지 않습니다. 기본값은 실측 대조로 뽑은 값이고(SG 0.90), 1.00이면 보정 없음입니다.</p>
+            </fieldset>
+
+            <fieldset class="range-field phase-field">
+              <legend>보스 페이즈</legend>
+              <div class="phase-head">
+                <button type="button" class="phase-add" data-phase-add="immune">족자 추가 <b>+</b></button>
+                <button type="button" class="phase-add" data-phase-add="element">속저 추가 <b>+</b></button>
+              </div>
+              <div class="phase-list" data-phase-list></div>
+              <p class="field-note"><b>족자</b>는 평타만 빗나갑니다. 지속 대미지·스킬 대미지와 평타로 발동한 후속 공격은 계속 들어갑니다. <b>속저</b>는 고른 속성에 <b>우월한</b> 캐릭터의 딜만 통과시킵니다 — 풍압으로 두면 작열 캐릭터만 들어갑니다. 인게임처럼 <b>우월 코드 버프</b>로 우월해진 캐릭터도 통과합니다(라피 : 레드 후드 «부착형 유탄» 등).</p>
+            </fieldset>
+          </div>
+          <section class="console-editor">
+            <h3>콘솔 <span>전초기지 재활용 연구실</span></h3>
+            <div class="console-grid" data-console-grid></div>
+            <p class="field-note">계정 설정이라 스쿼드 전원에게 같이 적용됩니다. 클래스·기업은 인게임에서 소속별로 따로 크므로 각각 받습니다. 기업은 공격력, 공통·클래스는 체력을 올립니다 — 체력 계수를 쓰는 캐릭터(신데렐라 등)는 공통·클래스도 딜에 반영됩니다.</p>
+          </section>
+          </div>
+          </div>
+          </div>
         </section>
 
         <section class="panel result-panel" aria-labelledby="result-heading" data-result-panel>
@@ -1586,6 +1588,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     immuneBlocksBurst: element<HTMLInputElement>(root, '#immune-blocks-burst').checked,
     normalHitCoeff: readHitCoeff(),
     burstRegenTime: Number(element<HTMLInputElement>(root, '#burst-regen').value),
+    burstReaction: Number(element<HTMLInputElement>(root, '#burst-reaction').value),
     console: {
       common_level: Number(consoleCommon.value),
       class_level: readConsoleBuckets('class'),
@@ -1615,6 +1618,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     if (battle.burstRegenTime !== undefined) {
       element<HTMLInputElement>(root, '#burst-regen').value = String(battle.burstRegenTime);
     }
+    // 이 항목이 생기기 전에 저장된 설정에는 없다 — 기본값으로 채운다.
+    element<HTMLInputElement>(root, '#burst-reaction').value =
+      String(battle.burstReaction ?? DEFAULT_BURST_REACTION);
     if (battle.console) {
       consoleCommon.value = String(battle.console.common_level);
       writeConsoleBuckets('class', battle.console.class_level);

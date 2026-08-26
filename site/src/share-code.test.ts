@@ -169,7 +169,7 @@ describe('전투 조건 공유 코드 (NK3)', () => {
     duration: 180, synchroLevel: 400, enemyDef: 31_784, enemyCode: '' as const, coreEnabled: false,
     corePx: 52, hasParts: false, seed: 42, optimalRangeWeapons: [],
     normalHitCoeff: { ...COEFF }, immuneWindows: [], elementWindows: [],
-    rngMode: 'expected' as const, immuneBlocksBurst: true, burstRegenTime: 2,
+    rngMode: 'expected' as const, immuneBlocksBurst: true, burstRegenTime: 2, burstReaction: 0.05,
     console: { common_level: 390, class_level: { 화력형: 257 }, company_level: { 필그림: 386 } },
   };
 
@@ -208,6 +208,18 @@ describe('전투 조건 공유 코드 (NK3)', () => {
     const body = atob(code.slice(4).replace(/-/g, '+').replace(/_/g, '/'));
     expect(body).not.toContain('common_level');
     expect(body).not.toContain('390');
+  });
+
+  it('버스트 반응속도는 담고, 없던 시절 코드는 기본값으로 읽는다', () => {
+    const code = encodeBattleCode({ ...base, burstReaction: 0.12 }, COEFF);
+    expect(decodeBattleCode(code).burstReaction).toBeCloseTo(0.12, 5);
+    // 기본값이면 싣지 않는다 — 코드가 짧아야 붙여넣는 곳에서 안 잘린다.
+    expect(encodeBattleCode(base, COEFF)).toBe(encodeBattleCode({ ...base }, COEFF));
+    expect(decodeBattleCode(encodeBattleCode(base, COEFF)).burstReaction).toBe(0.05);
+    // 이 항목이 생기기 전에 만들어진 코드(키 자체가 없다)도 0.05로 읽힌다.
+    const legacy = 'NK3-' + btoa(JSON.stringify({ d: 90 }))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    expect(decodeBattleCode(legacy)).toMatchObject({ duration: 90, burstReaction: 0.05 });
   });
 
   it('싱크로 레벨도 담지 않는다 — 콘솔과 같은 계정 육성 상태다', () => {

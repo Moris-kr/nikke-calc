@@ -133,6 +133,9 @@ DEFAULT_CHAR: dict = {
 DEFAULT_CONFIG: dict = {
     "duration":           180.0,  # 시뮬레이션 시간(초) — 실제 니케 전투 3분
     "burst_switch_delay":  0.1,   # 버스트 단계 전환 딜레이(초)
+    # 사람이 버스트를 누르는 데 걸리는 시간. 조건이 갖춰져도 곧바로 나가지 않고
+    # **버스트 하나하나마다** 이만큼 늦게 나간다(3단계까지면 세 번 더해진다).
+    "burst_reaction":      0.05,
     "burst_reenter_delay": 0.5,   # reenter 딜레이(초)
     "max_burst_count":    None,   # 최대 풀버스트 횟수 (None = 무제한)
     "burst_sequence":     None,   # 풀버스트별 단계 사용 순서 list[dict[str, list[str]]] (None = 자동)
@@ -1680,6 +1683,9 @@ class BurstController:
         self._burst_pattern: dict = config.get("burst_pattern") or {}
         # `last:N`(막바지 최우선)이 남은 시간을 재려면 전투 길이를 알아야 한다.
         self._sim_duration: float = float(config.get("duration", 180.0))
+        # 버스트 반응속도 — 조건이 갖춰진 뒤 실제로 누르기까지의 시간. 단계마다 더해져
+        # 3단계 버스트는 그 세 배만큼 늦게 나간다.
+        self._burst_reaction: float = float(config.get("burst_reaction", 0.05))
 
         # 단계별 우선순위 목록 (입력 순서) — tick마다 _rebuild_burst_order()로 갱신
         self.burst_order: dict[str, list[str]] = {"1": [], "2": [], "3": []}
@@ -1769,7 +1775,7 @@ class BurstController:
         if self._phase == "idle" and not _at_max:
             if all(t >= self.gauge_full_at[n] - 1e-9 for n in self.squad_names):
                 self._phase = "stage:1"
-                self._next_action_t = t
+                self._next_action_t = t + self._burst_reaction
                 for n in self.squad_names:
                     bm.notify("burst_enter:1", t, n)
 
@@ -1801,7 +1807,8 @@ class BurstController:
                 else:
                     next_stage = str(int(stage) + 1)
                     self._phase = f"stage:{next_stage}"
-                    self._next_action_t = t + self.config.get("burst_switch_delay", 0.1)
+                    self._next_action_t = (t + self.config.get("burst_switch_delay", 0.1)
+                                           + self._burst_reaction)
                     for n in self.squad_names:
                         bm.notify(f"burst_enter:{next_stage}", t, n)
 
@@ -1823,7 +1830,8 @@ class BurstController:
             else:
                 next_stage = str(int(r_stage) + 1)
                 self._phase = f"stage:{next_stage}"
-                self._next_action_t = t + self.config.get("burst_switch_delay", 0.1)
+                self._next_action_t = (t + self.config.get("burst_switch_delay", 0.1)
+                                       + self._burst_reaction)
                 for n in self.squad_names:
                     bm.notify(f"burst_enter:{next_stage}", t, n)
 

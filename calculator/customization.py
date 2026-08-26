@@ -282,6 +282,10 @@ BURST_REGEN_DEFAULT = 2.0
 BURST_REGEN_MIN = 0.0
 BURST_REGEN_MAX = 20.0
 
+# 버스트 반응속도 — 조건이 갖춰진 뒤 실제로 누르기까지. 사람 반응이라 상한을 짧게 둔다.
+BURST_REACTION_MIN = 0.0
+BURST_REACTION_MAX = 3.0
+
 # 막바지 최우선(`endgame`) — 남은 시간이 이 값 미만이면 그 캐릭터를 먼저 쓴다.
 # 상한은 전투 시간 최대치와 같다.
 ENDGAME_DEFAULT = 20.0
@@ -302,6 +306,19 @@ def normalize_burst_regen(raw: Any) -> float | None:
     if not BURST_REGEN_MIN <= value <= BURST_REGEN_MAX:
         raise ValueError(
             f"버스트 게이지 충전 시간은 {BURST_REGEN_MIN}~{BURST_REGEN_MAX}초여야 한다")
+    return value
+
+
+def normalize_burst_reaction(raw: Any) -> float | None:
+    """버스트 반응속도 → config `burst_reaction`. 안 주면 엔진 기본값을 쓴다."""
+    if raw is None:
+        return None
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)) or not math.isfinite(raw):
+        raise ValueError("버스트 반응속도는 숫자여야 한다")
+    value = float(raw)
+    if not BURST_REACTION_MIN <= value <= BURST_REACTION_MAX:
+        raise ValueError(
+            f"버스트 반응속도는 {BURST_REACTION_MIN}~{BURST_REACTION_MAX}초여야 한다")
     return value
 
 

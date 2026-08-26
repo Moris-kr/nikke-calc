@@ -112,6 +112,8 @@ export interface SimulationRequest {
   synchroLevel?: number;
   // 버스트 게이지 충전 시간(초). 게이지 누적 대신 쓰는 고정 시간이다.
   burstRegenTime?: number;
+  /** 버스트 반응속도(초). 안 주면 엔진 기본값(0.05)을 쓴다. */
+  burstReaction?: number;
 }
 
 /** 보스 페이즈 구간. `[from, to)` 반개구간이다. */
@@ -144,6 +146,11 @@ export interface BattleSettings {
   immuneBlocksBurst: boolean;
   console: ConsoleLevels;
   burstRegenTime: number;
+  /**
+   * 버스트 반응속도(초). 조건이 갖춰진 뒤 실제로 누르기까지 걸리는 시간이며,
+   * **버스트 하나하나마다** 더해진다 — 3단계까지 쓰면 그 세 배만큼 늦어진다.
+   */
+  burstReaction: number;
 }
 
 export interface DeckState {

@@ -183,6 +183,46 @@ class BrowserBridgeTest(unittest.TestCase):
         # 순서가 실제로 달라져야 한다 — 안 달라지면 설정이 흘러가 버린 것이다.
         self.assertNotEqual(endgame["squadTotal"], auto["squadTotal"])
 
+    def test_burst_reaction_delays_every_burst(self):
+        """반응속도는 버스트 하나하나마다 더해진다 — 느리게 잡으면 결과가 달라진다."""
+        base = {
+            "squad": ["리타", "크라운", "라피 : 레드 후드", "앨리스", "나가"],
+            "duration": 60,
+            "enemyDef": 31_784,
+            "enemyCode": "",
+            "corePx": 0,
+            "hasParts": False,
+            "seed": 42,
+        }
+        default = json.loads(run_request(json.dumps(base, ensure_ascii=False)))
+        same = json.loads(run_request(json.dumps(
+            {**base, "burstReaction": 0.05}, ensure_ascii=False)))
+        slow = json.loads(run_request(json.dumps(
+            {**base, "burstReaction": 0.5}, ensure_ascii=False)))
+        instant = json.loads(run_request(json.dumps(
+            {**base, "burstReaction": 0}, ensure_ascii=False)))
+
+        # 기본값은 0.05초다 — 명시해도 결과가 같아야 한다.
+        self.assertEqual(same["squadTotal"], default["squadTotal"])
+        # 늦게 누를수록 버스트가 밀려 총딜이 준다.
+        self.assertLess(slow["squadTotal"], default["squadTotal"])
+        self.assertGreater(instant["squadTotal"], slow["squadTotal"])
+
+    def test_rejects_a_bad_burst_reaction(self):
+        payload = {
+            "squad": ["리타"],
+            "duration": 10,
+            "enemyDef": 31_784,
+            "enemyCode": "",
+            "corePx": 0,
+            "hasParts": False,
+            "seed": 42,
+            "burstReaction": 9,
+        }
+
+        with self.assertRaisesRegex(ValueError, "버스트 반응속도"):
+            run_request(json.dumps(payload, ensure_ascii=False))
+
     def test_rejects_a_bad_endgame_burst_window(self):
         payload = {
             "squad": ["리타"],
