@@ -463,9 +463,10 @@ export function renderCharacterSettings(
     // (기업 장비 등급으로 읽힌다) 인게임 표기대로 「오버로드」로 적는다.
     addOption('없음', '미장착');
     addOption('T9', 'T9 (일반)');
-    // 0단계도 «오버로드 0강»으로 부르는 사람이 많다 — 두 이름을 같이 적어 두면
-    // 어느 쪽으로 찾아도 걸린다(«0강이 없다»는 오해가 실제로 나왔다).
-    addOption('0', '오버로드 0강 (T9 기업)');
+    // T9 기업은 오버로드와 엄연히 다른 판정이라 이름을 합치지 않는다. 다만 우리 스탯표는
+    // «기업 장비 강화 0~5»가 한 줄이라 0강과 그 아래를 구분하지 못한다 — 그 사실은
+    // 숨기지 않고 아래 설명에 적는다.
+    addOption('0', 'T9 기업');
     for (let lv = 1; lv <= 5; lv += 1) addOption(String(lv), `오버로드 ${lv}강`);
     const currentEquip = String(current.equipLevels?.[part] ?? 5);
     // 옛 설정이 T1~T8을 가리키면 그 값도 목록에 남겨 둔다 — 조용히 바뀌면 안 된다.
@@ -488,7 +489,8 @@ export function renderCharacterSettings(
   const equipNote = document.createElement('p');
   equipNote.className = 'field-note';
   equipNote.textContent = '부위별 장비 · 미장착 / T9(일반) / T9 기업 / 오버로드 1~5강. '
-    + '오버로드 «옵션»(우코·공증 등)과는 별개인 장비 기본 스탯입니다.';
+    + '오버로드 «옵션»(우코·공증 등)과는 별개인 장비 기본 스탯입니다. '
+    + 'T9 기업은 오버로드와 다른 판정이지만, 계산기는 오버로드 0강 이하를 모두 오버로드 0강으로 계산합니다.';
   equipEditor.append(equipHeading, equipGrid, equipNote);
   body.append(equipEditor);
 

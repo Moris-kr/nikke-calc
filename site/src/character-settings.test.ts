@@ -214,7 +214,7 @@ describe('character settings editor', () => {
       ['없음', 'T9', '0', '1', '2', '3', '4', '5'],
     );
     expect([...head.options].map((option) => option.textContent)).toEqual(
-      ['미장착', 'T9 (일반)', '오버로드 0강 (T9 기업)', '오버로드 1강', '오버로드 2강',
+      ['미장착', 'T9 (일반)', 'T9 기업', '오버로드 1강', '오버로드 2강',
         '오버로드 3강', '오버로드 4강', '오버로드 5강'],
     );
     expect(head.value).toBe('5');
@@ -603,6 +603,9 @@ describe('character settings editor', () => {
     render();
     const head = root.querySelector<HTMLSelectElement>('[data-equip-level="머리"]')!;
     expect(head.value).toBe('0');
+    // 계산기가 0강 아래를 구분하지 못한다는 사실을 화면에 적어 둔다.
+    expect(root.querySelector('.equip-editor .field-note')!.textContent)
+      .toContain('오버로드 0강 이하를 모두 오버로드 0강으로 계산합니다');
 
     const arm = root.querySelector<HTMLSelectElement>('[data-equip-level="팔"]')!;
     arm.value = '0';
