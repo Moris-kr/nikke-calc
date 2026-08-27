@@ -47,7 +47,7 @@ simulate()
 ### base_stat.py 흐름
 
 ```
-level_stats.json  ──┐
+level_stats.json  ──┐   (1000 초과는 level_beyond.json이 잇는다 — 도감 실측)
 affinity.json     ──┼─ _level_stat() + 보정
 console.json      ──┤
 equipment_stats   ──┤  → base atk/def/hp

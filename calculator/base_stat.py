@@ -77,76 +77,73 @@ def _scale(s, k):
 
 # 레벨 스탯표는 20레벨이 한 «밴드»다. 밴드 안에서는 레벨당 증가분이 일정하고,
 # 밴드가 바뀌는 자리(레벨 ≡ 1 mod 20)에서 한 번 크게 뛴다. 밴드 시작값의 비율은
-# 클래스·무기·스탯과 **무관하게 같고**(레벨 881→901에서 셋 다 1.069251),
-# 레벨이 오를수록 천천히 줄어든다(1.0697 → 1.0661).
-BAND = 20
-
-# 표 밖(1000 초과)을 잇는 추정. 인게임 레벨 상한은 이미 표보다 높다 —
-# 유니온 레이드에서 싱크로 1131인 유니온원을 실제로 만난다. 표 마지막 값으로 눌러
-# 버리면 그 사람 공격력이 15% 넘게 깎여, 견주려던 것 자체가 무의미해진다.
+# 클래스·무기·스탯과 **무관하게 같다**(레벨 881→901에서 셋 다 1.069251).
 #
-# 밴드 비율을 `1 + a·b^-c`로 보고 **표 끝 다섯 밴드**로 맞춘다. 이 방법을 실측으로
-# 검증했다: 레벨 800까지만 보고 1000을 맞히면 오차 −0.36%다(전 구간으로 맞추면 −1.9%라
-# 뒤쪽만 쓴다). 그래도 추정은 추정이라, 1000을 넘는 계산은 그 사실을 화면에 적는다.
-_FIT_BANDS = 5
+# 표는 1000레벨까지인데 인게임은 이미 그 위다. 1000으로 눌러 버리면 싱크로가 높은
+# 사람의 공격력이 15% 넘게 깎여 «누가 더 세나»가 뒤집힌다. 그래서 표 밖은
+# `level_beyond.json`의 **실측 비율**로 잇고, 실측이 닿지 않는 위쪽만 그 비율로 맞춘
+# 꼬리로 연장한다.
+_BEYOND = _load(os.path.join(_TABLE_DIR, "level_beyond.json"))
+BAND = int(_BEYOND["band"])
+_BAND_RATIOS = {int(k): float(v) for k, v in _BEYOND["ratios"].items()}
+# 밴드 상승분 중 «고르게 오르는 몫»의 비중. 나머지는 밴드 경계에서 한 번에 뛴다.
+# 비율과 마찬가지로 레벨이 오를수록 천천히 준다(0.221 → 0.168).
+_BAND_SHARES = {int(k): float(v) for k, v in _BEYOND["shares"].items()}
 
 
-def _band_ratio_fit(table: dict, keys: list) -> tuple:
-    """표 끝 다섯 밴드로 `ln(r-1) = i + s·ln(b)`를 맞춘다 → (기울기, 절편)."""
+def _power_fit(series: dict) -> tuple:
+    """`ln(y) = i + s·ln(b)`를 맞춘다 — 실측이 끝난 뒤를 잇는 꼬리."""
     import math
-    top = int(keys[-1])
-    starts = [lv for lv in range(top - _FIT_BANDS * BAND + 1, top + 2, BAND)]
-    points = []
-    for i in range(len(starts) - 1):
-        lo, hi = table.get(str(starts[i])), table.get(str(starts[i + 1]))
-        if not lo or not hi:
-            continue
-        band = (starts[i] - 1) // BAND
-        ratio = hi["atk"] / lo["atk"]
-        if band > 0 and ratio > 1:
-            points.append((math.log(band), math.log(ratio - 1)))
-    if len(points) < 2:
-        return None
+    points = [(math.log(b), math.log(y)) for b, y in sorted(series.items()) if y > 0]
     n = len(points)
     mx = sum(x for x, _ in points) / n
     my = sum(y for _, y in points) / n
     denom = sum((x - mx) ** 2 for x, _ in points)
-    if denom == 0:
-        return None
     slope = sum((x - mx) * (y - my) for x, y in points) / denom
     return slope, my - slope * mx
 
 
-_BAND_FIT: dict = {}
+_RATIO_TAIL = _power_fit({b: r - 1 for b, r in _BAND_RATIOS.items()})
+_SHARE_TAIL = _power_fit(_BAND_SHARES)
+
+
+def _tail(fit: tuple, band: int) -> float:
+    import math
+    slope, inter = fit
+    return math.exp(inter + slope * math.log(max(band, 1)))
+
+
+def band_ratio(band: int) -> float:
+    """밴드 하나의 상승 비율. 실측이 있으면 실측, 없으면 그 실측으로 맞춘 꼬리."""
+    if band in _BAND_RATIOS:
+        return _BAND_RATIOS[band]
+    return 1 + _tail(_RATIO_TAIL, band)
+
+
+def band_share(band: int) -> float:
+    """밴드 안에서 고르게 오르는 몫의 비중."""
+    if band in _BAND_SHARES:
+        return _BAND_SHARES[band]
+    return _tail(_SHARE_TAIL, band)
 
 
 def _beyond_table(table: dict, keys: list, level: int) -> dict:
-    """표 끝 위쪽을 잇는다. 밴드 모양(19번 고르게 오르고 한 번 뛴다)까지 흉내 낸다."""
-    import math
+    """표 끝 위쪽을 잇는다. 밴드 모양(고르게 오르다 한 번 뛴다)까지 그대로 흉내 낸다."""
     top = int(keys[-1])
-    fit = _BAND_FIT.get(id(table))
-    if fit is None:
-        fit = _BAND_FIT[id(table)] = _band_ratio_fit(table, keys) or (0.0, math.log(0.06))
-    slope, inter = fit
-
-    top_start = top - (top - 1) % BAND          # 표 마지막 밴드의 시작 레벨 (1000이면 981)
-    start = dict(table[str(top_start)])
-    # 마지막 실측 밴드에서 «고르게 오르는 몫»이 밴드 전체 상승의 몇 할인지 — 그 모양을 잇는다.
-    step = {k: table[str(top_start + 1)][k] - start[k] for k in start}
-
-    band = (top_start - 1) // BAND
-    value = dict(start)
+    start_level = top - (top - 1) % BAND          # 표 마지막 밴드의 시작 레벨 (1000이면 981)
+    value = {k: float(v) for k, v in table[str(start_level)].items()}
+    band = (start_level - 1) // BAND
     while True:
-        ratio = 1 + math.exp(inter + slope * math.log(max(band, 1)))
-        gap = {k: value[k] * (ratio - 1) for k in value}
-        share = {k: (step[k] * (BAND - 1) / gap[k] if gap[k] else 0.0) for k in value}
+        ratio = band_ratio(band)
+        gap = {k: v * (ratio - 1) for k, v in value.items()}
         band_start = band * BAND + 1
         if band_start <= level < band_start + BAND:
             offset = level - band_start
             if offset == 0:
                 return {k: round(v) for k, v in value.items()}
-            return {k: round(value[k] + gap[k] * share[k] * offset / (BAND - 1)) for k in value}
-        step = {k: gap[k] * share[k] / (BAND - 1) for k in value}
+            share = band_share(band)
+            return {k: round(value[k] + gap[k] * share * offset / (BAND - 1))
+                    for k in value}
         value = {k: value[k] + gap[k] for k in value}
         band += 1
 

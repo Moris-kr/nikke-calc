@@ -634,8 +634,8 @@ export function mountUnionRaid(hosts: UnionHosts, deps: UnionDeps): void {
     if (row.synchro > SYNCHRO_MEASURED_MAX) {
       cell.classList.add('is-estimated');
       cell.append(el('b', 'union-est', '추정'));
-      cell.title = `실측 스탯표는 ${SYNCHRO_MEASURED_MAX}레벨까지입니다. `
-        + `그 위는 표의 성장 곡선을 이어 붙여 계산합니다(200레벨 앞 오차 0.4% 수준).`;
+      cell.title = `실측이 닿는 곳이 ${SYNCHRO_MEASURED_MAX}레벨까지입니다. `
+        + '그 위는 같은 성장 곡선을 이어 붙여 계산합니다.';
     }
     return cell;
   };

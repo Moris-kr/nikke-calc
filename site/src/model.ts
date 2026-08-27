@@ -16,12 +16,14 @@ export const DEFAULT_SYNCHRO_LEVEL = 400;
 /**
  * 싱크로 레벨 상한 — **인게임 캐릭터 레벨 상한**이다(블라블라링크 CDN
  * `/character/CharacterLevelTable.json`이 1~1400을 담는다).
- * 우리 스탯표는 1000까지뿐이고 그 위는 엔진이 이어 붙인 **추정치**다
- * (`calculator/base_stat._beyond_table`). 유니온에는 싱크로 1131이 실제로 있다.
  */
 export const SYNCHRO_MAX = 1400;
-/** 실측 표가 여기까지다. 이 위를 쓰면 화면이 «추정»이라고 적는다. */
-export const SYNCHRO_MEASURED_MAX = 1000;
+/**
+ * 실측이 닿는 곳. 1000까지는 스탯표(`level_stats.json`)이고, 1161까지는
+ * 블라블라링크 도감의 레벨업 미리보기에서 잰 값(`level_beyond.json`)이다.
+ * 이 위만 추정이라, 화면이 그때만 «추정»이라고 적는다.
+ */
+export const SYNCHRO_MEASURED_MAX = 1161;
 /** 버스트 반응속도 기본값(초). 엔진 `DEFAULT_CONFIG`와 같은 값이다. */
 export const DEFAULT_BURST_REACTION = 0.05;
 

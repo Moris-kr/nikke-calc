@@ -298,8 +298,9 @@ ENDGAME_MAX = 180.0
 # 두면 싱크로 1131인 유니온원의 공격력이 15% 넘게 깎여 견주기 자체가 틀어진다.
 SYNCHRO_MIN = 1
 SYNCHRO_MAX = 1400
-# 실측 표가 여기까지다. 이 위는 추정 — 화면에 적을 때 쓴다.
-SYNCHRO_MEASURED_MAX = 1000
+# 실측이 닿는 곳. `level_stats.json`(1000)과 `level_beyond.json`(도감 미리보기 실측,
+# 1161까지)을 합친 값이다. 이 위만 추정이고, 화면이 그렇게 적는다.
+SYNCHRO_MEASURED_MAX = 1161
 
 
 def normalize_burst_regen(raw: Any) -> float | None:
