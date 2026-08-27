@@ -229,11 +229,15 @@ describe('multi-deck model', () => {
       .toEqual({ 머리: 0, 몸통: 0, 팔: 0, 다리: 0 });
   });
 
-  it('rejects a synchro level outside the stat table', () => {
+  it('rejects a synchro level outside the in-game cap', () => {
+    // 상한은 표가 아니라 **인게임 레벨 상한**(1400)이다. 표는 1000까지지만 그 위는
+    // 엔진이 이어 붙인다 — 유니온에는 싱크로 1131이 실제로 있고, 1000으로 눌러 버리면
+    // 그 사람 공격력이 15% 넘게 깎인다.
     expect(validateRequest({ ...valid, synchroLevel: 0 }))
-      .toContain('싱크로 레벨은 1~1000이어야 합니다.');
-    expect(validateRequest({ ...valid, synchroLevel: 1_001 }))
-      .toContain('싱크로 레벨은 1~1000이어야 합니다.');
+      .toContain('싱크로 레벨은 1~1400이어야 합니다.');
+    expect(validateRequest({ ...valid, synchroLevel: 1_401 }))
+      .toContain('싱크로 레벨은 1~1400이어야 합니다.');
+    expect(validateRequest({ ...valid, synchroLevel: 1_131 })).toEqual([]);
     expect(validateRequest({ ...valid, synchroLevel: 400 })).toEqual([]);
   });
 

@@ -17,7 +17,7 @@
  */
 
 import { decodeBattleCode, decodeShareCode } from './share-code';
-import { DEFAULT_SYNCHRO_LEVEL } from './model';
+import { DEFAULT_SYNCHRO_LEVEL, SYNCHRO_MEASURED_MAX } from './model';
 import type { BattleSettings, DeckState, SimulationResult } from './types';
 
 /** 유니온원 한 명. `GetGuildMembers`가 주는 것만 담는다. */
@@ -625,6 +625,22 @@ export function mountUnionRaid(hosts: UnionHosts, deps: UnionDeps): void {
   };
 
   /**
+   * 싱크로 칸. 실측 스탯표는 1000까지라 그 위는 이어 붙인 추정치다 — 그 사실을
+   * 딜 옆이 아니라 **사람 옆에** 적는다. 왜 이 사람 숫자만 덜 미더운지가 거기서 읽힌다.
+   */
+  const syncCell = (row: MemberRow): HTMLElement => {
+    if (row.synchro <= 0) return el('span', 'union-sync', '싱크로 ?');
+    const cell = el('span', 'union-sync', `싱크로 ${row.synchro}`);
+    if (row.synchro > SYNCHRO_MEASURED_MAX) {
+      cell.classList.add('is-estimated');
+      cell.append(el('b', 'union-est', '추정'));
+      cell.title = `실측 스탯표는 ${SYNCHRO_MEASURED_MAX}레벨까지입니다. `
+        + `그 위는 표의 성장 곡선을 이어 붙여 계산합니다(200레벨 앞 오차 0.4% 수준).`;
+    }
+    return cell;
+  };
+
+  /**
    * 유니온원 줄 오른쪽의 보스 칩. **아래 보스 체크와 연동한다** — 꺼 둔 보스는 칩 자체가
    * 안 나온다. 여기서 끄면 그 사람만 그 보스를 건너뛴다(풍압은 되는데 전격은 아닌 사람).
    */
@@ -673,7 +689,7 @@ export function mountUnionRaid(hosts: UnionHosts, deps: UnionDeps): void {
         unknown: '미확인', scanning: '확인 중', public: '공개', private: '비공개', error: '오류',
       }[row.state]);
       line.append(box, el('span', 'union-name', row.name),
-        el('span', 'union-sync', row.synchro > 0 ? `싱크로 ${row.synchro}` : '싱크로 ?'),
+        syncCell(row),
         state,
         el('span', 'union-note', [row.owned !== undefined ? `니케 ${row.owned}종` : '', row.note ?? '']
           .filter(Boolean).join(' · ')),

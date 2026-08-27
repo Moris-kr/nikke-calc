@@ -12,6 +12,16 @@ const integerInRange = (value: number, min: number, max: number): boolean =>
 
 /** 엔진 기본 스펙과 같은 값. 이것과 같으면 요청에 싣지 않는다(캐시 키가 갈리지 않게). */
 export const DEFAULT_SYNCHRO_LEVEL = 400;
+
+/**
+ * 싱크로 레벨 상한 — **인게임 캐릭터 레벨 상한**이다(블라블라링크 CDN
+ * `/character/CharacterLevelTable.json`이 1~1400을 담는다).
+ * 우리 스탯표는 1000까지뿐이고 그 위는 엔진이 이어 붙인 **추정치**다
+ * (`calculator/base_stat._beyond_table`). 유니온에는 싱크로 1131이 실제로 있다.
+ */
+export const SYNCHRO_MAX = 1400;
+/** 실측 표가 여기까지다. 이 위를 쓰면 화면이 «추정»이라고 적는다. */
+export const SYNCHRO_MEASURED_MAX = 1000;
 /** 버스트 반응속도 기본값(초). 엔진 `DEFAULT_CONFIG`와 같은 값이다. */
 export const DEFAULT_BURST_REACTION = 0.05;
 
@@ -141,8 +151,8 @@ export function validateRequest(request: SimulationRequest): string[] {
   if (!integerInRange(request.duration, 10, 180)) {
     errors.push('전투 시간은 10~180초여야 합니다.');
   }
-  if (request.synchroLevel !== undefined && !integerInRange(request.synchroLevel, 1, 1_000)) {
-    errors.push('싱크로 레벨은 1~1000이어야 합니다.');
+  if (request.synchroLevel !== undefined && !integerInRange(request.synchroLevel, 1, SYNCHRO_MAX)) {
+    errors.push(`싱크로 레벨은 1~${SYNCHRO_MAX}이어야 합니다.`);
   }
   if (!integerInRange(request.enemyDef, 0, 999_999)) {
     errors.push('적 방어력은 0~999999여야 합니다.');

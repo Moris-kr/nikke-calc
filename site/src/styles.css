@@ -1105,3 +1105,8 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
   color: #cfeceb; font: 800 10px ui-monospace, monospace; cursor: pointer; }
 .union-boss-chip.is-off { border-color: rgba(146,176,201,.18); background: transparent; color: var(--muted); }
 .union-boss-chip input { width: 11px; height: 11px; margin: 0; }
+
+/* 실측표(1000레벨) 밖은 추정이다 — 사람 옆에 적어 둔다. */
+.union-sync.is-estimated { color: var(--amber); }
+.union-est { margin-left: 4px; padding: 1px 4px; border: 1px solid rgba(255,191,60,.4);
+  font: 800 9px ui-monospace, monospace; }

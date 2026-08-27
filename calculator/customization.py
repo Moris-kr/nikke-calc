@@ -291,9 +291,15 @@ BURST_REACTION_MAX = 3.0
 ENDGAME_DEFAULT = 20.0
 ENDGAME_MAX = 180.0
 
-# 싱크로 레벨. 기본 스탯표(`level_stats.json`)가 1~1000레벨을 담고 있어 그 범위만 받는다.
+# 싱크로 레벨. 상한은 **인게임 캐릭터 레벨 상한**이다(블라블라링크 CDN
+# `/character/CharacterLevelTable.json`이 1~1400을 담는다, 실측 2026-08-27).
+# 기본 스탯표(`level_stats.json`)는 1000까지뿐이라 그 위는 `base_stat._beyond_table()`이
+# 잇는다 — 추정치이고, 화면이 그 사실을 적는다. 표가 부족하다고 상한을 1000으로
+# 두면 싱크로 1131인 유니온원의 공격력이 15% 넘게 깎여 견주기 자체가 틀어진다.
 SYNCHRO_MIN = 1
-SYNCHRO_MAX = 1000
+SYNCHRO_MAX = 1400
+# 실측 표가 여기까지다. 이 위는 추정 — 화면에 적을 때 쓴다.
+SYNCHRO_MEASURED_MAX = 1000
 
 
 def normalize_burst_regen(raw: Any) -> float | None:

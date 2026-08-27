@@ -75,8 +75,87 @@ def _scale(s, k):
     return {"atk": s["atk"] * k, "def": s["def"] * k, "hp": s["hp"] * k}
 
 
+# 레벨 스탯표는 20레벨이 한 «밴드»다. 밴드 안에서는 레벨당 증가분이 일정하고,
+# 밴드가 바뀌는 자리(레벨 ≡ 1 mod 20)에서 한 번 크게 뛴다. 밴드 시작값의 비율은
+# 클래스·무기·스탯과 **무관하게 같고**(레벨 881→901에서 셋 다 1.069251),
+# 레벨이 오를수록 천천히 줄어든다(1.0697 → 1.0661).
+BAND = 20
+
+# 표 밖(1000 초과)을 잇는 추정. 인게임 레벨 상한은 이미 표보다 높다 —
+# 유니온 레이드에서 싱크로 1131인 유니온원을 실제로 만난다. 표 마지막 값으로 눌러
+# 버리면 그 사람 공격력이 15% 넘게 깎여, 견주려던 것 자체가 무의미해진다.
+#
+# 밴드 비율을 `1 + a·b^-c`로 보고 **표 끝 다섯 밴드**로 맞춘다. 이 방법을 실측으로
+# 검증했다: 레벨 800까지만 보고 1000을 맞히면 오차 −0.36%다(전 구간으로 맞추면 −1.9%라
+# 뒤쪽만 쓴다). 그래도 추정은 추정이라, 1000을 넘는 계산은 그 사실을 화면에 적는다.
+_FIT_BANDS = 5
+
+
+def _band_ratio_fit(table: dict, keys: list) -> tuple:
+    """표 끝 다섯 밴드로 `ln(r-1) = i + s·ln(b)`를 맞춘다 → (기울기, 절편)."""
+    import math
+    top = int(keys[-1])
+    starts = [lv for lv in range(top - _FIT_BANDS * BAND + 1, top + 2, BAND)]
+    points = []
+    for i in range(len(starts) - 1):
+        lo, hi = table.get(str(starts[i])), table.get(str(starts[i + 1]))
+        if not lo or not hi:
+            continue
+        band = (starts[i] - 1) // BAND
+        ratio = hi["atk"] / lo["atk"]
+        if band > 0 and ratio > 1:
+            points.append((math.log(band), math.log(ratio - 1)))
+    if len(points) < 2:
+        return None
+    n = len(points)
+    mx = sum(x for x, _ in points) / n
+    my = sum(y for _, y in points) / n
+    denom = sum((x - mx) ** 2 for x, _ in points)
+    if denom == 0:
+        return None
+    slope = sum((x - mx) * (y - my) for x, y in points) / denom
+    return slope, my - slope * mx
+
+
+_BAND_FIT: dict = {}
+
+
+def _beyond_table(table: dict, keys: list, level: int) -> dict:
+    """표 끝 위쪽을 잇는다. 밴드 모양(19번 고르게 오르고 한 번 뛴다)까지 흉내 낸다."""
+    import math
+    top = int(keys[-1])
+    fit = _BAND_FIT.get(id(table))
+    if fit is None:
+        fit = _BAND_FIT[id(table)] = _band_ratio_fit(table, keys) or (0.0, math.log(0.06))
+    slope, inter = fit
+
+    top_start = top - (top - 1) % BAND          # 표 마지막 밴드의 시작 레벨 (1000이면 981)
+    start = dict(table[str(top_start)])
+    # 마지막 실측 밴드에서 «고르게 오르는 몫»이 밴드 전체 상승의 몇 할인지 — 그 모양을 잇는다.
+    step = {k: table[str(top_start + 1)][k] - start[k] for k in start}
+
+    band = (top_start - 1) // BAND
+    value = dict(start)
+    while True:
+        ratio = 1 + math.exp(inter + slope * math.log(max(band, 1)))
+        gap = {k: value[k] * (ratio - 1) for k in value}
+        share = {k: (step[k] * (BAND - 1) / gap[k] if gap[k] else 0.0) for k in value}
+        band_start = band * BAND + 1
+        if band_start <= level < band_start + BAND:
+            offset = level - band_start
+            if offset == 0:
+                return {k: round(v) for k, v in value.items()}
+            return {k: round(value[k] + gap[k] * share[k] * offset / (BAND - 1)) for k in value}
+        step = {k: gap[k] * share[k] / (BAND - 1) for k in value}
+        value = {k: value[k] + gap[k] for k in value}
+        band += 1
+
+
 def _level_stat(cls: str, weapon: str, level: int) -> dict:
-    """level_stats.json 조회. 키 없는 레벨은 인접 두 키로 선형 보간."""
+    """level_stats.json 조회. 키 없는 레벨은 인접 두 키로 선형 보간.
+
+    표 끝(1000)을 넘는 레벨은 `_beyond_table()`이 잇는다 — **추정치다**.
+    """
     table = _LEVEL_STATS[f"{cls}_{weapon}"]
     key = str(level)
     if key in table:
@@ -86,8 +165,8 @@ def _level_stat(cls: str, weapon: str, level: int) -> dict:
     levels = [int(k) for k in keys]
     if level <= levels[0]:
         return dict(table[keys[0]])
-    if level >= levels[-1]:
-        return dict(table[keys[-1]])
+    if level > levels[-1]:
+        return _beyond_table(table, keys, level)
 
     for i in range(len(levels) - 1):
         lo, hi = levels[i], levels[i + 1]
