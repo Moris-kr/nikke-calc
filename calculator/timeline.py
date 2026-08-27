@@ -2371,7 +2371,21 @@ def simulate(
     # 별도 누적으로 취급하고, 상한은 부여 시점 시전자 최종 공격력으로 고정한다.
     damage_accumulators: dict[int, dict] = {}
 
+    # `_active`를 마지막으로 훑은 버전. 그대로면 다시 훑지 않는다.
+    _acc_scan_version = -1
+
     def _sync_damage_accumulators(t: float):
+        """새로 붙은 «대미지 누적» 버프를 훑어 등록한다.
+
+        누적 버프는 `_active`에서만 생기므로, `_active`가 그대로면 새로 생길 것도 없다.
+        그런데 이 훑기가 **매 프레임 × 활성 버프 전부**라 대부분의 편성에서 헛일이었다
+        (누적 버프가 하나도 없는 편성이 흔하다). 버전이 그대로면 건너뛴다 —
+        `_cache_version`은 `_active`가 바뀔 때마다 오른다(`_invalidate_buffs_cache`).
+        """
+        nonlocal _acc_scan_version
+        if bm._cache_version == _acc_scan_version:
+            return
+        _acc_scan_version = bm._cache_version
         for ab in bm._active:
             eff = ab.effect
             if eff.get("stat") != "damage_accumulate" or id(ab) in damage_accumulators:

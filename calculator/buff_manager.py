@@ -405,6 +405,9 @@ _TICK_NUDGE = 1e-4
 
 _AB_SEQ = itertools.count()  # ActiveBuff 고유 번호 발급기 (uid 필드 참고)
 
+# 스텝 캐시의 «아직 안 구했다» 표시. None은 «기여 없음»이라는 뜻이라 못 쓴다.
+_STEP_UNSET = object()
+
 
 @dataclass
 class ActiveBuff:
@@ -430,6 +433,15 @@ class ActiveBuff:
     shield_max_per_target: dict[str, float] = field(default_factory=dict)
                                       # 보호막 회복 상한(최초 생성량).
                                       # 수명은 ActiveBuff와 같아 별도 만료 상태를 두지 않는다.
+
+    plan_steps: dict = field(default_factory=dict, repr=False, compare=False)
+    # 시간 불변 버프의 `_build_plan` 스텝 캐시. {(caster, target, exclude): 스텝}
+    #
+    # `_active`가 바뀔 때마다 계획을 통째로 다시 짜는데, 바뀐 건 보통 한둘이고
+    # 나머지 시간 불변 버프는 **값이 절대 변하지 않는다**(`_is_time_invariant`가
+    # 영구·무조건·무스택·무스케일링만 참으로 준다). 그래서 스텝을 버프에 붙여 둔다.
+    # 객체에 붙이므로 uid나 id를 키로 쓸 때 생기는 재사용 문제가 없다 — 버프가 죽으면
+    # 캐시도 같이 죽는다.
 
     uid: int = field(default_factory=lambda: next(_AB_SEQ))
     # 이 인스턴스의 고유 식별자.
@@ -2855,12 +2867,17 @@ class BuffManager:
 
         계획은 `_cache_version`이 오르면 `_invalidate_buffs_cache`가 통째로 버린다.
         """
-        plan = [
-            self._plan_step(ab, caster, target, exclude_names)
-            if self._is_time_invariant(ab) else (_PLAN_LIVE, ab, None)
-            for ab in self._active
-        ]
-        plan = [step for step in plan if step is not None]
+        key = (caster, target, exclude_names)
+        plan = []
+        for ab in self._active:
+            if not self._is_time_invariant(ab):
+                plan.append((_PLAN_LIVE, ab, None))
+                continue
+            step = ab.plan_steps.get(key, _STEP_UNSET)
+            if step is _STEP_UNSET:
+                step = ab.plan_steps[key] = self._plan_step(ab, caster, target, exclude_names)
+            if step is not None:
+                plan.append(step)
         self._plan_cache[(caster, target, exclude_names)] = plan
         return plan
 
@@ -2884,6 +2901,7 @@ class BuffManager:
         cached = self._buffs_cache.get(cache_key)
         if cached is not None:
             return cached
+
 
         plan = self._plan_cache.get((caster, target, exclude_names))
         if plan is None:
