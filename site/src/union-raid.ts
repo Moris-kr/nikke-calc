@@ -73,21 +73,25 @@ export const DECK_SLOTS = 3;
  * 쿠키는 브라우저가 알아서 싣는다 — 우리가 받아 보관하는 값이 아니다.
  */
 export const MEMBER_SNIPPET = `await (async () => {
-  const guild = await fetch('https://api.blablalink.com/api/game/proxy/Game/GetMyGuildInfo', {
+  const call = async (route, body) => (await fetch('https://api.blablalink.com/api/game/proxy/' + route, {
     method: 'POST', credentials: 'include',
     headers: { 'Content-Type': 'application/json', 'X-Channel-Type': '2', 'X-Language': 'ko',
       'X-Common-Params': JSON.stringify({ game_id: '29080', area_id: 'global', source: 'pc_web', intl_game_id: '29080', language: 'ko', env: 'prod' }) },
-    body: '{}',
-  }).then((r) => r.json());
-  const info = guild.data?.guild_info ?? guild.data ?? {};
-  const members = await fetch('https://api.blablalink.com/api/game/proxy/Game/GetGuildMembers', {
-    method: 'POST', credentials: 'include',
-    headers: { 'Content-Type': 'application/json', 'X-Channel-Type': '2', 'X-Language': 'ko',
-      'X-Common-Params': JSON.stringify({ game_id: '29080', area_id: 'global', source: 'pc_web', intl_game_id: '29080', language: 'ko', env: 'prod' }) },
-    body: JSON.stringify({ guild_id: String(info.guild_id ?? ''), nikke_area_id: String(info.nikke_area_id ?? '') }),
-  }).then((r) => r.json());
-  await navigator.clipboard.writeText(JSON.stringify(members));
-  console.log('유니온원', (members.data?.items ?? []).length + '명을 클립보드에 담았습니다. 계산기에 붙여넣으세요.');
+    body: JSON.stringify(body),
+  })).json();
+  const mine = await call('Game/GetMyGuildInfo', { latest: false });
+  const box = mine.data || {};
+  const info = box.card || box.guild_info || box.guild_detail || box;
+  if (!info.guild_id) { console.error('유니온을 찾지 못했습니다:', mine.msg || mine.code, '— 로그인한 채 유니온 스퀘어에서 실행해 주세요.'); return; }
+  const members = await call('Game/GetGuildMembers', { guild_id: String(info.guild_id), nikke_area_id: String(info.nikke_area_id || '') });
+  const items = (members.data || {}).items || [];
+  if (!items.length) { console.error('명단이 비어 있습니다:', members.msg || members.code); return; }
+  const text = JSON.stringify({ guild_name: info.guild_name, items: items });
+  try { copy(text); console.log(info.guild_name + ' · 유니온원 ' + items.length + '명을 클립보드에 담았습니다. 계산기에 붙여넣으세요.'); }
+  catch (e) {
+    try { await navigator.clipboard.writeText(text); console.log(info.guild_name + ' · 유니온원 ' + items.length + '명을 클립보드에 담았습니다.'); }
+    catch (e2) { console.log('아래 한 줄을 통째로 복사해 계산기에 붙여넣으세요 (우클릭 → Copy string contents):'); console.log(text); }
+  }
 })();`;
 
 const num = (value: unknown, fallback = 0): number => {

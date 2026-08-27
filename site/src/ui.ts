@@ -489,6 +489,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <li>블라블라링크에 로그인한 채 <b>유니온 스퀘어</b>를 엽니다.</li>
             <li><kbd>F12</kbd> → <b>Console</b> 탭에 아래 내용을 붙여넣고 <kbd>Enter</kbd>.</li>
             <li>명단이 클립보드에 담깁니다. 아래 상자에 붙여넣으세요.</li>
+            <li>클립보드가 막혀 있으면 콘솔에 <b>긴 한 줄</b>이 찍힙니다 — 그 줄을 우클릭해 <b>Copy string contents</b>로 복사하면 됩니다.</li>
           </ol>
           <textarea class="union-snippet" data-union-snippet rows="3" readonly spellcheck="false"></textarea>
           <div class="union-actions">

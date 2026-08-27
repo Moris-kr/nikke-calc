@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildJobs, deckForMember, estimateScanSeconds, groupResults, humanSeconds,
-  parseMemberList, readBossCode, readDeckCode, remainingSeconds,
+  MEMBER_SNIPPET, parseMemberList, readBossCode, readDeckCode, remainingSeconds,
 } from './union-raid';
 import type { BossSlot, JobResult, MemberRow } from './union-raid';
 import { encodeBattleCode, encodeShareCode } from './share-code';
@@ -59,6 +59,34 @@ describe('유니온 명단 읽기', () => {
       .toThrow(/user no bind role/);
     expect(() => parseMemberList('   ')).toThrow(/비어 있습니다/);
     expect(() => parseMemberList('아무 말이나')).toThrow(/알아보지 못했습니다/);
+  });
+});
+
+describe('명단 스니펫', () => {
+  it('유니온 정보가 data.card에 있다는 것을 안다', () => {
+    // 처음엔 `data.guild_info`로 짚었다가 유니온원 0명을 담았다(실측 2026-08-27).
+    // 실제 응답은 `data.card`다 — 다른 모양도 함께 받아 두되 card가 먼저다.
+    expect(MEMBER_SNIPPET).toContain('box.card');
+    expect(MEMBER_SNIPPET.indexOf('box.card')).toBeLessThan(MEMBER_SNIPPET.indexOf('box.guild_info'));
+    expect(MEMBER_SNIPPET).toContain('Game/GetGuildMembers');
+  });
+
+  it('클립보드가 막혀도 길이 있다', () => {
+    // 콘솔에서 실행하면 문서가 포커스를 잃어 `navigator.clipboard`가 거절된다.
+    // 데브툴의 `copy()`를 먼저 쓰고, 그것도 없으면 통째로 찍어 준다.
+    expect(MEMBER_SNIPPET).toContain('copy(text)');
+    expect(MEMBER_SNIPPET).toContain('navigator.clipboard.writeText');
+    expect(MEMBER_SNIPPET).toContain('Copy string contents');
+  });
+
+  it('스니펫이 뱉는 모양을 그대로 읽는다', () => {
+    const spat = JSON.stringify({
+      guild_name: '니삭스',
+      items: [{ nickname: '모래마녀', member_id: '12510910120603196324', synchro_level: 1082, level: 918, bind_area_id: 83 }],
+    });
+    expect(parseMemberList(spat)).toEqual([
+      { name: '모래마녀', openid: '12510910120603196324', synchro: 1082, level: 918, area: 83 },
+    ]);
   });
 });
 
