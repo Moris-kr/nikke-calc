@@ -4,7 +4,7 @@ import type { BattleShare } from './share-code';
 // 사람이 붙인 이름뿐이고, 그 코드가 무슨 뜻인지 — 몇 초짜리 전투인지, 누가 편성됐는지 —
 // 는 여기서만 안다. 목록에 함께 적히는 «설명»도 그래서 서버가 아니라 이쪽에서 만든다.
 
-export type ShareKind = 'boss' | 'squad';
+export type ShareKind = 'boss' | 'squad' | 'union';
 export type VoteValue = 1 | -1 | 0;
 
 export interface ShareItem {
@@ -156,4 +156,20 @@ export function summarizeSquad(
   const total = used.reduce((sum, squad) => sum + squad.length, 0);
   if (used.length <= 1) return used[0]?.join('/') ?? '';
   return `${used.length}덱 · ${total}명`;
+}
+
+/**
+ * 유니온 레이드 판 한 줄 설명. 보스 이름을 늘어놓는 것이 가장 빨리 읽힌다 —
+ * 「작열 글러트니 / 수냉 니힐」만 보여도 이번 시즌 것인지 바로 안다.
+ */
+export function summarizeUnion(
+  bosses: Array<{ name: string; enabled: boolean; battleCode: string; deckCodes: string[] }>,
+): string {
+  const live = bosses.filter((boss) => boss.enabled
+    && (boss.name.trim() !== '' || boss.battleCode.trim() !== ''));
+  const names = live.map((boss, index) => boss.name.trim() || `보스 ${index + 1}`);
+  const decks = live.reduce(
+    (sum, boss) => sum + boss.deckCodes.filter((code) => code.trim() !== '').length, 0);
+  if (names.length === 0) return '빈 판';
+  return `${names.join(' / ')} · 덱 ${decks}개`;
 }

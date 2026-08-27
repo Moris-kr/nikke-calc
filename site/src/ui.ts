@@ -548,8 +548,32 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
         <div class="union-step" data-union-step="3" hidden>
           <h3>보스와 덱</h3>
-          <p class="field-note">보스는 <b>전투 조건 코드</b>(NK3-), 덱은 <b>조합 코드</b>(NK2-)로 채웁니다. 계산기에 잡아 둔 설정을 그대로 가져올 수도 있습니다. 체크를 끈 보스는 계산하지 않습니다 — 풍압엔 강한데 전격엔 약한 사람이 있으니까요.</p>
+          <p class="field-note">보스는 <b>전투 조건 코드</b>(NK3-), 덱은 <b>조합 코드</b>(NK2-)로 채웁니다. 계산기에 잡아 둔 설정을 가져오거나, <b>공유 목록에서 골라</b> 넣을 수도 있습니다. 체크를 끈 보스는 계산하지 않습니다 — 풍압엔 강한데 전격엔 약한 사람이 있으니까요.</p>
+          <div class="union-board-bar">
+            <span class="union-board-label">판 전체</span>
+            <button type="button" class="roster-import" data-union-set-share>공유에서 판 고르기</button>
+            <button type="button" class="roster-import" data-union-set-paste>판 코드 붙여넣기</button>
+            <button type="button" class="roster-import" data-union-set-copy>이 판 코드 복사</button>
+            <span class="union-status" data-union-set-status></span>
+          </div>
+          <p class="field-note">보스 다섯과 각 칸의 덱까지 <b>한 코드</b>(NK4-)에 담깁니다 — 지난 시즌 판을 통째로 옮기거나 유니온방에 뿌릴 때 스무 번 붙여넣지 않아도 됩니다. <b>유니온원 명단은 담기지 않습니다.</b></p>
+          <div class="union-set-box" data-union-set-box hidden>
+            <textarea class="custom-json" data-union-set-code rows="3" placeholder="판 코드 (NK4-…)"></textarea>
+            <div class="deck-copy-actions">
+              <button type="button" class="deck-copy-apply" data-union-set-apply>이 판 적용</button>
+              <button type="button" class="deck-copy-cancel" data-union-set-close>닫기</button>
+            </div>
+          </div>
           <div class="union-bosses" data-union-bosses></div>
+
+          <div class="custom-modal" data-union-share-modal hidden>
+            <div class="custom-card share-card" role="dialog" aria-label="공유에서 고르기">
+              <div class="custom-head"><h2 data-union-share-title>공유에서 고르기</h2><button type="button" class="custom-close" data-union-share-close aria-label="닫기">✕</button></div>
+              <p class="custom-desc" data-union-share-desc></p>
+              <div data-union-share-body></div>
+              <p class="custom-msg" data-union-share-msg hidden></p>
+            </div>
+          </div>
         </div>
 
         <div class="union-step" data-union-step="4" hidden>
@@ -843,7 +867,13 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       <div class="custom-modal" data-share-modal hidden>
         <div class="custom-card share-card" role="dialog" aria-label="조합 공유">
           <div class="custom-head"><h2>조합 공유</h2><button type="button" class="custom-close" data-share-close aria-label="닫기">✕</button></div>
-          <p class="custom-desc">누가 편성됐는지(캐릭터 조합)만 주고받습니다. 5덱 모드면 5개 덱이 한 번에 담깁니다. <b>오버로드·공격력·돌파 같은 개인 스펙과 전투 조건은 담기지 않습니다</b> — 적용하면 캐릭터만 바뀌고 스펙은 각자 자기 설정(CSV 로스터를 넣었다면 그 값)이 그대로 쓰입니다. ${SHARE_API ? '<b>서버로는 «올리기»를 누를 때만 전송됩니다.</b>' : '서버로 전송되지 않습니다.'}</p>
+          <p class="custom-desc">누가 편성됐는지(캐릭터 조합)만 주고받습니다. <b>오버로드·공격력·돌파 같은 개인 스펙과 전투 조건은 담기지 않습니다</b> — 적용하면 캐릭터만 바뀌고 스펙은 각자 자기 설정(CSV 로스터를 넣었다면 그 값)이 그대로 쓰입니다. ${SHARE_API ? '<b>서버로는 «올리기»를 누를 때만 전송됩니다.</b>' : '서버로 전송되지 않습니다.'}</p>
+          <div class="share-scope" data-share-scope>
+            <span class="share-scope-label">범위</span>
+            <button type="button" class="share-scope-pick is-on" data-share-scope-pick="one">이 덱만</button>
+            <button type="button" class="share-scope-pick" data-share-scope-pick="all">5덱 전부</button>
+            <span class="share-scope-note" data-share-scope-note></span>
+          </div>
           ${SHARE_API ? '<div class="share-tabs" data-share-tabs></div>' : ''}
           <div class="share-pane" data-share-pane="upload" hidden></div>
           <div class="share-pane" data-share-pane="list" hidden></div>
@@ -2097,21 +2127,25 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       presetName.focus();
       return;
     }
-    if (!decks.some((deck) => deck.squad.some(Boolean))) {
-      showShareMsg('편성이 비어 있어 저장할 것이 없습니다.');
+    if (!decksInScope().some((deck) => deck.squad.some(Boolean))) {
+      showShareMsg(shareScope === 'all'
+        ? '편성이 비어 있어 저장할 것이 없습니다.'
+        : `덱 ${activeDeckId}이 비어 있습니다. 다른 덱을 담으려면 위에서 «5덱 전부»를 고르세요.`);
       return;
     }
     if (presets.length >= PRESET_MAX && !presets.some((p) => p.name === name)) {
       showShareMsg(`프리셋은 ${PRESET_MAX}개까지 저장합니다. 쓰지 않는 것을 지워 주세요.`);
       return;
     }
-    const code = encodeShareCode(decks, fiveDeckMode);
+    const code = shareScopeCode();
     presets = [{ name, code, at: new Date().toISOString() },
       ...presets.filter((item) => item.name !== name)];
     savePresets();
     renderPresets();
     presetName.value = '';
-    showShareMsg(`«${name}» 으로 저장했습니다. 편성만 담기므로 스펙이 바뀌어도 그대로 씁니다.`, true);
+    showShareMsg(`«${name}» 으로 저장했습니다`
+      + `(${shareScope === 'all' ? '5덱 전부' : `덱 ${activeDeckId}만`}).`
+      + ' 편성만 담기므로 스펙이 바뀌어도 그대로 씁니다.', true);
   });
 
   // 계산 기록 — 그때의 편성(공유 코드)과 수치·조건을 남긴다. 편성만 되살릴 수 있게
@@ -2193,7 +2227,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       restore.className = 'preset-load';
       restore.textContent = '이 편성 되살리기';
       restore.addEventListener('click', () => {
-        applyShareText(entry.code);
+        // 기록은 «그때 그 판»이다 — 범위 고르개와 무관하게 판 전체를 되살린다.
+        applyShareText(entry.code, 'all');
         historyModal.hidden = true;
       });
       const remove = document.createElement('button');
@@ -2217,13 +2252,60 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     if (event.target === historyModal) historyModal.hidden = true;
   });
 
+  /**
+   * 주고받을 범위. 「이 덱만」이 기본이다 — 덱 하나를 옮기는 일이 판 전체를 옮기는
+   * 일보다 훨씬 잦은데, 예전에는 그것도 5덱 코드로 나가고 받는 쪽에서는 판을 통째로
+   * 덮었다(2~5덱이 조용히 지워졌다).
+   *
+   * 저장·복사·올리기와 **적용까지 같은 값을 본다** — 「이 덱만」으로 받으면 코드에 든
+   * 첫 덱이 지금 보고 있는 덱에 들어가고 나머지 덱은 그대로 남는다.
+   */
+  type ShareScope = 'one' | 'all';
+  let shareScope: ShareScope = 'one';
+  const scopeBox = element<HTMLElement>(root, '[data-share-scope]');
+  const scopeNote = element<HTMLElement>(root, '[data-share-scope-note]');
+
+  /** 지금 보고 있는 덱의 자리(0부터). 덱 순서를 바꿔도 따라간다. */
+  const activeDeckIndex = (): number => {
+    const at = decks.findIndex((deck) => deck.id === activeDeckId);
+    return at >= 0 ? at : 0;
+  };
+
+  /** 범위에 맞춰 담을 덱들. 「이 덱만」이면 지금 덱 하나다. */
+  const decksInScope = (): DeckState[] =>
+    (shareScope === 'all' ? decks : [decks[activeDeckIndex()]!]);
+
+  const shareScopeCode = (): string =>
+    (shareScope === 'all'
+      ? encodeShareCode(decks, fiveDeckMode)
+      : encodeShareCode([decks[activeDeckIndex()]!], false));
+
+  const renderScope = () => {
+    for (const button of scopeBox.querySelectorAll<HTMLButtonElement>('[data-share-scope-pick]')) {
+      button.classList.toggle('is-on', button.dataset.shareScopePick === shareScope);
+    }
+    scopeNote.textContent = shareScope === 'all'
+      ? '5덱을 한 코드에 담고, 받으면 판 전체가 바뀝니다.'
+      : `덱 ${activeDeckId}만 담고, 받으면 덱 ${activeDeckId}에만 들어갑니다.`;
+  };
+
+  for (const button of scopeBox.querySelectorAll<HTMLButtonElement>('[data-share-scope-pick]')) {
+    button.addEventListener('click', () => {
+      shareScope = button.dataset.shareScopePick === 'all' ? 'all' : 'one';
+      renderScope();
+      refreshShareFields();
+      showShareMsg('');
+    });
+  }
+
   const refreshShareFields = () => {
-    const code = encodeShareCode(decks, fiveDeckMode);
+    const code = shareScopeCode();
     shareOut.value = code;
     // 코드가 짧아져 링크로도 무리가 없다 — 받는 쪽은 열기만 하면 적용된다.
     shareUrl.value = `${location.origin}${location.pathname}#deck=${encodeURIComponent(code)}`;
   };
   const openShareModal = (focusPreset = false) => {
+    renderScope();
     refreshShareFields();
     renderPresets();
     shareIn.value = '';
@@ -2262,22 +2344,34 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     const hit = text.match(/#deck=([^&\s]+)/);
     return hit ? decodeURIComponent(hit[1]!) : text;
   };
-  const applyShareText = (text: string) => {
+  /**
+   * 받은 코드를 덱에 얹는다.
+   *
+   * `scope`를 안 주면 모달의 범위 고르개를 따른다. 공유 링크와 계산 기록은 «그때 그
+   * 판을 통째로»라는 뜻이므로 `'all'`을 못 박아 넘긴다 — 링크를 연 사람이 덱 하나만
+   * 받으면 판을 잃는다.
+   */
+  const applyShareText = (text: string, scope: ShareScope = shareScope) => {
     try {
       // 카탈로그 이름을 넘겨야 해시에서 캐릭터를 되찾는다(커스텀 니케도 카탈로그에 있다).
       const payload = decodeShareCode(shareCodeFrom(text), catalog.map((char) => char.name));
+      const into = scope === 'all' ? 'all' : activeDeckIndex();
+      const landed = scope === 'all' ? 1 : activeDeckId;
       // 스펙은 내 것을 쓴다 — CSV 로스터를 넣어 뒀으면 그대로 얹힌다.
       const { applied, skipped } = applyShareToDecks(
         payload, decks,
         (name) => catalogByName.has(name),
         (name) => (roster[name] ? cloneOverride(roster[name]!) : undefined),
+        into,
       );
-      fiveDeckMode = payload.fiveDeckMode || applied > 1;
-      element<HTMLInputElement>(root, '#squad-mode').checked = fiveDeckMode;
-      deckTabs.hidden = !fiveDeckMode;
-      deckMoves.hidden = !fiveDeckMode;
-      deckNote.hidden = !fiveDeckMode;
-      activeDeckId = 1;
+      if (scope === 'all') {
+        fiveDeckMode = payload.fiveDeckMode || applied > 1;
+        element<HTMLInputElement>(root, '#squad-mode').checked = fiveDeckMode;
+        deckTabs.hidden = !fiveDeckMode;
+        deckMoves.hidden = !fiveDeckMode;
+        deckNote.hidden = !fiveDeckMode;
+        activeDeckId = 1;
+      }
       saveState();
       renderDeckTabs();
       renderSquad();
@@ -2285,7 +2379,17 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       const missing = skipped.length > 0
         ? ` · 목록에 없는 니케 ${skipped.length}명 제외(${skipped.slice(0, 3).join(', ')}${skipped.length > 3 ? '…' : ''})`
         : '';
-      showShareMsg(`덱 ${applied}개를 적용했습니다${missing}.`, skipped.length === 0);
+      // 5덱짜리를 한 칸에 받았으면 나머지가 어디 갔는지 반드시 말해 준다.
+      const carried = payload.decks.filter((deck) => deck.squad.some((n) => n.trim() !== '')).length;
+      if (scope === 'all') {
+        showShareMsg(`덱 ${applied}개를 적용했습니다${missing}.`, skipped.length === 0);
+      } else if (carried > 1) {
+        showShareMsg(`코드에 덱이 ${carried}개 들어 있어 첫 덱만 덱 ${landed}에 넣었습니다`
+          + `${missing}. 판 전체를 받으려면 위에서 «5덱 전부»를 고르세요.`);
+      } else {
+        showShareMsg(`덱 ${landed}에 적용했습니다${missing}. 다른 덱은 그대로입니다.`,
+          skipped.length === 0);
+      }
     } catch (error) {
       showShareMsg(error instanceof Error ? error.message : String(error));
     }
@@ -2299,8 +2403,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       kind: 'squad',
       server: shareServer,
       current: () => ({
-        code: encodeShareCode(decks, fiveDeckMode),
-        auto: summarizeSquad(decks, fiveDeckMode),
+        code: shareScopeCode(),
+        auto: summarizeSquad(decksInScope(), shareScope === 'all' && fiveDeckMode),
       }),
       // applyShareText가 제외된 니케까지 세어 자기 말로 알린다 — 그대로 쓴다.
       apply: (item) => {
@@ -3684,6 +3788,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   if (unionPanel && blablaProxy) {
     mountUnionRaid({ panel: unionPanel }, {
       proxy: blablaProxy,
+      shareServer,
       settings,
       catalog: [...catalogByName.values()],
       simulate: (request) => client.simulate(request),
@@ -3915,7 +4020,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   if (location.hash.startsWith('#deck=')) {
     const linked = location.hash;
     history.replaceState(null, '', location.pathname + location.search);
-    applyShareText(linked);
+    applyShareText(linked, 'all');
     refreshShareFields();
     renderPresets();
     shareIn.value = linked;

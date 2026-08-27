@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  applyShareToDecks, decodeBattleCode, decodeShareCode, encodeBattleCode, encodeShareCode, nameHash,
+  applyShareToDecks, decodeBattleCode, decodeShareCode, decodeUnionCode,
+  encodeBattleCode, encodeShareCode, encodeUnionCode, nameHash,
 } from './share-code';
 import type { DeckState } from './types';
 
@@ -261,5 +262,163 @@ describe('전투 조건 공유 코드 (NK3)', () => {
   it('빈 코드와 깨진 코드는 사람이 읽을 메시지로 막는다', () => {
     expect(() => decodeBattleCode('   ')).toThrow(/입력해 주세요/);
     expect(() => decodeBattleCode('NK3-@@@')).toThrow(/해석하지 못했습니다|올바르지 않습니다/);
+  });
+});
+
+describe('덱 한 칸만 주고받기', () => {
+  it('한 칸에 넣으면 나머지 덱은 그대로 남는다', () => {
+    const decks = emptyDecks();
+    decks[0]!.squad = ['리타', '', '', '', ''];
+    decks[1]!.squad = ['앨리스', '', '', '', ''];
+    decks[4]!.squad = ['나가', '', '', '', ''];
+
+    const one = encodeShareCode([deck(1, ['크라운', '레이븐', '', '', ''])], false);
+    const result = applyShareToDecks(
+      decodeShareCode(one, allNames), decks, () => true, undefined, 2,
+    );
+
+    expect(result.applied).toBe(1);
+    expect(decks[2]!.squad).toEqual(['크라운', '레이븐', '', '', '']);
+    // 예전에는 이 자리에서 2·5덱이 통째로 지워졌다.
+    expect(decks[0]!.squad[0]).toBe('리타');
+    expect(decks[1]!.squad[0]).toBe('앨리스');
+    expect(decks[4]!.squad[0]).toBe('나가');
+  });
+
+  it('5덱짜리 코드를 한 칸에 떨어뜨리면 첫 덱만 들어간다', () => {
+    const decks = emptyDecks();
+    decks[3]!.squad = ['나가', '', '', '', ''];
+    const five = emptyDecks();
+    FIVE_DECKS.forEach((squad, i) => { five[i]!.squad = [...squad]; });
+
+    applyShareToDecks(
+      decodeShareCode(encodeShareCode(five, true), allNames), decks, () => true, undefined, 0,
+    );
+
+    expect(decks[0]!.squad).toEqual(FIVE_DECKS[0]);
+    expect(decks[1]!.squad.every((n) => n === '')).toBe(true);
+    expect(decks[3]!.squad[0]).toBe('나가');   // 건드리지 않은 칸
+  });
+
+  it("'all'은 예전 그대로 판을 갈아 끼운다", () => {
+    const decks = emptyDecks();
+    decks[2]!.squad = ['나가', '', '', '', ''];
+    applyShareToDecks(
+      decodeShareCode(encodeShareCode([deck(1, ['리타', '', '', '', ''])], false), allNames),
+      decks, () => true,
+    );
+    expect(decks[0]!.squad[0]).toBe('리타');
+    expect(decks[2]!.squad.every((n) => n === '')).toBe(true);
+  });
+
+  it('없는 칸을 겨냥하면 아무 일도 일어나지 않는다', () => {
+    const decks = emptyDecks();
+    decks[0]!.squad = ['리타', '', '', '', ''];
+    const result = applyShareToDecks(
+      decodeShareCode(encodeShareCode([deck(1, ['크라운', '', '', '', ''])], false), allNames),
+      decks, () => true, undefined, 9,
+    );
+    expect(result.applied).toBe(0);
+    expect(decks[0]!.squad[0]).toBe('리타');
+  });
+});
+
+describe('유니온 레이드 판 코드 (NK4)', () => {
+  // 기본값 전부에서 출발한다. 손으로 몇 개만 채운 객체를 넘기면 나머지가 undefined라
+  // «기본값과 다르다»고 판정돼 코드가 실제보다 세 배쯤 길어진다 — 길이를 재는 시험이
+  // 무의미해진다.
+  const baseBattle = decodeBattleCode('NK3-e30');
+  const battle = (duration: number, code: string) =>
+    encodeBattleCode({ ...baseBattle, duration, enemyCode: code } as never);
+
+  const sampleShare = () => ({
+    bosses: [
+      {
+        name: '작열 글러트니',
+        enabled: true,
+        battleCode: battle(150, '작열'),
+        deckCodes: [
+          encodeShareCode([deck(1, FIVE_DECKS[0]!)], false),
+          encodeShareCode([deck(1, FIVE_DECKS[1]!)], false),
+          '',
+        ],
+      },
+      {
+        name: '수냉 니힐',
+        enabled: false,
+        battleCode: battle(180, '수냉'),
+        deckCodes: [encodeShareCode([deck(1, FIVE_DECKS[2]!)], false)],
+      },
+    ],
+  });
+
+  it('보스 이름·켬끔·조건·덱을 한 코드에 담고 그대로 돌려준다', () => {
+    const code = encodeUnionCode(sampleShare());
+    expect(code.startsWith('NK4-')).toBe(true);
+
+    const back = decodeUnionCode(code);
+    expect(back.bosses).toHaveLength(2);
+    expect(back.bosses[0]!.name).toBe('작열 글러트니');
+    expect(back.bosses[0]!.enabled).toBe(true);
+    expect(back.bosses[1]!.name).toBe('수냉 니힐');
+    expect(back.bosses[1]!.enabled).toBe(false);
+  });
+
+  it('안에 든 NK3·NK2가 원래 코드 그대로 나온다', () => {
+    const share = sampleShare();
+    const back = decodeUnionCode(encodeUnionCode(share));
+
+    expect(back.bosses[0]!.battleCode).toBe(share.bosses[0]!.battleCode);
+    expect(decodeBattleCode(back.bosses[0]!.battleCode).duration).toBe(150);
+    expect(decodeBattleCode(back.bosses[0]!.battleCode).enemyCode).toBe('작열');
+
+    expect(back.bosses[0]!.deckCodes[0]).toBe(share.bosses[0]!.deckCodes[0]);
+    expect(decodeShareCode(back.bosses[0]!.deckCodes[1]!, allNames).decks[0]!.squad)
+      .toEqual(FIVE_DECKS[1]);
+  });
+
+  it('빈 덱 칸은 자리를 지키고 뒤쪽 빈 것만 잘라 낸다', () => {
+    const back = decodeUnionCode(encodeUnionCode({
+      bosses: [{
+        name: '전격 기차',
+        enabled: true,
+        battleCode: battle(180, '전격'),
+        deckCodes: ['', encodeShareCode([deck(1, FIVE_DECKS[0]!)], false), ''],
+      }],
+    }));
+    expect(back.bosses[0]!.deckCodes).toHaveLength(2);   // 뒤쪽 빈 칸은 잘린다
+    expect(back.bosses[0]!.deckCodes[0]).toBe('');       // 가운데 빈 칸은 남는다
+    expect(back.bosses[0]!.deckCodes[1]!.startsWith('NK2-')).toBe(true);
+  });
+
+  it('아무것도 안 채운 판은 보스가 0개인 코드가 된다', () => {
+    const empty = { bosses: Array.from({ length: 5 }, () => ({
+      name: '', enabled: true, battleCode: '', deckCodes: ['', '', ''],
+    })) };
+    expect(decodeUnionCode(encodeUnionCode(empty)).bosses).toHaveLength(0);
+  });
+
+  it('보스 다섯에 덱 셋을 꽉 채워도 붙여넣을 만한 길이다', () => {
+    const full = { bosses: Array.from({ length: 5 }, (_, i) => ({
+      name: `${['작열', '수냉', '전격', '풍압', '철갑'][i]} 글러트니`,
+      enabled: true,
+      battleCode: battle(150 + i, '작열'),
+      deckCodes: FIVE_DECKS.slice(0, 3).map((squad) => encodeShareCode([deck(1, squad)], false)),
+    })) };
+    const code = encodeUnionCode(full);
+    expect(decodeUnionCode(code).bosses).toHaveLength(5);
+    // 실측 620자 안팎. 조건 5개 + 덱 15개를 손으로 붙여넣으면 스무 번인 것을 한 번으로
+    // 줄인 값이라 이 정도는 받아들인다. 더 짧게 주고받고 싶으면 공유 목록을 쓴다.
+    expect(code.length).toBeLessThan(700);
+  });
+
+  it('다른 종류의 코드는 어느 칸에 넣을지 알려 주며 거절한다', () => {
+    expect(() => decodeUnionCode(battle(180, '작열'))).toThrow(/NK4/);
+    expect(() => decodeUnionCode('')).toThrow(/입력/);
+  });
+
+  it('중간에 잘린 코드는 끊겼다고 알린다', () => {
+    const code = encodeUnionCode(sampleShare());
+    expect(() => decodeUnionCode(code.slice(0, code.length - 12))).toThrow(/끊겼|해석/);
   });
 });

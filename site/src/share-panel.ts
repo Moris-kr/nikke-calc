@@ -4,6 +4,8 @@ import type { ShareItem, ShareKind, ShareServer, VoteValue } from './share-serve
 // 세 갈래다 — «올리기»는 지금 설정을 이름 붙여 보내고, «내려받기»는 남이 올린 것을
 // 받아 적용하고, «코드»는 원래 있던 코드 주고받기다(서버를 거치지 않는다).
 
+type TabKey = 'list' | 'upload' | 'code';
+
 export interface SharePanelHosts {
   tabs: HTMLElement;
   upload: HTMLElement;
@@ -28,14 +30,19 @@ export interface SharePanelDeps {
    * 못 만들면(코드가 깨졌거나 그림이 없으면) null을 주고, 그때는 설명 줄을 쓴다.
    */
   preview?: (item: ShareItem) => HTMLElement | null;
+  /**
+   * 보여 줄 탭. 안 주면 셋 다 낸다.
+   *
+   * 코드 칸이 이미 화면에 나와 있는 곳(유니온 탭의 보스·덱 칸)에서는 «코드»를 뺀다 —
+   * 같은 입력칸이 두 군데 있으면 어느 쪽이 진짜인지 헷갈린다.
+   */
+  tabs?: TabKey[];
 }
 
 export interface SharePanel {
   /** 모달을 열 때마다 부른다. 목록은 처음 열 때 한 번만 받는다. */
   open: () => void;
 }
-
-type TabKey = 'list' | 'upload' | 'code';
 
 const el = <K extends keyof HTMLElementTagNameMap>(
   tag: K, className?: string, text?: string,
@@ -113,7 +120,8 @@ export function rankItems(items: ShareItem[]): ShareItem[] {
 }
 
 export function mountSharePanel(hosts: SharePanelHosts, deps: SharePanelDeps): SharePanel {
-  let tab: TabKey = 'list';
+  const shown: TabKey[] = deps.tabs ?? ['upload', 'list', 'code'];
+  let tab: TabKey = shown.includes('list') ? 'list' : shown[0] ?? 'list';
   let items: ShareItem[] = [];
   let mine: Record<string, VoteValue> = {};
   let applied: Record<string, 1> = {};
@@ -150,11 +158,11 @@ export function mountSharePanel(hosts: SharePanelHosts, deps: SharePanelDeps): S
 
   function renderTabs(): void {
     hosts.tabs.replaceChildren();
-    const labels: Array<[TabKey, string]> = [
+    const labels: Array<[TabKey, string]> = ([
       ['upload', '올리기'],
       ['list', '내려받기'],
       ['code', '코드'],
-    ];
+    ] as Array<[TabKey, string]>).filter(([key]) => shown.includes(key));
     for (const [key, label] of labels) {
       const button = el('button', 'share-tab' + (tab === key ? ' is-on' : ''));
       button.type = 'button';

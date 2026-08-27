@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildJobs, deckForMember, estimateScanSeconds, groupResults, humanSeconds,
   DIRECT_SNIPPET, MEMBER_SNIPPET, parseDirectScan, parseMemberList, readBossCode, readDeckCode,
-  remainingSeconds,
+  readUnionCode, remainingSeconds, unionCodeOf, unionShareOf,
 } from './union-raid';
 import type { BossSlot, JobResult, MemberRow } from './union-raid';
 import { encodeBattleCode, encodeShareCode } from './share-code';
@@ -272,5 +272,77 @@ describe('시간 안내', () => {
   it('남은 시간은 이미 돌린 것으로 어림한다', () => {
     expect(remainingSeconds(0, 10, 0)).toBe(0);
     expect(remainingSeconds(2, 10, 4000)).toBe(16);    // 한 판 2초 × 남은 8판
+  });
+});
+
+describe('유니온 판 코드 (NK4)', () => {
+  const NAMES = ['리타', '라피', '크라운', '앨리스'];
+  const deckCode = (squad: string[]): string =>
+    encodeShareCode([{ id: 1, squad, characters: {} } as DeckState], false);
+
+  const board = (): BossSlot[] => [
+    {
+      name: '작열 글러트니', code: encodeBattleCode({ ...battle, enemyCode: '작열' }),
+      enabled: true,
+      decks: [
+        { code: deckCode(['리타', '라피', '', '', '']) },
+        { code: deckCode(['크라운', '앨리스', '', '', '']) },
+        { code: '' },
+      ],
+    },
+    {
+      name: '전격 기차', code: encodeBattleCode(battle), enabled: false,
+      decks: [{ code: deckCode(['앨리스', '', '', '', '']) }, { code: '' }, { code: '' }],
+    },
+    ...Array.from({ length: 3 }, () => ({
+      name: '', code: '', enabled: true,
+      decks: [{ code: '' }, { code: '' }, { code: '' }],
+    })),
+  ];
+
+  it('판을 코드로 냈다가 그대로 되살린다', () => {
+    const back = readUnionCode(unionCodeOf(board()), NAMES);
+
+    expect(back).toHaveLength(5);
+    expect(back[0]!.name).toBe('작열 글러트니');
+    expect(back[0]!.enabled).toBe(true);
+    expect(back[0]!.battle?.enemyCode).toBe('작열');
+    expect(back[0]!.decks[0]!.squad?.slice(0, 2)).toEqual(['리타', '라피']);
+    expect(back[0]!.decks[1]!.squad?.slice(0, 2)).toEqual(['크라운', '앨리스']);
+    expect(back[0]!.decks[2]!.squad).toBeUndefined();
+
+    expect(back[1]!.name).toBe('전격 기차');
+    expect(back[1]!.enabled).toBe(false);        // 꺼 둔 보스는 꺼진 채로 온다
+    expect(back[1]!.battle?.enemyCode).toBe('전격');
+  });
+
+  it('빈 보스 칸은 꺼진 채로 온다 — 지난 판이 섞이지 않게', () => {
+    const back = readUnionCode(unionCodeOf(board()), NAMES);
+    expect(back[2]!.enabled).toBe(false);
+    expect(back[2]!.name).toBe('');
+    expect(back[2]!.decks).toHaveLength(3);
+    expect(back[4]!.enabled).toBe(false);
+  });
+
+  it('명단은 담지 않는다', () => {
+    const share = unionShareOf(board());
+    const dump = JSON.stringify(share);
+    expect(dump).not.toContain('openid');
+    expect(dump).not.toContain('김붕붕');
+    expect(Object.keys(share)).toEqual(['bosses']);
+  });
+
+  it('덱 칸은 언제나 셋으로 채워 온다 — 코드에 하나만 들었어도', () => {
+    const one = unionCodeOf([{
+      name: '수냉 니힐', code: encodeBattleCode(battle), enabled: true,
+      decks: [{ code: deckCode(['리타', '', '', '', '']) }],
+    }]);
+    const back = readUnionCode(one, NAMES);
+    expect(back[0]!.decks).toHaveLength(3);
+    expect(back[0]!.decks[1]!.code).toBe('');
+  });
+
+  it('종류가 다른 코드는 거절한다', () => {
+    expect(() => readUnionCode(encodeBattleCode(battle), NAMES)).toThrow(/NK4/);
   });
 });

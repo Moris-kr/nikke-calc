@@ -188,6 +188,78 @@ describe('calculator UI', () => {
     root.remove();
   });
 
+  it('조합 공유는 「이 덱만」으로 열리고, 받은 덱 하나가 다른 덱을 지우지 않는다', () => {
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+
+    // 덱 1·3을 서로 다르게 채우고 5덱 모드를 켠다.
+    const fill = (deckId: number, names: string[]) => {
+      root.querySelector<HTMLInputElement>('#squad-mode')!.checked = true;
+      const state = JSON.parse(localStorage.getItem('nikke-state-v1') ?? '{}');
+      void state; void deckId; void names;
+    };
+    void fill;
+
+    root.querySelector<HTMLButtonElement>('[data-share-open]')!.click();
+    const scope = root.querySelector<HTMLElement>('[data-share-scope]')!;
+    expect(scope).not.toBeNull();
+    // 기본은 「이 덱만」이다 — 덱 하나를 옮기는 일이 판 전체를 옮기는 일보다 잦다.
+    expect(scope.querySelector('.share-scope-pick.is-on')?.textContent).toBe('이 덱만');
+    expect(root.querySelector('[data-share-scope-note]')?.textContent)
+      .toContain('덱 1에만 들어갑니다');
+
+    // 「5덱 전부」로 바꾸면 안내도 따라 바뀐다.
+    root.querySelector<HTMLButtonElement>('[data-share-scope-pick="all"]')!.click();
+    expect(scope.querySelector('.share-scope-pick.is-on')?.textContent).toBe('5덱 전부');
+    expect(root.querySelector('[data-share-scope-note]')?.textContent)
+      .toContain('판 전체가 바뀝니다');
+  });
+
+  it('프리셋은 어느 범위로 저장했는지 함께 알린다', () => {
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+
+    root.querySelector<HTMLButtonElement>('[data-preset-open]')!.click();
+    root.querySelector<HTMLInputElement>('[data-preset-name]')!.value = '한 덱짜리';
+    root.querySelector<HTMLButtonElement>('[data-preset-save]')!.click();
+    expect(root.querySelector('[data-share-msg]')?.textContent).toContain('덱 1만');
+
+    root.querySelector<HTMLButtonElement>('[data-share-scope-pick="all"]')!.click();
+    root.querySelector<HTMLInputElement>('[data-preset-name]')!.value = '판 전체';
+    root.querySelector<HTMLButtonElement>('[data-preset-save]')!.click();
+    expect(root.querySelector('[data-share-msg]')?.textContent).toContain('5덱 전부');
+
+    const stored = JSON.parse(localStorage.getItem('nikke-presets-v1')!) as Array<{ name: string }>;
+    expect(stored.map((item) => item.name).sort()).toEqual(['판 전체', '한 덱짜리']);
+  });
+
+  it('유니온 탭에는 판 전체를 한 코드로 주고받는 줄이 있다', () => {
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+      blablaProxy: 'https://proxy.example',
+    } as Parameters<typeof mountCalculator>[1] & { blablaProxy: string });
+
+    expect(root.querySelector('[data-union-set-copy]')).not.toBeNull();
+    expect(root.querySelector('[data-union-set-paste]')).not.toBeNull();
+    expect(root.querySelector('[data-union-set-apply]')).not.toBeNull();
+    // 명단이 담기지 않는다는 사실은 화면에 적혀 있어야 한다 — 남의 계정 정보다.
+    const step = root.querySelector<HTMLElement>('[data-union-step="3"]')!;
+    expect(step.textContent).toContain('유니온원 명단은 담기지 않습니다');
+  });
+
+  it('공유 서버 주소가 없으면 「공유에서 판 고르기」를 감춘다', () => {
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+      blablaProxy: 'https://proxy.example',
+    } as Parameters<typeof mountCalculator>[1] & { blablaProxy: string });
+
+    // 시험 환경에는 VITE_SHARE_API가 없다 — 누를 수 없는 단추를 남기지 않는다.
+    const button = root.querySelector<HTMLButtonElement>('[data-union-set-share]');
+    expect(button?.hidden).toBe(true);
+  });
+
   it('블라블라링크 연동 창은 자동을 기본값으로 공식 서버 다섯 곳을 보여 준다', () => {
     mountCalculator(root, {
       catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,

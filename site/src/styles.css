@@ -1133,3 +1133,30 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
 
 /* 개인용 줄은 체크박스·공개여부가 없다 — 칸 수가 달라 격자를 따로 잡는다. */
 .union-row.is-personal { grid-template-columns: minmax(0,1fr) 9ch minmax(0,1.2fr) auto; cursor: default; }
+
+/* 주고받을 범위 — 「이 덱만」이 기본이다. 덱 하나를 옮기는 일이 판 전체를 옮기는
+   일보다 훨씬 잦다. 탭 위에 두어 올리기·내려받기·코드가 모두 이 값을 따르는 것이
+   보이게 한다. */
+.share-scope { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 12px 0 0; }
+.share-scope-label { color: var(--muted); font-size: 11px; font-weight: 700; margin-right: 2px; }
+.share-scope-pick { padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px;
+  background: rgba(3,9,16,.6); color: var(--muted); font-size: 11.5px; font-weight: 700; cursor: pointer; }
+.share-scope-pick:hover { color: var(--ink); border-color: rgba(69,214,208,.35); }
+.share-scope-pick.is-on { border-color: rgba(69,214,208,.55); background: rgba(69,214,208,.14);
+  color: var(--cyan); }
+.share-scope-note { flex: 1 1 100%; color: var(--muted); font-size: 11px; }
+
+/* 유니온 판 전체 — 보스 다섯을 한 코드로 주고받는 줄. */
+.union-board-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 12px 0 6px; }
+.union-board-label { color: var(--muted); font-size: 11px; font-weight: 700; }
+.union-set-box { display: grid; gap: 8px; margin: 0 0 12px; padding: 12px;
+  border: 1px solid var(--line); border-radius: 10px; background: rgba(7,15,25,.55); }
+.union-set-box[hidden] { display: none; }
+.union-share-host[hidden] { display: none; }
+.union-status.is-ok { color: var(--cyan); }
+
+@media (max-width: 640px) {
+  /* 좁은 화면에서는 단추가 줄을 타고 넘어가되 글씨가 잘리지 않게 한 줄씩 편다. */
+  .union-board-bar > .roster-import { flex: 1 1 auto; justify-content: center; }
+  .share-scope-pick { flex: 1 1 auto; text-align: center; }
+}

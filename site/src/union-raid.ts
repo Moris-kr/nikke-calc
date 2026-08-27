@@ -16,7 +16,10 @@
  * 그대로 쓰면 유니온원끼리 세팅을 주고받기도 쉽고, 이 탭이 편집기를 새로 만들지 않아도 된다.
  */
 
-import { decodeBattleCode, decodeShareCode } from './share-code';
+import {
+  decodeBattleCode, decodeShareCode, decodeUnionCode, encodeUnionCode,
+  type UnionShare,
+} from './share-code';
 import { DEFAULT_SYNCHRO_LEVEL, SYNCHRO_MEASURED_MAX } from './model';
 import type { BattleSettings, DeckState, SimulationResult } from './types';
 
@@ -412,6 +415,63 @@ export function readDeckCode(slot: DeckSlot, catalogNames: string[]): DeckSlot {
   }
 }
 
+/**
+ * 지금 짜 둔 판을 유니온 판 코드(NK4)로 옮길 모양으로 바꾼다.
+ *
+ * 코드 문자열만 옮긴다 — 해석된 `battle`·`squad`는 코드에서 다시 나오므로 담지 않는다.
+ * **유니온원 명단은 여기 들어가지 않는다.** 닉네임과 openid는 남의 계정 정보다.
+ */
+export function unionShareOf(bosses: BossSlot[]): UnionShare {
+  return {
+    bosses: bosses.map((boss) => ({
+      name: boss.name,
+      enabled: boss.enabled,
+      battleCode: boss.code,
+      deckCodes: boss.decks.map((deck) => deck.code),
+    })),
+  };
+}
+
+/**
+ * 받은 판을 보스 칸으로 편다.
+ *
+ * 코드에 든 보스가 다섯보다 적으면 **남은 칸은 비운다** — 「지난 시즌 것을 통째로
+ * 불러온다」는 뜻인데 이전 판의 3·4번 보스가 남아 있으면 섞인 판이 된다.
+ */
+export function applyUnionShare(
+  share: UnionShare,
+  catalogNames: string[],
+  synchro = DEFAULT_SYNCHRO_LEVEL,
+): BossSlot[] {
+  return Array.from({ length: BOSS_SLOTS }, (_, index) => {
+    const shared = share.bosses[index];
+    const decks = Array.from({ length: DECK_SLOTS }, (_, deckIndex) =>
+      readDeckCode({ code: shared?.deckCodes[deckIndex] ?? '' }, catalogNames));
+    const slot: BossSlot = {
+      name: shared?.name ?? '',
+      code: shared?.battleCode ?? '',
+      // 코드에 없는 칸은 끈 채로 둔다 — 빈 보스가 켜져 있으면 실행 단추가 헷갈린다.
+      enabled: shared?.enabled ?? false,
+      decks,
+    };
+    return { ...readBossCode(slot, synchro), decks };
+  });
+}
+
+/** 지금 판을 코드 한 줄로. 유니온방에 붙여넣으면 그대로 옮겨진다. */
+export function unionCodeOf(bosses: BossSlot[]): string {
+  return encodeUnionCode(unionShareOf(bosses));
+}
+
+/** 받은 코드를 보스 칸으로. 코드가 잘못되면 던진다 — 잡아서 한 줄로 알린다. */
+export function readUnionCode(
+  code: string,
+  catalogNames: string[],
+  synchro = DEFAULT_SYNCHRO_LEVEL,
+): BossSlot[] {
+  return applyUnionShare(decodeUnionCode(code), catalogNames, synchro);
+}
+
 /** 시뮬레이션 한 칸. 유니온원 × 보스 × 덱. */
 export interface Job {
   member: MemberRow;
@@ -528,7 +588,8 @@ export type Simulate = (squad: string[], characters: DeckState['characters'],
 import { areaToOverrides, consoleFrom, emptyConsole, pickArea } from './blablalink';
 import type { RawProfile } from './blablalink';
 import { requestForDeck } from './model';
-import { squadPreview } from './share-panel';
+import { mountSharePanel, squadPreview, type SharePanel } from './share-panel';
+import { summarizeBattle, summarizeSquad, summarizeUnion, type ShareItem, type ShareKind, type ShareServer } from './share-server';
 import type { CharacterMeta, CharacterOverrides, SettingsCatalog } from './types';
 
 export interface UnionHosts {
@@ -548,6 +609,11 @@ export interface UnionDeps {
   currentDeckCode: (index: number) => string;
   /** 계산기가 아는 니케 이름 전부 — 조합 코드 해석에 쓴다. */
   catalogNames: () => string[];
+  /**
+   * 설정 공유 서버. 없으면(주소를 안 잡아 뒀으면) «공유에서 고르기»를 아예 그리지 않는다 —
+   * 누를 수 없는 단추를 남겨 두는 쪽이 더 헷갈린다.
+   */
+  shareServer?: ShareServer | null;
   /** 한 번에 몇 판을 함께 돌릴지(병렬 설정). 1이면 한 판씩. */
   concurrency?: () => number;
   /**
@@ -956,6 +1022,212 @@ export function mountUnionRaid(hosts: UnionHosts, deps: UnionDeps): void {
   // ── 3단계 · 보스와 덱 ────────────────────────────────────────────────────
   const bossBox = pick(panel, '[data-union-bosses]');
 
+  // ── 공유에서 고르기 ──────────────────────────────────────────────────────
+  // 보스 조건·덱·판 전체가 같은 목록 구조를 쓰므로 창 하나에 판 셋을 얹고 필요한 것만
+  // 보인다. 「어디에 넣을지」는 창을 열 때 정하고, 아래 콜백들이 그 값을 읽는다.
+  type ShareTarget =
+    | { kind: 'boss'; boss: number }
+    | { kind: 'squad'; boss: number; deck: number }
+    | { kind: 'union' };
+
+  const shareModal = panel.querySelector<HTMLElement>('[data-union-share-modal]');
+  const sharePanels = new Map<ShareKind, SharePanel>();
+  const shareHosts = new Map<ShareKind, HTMLElement>();
+  let shareTarget: ShareTarget = { kind: 'union' };
+  let openSharePicker: ((target: ShareTarget) => void) | null = null;
+
+  const shareMsg = shareModal?.querySelector<HTMLElement>('[data-union-share-msg]') ?? null;
+  const notifyShare = (message: string, ok = false): void => {
+    if (!shareMsg) return;
+    shareMsg.textContent = message;
+    shareMsg.hidden = message === '';
+    shareMsg.classList.toggle('is-ok', ok);
+  };
+
+  /** 지금 그 칸에 있는 것을 「올리기」 탭에 넘긴다. 창을 열 때 정한 자리를 본다. */
+  const currentFor = (kind: ShareKind): { code: string; auto: string } => {
+    if (kind === 'union') {
+      return { code: unionCodeOf(bosses), auto: summarizeUnion(unionShareOf(bosses).bosses) };
+    }
+    if (kind === 'boss' && shareTarget.kind === 'boss') {
+      const boss = bosses[shareTarget.boss];
+      return {
+        code: boss?.code ?? '',
+        auto: boss?.battle ? summarizeBattle(boss.battle) : '조건 없음',
+      };
+    }
+    if (kind === 'squad' && shareTarget.kind === 'squad') {
+      const deck = bosses[shareTarget.boss]?.decks[shareTarget.deck];
+      return {
+        code: deck?.code ?? '',
+        auto: summarizeSquad([{ squad: deck?.squad ?? [] }], false),
+      };
+    }
+    return { code: '', auto: '' };
+  };
+
+  /** 목록에서 고른 것을 그 자리에 넣는다. 코드가 깨졌으면 던져서 창이 알리게 둔다. */
+  const applyShared = (kind: ShareKind, item: ShareItem): void => {
+    if (kind === 'union') {
+      bosses = readUnionCode(item.code, deps.catalogNames(), DEFAULT_SYNCHRO_LEVEL);
+      renderBosses();
+      renderMembers();
+      notifyShare(`«${item.name}» 판을 깔았습니다.`, true);
+      return;
+    }
+    if (kind === 'boss' && shareTarget.kind === 'boss') {
+      const at = shareTarget.boss;
+      const boss = bosses[at];
+      if (!boss) return;
+      bosses[at] = { ...readBossCode({ ...boss, code: item.code }), decks: boss.decks };
+      const failed = bosses[at]!.error;
+      renderBosses();
+      if (failed) throw new Error(failed);
+      notifyShare(`보스 ${at + 1} 칸에 «${item.name}» 조건을 넣었습니다.`, true);
+      return;
+    }
+    if (kind === 'squad' && shareTarget.kind === 'squad') {
+      const { boss: at, deck: deckAt } = shareTarget;
+      const boss = bosses[at];
+      if (!boss) return;
+      boss.decks[deckAt] = readDeckCode({ code: item.code }, deps.catalogNames());
+      const failed = boss.decks[deckAt]!.error;
+      renderBosses();
+      if (failed) throw new Error(failed);
+      notifyShare(`보스 ${at + 1}의 ${deckAt + 1}덱에 «${item.name}»을 넣었습니다.`, true);
+    }
+  };
+
+  if (shareModal && deps.shareServer) {
+    const server = deps.shareServer;
+    const body = pick(shareModal, '[data-union-share-body]');
+    const title = pick(shareModal, '[data-union-share-title]');
+    const desc = pick(shareModal, '[data-union-share-desc]');
+
+    const closeShare = (): void => { shareModal.hidden = true; };
+    pick<HTMLButtonElement>(shareModal, '[data-union-share-close]')
+      .addEventListener('click', closeShare);
+    shareModal.addEventListener('click', (event) => {
+      if (event.target === shareModal) closeShare();
+    });
+
+    for (const kind of ['boss', 'squad', 'union'] as ShareKind[]) {
+      const host = el('div', 'union-share-host');
+      host.hidden = true;
+      const tabs = el('div', 'share-tabs');
+      const upload = el('div', 'share-pane');
+      const list = el('div', 'share-pane');
+      const code = el('div', 'share-pane');
+      host.append(tabs, upload, list, code);
+      body.append(host);
+      shareHosts.set(kind, host);
+
+      sharePanels.set(kind, mountSharePanel({ tabs, upload, list, code }, {
+        kind,
+        server,
+        // 코드 칸은 보스·덱 칸에 이미 나와 있다 — 창 안에 또 두지 않는다.
+        tabs: ['upload', 'list'],
+        current: () => currentFor(kind),
+        apply: (item) => applyShared(kind, item),
+        notify: notifyShare,
+        preview: kind === 'squad' ? (item) => {
+          try {
+            const payload = decodeShareCode(item.code, deps.catalogNames());
+            const squads = payload.decks
+              .map((entry) => entry.squad.filter((name) => name.trim() !== ''))
+              .filter((squad) => squad.length > 0);
+            return squads.length > 0 ? squadPreview(squads, deps.imageOf) : null;
+          } catch {
+            return null;
+          }
+        } : undefined,
+      }));
+    }
+
+    const LABELS: Record<ShareKind, { title: string; desc: string }> = {
+      boss: {
+        title: '보스 조건 고르기',
+        desc: '남들이 올린 <b>전투 조건</b>입니다. 고르면 이 보스 칸에 그대로 들어갑니다 — 싱크로와 콘솔은 담기지 않으므로 유니온원 각자의 값이 그대로 쓰입니다.',
+      },
+      squad: {
+        title: '조합 고르기',
+        desc: '남들이 올린 <b>조합</b>입니다. 고르면 이 덱 칸에 들어갑니다 — 누가 편성됐는지만 담기고, 수치는 유니온원 각자의 것을 씁니다.',
+      },
+      union: {
+        title: '유니온 레이드 판 고르기',
+        desc: '보스 다섯과 각 칸의 덱까지 <b>한 판을 통째로</b> 담은 것입니다. 고르면 지금 짜 둔 판을 덮어씁니다. <b>유니온원 명단은 담기지 않습니다.</b>',
+      },
+    };
+
+    openSharePicker = (target: ShareTarget): void => {
+      shareTarget = target;
+      title.textContent = LABELS[target.kind].title;
+      desc.innerHTML = LABELS[target.kind].desc;
+      for (const [kind, host] of shareHosts) host.hidden = kind !== target.kind;
+      notifyShare('');
+      shareModal.hidden = false;
+      sharePanels.get(target.kind)?.open();
+    };
+  }
+
+  // ── 판 코드 (NK4) ────────────────────────────────────────────────────────
+  const setStatus = pick(panel, '[data-union-set-status]');
+  const setBox = pick(panel, '[data-union-set-box]');
+  const setCode = pick<HTMLTextAreaElement>(panel, '[data-union-set-code]');
+
+  const sayBoard = (message: string, ok = false): void => {
+    setStatus.textContent = message;
+    setStatus.classList.toggle('is-ok', ok);
+  };
+
+  pick<HTMLButtonElement>(panel, '[data-union-set-copy]').addEventListener('click', async () => {
+    const code = unionCodeOf(bosses);
+    setBox.hidden = false;
+    setCode.value = code;
+    try {
+      await navigator.clipboard.writeText(code);
+      sayBoard('판 코드를 복사했습니다. 유니온방에 그대로 붙여넣으면 됩니다.', true);
+    } catch {
+      setCode.select();
+      sayBoard('자동 복사가 막혀 코드를 선택해 뒀습니다. Ctrl+C로 복사해 주세요.');
+    }
+  });
+
+  pick<HTMLButtonElement>(panel, '[data-union-set-paste]').addEventListener('click', () => {
+    setBox.hidden = false;
+    setCode.value = '';
+    setCode.focus();
+    sayBoard('받은 판 코드(NK4-…)를 붙여넣고 「이 판 적용」을 누르세요.');
+  });
+
+  pick<HTMLButtonElement>(panel, '[data-union-set-apply]').addEventListener('click', () => {
+    try {
+      bosses = readUnionCode(setCode.value, deps.catalogNames(), DEFAULT_SYNCHRO_LEVEL);
+      renderBosses();
+      renderMembers();
+      const live = bosses.filter((boss) => boss.enabled).length;
+      sayBoard(`판을 깔았습니다 — 보스 ${live}개.`, true);
+      setBox.hidden = true;
+    } catch (error) {
+      sayBoard(error instanceof Error ? error.message : String(error));
+    }
+  });
+
+  pick<HTMLButtonElement>(panel, '[data-union-set-close]').addEventListener('click', () => {
+    setBox.hidden = true;
+    sayBoard('');
+  });
+
+  const setShare = panel.querySelector<HTMLButtonElement>('[data-union-set-share]');
+  if (setShare) {
+    if (openSharePicker) {
+      const open = openSharePicker;
+      setShare.addEventListener('click', () => open({ kind: 'union' }));
+    } else {
+      setShare.hidden = true;
+    }
+  }
+
   function renderBosses(): void {
     bossBox.replaceChildren();
     bosses.forEach((boss, index) => {
@@ -999,13 +1271,22 @@ export function mountUnionRaid(hosts: UnionHosts, deps: UnionDeps): void {
         boss = bosses[index]!;
         renderBosses();
       });
-      const grab = el('button', 'roster-import', '지금 조건 가져오기');
+      const grab = el('button', 'roster-import', '지금 조건');
       (grab as HTMLButtonElement).type = 'button';
+      grab.title = '계산기에 잡아 둔 전투 조건을 그대로 가져옵니다';
       grab.addEventListener('click', () => {
         bosses[index] = { ...readBossCode({ ...boss, code: deps.currentBattleCode() }), decks: boss.decks };
         renderBosses();
       });
       codeRow.append(code, grab);
+      if (openSharePicker) {
+        const open = openSharePicker;
+        const fromShare = el('button', 'roster-import', '공유에서');
+        (fromShare as HTMLButtonElement).type = 'button';
+        fromShare.title = '남들이 올린 보스 조건 목록에서 고릅니다';
+        fromShare.addEventListener('click', () => open({ kind: 'boss', boss: index }));
+        codeRow.append(fromShare);
+      }
       card.append(codeRow);
       if (boss.error) card.append(el('p', 'union-error', boss.error));
 
@@ -1021,7 +1302,7 @@ export function mountUnionRaid(hosts: UnionHosts, deps: UnionDeps): void {
           boss.decks[deckIndex] = readDeckCode({ code: input.value }, deps.catalogNames());
           renderBosses();
         });
-        const take = el('button', 'roster-import', `${deckIndex + 1}덱 가져오기`);
+        const take = el('button', 'roster-import', `지금 ${deckIndex + 1}덱`);
         (take as HTMLButtonElement).type = 'button';
         take.title = '지금 계산기에 짜 둔 이 번호의 덱을 그대로 가져옵니다';
         take.addEventListener('click', () => {
@@ -1029,6 +1310,15 @@ export function mountUnionRaid(hosts: UnionHosts, deps: UnionDeps): void {
           renderBosses();
         });
         row.append(input, take);
+        if (openSharePicker) {
+          const open = openSharePicker;
+          const fromShare = el('button', 'roster-import', '공유에서');
+          (fromShare as HTMLButtonElement).type = 'button';
+          fromShare.title = '남들이 올린 조합 목록에서 고릅니다';
+          fromShare.addEventListener('click', () =>
+            open({ kind: 'squad', boss: index, deck: deckIndex }));
+          row.append(fromShare);
+        }
         if (deck.squad) row.append(squadPreview([deck.squad.filter(Boolean)], deps.imageOf));
         if (deck.error) row.append(el('p', 'union-error', deck.error));
         deckBox.append(row);
