@@ -72,6 +72,15 @@ describe('명단 스니펫', () => {
     expect(MEMBER_SNIPPET).toContain('Game/GetGuildMembers');
   });
 
+  it('두 스니펫 다 문법이 성립한다', () => {
+    // `const box`를 한 스코프에 두 번 적어 «Identifier has already been declared»로
+    // 스니펫이 통째로 안 돌던 적이 있다(2026-08-27). 문법은 사람 눈으로 지키지 않는다.
+    // 컴파일만 하고 실행하지는 않는다 — 여기서 블라블라링크를 부를 일은 없다.
+    for (const snippet of [MEMBER_SNIPPET, DIRECT_SNIPPET]) {
+      expect(() => new Function(`return (async () => { ${snippet} })()`)).not.toThrow();
+    }
+  });
+
   it('클립보드가 막혀도 길이 있다', () => {
     // 콘솔에서 실행하면 문서가 포커스를 잃어 `navigator.clipboard`가 거절된다.
     // 데브툴의 `copy()`를 먼저 쓰고, 둘 다 막히면 페이지에 상자를 띄워 골라 둔다 —
@@ -79,7 +88,7 @@ describe('명단 스니펫', () => {
     expect(MEMBER_SNIPPET).toContain('copy(text)');
     expect(MEMBER_SNIPPET).toContain('navigator.clipboard.writeText');
     expect(MEMBER_SNIPPET).toContain('createElement(\'textarea\')');
-    expect(MEMBER_SNIPPET).toContain('box.select()');
+    expect(MEMBER_SNIPPET).toContain('holder.select()');
     expect(MEMBER_SNIPPET).not.toContain('Copy string contents');
   });
 
