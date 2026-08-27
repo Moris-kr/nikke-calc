@@ -319,20 +319,29 @@ class BrowserBridgeTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "막바지 최우선"):
             run_request(json.dumps(payload, ensure_ascii=False))
 
-    def test_rejects_synchro_level_outside_the_stat_table(self):
-        payload = {
-            "squad": ["리타"],
-            "duration": 10,
-            "enemyDef": 31_784,
-            "enemyCode": "",
-            "corePx": 0,
-            "hasParts": False,
-            "seed": 42,
-            "synchroLevel": 1_001,
-        }
+    def test_rejects_synchro_level_outside_the_ingame_cap(self):
+        """상한은 표가 아니라 인게임 레벨 상한(1400)이다.
+
+        표는 1000까지지만 그 위는 엔진이 이어 붙인다 — 유니온 레이드에서 싱크로 1131인
+        유니온원을 실제로 만나고, 1000으로 눌러 버리면 그 사람 공격력이 15% 넘게 깎인다.
+        """
+        def payload(level):
+            return {
+                "squad": ["리타"],
+                "duration": 10,
+                "enemyDef": 31_784,
+                "enemyCode": "",
+                "corePx": 0,
+                "hasParts": False,
+                "seed": 42,
+                "synchroLevel": level,
+            }
+
+        # 표 밖이어도 인게임 상한 안이면 계산한다.
+        run_request(json.dumps(payload(1_131), ensure_ascii=False))
 
         with self.assertRaisesRegex(ValueError, "싱크로 레벨"):
-            run_request(json.dumps(payload, ensure_ascii=False))
+            run_request(json.dumps(payload(1_401), ensure_ascii=False))
 
     def test_character_overrides_are_forwarded_to_the_engine(self):
         payload = {
