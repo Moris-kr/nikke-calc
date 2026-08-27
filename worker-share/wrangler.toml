@@ -14,3 +14,13 @@ VOTE_SALT = "nikke-calc-share"
 [[kv_namespaces]]
 binding = "SHARE"
 id = "95dbf20ea4454b0aa1154810df5f90dc"
+
+# 지금 보고 있는 사람 수. KV로 세면 인사마다 쓰기가 나가 무료 한도를 넘기므로,
+# 메모리에서 세는 Durable Object를 쓴다 (저장 쓰기 0).
+[[durable_objects.bindings]]
+name = "PRESENCE"
+class_name = "Presence"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Presence"]

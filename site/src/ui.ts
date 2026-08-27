@@ -41,6 +41,7 @@ import {
 } from './share-code';
 import { LATEST_NOTICE_ID, NOTICES, noticeToShow } from './notices';
 import { mountSharePanel, squadPreview, type SharePanel } from './share-panel';
+import { startPresence } from './presence';
 import { mountUnionRaid } from './union-raid';
 import { ShareServer, summarizeBattle, summarizeSquad } from './share-server';
 import { createTimelineBlock } from './timeline';
@@ -470,7 +471,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           <p class="eyebrow">BROWSER SIM <span>·</span> 60 FPS TIMELINE</p>
           <h1><span>NIKKE</span> 스쿼드 계산기</h1>
           <p class="hero-lede">캐릭터별 오버로드와 큐브, 전투 조건을 반영해 프레임 단위 예상 대미지를 계산합니다.</p>
-          <div class="trust-row" aria-label="서비스 특징"><span>${catalog.length}명 지원</span><button type="button" class="notice-open" data-notice-open title="지금까지 무엇이 바뀌었는지 봅니다">업데이트 내역</button><a class="credit-link" href="https://github.com/Jgaram/nikke-calc" target="_blank" rel="noreferrer noopener" title="이 계산기의 원본 저장소">원본 알고리즘 개발자에게 무한한 감사를</a></div>
+          <div class="trust-row" aria-label="서비스 특징"><span>${catalog.length}명 지원</span><span class="online-now" data-online hidden title="최근 1~2분 사이에 이 계산기를 연 사람 수입니다. 탭을 숨기면 세지 않습니다"><b class="online-dot" aria-hidden="true"></b><span data-online-text></span></span><button type="button" class="notice-open" data-notice-open title="지금까지 무엇이 바뀌었는지 봅니다">업데이트 내역</button><a class="credit-link" href="https://github.com/Jgaram/nikke-calc" target="_blank" rel="noreferrer noopener" title="이 계산기의 원본 저장소">원본 알고리즘 개발자에게 무한한 감사를</a></div>
         </div>
         <div class="hero-orbit" aria-hidden="true"><span>01</span><strong>LOCAL<br />SIM</strong></div>
       </header>
@@ -3731,6 +3732,18 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
   enikkLoad.addEventListener('click', () => { void loadEnikk(false); });
   enikkRefresh.addEventListener('click', () => { void loadEnikk(true); });
+
+  // ── 지금 보는 사람 수 ───────────────────────────────────────────────────
+  // 공유 서버가 세 준다. 주소가 없으면 아예 띄우지 않는다 — 0명이라고 적어 두면
+  // «아무도 없다»로 읽히는데 사실은 «셀 곳이 없다»이기 때문이다.
+  if (SHARE_API) {
+    const onlineBox = element<HTMLElement>(root, '[data-online]');
+    const onlineText = element<HTMLElement>(root, '[data-online-text]');
+    startPresence(SHARE_API, (online) => {
+      onlineText.textContent = `지금 ${online.toLocaleString('ko-KR')}명`;
+      onlineBox.hidden = false;
+    });
+  }
 
   // ── 병렬 계산 ───────────────────────────────────────────────────────────
   // 계산은 이 기기에서 돈다. 워커를 여럿 띄우면 덱을 나눠 돌려 빨라지지만, 워커마다

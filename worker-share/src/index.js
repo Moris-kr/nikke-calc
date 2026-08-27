@@ -202,6 +202,46 @@ async function handleApply(request, env, body) {
   return { id, uses: item.uses, counted: true };
 }
 
+
+/**
+ * 지금 보고 있는 사람 수.
+ *
+ * KV로 세지 않는다 — 인사 한 번이 쓰기 한 번이라 무료 한도(하루 1,000회)를 몇십 명이
+ * 몇 분 머무는 것만으로 넘긴다. Durable Object는 **한 자리에 모여** 메모리에서 세므로
+ * 저장 쓰기가 아예 없다.
+ *
+ * 방은 하나뿐이다(`global`) — 모두가 같은 수를 봐야 하니 한곳에 모아야 한다.
+ * 오래 조용하면 객체가 잠들어 숫자가 0에서 다시 쌓인다. 사람들이 다음 인사를 보내는
+ * 45초 안에 제자리로 돌아오므로, 정확도보다 «지금 대충 몇 명»을 보여 주는 쪽으로 둔다.
+ */
+export class Presence {
+  constructor() {
+    /** @type {Map<string, number>} 방문자 표식 → 마지막 인사 시각 */
+    this.seen = new Map();
+  }
+
+  async fetch(request) {
+    const now = Date.now();
+    let id = '';
+    try {
+      ({ id } = await request.json());
+    } catch { /* 본문이 없으면 조회만 한다 */ }
+    if (typeof id === 'string' && id.length >= 8 && id.length <= 64) {
+      this.seen.set(id, now);
+    }
+    // 창을 닫으면 인사가 끊긴다 — 그 뒤로 이 시간이 지나면 나간 것으로 친다.
+    for (const [key, at] of this.seen) {
+      if (now - at > PRESENCE_WINDOW_MS) this.seen.delete(key);
+    }
+    return new Response(JSON.stringify({ online: this.seen.size }), {
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    });
+  }
+}
+
+/** 마지막 인사로부터 이만큼 지나면 나간 것으로 친다(인사 주기의 두 배 남짓). */
+const PRESENCE_WINDOW_MS = 100_000;
+
 export default {
   async fetch(request, env) {
     const origin = request.headers.get('Origin');
@@ -231,6 +271,16 @@ export default {
       }
       if (request.method === 'POST' && url.pathname === '/apply') {
         return json(await handleApply(request, env, await request.json()));
+      }
+      if (request.method === 'POST' && url.pathname === '/presence') {
+        if (!env.PRESENCE) return json({ online: 0 });
+        const room = env.PRESENCE.get(env.PRESENCE.idFromName('global'));
+        const answer = await room.fetch('https://presence/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(await request.json().catch(() => ({}))),
+        });
+        return json(await answer.json());
       }
       return json({ error: '없는 경로입니다.' }, 404);
     } catch (error) {

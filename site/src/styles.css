@@ -1160,3 +1160,14 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
   .union-board-bar > .roster-import { flex: 1 1 auto; justify-content: center; }
   .share-scope-pick { flex: 1 1 auto; text-align: center; }
 }
+
+/* 지금 보는 사람 수 — 자랑이 아니라 «지금 살아 있는 곳»이라는 신호다. 작게 둔다. */
+.online-now { display: inline-flex; align-items: center; gap: 5px; }
+.online-dot { width: 6px; height: 6px; border-radius: 50%; background: #7ee0a8;
+  box-shadow: 0 0 0 0 rgba(126,224,168,.6); animation: online-pulse 2.4s ease-out infinite; }
+@keyframes online-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(126,224,168,.55); }
+  70% { box-shadow: 0 0 0 6px rgba(126,224,168,0); }
+  100% { box-shadow: 0 0 0 0 rgba(126,224,168,0); }
+}
+@media (prefers-reduced-motion: reduce) { .online-dot { animation: none; } }
