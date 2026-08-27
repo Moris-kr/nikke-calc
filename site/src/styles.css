@@ -1111,8 +1111,9 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
 .union-est { margin-left: 4px; padding: 1px 4px; border: 1px solid rgba(255,191,60,.4);
   font: 800 9px ui-monospace, monospace; }
 
-/* 병렬 계산 — 「이 기기」 설정이라 «설정 이어받기»·«5덱 모드»와 같은 토글 줄에 둔다.
-   개수 고르는 칸만 토글 옆에 작게 붙는다. */
+/* 병렬 계산 — 계산이 얼마나 빨리 끝나는지를 정하는 설정이라 실행 단추 바로 아래 둔다.
+   상태 줄과 나란히 읽히도록 오른쪽으로 붙이고, 개수 칸은 토글 옆에 작게 놓는다. */
+.parallel-row { display: flex; justify-content: flex-end; margin-top: 6px; }
 .parallel-pick select { margin-left: 6px; padding: 1px 3px; border: 1px solid var(--line);
   background: rgba(3,9,16,.6); color: var(--muted); font: 700 10px ui-monospace, monospace; }
 .parallel-pick select:disabled { opacity: .4; }

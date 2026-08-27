@@ -605,10 +605,6 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
               <button type="button" class="roster-import danger" data-reset-all title="편성·설정·CSV 로스터·추가한 니케·저장된 결과를 모두 지우고 처음 상태로 되돌립니다">완전 초기화</button>
               <label class="toggle-field mode-toggle" title="다른 덱에서 이미 만져 둔 개별 설정을 편성할 때 그대로 가져옵니다"><input id="carry-settings" type="checkbox" checked /><span class="toggle"></span><span>설정 이어받기</span></label>
               <label class="toggle-field mode-toggle"><input id="squad-mode" type="checkbox" /><span class="toggle"></span><span>5덱 모드</span></label>
-              <label class="toggle-field mode-toggle parallel-pick" title="계산을 여러 작업 스레드에 나눠 돌립니다. 이 기기의 코어를 더 쓰는 대신 5덱 계산이 몇 배 빨라집니다 — 계산은 이 기기에서 도는 것이라 서버 비용과는 무관합니다">
-                <input type="checkbox" data-parallel-toggle checked /><span class="toggle"></span><span>병렬 계산</span>
-                <select data-parallel-size title="띄울 작업 스레드 수. 하나마다 계산 런타임이 떠서 메모리를 50~80MB씩 씁니다"></select>
-              </label>
             </div>
             <p class="roster-note" data-roster-note hidden></p>
           </div>
@@ -692,6 +688,13 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
               <span class="disclosure-hint" aria-hidden="true">열기 ›</span>
             </button>
             <button class="calculate-button run-inline" type="submit"><span>시뮬레이션 실행</span><b aria-hidden="true">→</b></button>
+          </div>
+          <!-- 계산이 얼마나 빨리 끝나는지를 정하는 설정이라 실행 단추 바로 아래에 둔다. -->
+          <div class="parallel-row">
+            <label class="toggle-field mode-toggle parallel-pick" title="계산을 여러 작업 스레드에 나눠 돌립니다. 이 기기의 코어를 더 쓰는 대신 5덱 계산이 몇 배 빨라집니다 — 계산은 이 기기에서 도는 것이라 서버 비용과는 무관합니다">
+              <input type="checkbox" data-parallel-toggle checked /><span class="toggle"></span><span>병렬 계산</span>
+              <select data-parallel-size></select>
+            </label>
           </div>
           <p class="status" data-status aria-live="polite">계산 엔진 준비 중…</p>
           <p class="battle-first-note" data-battle-first-note>계산하기 전에 <b>전투 조건을 한 번 확인해 주세요</b> — 몇 초짜리 전투인지, 적 코드가 무엇인지에 따라 결과가 완전히 달라집니다.</p>
