@@ -1114,6 +1114,11 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
 /* 병렬 계산 — 계산이 얼마나 빨리 끝나는지를 정하는 설정이라 실행 단추 바로 아래 둔다.
    상태 줄과 나란히 읽히도록 오른쪽으로 붙이고, 개수 칸은 토글 옆에 작게 놓는다. */
 .parallel-row { display: flex; justify-content: flex-end; margin-top: 6px; }
+/* 줄 하나에 토글·글씨·개수 칸이 나란히 선다. 라벨이 줄어들면 스위치가 글씨 위로
+   올라타므로(제보 2026-08-27) 라벨과 스위치는 줄어들지 않게 못 박고 사이를 벌린다. */
+.parallel-pick { flex: 0 0 auto; gap: 8px; }
+.parallel-pick .toggle { flex: 0 0 auto; }
+.parallel-pick > span { white-space: nowrap; }
 .parallel-pick select { margin-left: 6px; padding: 1px 3px; border: 1px solid var(--line);
   background: rgba(3,9,16,.6); color: var(--muted); font: 700 10px ui-monospace, monospace; }
 .parallel-pick select:disabled { opacity: .4; }
