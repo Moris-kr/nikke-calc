@@ -40,6 +40,7 @@ const runtimeFiles = [
   'data/base_stat_tables/cube.json',
   'data/base_stat_tables/equipment_skills.json',
   'data/base_stat_tables/equipment_stats.json',
+  'data/base_stat_tables/level_beyond.json',
   'data/base_stat_tables/level_stats.json',
 ];
 

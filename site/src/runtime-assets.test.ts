@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -25,10 +25,18 @@ describe('generated browser runtime', () => {
     ) as RuntimeManifest;
 
     expect(manifest.version).toMatch(/^[a-f0-9]{16}$/);
-    expect(manifest.files).toHaveLength(23);
+    expect(manifest.files).toHaveLength(24);
     expect(manifest.files).toContain('context/growth.py');
     // 브리지가 import하는 모듈이 목록에서 빠지면 엔진 초기화가 통째로 실패한다.
     expect(manifest.files).toContain('calculator/combat_power.py');
+
+    // 스탯표를 새로 넣고 매니페스트에 안 실으면 **엔진 임포트부터** 죽는다
+    // (`level_beyond.json`을 그렇게 빠뜨려 계산이 전부 실패했다, 2026-08-27).
+    // 개수를 세는 것만으로는 못 잡는다 — 실제로 있는 표를 다 싣는지 본다.
+    const tableDir = join(publicDir, '..', '..', 'data', 'base_stat_tables');
+    for (const table of readdirSync(tableDir).filter((name) => name.endsWith('.json'))) {
+      expect(manifest.files).toContain(`data/base_stat_tables/${table}`);
+    }
     for (const file of manifest.files) {
       expect(readFileSync(join(publicDir, 'runtime', file)).byteLength).toBeGreaterThan(0);
     }
