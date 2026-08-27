@@ -568,6 +568,46 @@ describe('character settings editor', () => {
     expect(root.querySelector<HTMLElement>('[data-char-panel="control"]')!.hidden).toBe(true);
   });
 
+  it('keeps advanced mode on while the panel lives in a window', () => {
+    // 창(모달)으로 띄우면 뭉치가 카드 밖으로 나간다. 그 상태로 «수치 추가»를 누르면
+    // 카드만 뒤져 펼침 상태를 찾던 탓에 고급 모드가 저 혼자 꺼졌다.
+    const window = document.createElement('div');
+    document.body.append(window);
+    const show = (_kind: string, panel: HTMLElement) => {
+      panel.hidden = false;
+      window.replaceChildren(panel);
+    };
+    const draw = () => renderCharacterSettings(
+      root, characterName, settings, value, (next) => {
+        value = next;
+        queueMicrotask(() => {
+          const fresh = root.querySelector<HTMLElement>('[data-char-panel="settings"]');
+          if (fresh) show('settings', fresh);
+        });
+      }, undefined, undefined, show,
+    );
+    draw();
+    setToggle('[data-custom-toggle]', true);
+    root.querySelector<HTMLButtonElement>('[data-char-panel-open="settings"]')!.click();
+
+    const toggle = window.querySelector<HTMLInputElement>('[data-advanced-toggle]')!;
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event('change'));
+    const search = window.querySelector<HTMLInputElement>('[data-manual-search]')!;
+    search.value = '분배';
+    search.dispatchEvent(new Event('input'));
+    window.querySelector<HTMLSelectElement>('[data-manual-select]')!.value = 'split_dmg_pct';
+    window.querySelector<HTMLButtonElement>('[data-add-stat]')!.click();
+
+    const drawn = root.querySelector<HTMLElement>('[data-char-panel="settings"]')!;
+    expect(drawn.querySelector<HTMLInputElement>('[data-advanced-toggle]')!.checked).toBe(true);
+    expect(drawn.querySelector<HTMLElement>('.advanced-editor')!.hidden).toBe(false);
+    expect(drawn.querySelectorAll('[data-manual-row]')).toHaveLength(1);
+    // 검색어도 남는다 — 둘째 줄부터 매번 다시 치게 만들지 않는다.
+    expect(drawn.querySelector<HTMLInputElement>('[data-manual-search]')!.value).toBe('분배');
+    window.remove();
+  });
+
   it('folds the loadout summary away until it is asked for', () => {
     render();
     const fold = root.querySelector<HTMLElement>('[data-loadout-fold]')!;

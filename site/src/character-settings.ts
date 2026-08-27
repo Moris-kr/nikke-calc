@@ -108,6 +108,13 @@ const ENDGAME_DEFAULT = 20;
 /** 창으로 여는 설정 뭉치의 종류. */
 export type CharPanelKind = 'settings' | 'control';
 
+/**
+ * 지난번에 그린 «창으로 여는» 뭉치들. 창으로 띄우면 그 뭉치는 카드 밖(모달)으로
+ * 옮겨 가므로, 다시 그릴 때 카드만 뒤져서는 펼침 상태를 찾을 수 없다 — 고급 모드를
+ * 켜 둔 채 «수치 추가»를 누르면 고급 모드가 꺼져 보이던 게 그 탓이다.
+ */
+const lastPanels = new WeakMap<HTMLElement, HTMLElement[]>();
+
 export function renderCharacterSettings(
   container: HTMLElement,
   name: string,
@@ -122,12 +129,23 @@ export function renderCharacterSettings(
    */
   onOpenPanel?: (kind: CharPanelKind, panel: HTMLElement, label: string) => void,
 ): void {
-  const advancedWasOpen = container.querySelector<HTMLInputElement>('[data-advanced-toggle]')?.checked ?? false;
+  // 지난번 화면을 찾는다. 카드 안이 먼저고, 없으면 창으로 옮겨 간 뭉치까지 뒤진다.
+  const previous = <T extends Element>(selector: string): T | null => {
+    const inCard = container.querySelector<T>(selector);
+    if (inCard) return inCard;
+    for (const panel of lastPanels.get(container) ?? []) {
+      const hit = panel.querySelector<T>(selector);
+      if (hit) return hit;
+    }
+    return null;
+  };
+  const advancedWasOpen = previous<HTMLInputElement>('[data-advanced-toggle]')?.checked ?? false;
+  const searchWas = previous<HTMLInputElement>('[data-manual-search]')?.value ?? '';
   // 펼침 상태는 다시 그려도 유지한다. 값을 하나 바꿀 때마다 접히면 쓸 수 없다.
   // 기본값은 **접힘**이다 — 카드 다섯 장이 한 화면에 서니, 켜 두기만 한 설정까지
   // 늘 펼쳐져 있으면 편성 자체가 안 보인다.
   const wasOpen = (flag: string): boolean =>
-    container.querySelector<HTMLElement>(`[${flag}]`)?.getAttribute('aria-expanded') === 'true';
+    previous<HTMLElement>(`[${flag}]`)?.getAttribute('aria-expanded') === 'true';
   const summaryWasOpen = wasOpen('data-loadout-open');
 
   /**
@@ -861,6 +879,8 @@ export function renderCharacterSettings(
   search.type = 'search';
   search.placeholder = '추가 수치 검색';
   search.dataset.manualSearch = '';
+  // 하나 추가했다고 검색어까지 지우면 둘째 줄부터 매번 다시 쳐야 한다.
+  search.value = searchWas;
   const manualSelect = document.createElement('select');
   manualSelect.dataset.manualSelect = '';
   const add = document.createElement('button');
@@ -934,4 +954,5 @@ export function renderCharacterSettings(
   const bodyFold = panelOpener('돌파 · 스킬 · 오버로드 · 큐브', 'settings', '수치 설정');
   bodyFold.panel.append(body);
   container.append(bodyFold.head, bodyFold.panel, controlEditor);
+  lastPanels.set(container, [bodyFold.panel, controlFold.panel]);
 }
