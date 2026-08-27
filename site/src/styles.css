@@ -74,23 +74,14 @@ a:focus-visible {
 .hero-orbit span { position: absolute; top: -9px; right: 15px; color: var(--amber); font: 700 10px ui-monospace, monospace; }
 .hero-orbit strong { text-align: center; font: 800 18px/1.15 ui-monospace, monospace; letter-spacing: .12em; }
 
-/* 조건은 맨 위 한 줄(커맨드 바), 그 아래를 편성과 결과 두 열로 나눈다. 결과가 늘
-   편성 옆에 있어 «고치고 → 돌리고 → 본다»가 한 화면에서 끝난다.
-   커맨드 바는 **따라다니지 않는다** — 스크롤 중에 화면 위를 계속 덮으면 정작 보려던
-   편성·결과가 그만큼 좁아진다. */
-.calculator-layout { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(420px, 1fr);
-  gap: 16px; align-items: start; }
+/* 편성 → 조건 → 결과가 위에서 아래로 한 줄로 선다. 결과를 옆에 세우면 5덱을
+   가로로 늘어놓을 자리가 안 나온다. */
+.calculator-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
 .panel { min-width: 0; border: 1px solid var(--line); background: linear-gradient(145deg, rgba(15,30,46,.94), rgba(8,17,28,.94)); box-shadow: 0 28px 80px rgba(0,0,0,.26); }
-.squad-panel { padding: 28px; }
-/* 조건 = 커맨드 바. 두 열 위에 통째로 걸친다. */
+.squad-panel { grid-column: 1 / -1; padding: 28px; }
+/* 스크롤을 따라다니지 않는다 — 결과와 같이 흘러야 어느 조건의 결과인지 헷갈리지 않는다. */
 .settings-panel { grid-column: 1 / -1; padding: 20px 28px; }
-.result-panel { min-height: 320px; padding: 28px; overflow: hidden; }
-/* 타임라인은 결과 아래 오른쪽 열을 잇는다. */
-.timeline-panel { grid-column: 1 / -1; }
-@media (max-width: 1180px) {
-  .calculator-layout { grid-template-columns: minmax(0, 1fr); }
-  .squad-panel, .result-panel { grid-column: 1 / -1; }
-}
+.result-panel { grid-column: 1 / -1; min-height: 320px; padding: 28px; overflow: hidden; }
 
 /* 전투 조건 — 접힌 줄 */
 .battle-open { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 14px;

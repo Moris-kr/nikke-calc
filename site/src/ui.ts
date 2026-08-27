@@ -500,6 +500,87 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       </section>
 
       <form class="calculator-layout" data-view="calc" novalidate>
+        <section class="panel squad-panel" aria-labelledby="squad-heading">
+          <div class="section-heading">
+            <div><h2 id="squad-heading">편성 및 캐릭터 설정</h2></div>
+            <div class="squad-tools">
+              <span class="roster-import-group">
+                <label class="roster-import" title="렛츠도로 니케정보 CSV를 불러와 모든 니케 설정에 적용">
+                  <input id="roster-csv" type="file" accept=".csv,text/csv" hidden />
+                  <span>렛츠도로 CSV 불러오기</span>
+                </label>
+                <button type="button" class="roster-info" data-doro-open aria-label="렛츠도로 CSV 받는 법" title="렛츠도로에서 CSV 받는 법">i</button>
+              </span>
+              ${blablaProxy ? '<button type="button" class="roster-import" data-blabla-open title="블라블라링크 프로필 URL로 보유 니케의 육성을 한 번에 불러옵니다">블라블라링크 연동</button>' : ''}
+              <button type="button" class="roster-import" data-add-nikke title="미출시·미등록 니케를 직접 추가">새 니케 추가</button>
+              <button type="button" class="roster-import" data-preset-open title="현재 편성을 저장하거나 저장한 편성을 불러옵니다. 개인 스펙과 전투 조건은 저장하지 않습니다">편성 프리셋</button>
+              <button type="button" class="roster-import" data-share-open title="편성을 코드로 만들어 공유하거나, 받은 코드를 붙여넣어 5덱을 한 번에 적용">조합 공유</button>
+              <button type="button" class="roster-import danger" data-reset-all title="편성·설정·CSV 로스터·추가한 니케·저장된 결과를 모두 지우고 처음 상태로 되돌립니다">완전 초기화</button>
+              <label class="toggle-field mode-toggle" title="다른 덱에서 이미 만져 둔 개별 설정을 편성할 때 그대로 가져옵니다"><input id="carry-settings" type="checkbox" checked /><span class="toggle"></span><span>설정 이어받기</span></label>
+              <label class="toggle-field mode-toggle"><input id="squad-mode" type="checkbox" /><span class="toggle"></span><span>5덱 모드</span></label>
+            </div>
+            <p class="roster-note" data-roster-note hidden></p>
+          </div>
+          <div class="deck-tabs" data-deck-tabs hidden></div>
+          <div class="deck-controls">
+            <span class="deck-moves" data-deck-moves hidden></span>
+            <button type="button" class="deck-clear" data-deck-clear title="지금 보고 있는 덱의 편성과 개별 설정을 비웁니다">덱 비우기</button>
+          <div class="deck-copy" data-deck-copy hidden>
+            <button type="button" class="deck-copy-open" data-deck-copy-open>현재 덱 복사</button>
+            <div class="deck-copy-panel" data-deck-copy-panel hidden>
+              <p class="deck-copy-title" data-deck-copy-title></p>
+              <div class="deck-copy-targets" data-deck-copy-targets></div>
+              <div class="deck-copy-actions">
+                <button type="button" class="deck-copy-apply" data-deck-copy-apply>복사</button>
+                <button type="button" class="deck-copy-cancel" data-deck-copy-cancel>취소</button>
+              </div>
+            </div>
+          </div>
+          </div>
+          <p class="deck-note" data-deck-note hidden>덱 사이에는 같은 캐릭터를 다시 편성할 수 있습니다.</p>
+          <div class="squad-grid" data-squad-grid></div>
+
+          <!-- 니케 고르기. 창을 띄우지 않고 늘 펼쳐 두고, 검색은 이 판을 거른다.
+               「이름을 쳤는데 아무 일도 안 일어난다」가 지적된 지점이라, 결과를
+               감추는 자리를 없앴다. -->
+          <section class="picker" aria-label="니케 고르기">
+            <div class="picker-head">
+              <h3>니케 고르기 <span data-roster-count></span></h3>
+              <p class="picker-target" data-roster-desc></p>
+            </div>
+            <input type="search" class="roster-search" data-roster-search placeholder="이름 · 초성 · 속성으로 찾기 (ㄹㅍ, 라피레드, 전격)" autocomplete="off" aria-label="니케 이름 검색" />
+            <!-- 정렬·필터는 판을 눌러 펼친다. 칩을 늘 깔아 두면 목록이 화면 밖으로
+                 밀리고, 필터가 몇 개 걸렸는지도 한눈에 안 들어온다. -->
+            <div class="picker-bar">
+              <button type="button" class="filter-open" data-filter-open aria-expanded="false">
+                <span>정렬 및 필터</span>
+                <b class="filter-badge" data-filter-badge hidden></b>
+                <span class="filter-caret" aria-hidden="true">▾</span>
+              </button>
+              <!-- 버스트는 가장 자주 거르는 축이라 판 안에 넣지 않는다 — 판을 펼치지
+                   않고 바로 누를 수 있어야 한다. -->
+              <div class="filter-chips burst-chips" data-burst-group></div>
+              <button type="button" class="filter-reset" data-filter-reset hidden>필터 지우기</button>
+              <span class="filter-summary" data-filter-summary></span>
+            </div>
+            <!-- 판은 목록을 밀어내지 않고 그 «위에» 얹힌다. 밀어내면 펼칠 때마다
+                 목록이 화면 밖으로 내려가 무엇을 고르는 중이었는지 놓친다. -->
+            <div class="picker-body">
+              <div class="filter-panel" data-filter-panel hidden>
+                <div class="filter-section">
+                  <p class="filter-title">정렬</p>
+                  <div class="filter-chips" data-sort-group></div>
+                </div>
+                <div class="filter-rule"></div>
+                <p class="filter-title">필터</p>
+                <div class="filter-groups" data-filter-groups></div>
+              </div>
+              <div class="picker-scroll"><div class="roster-grid" data-roster-grid></div></div>
+            </div>
+            <p class="roster-empty" data-roster-empty hidden>검색과 일치하는 니케가 없습니다.</p>
+          </section>
+        </section>
+
         <section class="panel settings-panel" aria-labelledby="settings-heading">
           <div class="section-heading compact target-heading">
             <div><h2 id="settings-heading">전투 조건</h2></div>
@@ -587,87 +668,6 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           </div>
           </div>
           </div>
-        </section>
-
-        <section class="panel squad-panel" aria-labelledby="squad-heading">
-          <div class="section-heading">
-            <div><h2 id="squad-heading">편성 및 캐릭터 설정</h2></div>
-            <div class="squad-tools">
-              <span class="roster-import-group">
-                <label class="roster-import" title="렛츠도로 니케정보 CSV를 불러와 모든 니케 설정에 적용">
-                  <input id="roster-csv" type="file" accept=".csv,text/csv" hidden />
-                  <span>렛츠도로 CSV 불러오기</span>
-                </label>
-                <button type="button" class="roster-info" data-doro-open aria-label="렛츠도로 CSV 받는 법" title="렛츠도로에서 CSV 받는 법">i</button>
-              </span>
-              ${blablaProxy ? '<button type="button" class="roster-import" data-blabla-open title="블라블라링크 프로필 URL로 보유 니케의 육성을 한 번에 불러옵니다">블라블라링크 연동</button>' : ''}
-              <button type="button" class="roster-import" data-add-nikke title="미출시·미등록 니케를 직접 추가">새 니케 추가</button>
-              <button type="button" class="roster-import" data-preset-open title="현재 편성을 저장하거나 저장한 편성을 불러옵니다. 개인 스펙과 전투 조건은 저장하지 않습니다">편성 프리셋</button>
-              <button type="button" class="roster-import" data-share-open title="편성을 코드로 만들어 공유하거나, 받은 코드를 붙여넣어 5덱을 한 번에 적용">조합 공유</button>
-              <button type="button" class="roster-import danger" data-reset-all title="편성·설정·CSV 로스터·추가한 니케·저장된 결과를 모두 지우고 처음 상태로 되돌립니다">완전 초기화</button>
-              <label class="toggle-field mode-toggle" title="다른 덱에서 이미 만져 둔 개별 설정을 편성할 때 그대로 가져옵니다"><input id="carry-settings" type="checkbox" checked /><span class="toggle"></span><span>설정 이어받기</span></label>
-              <label class="toggle-field mode-toggle"><input id="squad-mode" type="checkbox" /><span class="toggle"></span><span>5덱 모드</span></label>
-            </div>
-            <p class="roster-note" data-roster-note hidden></p>
-          </div>
-          <div class="deck-tabs" data-deck-tabs hidden></div>
-          <div class="deck-controls">
-            <span class="deck-moves" data-deck-moves hidden></span>
-            <button type="button" class="deck-clear" data-deck-clear title="지금 보고 있는 덱의 편성과 개별 설정을 비웁니다">덱 비우기</button>
-          <div class="deck-copy" data-deck-copy hidden>
-            <button type="button" class="deck-copy-open" data-deck-copy-open>현재 덱 복사</button>
-            <div class="deck-copy-panel" data-deck-copy-panel hidden>
-              <p class="deck-copy-title" data-deck-copy-title></p>
-              <div class="deck-copy-targets" data-deck-copy-targets></div>
-              <div class="deck-copy-actions">
-                <button type="button" class="deck-copy-apply" data-deck-copy-apply>복사</button>
-                <button type="button" class="deck-copy-cancel" data-deck-copy-cancel>취소</button>
-              </div>
-            </div>
-          </div>
-          </div>
-          <p class="deck-note" data-deck-note hidden>덱 사이에는 같은 캐릭터를 다시 편성할 수 있습니다.</p>
-          <div class="squad-grid" data-squad-grid></div>
-
-          <!-- 니케 고르기. 창을 띄우지 않고 늘 펼쳐 두고, 검색은 이 판을 거른다.
-               「이름을 쳤는데 아무 일도 안 일어난다」가 지적된 지점이라, 결과를
-               감추는 자리를 없앴다. -->
-          <section class="picker" aria-label="니케 고르기">
-            <div class="picker-head">
-              <h3>니케 고르기 <span data-roster-count></span></h3>
-              <p class="picker-target" data-roster-desc></p>
-            </div>
-            <input type="search" class="roster-search" data-roster-search placeholder="이름 · 초성 · 속성으로 찾기 (ㄹㅍ, 라피레드, 전격)" autocomplete="off" aria-label="니케 이름 검색" />
-            <!-- 정렬·필터는 판을 눌러 펼친다. 칩을 늘 깔아 두면 목록이 화면 밖으로
-                 밀리고, 필터가 몇 개 걸렸는지도 한눈에 안 들어온다. -->
-            <div class="picker-bar">
-              <button type="button" class="filter-open" data-filter-open aria-expanded="false">
-                <span>정렬 및 필터</span>
-                <b class="filter-badge" data-filter-badge hidden></b>
-                <span class="filter-caret" aria-hidden="true">▾</span>
-              </button>
-              <!-- 버스트는 가장 자주 거르는 축이라 판 안에 넣지 않는다 — 판을 펼치지
-                   않고 바로 누를 수 있어야 한다. -->
-              <div class="filter-chips burst-chips" data-burst-group></div>
-              <button type="button" class="filter-reset" data-filter-reset hidden>필터 지우기</button>
-              <span class="filter-summary" data-filter-summary></span>
-            </div>
-            <!-- 판은 목록을 밀어내지 않고 그 «위에» 얹힌다. 밀어내면 펼칠 때마다
-                 목록이 화면 밖으로 내려가 무엇을 고르는 중이었는지 놓친다. -->
-            <div class="picker-body">
-              <div class="filter-panel" data-filter-panel hidden>
-                <div class="filter-section">
-                  <p class="filter-title">정렬</p>
-                  <div class="filter-chips" data-sort-group></div>
-                </div>
-                <div class="filter-rule"></div>
-                <p class="filter-title">필터</p>
-                <div class="filter-groups" data-filter-groups></div>
-              </div>
-              <div class="picker-scroll"><div class="roster-grid" data-roster-grid></div></div>
-            </div>
-            <p class="roster-empty" data-roster-empty hidden>검색과 일치하는 니케가 없습니다.</p>
-          </section>
         </section>
 
         <section class="panel result-panel" aria-labelledby="result-heading" data-result-panel>
