@@ -1111,9 +1111,8 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
 .union-est { margin-left: 4px; padding: 1px 4px; border: 1px solid rgba(255,191,60,.4);
   font: 800 9px ui-monospace, monospace; }
 
-/* 병렬 계산 — 「이 기기」 설정이라 편성 도구 줄에 둔다. */
-.parallel-pick { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
-.parallel-pick input[type=checkbox] { margin: 0; }
-.parallel-pick select { padding: 2px 4px; border: 1px solid var(--line); background: rgba(3,9,16,.6);
-  color: var(--ink); font: 700 10.5px ui-monospace, monospace; }
-.parallel-pick select:disabled { opacity: .45; }
+/* 병렬 계산 — 「이 기기」 설정이라 «설정 이어받기»·«5덱 모드»와 같은 토글 줄에 둔다.
+   개수 고르는 칸만 토글 옆에 작게 붙는다. */
+.parallel-pick select { margin-left: 6px; padding: 1px 3px; border: 1px solid var(--line);
+  background: rgba(3,9,16,.6); color: var(--muted); font: 700 10px ui-monospace, monospace; }
+.parallel-pick select:disabled { opacity: .4; }

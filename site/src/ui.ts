@@ -602,13 +602,13 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
               <button type="button" class="roster-import" data-add-nikke title="미출시·미등록 니케를 직접 추가">새 니케 추가</button>
               <button type="button" class="roster-import" data-preset-open title="현재 편성을 저장하거나 저장한 편성을 불러옵니다. 개인 스펙과 전투 조건은 저장하지 않습니다">편성 프리셋</button>
               <button type="button" class="roster-import" data-share-open title="편성을 코드로 만들어 공유하거나, 받은 코드를 붙여넣어 5덱을 한 번에 적용">조합 공유</button>
-              <label class="roster-import parallel-pick" title="계산을 여러 작업 스레드에 나눠 돌립니다. 이 기기의 코어를 더 쓰는 대신 5덱 계산이 몇 배 빨라집니다 — 서버 비용과는 무관합니다(계산은 이 기기에서 돕니다)">
-                <input type="checkbox" data-parallel-toggle checked /><span>병렬 계산</span>
-                <select data-parallel-size title="띄울 작업 스레드 수. 워커마다 계산 런타임이 하나씩 떠서 메모리를 50~80MB씩 씁니다"></select>
-              </label>
               <button type="button" class="roster-import danger" data-reset-all title="편성·설정·CSV 로스터·추가한 니케·저장된 결과를 모두 지우고 처음 상태로 되돌립니다">완전 초기화</button>
               <label class="toggle-field mode-toggle" title="다른 덱에서 이미 만져 둔 개별 설정을 편성할 때 그대로 가져옵니다"><input id="carry-settings" type="checkbox" checked /><span class="toggle"></span><span>설정 이어받기</span></label>
               <label class="toggle-field mode-toggle"><input id="squad-mode" type="checkbox" /><span class="toggle"></span><span>5덱 모드</span></label>
+              <label class="toggle-field mode-toggle parallel-pick" title="계산을 여러 작업 스레드에 나눠 돌립니다. 이 기기의 코어를 더 쓰는 대신 5덱 계산이 몇 배 빨라집니다 — 계산은 이 기기에서 도는 것이라 서버 비용과는 무관합니다">
+                <input type="checkbox" data-parallel-toggle checked /><span class="toggle"></span><span>병렬 계산</span>
+                <select data-parallel-size title="띄울 작업 스레드 수. 하나마다 계산 런타임이 떠서 메모리를 50~80MB씩 씁니다"></select>
+              </label>
             </div>
             <p class="roster-note" data-roster-note hidden></p>
           </div>
@@ -3644,9 +3644,12 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   for (let n = 1; n <= poolMax; n += 1) {
     const option = document.createElement('option');
     option.value = String(n);
-    option.textContent = n === poolDefault ? `${n}개 (권장)` : `${n}개`;
+    option.textContent = `${n}개`;
     parallelSize.append(option);
   }
+  // 권장값은 칸을 넓히지 않게 설명 쪽에만 적는다 — 토글 줄이 길어지면 줄이 접힌다.
+  parallelSize.title = `띄울 작업 스레드 수. 이 기기 권장 ${poolDefault}개. `
+    + '하나마다 계산 런타임이 떠서 메모리를 50~80MB씩 씁니다.';
   const applyParallel = (save: boolean) => {
     parallelToggle.checked = parallelOn;
     parallelSize.value = String(parallelCount);
