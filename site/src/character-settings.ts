@@ -463,7 +463,9 @@ export function renderCharacterSettings(
     // (기업 장비 등급으로 읽힌다) 인게임 표기대로 「오버로드」로 적는다.
     addOption('없음', '미장착');
     addOption('T9', 'T9 (일반)');
-    addOption('0', 'T9 기업 (강화 없음)');
+    // 0단계도 «오버로드 0강»으로 부르는 사람이 많다 — 두 이름을 같이 적어 두면
+    // 어느 쪽으로 찾아도 걸린다(«0강이 없다»는 오해가 실제로 나왔다).
+    addOption('0', '오버로드 0강 (T9 기업)');
     for (let lv = 1; lv <= 5; lv += 1) addOption(String(lv), `오버로드 ${lv}강`);
     const currentEquip = String(current.equipLevels?.[part] ?? 5);
     // 옛 설정이 T1~T8을 가리키면 그 값도 목록에 남겨 둔다 — 조용히 바뀌면 안 된다.

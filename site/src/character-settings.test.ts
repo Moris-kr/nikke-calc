@@ -214,7 +214,7 @@ describe('character settings editor', () => {
       ['없음', 'T9', '0', '1', '2', '3', '4', '5'],
     );
     expect([...head.options].map((option) => option.textContent)).toEqual(
-      ['미장착', 'T9 (일반)', 'T9 기업 (강화 없음)', '오버로드 1강', '오버로드 2강',
+      ['미장착', 'T9 (일반)', '오버로드 0강 (T9 기업)', '오버로드 1강', '오버로드 2강',
         '오버로드 3강', '오버로드 4강', '오버로드 5강'],
     );
     expect(head.value).toBe('5');
@@ -594,6 +594,20 @@ describe('character settings editor', () => {
     // 설명도 «가급적»이 아니라 아예 안 쓴다고 적는다.
     expect(root.querySelector('.burst-editor .field-note')!.textContent)
       .toContain('버스트를 아예 쓰지 않습니다');
+  });
+
+  it('carries an overload-0 setting through to the engine request', () => {
+    // «0강이 인식 안 된다»는 제보가 있었다 — 0은 흔히 falsy로 걸러지는 값이라
+    // 화면→저장→요청 어느 칸에서 새도 조용하다. 그 경로를 못 박는다.
+    value = { equipLevels: { 머리: 0, 몸통: 0, 팔: 0, 다리: 0 } };
+    render();
+    const head = root.querySelector<HTMLSelectElement>('[data-equip-level="머리"]')!;
+    expect(head.value).toBe('0');
+
+    const arm = root.querySelector<HTMLSelectElement>('[data-equip-level="팔"]')!;
+    arm.value = '0';
+    arm.dispatchEvent(new Event('change'));
+    expect(value?.equipLevels).toEqual({ 머리: 0, 몸통: 0, 팔: 0, 다리: 0 });
   });
 
   it('keeps an older T1~T8 setting selectable instead of silently moving it', () => {

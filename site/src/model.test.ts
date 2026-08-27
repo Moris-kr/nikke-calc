@@ -221,6 +221,14 @@ describe('multi-deck model', () => {
       .not.toBe(cacheKey(requestForDeck(deck(1, ['리타']), battle), 'v1'));
   });
 
+  it('keeps an overload-0 equipment level in the request', () => {
+    // 0은 흔히 falsy로 걸러진다 — 요청까지 살아 오는지 못 박는다.
+    const withZero = deck(1, ['리타']);
+    withZero.characters.리타 = { equipLevels: { 머리: 0, 몸통: 0, 팔: 0, 다리: 0 } };
+    expect(requestForDeck(withZero, battle).characters?.리타?.equipLevels)
+      .toEqual({ 머리: 0, 몸통: 0, 팔: 0, 다리: 0 });
+  });
+
   it('rejects a synchro level outside the stat table', () => {
     expect(validateRequest({ ...valid, synchroLevel: 0 }))
       .toContain('싱크로 레벨은 1~1000이어야 합니다.');

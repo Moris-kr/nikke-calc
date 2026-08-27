@@ -265,6 +265,30 @@ class BrowserBridgeTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "큐브는"):
             run_request(json.dumps(payload, ensure_ascii=False))
 
+    def test_overload_zero_is_its_own_equipment_state(self):
+        """오버로드 0강은 미장착도 T9도 아니다 — 셋이 서로 다른 값을 내야 한다."""
+        base = {
+            "squad": ["리타"],
+            "duration": 20,
+            "enemyDef": 31_784,
+            "enemyCode": "",
+            "corePx": 0,
+            "hasParts": False,
+            "seed": 42,
+        }
+
+        def run(level):
+            payload = {**base, "characters": {"리타": {"equipLevels": {
+                "머리": level, "몸통": level, "팔": level, "다리": level,
+            }}}}
+            return json.loads(run_request(json.dumps(payload, ensure_ascii=False)))["squadTotal"]
+
+        none_, tier9, over0, over1 = run("없음"), run("T9"), run(0), run(1)
+        # 0은 흔히 falsy로 걸러진다 — 걸러지면 미장착이나 기본값과 같아져 조용히 틀린다.
+        self.assertLess(none_, tier9)
+        self.assertLess(tier9, over0)
+        self.assertLess(over0, over1)
+
     def test_rejects_a_bad_burst_reaction(self):
         payload = {
             "squad": ["리타"],

@@ -1,0 +1,1378 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NIKKE 스쿼드 계산기 — 흐름</title>
+<meta name="description" content="편성부터 결과까지 한 걸음씩 안내하는 NIKKE 스쿼드 계산기 재설계 시안">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://code.iconify.design/iconify-icon/2.3.0/iconify-icon.min.js"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: ['Pretendard', 'system-ui', 'sans-serif'],
+        dsp: ['Outfit', 'Pretendard', 'system-ui', 'sans-serif'],
+      },
+      colors: {
+        base: '#050b13',
+        panel: '#0e1b2a',
+        ink: '#eaf2f8',
+        dim: '#8394a6',
+        acc: '#ffbf3c',
+        acc2: '#ff9d1f',
+        teal: '#45d6d0',
+        danger: '#ff7787',
+      },
+    },
+  },
+}
+</script>
+<style>
+  :root{
+    --bg:#050b13; --panel:#0e1b2a; --ink:#eaf2f8; --dim:#8394a6;
+    --acc:#ffbf3c; --acc2:#ff9d1f; --teal:#45d6d0; --danger:#ff7787;
+    --spring: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  *{ -webkit-tap-highlight-color: transparent; }
+  html{ scroll-behavior:smooth; }
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:'Pretendard','Outfit',system-ui,sans-serif;
+    word-break:keep-all;
+    -webkit-font-smoothing:antialiased;
+  }
+  .dsp{ font-family:'Outfit','Pretendard',system-ui,sans-serif; font-variant-numeric:tabular-nums lining-nums; }
+  .num{ font-variant-numeric:tabular-nums lining-nums; }
+  .t{ transition: all .5s var(--spring); }
+  .tq{ transition: all .28s var(--spring); }
+
+  /* 더블 베젤 */
+  .shell{ background:rgba(255,255,255,.045); box-shadow:0 0 0 1px rgba(255,255,255,.09); padding:6px; border-radius:2rem; }
+  .core{ background:var(--panel); border-radius:calc(2rem - 6px); box-shadow: inset 0 1px 0 rgba(255,255,255,.09); }
+  .shell-sm{ background:rgba(255,255,255,.04); box-shadow:0 0 0 1px rgba(255,255,255,.08); padding:5px; border-radius:1.35rem; }
+  .core-sm{ background:#0c1725; border-radius:calc(1.35rem - 5px); box-shadow: inset 0 1px 0 rgba(255,255,255,.07); }
+
+  /* 배경 */
+  .ambient{ position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background:
+      radial-gradient(58rem 34rem at 78% -8%, rgba(255,191,60,.10), transparent 62%),
+      radial-gradient(46rem 30rem at 6% 22%, rgba(69,214,208,.055), transparent 60%),
+      radial-gradient(70rem 46rem at 50% 112%, rgba(255,157,31,.07), transparent 64%);
+  }
+  .grain{ position:fixed; inset:0; z-index:60; pointer-events:none; opacity:.05; mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/></filter><rect width='200' height='200' filter='url(%23n)' opacity='0.5'/></svg>"); }
+
+  /* 진입 모션 */
+  @keyframes fadeInUp{ from{opacity:0; transform:translateY(1.6rem);} to{opacity:1; transform:translateY(0);} }
+  @keyframes fadeIn{ from{opacity:0;} to{opacity:1;} }
+  @keyframes floaty{ 0%,100%{transform:translateY(0);} 50%{transform:translateY(-10px);} }
+  @keyframes pulseRing{ 0%,100%{transform:scale(1); opacity:.55;} 50%{transform:scale(1.28); opacity:0;} }
+  @keyframes sweep{ 0%{transform:translateX(-110%);} 100%{transform:translateX(210%);} }
+  .rise{ animation: fadeInUp .8s var(--spring) both; animation-delay: calc(var(--i,0) * 70ms); }
+  .floaty{ animation: floaty 7s var(--spring) infinite; }
+
+  /* 스파인 */
+  .spine-fill{ transform-origin:left center; transition: transform .7s var(--spring); }
+  .step-num{ transition: all .5s var(--spring); }
+  .step.on .step-num{ color:#0b1420; background:linear-gradient(140deg,var(--acc),var(--acc2)); box-shadow:0 0 0 1px rgba(255,191,60,.5), 0 10px 26px -12px rgba(255,157,31,.9); }
+  .step.on .step-label{ color:var(--ink); }
+  .step.done .step-num{ color:var(--acc); box-shadow: inset 0 0 0 1px rgba(255,191,60,.45); background:rgba(255,191,60,.08); }
+  .step:hover .step-num{ transform:translateY(-2px); }
+
+  /* 스테이지 */
+  .stage{ display:none; }
+  .stage.on{ display:block; animation: fadeIn .45s var(--spring) both; }
+
+  /* 자석 CTA */
+  .mag{ transition: transform .45s var(--spring), box-shadow .45s var(--spring), filter .45s var(--spring); will-change:transform; }
+  .mag:hover{ box-shadow: 0 26px 60px -24px rgba(255,157,31,.95); }
+  .mag:active{ transform: scale(.975) !important; }
+  .mag .arrow{ transition: transform .45s var(--spring); }
+  .mag:hover .arrow{ transform: translateX(4px); }
+  .mag-sheen{ position:absolute; inset:0; overflow:hidden; border-radius:inherit; pointer-events:none; }
+  .mag-sheen::after{ content:''; position:absolute; top:0; bottom:0; width:38%; background:linear-gradient(100deg,transparent,rgba(255,255,255,.35),transparent); transform:translateX(-110%); }
+  .mag:hover .mag-sheen::after{ animation: sweep 1.05s var(--spring); }
+
+  /* 칩 · 토글 */
+  .chip{ transition: all .34s var(--spring); }
+  .chip[aria-pressed="true"]{ background:rgba(255,191,60,.13); color:var(--acc); box-shadow: inset 0 0 0 1px rgba(255,191,60,.42); }
+  .chip:not([aria-pressed="true"]):hover{ background:rgba(255,255,255,.07); color:var(--ink); }
+  .sw{ transition: all .4s var(--spring); }
+  .sw .knob{ transition: transform .4s var(--spring); }
+  .sw[aria-pressed="true"]{ background:linear-gradient(120deg,var(--acc),var(--acc2)); }
+  .sw[aria-pressed="true"] .knob{ transform: translateX(18px); }
+
+  /* 접이 */
+  details > summary{ list-style:none; cursor:pointer; }
+  details > summary::-webkit-details-marker{ display:none; }
+  details[open] .disc-ar{ transform: rotate(180deg); }
+  .disc-ar{ transition: transform .4s var(--spring); }
+
+  /* 모달 */
+  .md{ display:none; }
+  .md.on{ display:block; }
+  .md .md-pn{ opacity:0; transform: translateY(22px) scale(.985); transition: all .5s var(--spring); }
+  .md.on .md-pn{ opacity:1; transform: translateY(0) scale(1); }
+  .md .md-bd{ opacity:0; transition: opacity .45s var(--spring); }
+  .md.on .md-bd{ opacity:1; }
+
+  /* 스크롤바 */
+  .scr::-webkit-scrollbar{ width:8px; height:8px; }
+  .scr::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.12); border-radius:99px; }
+  .scr::-webkit-scrollbar-track{ background:transparent; }
+
+  /* 슬롯 */
+  .slot-portrait{ transition: transform .6s var(--spring), filter .6s var(--spring); }
+  .slot:hover .slot-portrait{ transform: scale(1.06); }
+  .star{ transition: all .3s var(--spring); }
+
+  input[type="range"]{ -webkit-appearance:none; appearance:none; height:4px; border-radius:99px; background:rgba(255,255,255,.12); }
+  input[type="range"]::-webkit-slider-thumb{ -webkit-appearance:none; width:16px; height:16px; border-radius:99px; background:linear-gradient(140deg,var(--acc),var(--acc2)); box-shadow:0 4px 14px -4px rgba(255,157,31,.9); cursor:pointer; }
+  select, input[type="text"], input[type="number"], textarea{ background:#0a1421; color:var(--ink); }
+  select:focus, input:focus, textarea:focus{ outline:none; box-shadow: inset 0 0 0 1px rgba(255,191,60,.55); }
+  ::placeholder{ color:#5d6f83; }
+</style>
+</head>
+<body class="min-h-[100dvh] antialiased selection:bg-acc/25">
+<div class="ambient"></div>
+<div class="grain"></div>
+
+<!-- ══════════════ 한 줄 소개 ══════════════ -->
+<div class="relative border-b border-white/[0.06]">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center gap-3">
+    <span class="shrink-0 rounded-full px-3 py-1 text-[11px] uppercase tracking-[0.18em] font-medium bg-acc/10 text-acc dsp">Concept 02 · 흐름</span>
+    <p class="text-[13px] sm:text-sm text-dim leading-snug">
+      <span class="text-ink font-semibold">한 번에 한 걸음.</span>
+      편성 → 조건 → 실행 → 결과를 하나의 등뼈로 잇고, 각 단계가 화면 전체를 쓴다. 처음 온 사람은 다음 할 일을 묻지 않고, 익숙한 사람은 아무 데나 건너뛴다.
+    </p>
+  </div>
+</div>
+
+<!-- ══════════════ 상단 바 ══════════════ -->
+<header class="relative z-30">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-2 flex items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-acc to-acc2 grid place-items-center shadow-[0_12px_30px_-14px_rgba(255,157,31,.9)]">
+        <iconify-icon icon="solar:target-bold" class="text-[20px] text-[#0b1420]"></iconify-icon>
+      </div>
+      <div class="leading-tight">
+        <div class="text-[15px] font-bold tracking-tight">NIKKE 스쿼드 계산기</div>
+        <div class="text-[11px] text-dim dsp tracking-[0.14em] uppercase">Squad Damage Simulator</div>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <button onclick="openM('mdHistory')" class="tq hidden sm:flex items-center gap-2 rounded-full px-4 py-2.5 text-[13px] text-dim hover:text-ink bg-white/[0.04] hover:bg-white/[0.08] ring-1 ring-white/10">
+        <iconify-icon icon="solar:history-2-linear" class="text-[16px]"></iconify-icon>계산 기록
+      </button>
+      <div class="relative">
+        <button id="toolsBtn" onclick="toggleTools()" class="tq flex items-center gap-2 rounded-full px-4 py-2.5 text-[13px] font-medium bg-white/[0.06] hover:bg-white/[0.11] ring-1 ring-white/10">
+          <iconify-icon icon="solar:widget-4-linear" class="text-[16px] text-acc"></iconify-icon>도구
+          <iconify-icon icon="solar:alt-arrow-down-linear" class="text-[13px] text-dim"></iconify-icon>
+        </button>
+        <div id="toolsMenu" class="hidden absolute right-0 mt-3 w-[19rem] z-40">
+          <div class="shell-sm backdrop-blur-xl">
+            <div class="core-sm p-2">
+              <div class="px-3 pt-2 pb-1.5 text-[10px] uppercase tracking-[0.16em] text-dim dsp">불러오기</div>
+              <button onclick="openM('mdCsv')" class="tq w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.06] text-left text-[13px]"><iconify-icon icon="solar:file-download-linear" class="text-[17px] text-acc"></iconify-icon>렛츠도로 CSV 불러오기</button>
+              <button onclick="openM('mdBlabla')" class="tq w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.06] text-left text-[13px]"><iconify-icon icon="solar:link-circle-linear" class="text-[17px] text-acc"></iconify-icon>블라블라링크 연동</button>
+              <button onclick="openM('mdEnikk')" class="tq w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.06] text-left text-[13px]"><iconify-icon icon="solar:import-linear" class="text-[17px] text-acc"></iconify-icon>ENIKK 조합 가져오기</button>
+              <div class="my-1.5 h-px bg-white/[0.07]"></div>
+              <div class="px-3 pt-1 pb-1.5 text-[10px] uppercase tracking-[0.16em] text-dim dsp">관리</div>
+              <button onclick="openM('mdNewNikke')" class="tq w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.06] text-left text-[13px]"><iconify-icon icon="solar:user-plus-linear" class="text-[17px] text-teal"></iconify-icon>새 니케 추가</button>
+              <button onclick="openM('mdPreset')" class="tq w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.06] text-left text-[13px]"><iconify-icon icon="solar:bookmark-linear" class="text-[17px] text-teal"></iconify-icon>편성 프리셋</button>
+              <button onclick="openM('mdShareSquad')" class="tq w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.06] text-left text-[13px]"><iconify-icon icon="solar:share-linear" class="text-[17px] text-teal"></iconify-icon>조합 공유</button>
+              <button onclick="openM('mdNotice')" class="tq w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.06] text-left text-[13px]"><iconify-icon icon="solar:bell-linear" class="text-[17px] text-teal"></iconify-icon>업데이트 공지</button>
+              <div class="my-1.5 h-px bg-white/[0.07]"></div>
+              <label class="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl hover:bg-white/[0.06] cursor-pointer">
+                <span class="text-[13px] leading-snug">설정 이어받기<span class="block text-[11px] text-dim">새 니케를 넣을 때 앞 칸 설정을 그대로</span></span>
+                <button aria-pressed="true" onclick="tg(this)" class="sw shrink-0 w-[38px] h-[22px] rounded-full bg-white/10 p-[3px] flex items-center"><span class="knob block w-4 h-4 rounded-full bg-[#0b1420] shadow"></span></button>
+              </label>
+              <button onclick="openM('mdReset')" class="tq w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-danger/10 text-left text-[13px] text-danger"><iconify-icon icon="solar:trash-bin-trash-linear" class="text-[17px]"></iconify-icon>완전 초기화</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ══════════════ 진행 등뼈 (스파인) ══════════════ -->
+<nav class="sticky top-0 z-40 backdrop-blur-2xl bg-[#050b13]/80 border-b border-white/[0.07]">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="relative py-4">
+      <div class="absolute left-4 right-4 sm:left-6 sm:right-6 lg:left-8 lg:right-8 top-[2.15rem] h-px bg-white/10"></div>
+      <div class="absolute left-4 sm:left-6 lg:left-8 top-[2.15rem] h-px w-[calc(100%-2rem)] sm:w-[calc(100%-3rem)] lg:w-[calc(100%-4rem)] bg-gradient-to-r from-acc to-acc2 spine-fill" id="spineFill" style="transform:scaleX(.125)"></div>
+      <div class="relative grid grid-cols-4 gap-1 sm:gap-4">
+        <button class="step on group text-left px-1 sm:px-2" data-step="0" onclick="go(0)">
+          <div class="flex items-center gap-2 sm:gap-3">
+            <span class="step-num dsp shrink-0 w-9 h-9 rounded-xl grid place-items-center text-[13px] font-semibold bg-white/[0.05] text-dim ring-1 ring-white/10">01</span>
+            <span class="min-w-0">
+              <span class="step-label block text-[13px] sm:text-[15px] font-bold tracking-tight text-dim truncate">편성</span>
+              <span class="block text-[10px] sm:text-[11px] text-dim/80 truncate" data-status="0">덱 1 · 5/5 배치됨</span>
+            </span>
+          </div>
+        </button>
+        <button class="step group text-left px-1 sm:px-2" data-step="1" onclick="go(1)">
+          <div class="flex items-center gap-2 sm:gap-3">
+            <span class="step-num dsp shrink-0 w-9 h-9 rounded-xl grid place-items-center text-[13px] font-semibold bg-white/[0.05] text-dim ring-1 ring-white/10">02</span>
+            <span class="min-w-0">
+              <span class="step-label block text-[13px] sm:text-[15px] font-bold tracking-tight text-dim truncate">조건</span>
+              <span class="block text-[10px] sm:text-[11px] text-dim/80 truncate" data-status="1">180초 · 철갑 · 코어 있음</span>
+            </span>
+          </div>
+        </button>
+        <button class="step group text-left px-1 sm:px-2" data-step="2" onclick="go(2)">
+          <div class="flex items-center gap-2 sm:gap-3">
+            <span class="step-num dsp shrink-0 w-9 h-9 rounded-xl grid place-items-center text-[13px] font-semibold bg-white/[0.05] text-dim ring-1 ring-white/10">03</span>
+            <span class="min-w-0">
+              <span class="step-label block text-[13px] sm:text-[15px] font-bold tracking-tight text-dim truncate">실행</span>
+              <span class="block text-[10px] sm:text-[11px] text-dim/80 truncate" data-status="2">덱 5개 대기 중</span>
+            </span>
+          </div>
+        </button>
+        <button class="step group text-left px-1 sm:px-2" data-step="3" onclick="go(3)">
+          <div class="flex items-center gap-2 sm:gap-3">
+            <span class="step-num dsp shrink-0 w-9 h-9 rounded-xl grid place-items-center text-[13px] font-semibold bg-white/[0.05] text-dim ring-1 ring-white/10">04</span>
+            <span class="min-w-0">
+              <span class="step-label block text-[13px] sm:text-[15px] font-bold tracking-tight text-dim truncate">결과</span>
+              <span class="block text-[10px] sm:text-[11px] text-dim/80 truncate" data-status="3">1,482,905,113 · 8.24M DPS</span>
+            </span>
+          </div>
+        </button>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+<!-- ══════════════════════════════════════════════════════════
+     01 · 편성
+     ══════════════════════════════════════════════════════════ -->
+<section class="stage on" id="stage0">
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 py-14 md:py-20">
+
+    <!-- 왼쪽 레일 -->
+    <aside class="lg:col-span-4 xl:col-span-4">
+      <div class="lg:sticky lg:top-28">
+        <div class="rise" style="--i:0">
+          <div class="dsp text-[5.5rem] sm:text-[7rem] font-light leading-[0.82] tracking-tighter text-white/[0.09] select-none">01</div>
+          <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 mt-1 text-[11px] uppercase tracking-[0.15em] font-medium bg-acc/10 text-acc dsp">
+            <iconify-icon icon="solar:users-group-rounded-bold" class="text-[13px]"></iconify-icon>Squad
+          </span>
+          <h1 class="mt-5 text-4xl md:text-5xl font-bold tracking-tight leading-snug">누가<br>나가는지<br>정합니다</h1>
+          <p class="mt-5 text-[15px] text-dim leading-relaxed max-w-[34ch]">
+            덱 하나에 다섯 자리. 초상화를 눌러 니케를 고르고, 별과 진화 숫자로 돌파를 맞춥니다.
+            칸마다 다른 육성값을 쓰려면 <span class="text-ink">개별 설정</span>을 켜세요.
+          </p>
+        </div>
+
+        <!-- 덱 전환 -->
+        <div class="mt-9 rise" style="--i:1">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-[11px] uppercase tracking-[0.16em] text-dim dsp">Deck</span>
+            <span class="text-[11px] text-dim" id="deckCount">5개 덱 중 4개 사용</span>
+          </div>
+          <div class="grid grid-cols-5 gap-1.5" id="deckTabs"></div>
+          <div class="mt-3 flex flex-wrap gap-1.5">
+            <button onclick="deckClear()" class="tq inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-[12px] text-dim hover:text-ink bg-white/[0.04] hover:bg-white/[0.08] ring-1 ring-white/[0.08]"><iconify-icon icon="solar:eraser-linear" class="text-[14px]"></iconify-icon>덱 비우기</button>
+            <button onclick="deckCopy()" class="tq inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-[12px] text-dim hover:text-ink bg-white/[0.04] hover:bg-white/[0.08] ring-1 ring-white/[0.08]"><iconify-icon icon="solar:copy-linear" class="text-[14px]"></iconify-icon>현재 덱 복사</button>
+            <button onclick="deckMove(-1)" class="tq inline-flex items-center gap-1 rounded-full px-3 py-2 text-[12px] text-dim hover:text-ink bg-white/[0.04] hover:bg-white/[0.08] ring-1 ring-white/[0.08]"><iconify-icon icon="solar:alt-arrow-left-linear" class="text-[14px]"></iconify-icon>앞으로</button>
+            <button onclick="deckMove(1)" class="tq inline-flex items-center gap-1 rounded-full px-3 py-2 text-[12px] text-dim hover:text-ink bg-white/[0.04] hover:bg-white/[0.08] ring-1 ring-white/[0.08]">뒤로<iconify-icon icon="solar:alt-arrow-right-linear" class="text-[14px]"></iconify-icon></button>
+          </div>
+        </div>
+
+        <!-- 자석 CTA -->
+        <div class="mt-9 rise" style="--i:2">
+          <button onclick="runSim()" class="mag magnet group relative w-full overflow-hidden rounded-full bg-gradient-to-r from-acc to-acc2 text-[#0b1420] pl-7 pr-2 py-2 flex items-center justify-between gap-4 shadow-[0_18px_46px_-22px_rgba(255,157,31,.85)]">
+            <span class="mag-sheen"></span>
+            <span class="text-left leading-tight">
+              <span class="block text-[17px] font-bold tracking-tight">시뮬레이션 실행</span>
+              <span class="block text-[11px] font-medium text-[#0b1420]/60">덱 4개 · 180초 기준</span>
+            </span>
+            <span class="arrow shrink-0 w-11 h-11 rounded-full bg-[#0b1420]/12 grid place-items-center">
+              <iconify-icon icon="solar:play-bold" class="text-[19px]"></iconify-icon>
+            </span>
+          </button>
+          <button onclick="go(1)" class="tq mt-2.5 w-full rounded-full py-3 text-[13px] text-dim hover:text-ink bg-white/[0.03] hover:bg-white/[0.07] ring-1 ring-white/[0.07] flex items-center justify-center gap-2">
+            먼저 전투 조건부터 손보기<iconify-icon icon="solar:arrow-right-linear" class="text-[15px]"></iconify-icon>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 오른쪽 본문 -->
+    <div class="lg:col-span-8">
+      <!-- 슬롯 -->
+      <div class="rise" style="--i:1">
+        <div class="flex items-end justify-between gap-4 mb-4">
+          <div>
+            <h2 class="text-[20px] font-bold tracking-tight" id="deckTitle">덱 1</h2>
+            <p class="text-[12.5px] text-dim mt-0.5">칸을 눌러 니케를 고르고, 톱니를 눌러 세부 육성을 맞춥니다.</p>
+          </div>
+          <button onclick="openM('mdCtrl')" class="tq shrink-0 inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-[12.5px] bg-white/[0.05] hover:bg-white/[0.09] ring-1 ring-white/10">
+            <iconify-icon icon="solar:tuning-2-linear" class="text-[16px] text-acc"></iconify-icon>컨트롤
+          </button>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3" id="slotGrid"></div>
+      </div>
+
+      <!-- 덱 요약 + 도구 벤토 -->
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-3 mt-3 rise" style="--i:2">
+        <div class="md:col-span-3 shell-sm">
+          <div class="core-sm p-5">
+            <div class="flex items-center gap-2 mb-4">
+              <iconify-icon icon="solar:chart-square-linear" class="text-[17px] text-acc"></iconify-icon>
+              <span class="text-[13px] font-semibold tracking-tight">덱 요약</span>
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+              <div><div class="text-[10.5px] uppercase tracking-[0.14em] text-dim dsp">전투력</div><div class="dsp text-[19px] font-semibold mt-1" id="sumCp">647,205</div></div>
+              <div><div class="text-[10.5px] uppercase tracking-[0.14em] text-dim dsp">우월 코드</div><div class="dsp text-[19px] font-semibold mt-1 text-teal" id="sumCode">3 / 5</div></div>
+              <div><div class="text-[10.5px] uppercase tracking-[0.14em] text-dim dsp">버스트 회전</div><div class="dsp text-[19px] font-semibold mt-1">B1·B2·B3</div></div>
+            </div>
+            <div class="mt-4 pt-4 border-t border-white/[0.07] text-[12px] text-dim leading-relaxed">
+              풀버스트 유지율 <span class="text-ink num">78.4%</span> · 평균 재장전 손실 <span class="text-ink num">4.2초</span> · 엄폐 손실 <span class="text-ink num">2.9초</span>
+            </div>
+          </div>
+        </div>
+        <div class="md:col-span-2 shell-sm">
+          <div class="core-sm p-5 h-full flex flex-col">
+            <div class="flex items-center gap-2 mb-4">
+              <iconify-icon icon="solar:posts-carousel-vertical-linear" class="text-[17px] text-teal"></iconify-icon>
+              <span class="text-[13px] font-semibold tracking-tight">편성 도구</span>
+            </div>
+            <div class="grid grid-cols-2 gap-1.5 flex-1 content-start">
+              <button onclick="openM('mdPreset')" class="tq rounded-xl px-3 py-3 text-left text-[12px] bg-white/[0.04] hover:bg-white/[0.08]"><iconify-icon icon="solar:bookmark-linear" class="block text-[16px] text-dim mb-1.5"></iconify-icon>프리셋</button>
+              <button onclick="openM('mdShareSquad')" class="tq rounded-xl px-3 py-3 text-left text-[12px] bg-white/[0.04] hover:bg-white/[0.08]"><iconify-icon icon="solar:share-linear" class="block text-[16px] text-dim mb-1.5"></iconify-icon>조합 공유</button>
+              <button onclick="openM('mdCsv')" class="tq rounded-xl px-3 py-3 text-left text-[12px] bg-white/[0.04] hover:bg-white/[0.08]"><iconify-icon icon="solar:file-download-linear" class="block text-[16px] text-dim mb-1.5"></iconify-icon>렛츠도로</button>
+              <button onclick="openM('mdBlabla')" class="tq rounded-xl px-3 py-3 text-left text-[12px] bg-white/[0.04] hover:bg-white/[0.08]"><iconify-icon icon="solar:link-circle-linear" class="block text-[16px] text-dim mb-1.5"></iconify-icon>블라블라링크</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════
+     02 · 전투 조건
+     ══════════════════════════════════════════════════════════ -->
+<section class="stage" id="stage1">
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 py-14 md:py-20">
+    <aside class="lg:col-span-4 lg:order-2">
+      <div class="lg:sticky lg:top-28">
+        <div class="rise" style="--i:0">
+          <div class="dsp text-[5.5rem] sm:text-[7rem] font-light leading-[0.82] tracking-tighter text-white/[0.09] select-none">02</div>
+          <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 mt-1 text-[11px] uppercase tracking-[0.15em] font-medium bg-acc/10 text-acc dsp">
+            <iconify-icon icon="solar:shield-warning-bold" class="text-[13px]"></iconify-icon>Battle
+          </span>
+          <h1 class="mt-5 text-4xl md:text-5xl font-bold tracking-tight leading-snug">어떤 적을<br>얼마나 오래<br>때립니까</h1>
+          <p class="mt-5 text-[15px] text-dim leading-relaxed max-w-[34ch]">
+            여섯 가지만 맞추면 대부분 끝납니다. 방어력·시드·게이지처럼 더 파고들 값은
+            <span class="text-ink">고급 설정</span>에 접어 두었습니다.
+          </p>
+        </div>
+
+        <div class="mt-9 shell-sm rise" style="--i:1">
+          <div class="core-sm p-5">
+            <div class="text-[11px] uppercase tracking-[0.16em] text-dim dsp mb-3">지금 조건</div>
+            <div class="space-y-2 text-[13px]">
+              <div class="flex justify-between"><span class="text-dim">전투 시간</span><span class="num" id="pvTime">180초</span></div>
+              <div class="flex justify-between"><span class="text-dim">적 코드</span><span id="pvCode">철갑</span></div>
+              <div class="flex justify-between"><span class="text-dim">싱크로</span><span class="num" id="pvSync">Lv.601</span></div>
+              <div class="flex justify-between"><span class="text-dim">코어</span><span id="pvCore">있음 · 직경 2.0</span></div>
+              <div class="flex justify-between"><span class="text-dim">파괴 파츠</span><span class="num" id="pvParts">2개</span></div>
+              <div class="flex justify-between"><span class="text-dim">적정거리</span><span id="pvRange">AR·SMG 적용</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-4 rise" style="--i:2">
+          <button onclick="runSim()" class="mag magnet group relative w-full overflow-hidden rounded-full bg-gradient-to-r from-acc to-acc2 text-[#0b1420] pl-7 pr-2 py-2 flex items-center justify-between gap-4 shadow-[0_18px_46px_-22px_rgba(255,157,31,.85)]">
+            <span class="mag-sheen"></span>
+            <span class="text-left leading-tight">
+              <span class="block text-[17px] font-bold tracking-tight">시뮬레이션 실행</span>
+              <span class="block text-[11px] font-medium text-[#0b1420]/60">이 조건 그대로 계산</span>
+            </span>
+            <span class="arrow shrink-0 w-11 h-11 rounded-full bg-[#0b1420]/12 grid place-items-center">
+              <iconify-icon icon="solar:play-bold" class="text-[19px]"></iconify-icon>
+            </span>
+          </button>
+          <div class="mt-2.5 grid grid-cols-3 gap-1.5">
+            <button onclick="openM('mdShareCond')" class="tq rounded-full py-2.5 text-[12px] text-dim hover:text-ink bg-white/[0.03] hover:bg-white/[0.07] ring-1 ring-white/[0.07]">조건 공유</button>
+            <button onclick="toast('적 수치를 기본값으로 되돌렸습니다')" class="tq rounded-full py-2.5 text-[12px] text-dim hover:text-ink bg-white/[0.03] hover:bg-white/[0.07] ring-1 ring-white/[0.07]">적 초기화</button>
+            <button onclick="toast('저장된 결과 12건을 지웠습니다')" class="tq rounded-full py-2.5 text-[12px] text-danger/80 hover:text-danger bg-danger/[0.06] hover:bg-danger/[0.12] ring-1 ring-danger/20">결과 지우기</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="lg:col-span-8 lg:order-1 space-y-3">
+      <!-- 기본 조건 벤토 -->
+      <div class="grid grid-cols-1 sm:grid-cols-6 gap-3 rise" style="--i:1">
+        <div class="sm:col-span-4 shell-sm">
+          <div class="core-sm p-6">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[11px] uppercase tracking-[0.16em] text-dim dsp">전투 시간</span>
+              <iconify-icon icon="solar:stopwatch-linear" class="text-[17px] text-acc"></iconify-icon>
+            </div>
+            <div class="flex items-baseline gap-2">
+              <span class="dsp text-[46px] font-light tracking-tighter" id="timeVal">180</span>
+              <span class="text-[14px] text-dim">초</span>
+            </div>
+            <input type="range" min="30" max="300" step="10" value="180" class="w-full mt-3" oninput="setTime(this.value)">
+            <div class="mt-3 flex flex-wrap gap-1.5">
+              <button onclick="setTime(60,1)" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04]">60초</button>
+              <button onclick="setTime(90,1)" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04]">90초</button>
+              <button onclick="setTime(180,1)" aria-pressed="true" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04]">180초</button>
+              <button onclick="setTime(300,1)" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04]">300초</button>
+            </div>
+          </div>
+        </div>
+        <div class="sm:col-span-2 shell-sm">
+          <div class="core-sm p-6 h-full">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-[11px] uppercase tracking-[0.16em] text-dim dsp">적 코드</span>
+              <iconify-icon icon="solar:danger-triangle-linear" class="text-[17px] text-acc"></iconify-icon>
+            </div>
+            <div class="grid grid-cols-2 gap-1.5" data-radio="ecode">
+              <button onclick="pick(this,'ecode');setTxt('pvCode','작열')" class="chip rounded-xl px-2 py-2.5 text-[12px] text-dim bg-white/[0.04]">작열</button>
+              <button onclick="pick(this,'ecode');setTxt('pvCode','수랭')" class="chip rounded-xl px-2 py-2.5 text-[12px] text-dim bg-white/[0.04]">수랭</button>
+              <button onclick="pick(this,'ecode');setTxt('pvCode','풍압')" class="chip rounded-xl px-2 py-2.5 text-[12px] text-dim bg-white/[0.04]">풍압</button>
+              <button onclick="pick(this,'ecode');setTxt('pvCode','전격')" class="chip rounded-xl px-2 py-2.5 text-[12px] text-dim bg-white/[0.04]">전격</button>
+              <button onclick="pick(this,'ecode');setTxt('pvCode','철갑')" aria-pressed="true" class="chip rounded-xl px-2 py-2.5 text-[12px] text-dim bg-white/[0.04]">철갑</button>
+              <button onclick="pick(this,'ecode');setTxt('pvCode','무속성')" class="chip rounded-xl px-2 py-2.5 text-[12px] text-dim bg-white/[0.04]">무속성</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-6 gap-3 rise" style="--i:2">
+        <div class="sm:col-span-2 shell-sm">
+          <div class="core-sm p-6 h-full">
+            <div class="text-[11px] uppercase tracking-[0.16em] text-dim dsp mb-3">싱크로 레벨</div>
+            <div class="flex items-center gap-2">
+              <button onclick="bump('syncVal',-1,1,999,'pvSync','Lv.')" class="tq w-9 h-9 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] grid place-items-center"><iconify-icon icon="solar:minus-square-linear" class="text-[17px]"></iconify-icon></button>
+              <input id="syncVal" type="text" value="601" class="num flex-1 min-w-0 text-center rounded-xl py-2 text-[17px] dsp font-semibold ring-1 ring-white/10" oninput="setTxt('pvSync','Lv.'+this.value)">
+              <button onclick="bump('syncVal',1,1,999,'pvSync','Lv.')" class="tq w-9 h-9 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] grid place-items-center"><iconify-icon icon="solar:add-square-linear" class="text-[17px]"></iconify-icon></button>
+            </div>
+            <p class="mt-3 text-[11.5px] text-dim leading-relaxed">모든 니케에 공통으로 적용되는 기본 스탯 기준선입니다.</p>
+          </div>
+        </div>
+        <div class="sm:col-span-2 shell-sm">
+          <div class="core-sm p-6 h-full">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-[11px] uppercase tracking-[0.16em] text-dim dsp">코어</span>
+              <button aria-pressed="true" onclick="tg(this)" class="sw w-[38px] h-[22px] rounded-full bg-white/10 p-[3px] flex items-center"><span class="knob block w-4 h-4 rounded-full bg-[#0b1420] shadow"></span></button>
+            </div>
+            <div class="text-[12px] text-dim mb-2">코어 직경</div>
+            <div class="flex items-center gap-2">
+              <input type="range" min="0.5" max="4" step="0.1" value="2" class="flex-1" oninput="setTxt('coreD',this.value); setTxt('pvCore','있음 · 직경 '+Number(this.value).toFixed(1))">
+              <span class="dsp text-[16px] font-semibold w-9 text-right" id="coreD">2.0</span>
+            </div>
+            <p class="mt-3 text-[11.5px] text-dim leading-relaxed">직경이 클수록 코어 명중률이 올라갑니다.</p>
+          </div>
+        </div>
+        <div class="sm:col-span-2 shell-sm">
+          <div class="core-sm p-6 h-full">
+            <div class="text-[11px] uppercase tracking-[0.16em] text-dim dsp mb-3">파괴 가능 파츠</div>
+            <div class="flex items-center gap-2">
+              <button onclick="bump('partVal',-1,0,8,'pvParts','','개')" class="tq w-9 h-9 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] grid place-items-center"><iconify-icon icon="solar:minus-square-linear" class="text-[17px]"></iconify-icon></button>
+              <input id="partVal" type="text" value="2" class="num flex-1 min-w-0 text-center rounded-xl py-2 text-[17px] dsp font-semibold ring-1 ring-white/10" oninput="setTxt('pvParts',this.value+'개')">
+              <button onclick="bump('partVal',1,0,8,'pvParts','','개')" class="tq w-9 h-9 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] grid place-items-center"><iconify-icon icon="solar:add-square-linear" class="text-[17px]"></iconify-icon></button>
+            </div>
+            <p class="mt-3 text-[11.5px] text-dim leading-relaxed">파츠가 있으면 확산·관통 계열이 유리해집니다.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 적정거리 -->
+      <div class="shell-sm rise" style="--i:3">
+        <div class="core-sm p-6">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <div class="text-[13px] font-semibold tracking-tight">적정거리 적용 무기군</div>
+              <div class="text-[11.5px] text-dim mt-0.5">고른 무기군에만 적정거리 보정이 들어갑니다.</div>
+            </div>
+            <iconify-icon icon="solar:map-point-wave-linear" class="text-[18px] text-acc"></iconify-icon>
+          </div>
+          <div class="flex flex-wrap gap-1.5">
+            <button aria-pressed="true" onclick="tgc(this);syncRange()" class="chip rounded-full px-4 py-2 text-[12.5px] text-dim bg-white/[0.04] dsp">AR</button>
+            <button aria-pressed="true" onclick="tgc(this);syncRange()" class="chip rounded-full px-4 py-2 text-[12.5px] text-dim bg-white/[0.04] dsp">SMG</button>
+            <button onclick="tgc(this);syncRange()" class="chip rounded-full px-4 py-2 text-[12.5px] text-dim bg-white/[0.04] dsp">SR</button>
+            <button onclick="tgc(this);syncRange()" class="chip rounded-full px-4 py-2 text-[12.5px] text-dim bg-white/[0.04] dsp">RL</button>
+            <button onclick="tgc(this);syncRange()" class="chip rounded-full px-4 py-2 text-[12.5px] text-dim bg-white/[0.04] dsp">SG</button>
+            <button onclick="tgc(this);syncRange()" class="chip rounded-full px-4 py-2 text-[12.5px] text-dim bg-white/[0.04] dsp">MG</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 고급 설정 -->
+      <details class="shell-sm rise" style="--i:4">
+        <summary class="core-sm px-6 py-5 flex items-center justify-between">
+          <span class="flex items-center gap-2.5">
+            <iconify-icon icon="solar:settings-minimalistic-linear" class="text-[18px] text-teal"></iconify-icon>
+            <span>
+              <span class="block text-[14px] font-semibold tracking-tight">고급 설정</span>
+              <span class="block text-[11.5px] text-dim mt-0.5">방어력 · 시드 · 버스트 게이지 · 평타 계수 · 보스 페이즈</span>
+            </span>
+          </span>
+          <iconify-icon icon="solar:alt-arrow-down-linear" class="disc-ar text-[18px] text-dim"></iconify-icon>
+        </summary>
+        <div class="px-3 pb-3 pt-1">
+          <div class="core-sm p-6 space-y-6">
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <label class="block">
+                <span class="block text-[11px] uppercase tracking-[0.14em] text-dim dsp mb-2">적 방어력</span>
+                <input type="text" value="14,720" class="num w-full rounded-xl px-3 py-2.5 text-[14px] ring-1 ring-white/10">
+              </label>
+              <label class="block">
+                <span class="block text-[11px] uppercase tracking-[0.14em] text-dim dsp mb-2">난수 시드</span>
+                <input type="text" value="20260827" class="num w-full rounded-xl px-3 py-2.5 text-[14px] ring-1 ring-white/10">
+              </label>
+              <label class="block">
+                <span class="block text-[11px] uppercase tracking-[0.14em] text-dim dsp mb-2">버스트 반응속도</span>
+                <select class="w-full rounded-xl px-3 py-2.5 text-[14px] ring-1 ring-white/10">
+                  <option>즉시 (0.00초)</option>
+                  <option selected>보통 (0.15초)</option>
+                  <option>느림 (0.30초)</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="h-px bg-white/[0.07]"></div>
+
+            <!-- 버스트 게이지 충전 -->
+            <div>
+              <div class="flex items-center justify-between gap-4 mb-3">
+                <div>
+                  <div class="text-[13px] font-semibold tracking-tight">버스트 게이지 시작 충전량</div>
+                  <div class="text-[11.5px] text-dim mt-0.5">전투 시작 시점의 게이지를 정합니다.</div>
+                </div>
+                <label class="flex items-center gap-2.5 shrink-0">
+                  <span class="text-[12px] text-dim">덱마다 따로</span>
+                  <button aria-pressed="false" onclick="tg(this);tgHidden('gaugePerDeck')" class="sw w-[38px] h-[22px] rounded-full bg-white/10 p-[3px] flex items-center"><span class="knob block w-4 h-4 rounded-full bg-[#0b1420] shadow"></span></button>
+                </label>
+              </div>
+              <div class="flex items-center gap-3">
+                <input type="range" min="0" max="100" value="35" class="flex-1" oninput="setTxt('gaugeV',this.value+'%')">
+                <span class="dsp text-[16px] font-semibold w-12 text-right" id="gaugeV">35%</span>
+              </div>
+              <div id="gaugePerDeck" class="hidden mt-4 grid grid-cols-2 sm:grid-cols-5 gap-2">
+                <label class="block"><span class="block text-[11px] text-dim mb-1.5">덱 1</span><input type="text" value="35%" class="num w-full rounded-lg px-2.5 py-2 text-[13px] ring-1 ring-white/10"></label>
+                <label class="block"><span class="block text-[11px] text-dim mb-1.5">덱 2</span><input type="text" value="35%" class="num w-full rounded-lg px-2.5 py-2 text-[13px] ring-1 ring-white/10"></label>
+                <label class="block"><span class="block text-[11px] text-dim mb-1.5">덱 3</span><input type="text" value="0%" class="num w-full rounded-lg px-2.5 py-2 text-[13px] ring-1 ring-white/10"></label>
+                <label class="block"><span class="block text-[11px] text-dim mb-1.5">덱 4</span><input type="text" value="100%" class="num w-full rounded-lg px-2.5 py-2 text-[13px] ring-1 ring-white/10"></label>
+                <label class="block"><span class="block text-[11px] text-dim mb-1.5">덱 5</span><input type="text" value="35%" class="num w-full rounded-lg px-2.5 py-2 text-[13px] ring-1 ring-white/10"></label>
+              </div>
+            </div>
+
+            <div class="h-px bg-white/[0.07]"></div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div>
+                <div class="text-[13px] font-semibold tracking-tight mb-2.5">난수 처리</div>
+                <div class="flex flex-wrap gap-1.5" data-radio="rng">
+                  <button aria-pressed="true" onclick="pick(this,'rng')" class="chip rounded-full px-3.5 py-2 text-[12px] text-dim bg-white/[0.04]">기댓값</button>
+                  <button onclick="pick(this,'rng')" class="chip rounded-full px-3.5 py-2 text-[12px] text-dim bg-white/[0.04]">시드 고정</button>
+                  <button onclick="pick(this,'rng')" class="chip rounded-full px-3.5 py-2 text-[12px] text-dim bg-white/[0.04]">100회 평균</button>
+                </div>
+              </div>
+              <div>
+                <div class="flex items-center justify-between gap-3">
+                  <div>
+                    <div class="text-[13px] font-semibold tracking-tight">족자 중 게이지 충전 정지</div>
+                    <div class="text-[11.5px] text-dim mt-0.5">무적 구간 동안 충전을 멈춥니다.</div>
+                  </div>
+                  <button aria-pressed="true" onclick="tg(this)" class="sw shrink-0 w-[38px] h-[22px] rounded-full bg-white/10 p-[3px] flex items-center"><span class="knob block w-4 h-4 rounded-full bg-[#0b1420] shadow"></span></button>
+                </div>
+              </div>
+            </div>
+
+            <div class="h-px bg-white/[0.07]"></div>
+
+            <!-- 평타 계수 -->
+            <div>
+              <div class="text-[13px] font-semibold tracking-tight mb-1">평타 계수 (무기군별)</div>
+              <div class="text-[11.5px] text-dim mb-3">실제 조작 손실을 반영한 평타 효율입니다. 1.00이면 이론값 그대로입니다.</div>
+              <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                <label class="block"><span class="block text-[11px] text-dim dsp mb-1.5">AR</span><input type="text" value="0.94" class="num w-full rounded-lg px-2.5 py-2 text-[13px] ring-1 ring-white/10"></label>
+                <label class="block"><span class="block text-[11px] text-dim dsp mb-1.5">SMG</span><input type="text" value="0.91" class="num w-full rounded-lg px-2.5 py-2 text-[13px] ring-1 ring-white/10"></label>
+                <label class="block"><span class="block text-[11px] text-dim dsp mb-1.5">SR</span><input type="text" value="0.88" class="num w-full rounded-lg px-2.5 py-2 text-[13px] ring-1 ring-white/10"></label>
+                <label class="block"><span class="block text-[11px] text-dim dsp mb-1.5">RL</span><input type="text" value="0.97" class="num w-full rounded-lg px-2.5 py-2 text-[13px] ring-1 ring-white/10"></label>
+                <label class="block"><span class="block text-[11px] text-dim dsp mb-1.5">SG</span><input type="text" value="0.85" class="num w-full rounded-lg px-2.5 py-2 text-[13px] ring-1 ring-white/10"></label>
+                <label class="block"><span class="block text-[11px] text-dim dsp mb-1.5">MG</span><input type="text" value="0.96" class="num w-full rounded-lg px-2.5 py-2 text-[13px] ring-1 ring-white/10"></label>
+              </div>
+            </div>
+
+            <div class="h-px bg-white/[0.07]"></div>
+
+            <!-- 보스 페이즈 -->
+            <div>
+              <div class="flex items-center justify-between gap-3 mb-3">
+                <div>
+                  <div class="text-[13px] font-semibold tracking-tight">보스 페이즈</div>
+                  <div class="text-[11.5px] text-dim mt-0.5">족자(무적)와 속저(피해 감소) 구간을 초 단위로 넣습니다.</div>
+                </div>
+                <button onclick="addPhase()" class="tq shrink-0 inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[12px] bg-white/[0.05] hover:bg-white/[0.1] ring-1 ring-white/10"><iconify-icon icon="solar:add-circle-linear" class="text-[15px] text-acc"></iconify-icon>구간 추가</button>
+              </div>
+              <div id="phaseList" class="space-y-2">
+                <div class="flex items-center gap-2 rounded-xl bg-white/[0.03] px-3 py-2.5">
+                  <span class="rounded-md px-2 py-0.5 text-[11px] bg-danger/15 text-danger">족자</span>
+                  <span class="num text-[13px] text-dim">42초 → 50초</span>
+                  <span class="text-[11.5px] text-dim ml-auto">피해 0%</span>
+                  <button onclick="this.closest('div').remove()" class="tq text-dim hover:text-danger"><iconify-icon icon="solar:close-circle-linear" class="text-[16px]"></iconify-icon></button>
+                </div>
+                <div class="flex items-center gap-2 rounded-xl bg-white/[0.03] px-3 py-2.5">
+                  <span class="rounded-md px-2 py-0.5 text-[11px] bg-teal/15 text-teal">속저</span>
+                  <span class="num text-[13px] text-dim">96초 → 118초</span>
+                  <span class="text-[11.5px] text-dim ml-auto">피해 35%</span>
+                  <button onclick="this.closest('div').remove()" class="tq text-dim hover:text-danger"><iconify-icon icon="solar:close-circle-linear" class="text-[16px]"></iconify-icon></button>
+                </div>
+                <div class="flex items-center gap-2 rounded-xl bg-white/[0.03] px-3 py-2.5">
+                  <span class="rounded-md px-2 py-0.5 text-[11px] bg-danger/15 text-danger">족자</span>
+                  <span class="num text-[13px] text-dim">148초 → 154초</span>
+                  <span class="text-[11.5px] text-dim ml-auto">피해 0%</span>
+                  <button onclick="this.closest('div').remove()" class="tq text-dim hover:text-danger"><iconify-icon icon="solar:close-circle-linear" class="text-[16px]"></iconify-icon></button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <!-- 콘솔 -->
+      <div class="shell-sm rise" style="--i:5">
+        <div class="core-sm p-6">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <div class="text-[13px] font-semibold tracking-tight">콘솔</div>
+              <div class="text-[11.5px] text-dim mt-0.5">공통 · 기업 5종 · 클래스 3종의 레벨을 각각 올립니다.</div>
+            </div>
+            <iconify-icon icon="solar:cpu-bolt-linear" class="text-[18px] text-teal"></iconify-icon>
+          </div>
+          <div class="flex gap-1.5 mb-4" data-tabs="console">
+            <button aria-pressed="true" onclick="tabs(this,'console','csl')" class="chip rounded-full px-4 py-2 text-[12.5px] text-dim bg-white/[0.04]" data-panel="csl-a">공통</button>
+            <button onclick="tabs(this,'console','csl')" class="chip rounded-full px-4 py-2 text-[12.5px] text-dim bg-white/[0.04]" data-panel="csl-b">기업</button>
+            <button onclick="tabs(this,'console','csl')" class="chip rounded-full px-4 py-2 text-[12.5px] text-dim bg-white/[0.04]" data-panel="csl-c">클래스</button>
+          </div>
+          <div id="csl-a" class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <label class="block"><span class="block text-[11px] text-dim mb-1.5">공격력</span><input type="text" value="Lv.11" class="num w-full rounded-lg px-2.5 py-2 text-[13px] ring-1 ring-white/10"></label>
+            <label class="block"><span class="block text-[11px] text-dim mb-1.5">방어력</span><input type="text" value="Lv.11" class="num w-full rounded-lg px-2.5 py-2 text-[13px] ring-1 ring-white/10"></label>
+            <label class="block"><span class="block text-[11px] text-dim mb-1.5">체력</span><input type="text" value="Lv.10" class="num w-full rounded-lg px-2.5 py-2 text-[13px] ring-1 ring-white/10"></label>
+            <label class="block"><span class="block text-[11px] text-dim mb-1.5">명중률</span><input type="text" value="Lv.9" class="num w-full rounded-lg px-2.5 py-2 text-[13px] ring-1 ring-white/10"></label>
+          </div>
+          <div id="csl-b" class="hidden grid grid-cols-2 sm:grid-cols-5 gap-2">
+            <label class="block"><span class="block text-[11px] text-dim mb-1.5">엘리시온</span><input type="text" value="Lv.8" class="num w-full rounded-lg px-2.5 py-2 text-[13px] ring-1 ring-white/10"></label>
+            <label class="block"><span class="block text-[11px] text-dim mb-1.5">미실리스</span><input type="text" value="Lv.8" class="num w-full rounded-lg px-2.5 py-2 text-[13px] ring-1 ring-white/10"></label>
+            <label class="block"><span class="block text-[11px] text-dim mb-1.5">테트라</span><input type="text" value="Lv.7" class="num w-full rounded-lg px-2.5 py-2 text-[13px] ring-1 ring-white/10"></label>
+            <label class="block"><span class="block text-[11px] text-dim mb-1.5">필그림</span><input type="text" value="Lv.9" class="num w-full rounded-lg px-2.5 py-2 text-[13px] ring-1 ring-white/10"></label>
+            <label class="block"><span class="block text-[11px] text-dim mb-1.5">어브노말</span><input type="text" value="Lv.6" class="num w-full rounded-lg px-2.5 py-2 text-[13px] ring-1 ring-white/10"></label>
+          </div>
+          <div id="csl-c" class="hidden grid grid-cols-3 gap-2">
+            <label class="block"><span class="block text-[11px] text-dim mb-1.5">화력형</span><input type="text" value="Lv.10" class="num w-full rounded-lg px-2.5 py-2 text-[13px] ring-1 ring-white/10"></label>
+            <label class="block"><span class="block text-[11px] text-dim mb-1.5">방어형</span><input type="text" value="Lv.9" class="num w-full rounded-lg px-2.5 py-2 text-[13px] ring-1 ring-white/10"></label>
+            <label class="block"><span class="block text-[11px] text-dim mb-1.5">지원형</span><input type="text" value="Lv.9" class="num w-full rounded-lg px-2.5 py-2 text-[13px] ring-1 ring-white/10"></label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════
+     03 · 실행
+     ══════════════════════════════════════════════════════════ -->
+<section class="stage" id="stage2">
+  <div class="py-16 md:py-24 min-h-[70dvh] flex items-center">
+    <div class="w-full grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-center">
+
+      <div class="lg:col-span-5">
+        <div class="rise" style="--i:0">
+          <div class="dsp text-[5.5rem] sm:text-[7rem] font-light leading-[0.82] tracking-tighter text-white/[0.09] select-none">03</div>
+          <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 mt-1 text-[11px] uppercase tracking-[0.15em] font-medium bg-acc/10 text-acc dsp">
+            <iconify-icon icon="solar:bolt-circle-bold" class="text-[13px]"></iconify-icon>Run
+          </span>
+          <h1 class="mt-5 text-4xl md:text-6xl font-bold tracking-tight leading-snug">이제<br>돌립니다</h1>
+          <p class="mt-5 text-[15px] text-dim leading-relaxed max-w-[36ch]">
+            준비된 덱을 한 번에 계산합니다. 계산이 끝나면 결과 단계로 자동으로 넘어갑니다.
+          </p>
+        </div>
+
+        <div class="mt-10 rise" style="--i:1">
+          <button onclick="runSim()" id="bigRun" class="mag magnet group relative w-full overflow-hidden rounded-full bg-gradient-to-r from-acc to-acc2 text-[#0b1420] pl-8 pr-2.5 py-2.5 flex items-center justify-between gap-4 shadow-[0_26px_66px_-26px_rgba(255,157,31,.95)]">
+            <span class="mag-sheen"></span>
+            <span class="text-left leading-tight">
+              <span class="block text-[22px] md:text-[26px] font-bold tracking-tight">시뮬레이션 실행</span>
+              <span class="block text-[12px] font-medium text-[#0b1420]/60">덱 4개 · 180초 · 기댓값 처리</span>
+            </span>
+            <span class="arrow shrink-0 w-14 h-14 rounded-full bg-[#0b1420]/12 grid place-items-center">
+              <iconify-icon icon="solar:play-bold" class="text-[24px]"></iconify-icon>
+            </span>
+          </button>
+
+          <!-- 진행 상태 -->
+          <div id="runProg" class="hidden mt-5">
+            <div class="flex items-center justify-between text-[12px] mb-2">
+              <span class="text-dim" id="runLabel">덱 1 계산 중…</span>
+              <span class="dsp text-acc" id="runPct">0%</span>
+            </div>
+            <div class="h-1.5 rounded-full bg-white/[0.08] overflow-hidden">
+              <div id="runBar" class="h-full w-full rounded-full bg-gradient-to-r from-acc to-acc2 origin-left" style="transform:scaleX(0); transition:transform .35s cubic-bezier(.16,1,.3,1)"></div>
+            </div>
+          </div>
+
+          <!-- 오류 -->
+          <div id="runErr" class="hidden mt-5 rounded-2xl bg-danger/[0.08] px-4 py-3.5 flex items-start gap-3 ring-1 ring-danger/25">
+            <iconify-icon icon="solar:shield-cross-linear" class="text-[18px] text-danger mt-0.5"></iconify-icon>
+            <div class="text-[12.5px] leading-relaxed">
+              <div class="text-danger font-semibold">덱 3을 건너뛰었습니다</div>
+              <div class="text-dim mt-0.5">빈 칸이 있는 덱은 계산하지 않습니다. 편성 단계에서 자리를 채우거나 덱을 비워 주세요.</div>
+              <button onclick="go(0)" class="tq mt-2 text-acc hover:text-acc2 inline-flex items-center gap-1">편성으로 가기<iconify-icon icon="solar:arrow-right-linear" class="text-[14px]"></iconify-icon></button>
+            </div>
+          </div>
+
+          <button onclick="openM('mdHistory')" class="tq mt-3 w-full rounded-full py-3 text-[13px] text-dim hover:text-ink bg-white/[0.03] hover:bg-white/[0.07] ring-1 ring-white/[0.07] flex items-center justify-center gap-2">
+            <iconify-icon icon="solar:history-2-linear" class="text-[15px]"></iconify-icon>지난 계산 기록 보기
+          </button>
+        </div>
+      </div>
+
+      <!-- 실행 대상 요약 -->
+      <div class="lg:col-span-7">
+        <div class="shell rise" style="--i:2">
+          <div class="core p-6 md:p-8">
+            <div class="flex items-center justify-between mb-5">
+              <div>
+                <div class="text-[14px] font-semibold tracking-tight">계산할 덱</div>
+                <div class="text-[11.5px] text-dim mt-0.5">빈 칸이 있는 덱은 회색으로 표시됩니다.</div>
+              </div>
+              <button onclick="go(0)" class="tq text-[12px] text-acc hover:text-acc2 inline-flex items-center gap-1">편성 고치기<iconify-icon icon="solar:pen-2-linear" class="text-[13px]"></iconify-icon></button>
+            </div>
+            <div id="runDecks" class="space-y-2"></div>
+
+            <div class="mt-6 pt-5 border-t border-white/[0.07] grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div><div class="text-[10.5px] uppercase tracking-[0.14em] text-dim dsp">전투 시간</div><div class="dsp text-[17px] font-semibold mt-1">180초</div></div>
+              <div><div class="text-[10.5px] uppercase tracking-[0.14em] text-dim dsp">적 코드</div><div class="text-[15px] font-semibold mt-1.5">철갑</div></div>
+              <div><div class="text-[10.5px] uppercase tracking-[0.14em] text-dim dsp">난수</div><div class="text-[15px] font-semibold mt-1.5">기댓값</div></div>
+              <div><div class="text-[10.5px] uppercase tracking-[0.14em] text-dim dsp">버스트 운용</div><div class="text-[15px] font-semibold mt-1.5">자동</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════
+     04 · 결과
+     ══════════════════════════════════════════════════════════ -->
+<section class="stage" id="stage3">
+  <div class="py-14 md:py-20">
+
+    <!-- 헤드라인 (비대칭) -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-end">
+      <div class="lg:col-span-5 rise" style="--i:0">
+        <div class="dsp text-[5.5rem] sm:text-[7rem] font-light leading-[0.82] tracking-tighter text-white/[0.09] select-none">04</div>
+        <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 mt-1 text-[11px] uppercase tracking-[0.15em] font-medium bg-acc/10 text-acc dsp">
+          <iconify-icon icon="solar:medal-ribbons-star-bold" class="text-[13px]"></iconify-icon>Result
+        </span>
+        <h1 class="mt-5 text-4xl md:text-5xl font-bold tracking-tight leading-snug">덱 2가<br>가장 셌습니다</h1>
+        <p class="mt-4 text-[14px] text-dim leading-relaxed max-w-[34ch]">
+          2위 덱 1과의 차이는 <span class="text-ink num">6.8%</span>. 홍련의 기여가 전체의 3분의 1을 넘습니다.
+        </p>
+        <div class="mt-6 flex flex-wrap gap-1.5">
+          <button onclick="openM('mdResults')" class="tq inline-flex items-center gap-1.5 rounded-full px-4 py-2.5 text-[12.5px] bg-white/[0.05] hover:bg-white/[0.09] ring-1 ring-white/10"><iconify-icon icon="solar:diskette-linear" class="text-[15px] text-acc"></iconify-icon>결과 저장</button>
+          <button onclick="openM('mdResults',1)" class="tq inline-flex items-center gap-1.5 rounded-full px-4 py-2.5 text-[12.5px] bg-white/[0.05] hover:bg-white/[0.09] ring-1 ring-white/10"><iconify-icon icon="solar:folder-open-linear" class="text-[15px] text-acc"></iconify-icon>결과 불러오기</button>
+          <button onclick="openM('mdReport')" class="tq inline-flex items-center gap-1.5 rounded-full px-4 py-2.5 text-[12.5px] bg-white/[0.05] hover:bg-white/[0.09] ring-1 ring-white/10"><iconify-icon icon="solar:gallery-send-linear" class="text-[15px] text-acc"></iconify-icon>보고서 이미지</button>
+        </div>
+      </div>
+
+      <!-- 총계 카드 -->
+      <div class="lg:col-span-7 rise" style="--i:1">
+        <div class="shell">
+          <div class="core p-6 md:p-8 relative overflow-hidden">
+            <div class="absolute -right-16 -top-16 w-56 h-56 rounded-full bg-acc/10 blur-3xl floaty pointer-events-none"></div>
+            <div class="relative grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div>
+                <div class="text-[10.5px] uppercase tracking-[0.16em] text-dim dsp">총 대미지</div>
+                <div class="dsp text-[38px] md:text-[46px] font-light tracking-tighter leading-none mt-2">1,482,905,113</div>
+                <div class="text-[12px] text-dim mt-2">덱 2 · 180초 기준</div>
+              </div>
+              <div class="sm:border-l sm:border-white/[0.07] sm:pl-6">
+                <div class="text-[10.5px] uppercase tracking-[0.16em] text-dim dsp">DPS</div>
+                <div class="dsp text-[38px] md:text-[46px] font-light tracking-tighter leading-none mt-2">8.24<span class="text-[24px] ml-1">M</span></div>
+                <div class="text-[12px] text-dim mt-2">초당 8,238,362</div>
+              </div>
+            </div>
+            <div class="relative mt-6 pt-5 border-t border-white/[0.07] grid grid-cols-3 gap-4">
+              <div><div class="text-[10.5px] uppercase tracking-[0.14em] text-dim dsp">평타</div><div class="dsp text-[19px] font-semibold mt-1">41.6%</div></div>
+              <div><div class="text-[10.5px] uppercase tracking-[0.14em] text-dim dsp">스킬</div><div class="dsp text-[19px] font-semibold mt-1">58.4%</div></div>
+              <div><div class="text-[10.5px] uppercase tracking-[0.14em] text-dim dsp">풀버스트</div><div class="dsp text-[19px] font-semibold mt-1 text-teal">14회</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 결과 탭 -->
+    <div class="mt-10 rise" style="--i:2">
+      <div class="flex flex-wrap gap-1.5 mb-4" data-tabs="res">
+        <button aria-pressed="true" onclick="tabs(this,'res','res')" data-panel="res-a" class="chip rounded-full px-4 py-2.5 text-[13px] text-dim bg-white/[0.04]">덱 비교</button>
+        <button onclick="tabs(this,'res','res')" data-panel="res-b" class="chip rounded-full px-4 py-2.5 text-[13px] text-dim bg-white/[0.04]">캐릭터별 기여</button>
+        <button onclick="tabs(this,'res','res')" data-panel="res-c" class="chip rounded-full px-4 py-2.5 text-[13px] text-dim bg-white/[0.04]">스킬별 내역</button>
+        <button onclick="tabs(this,'res','res')" data-panel="res-d" class="chip rounded-full px-4 py-2.5 text-[13px] text-dim bg-white/[0.04]">타임라인</button>
+        <button onclick="tabs(this,'res','res')" data-panel="res-e" class="chip rounded-full px-4 py-2.5 text-[13px] text-dim bg-white/[0.04]">전투 사실</button>
+      </div>
+
+      <!-- 덱 비교 -->
+      <div id="res-a">
+        <div class="shell-sm">
+          <div class="core-sm p-6">
+            <div class="flex items-center justify-between mb-5">
+              <div>
+                <div class="text-[13px] font-semibold tracking-tight">덱 5개 비교</div>
+                <div class="text-[11.5px] text-dim mt-0.5">순서는 덱 번호 그대로입니다. 1·2위만 색으로 표시합니다.</div>
+              </div>
+              <iconify-icon icon="solar:ranking-linear" class="text-[18px] text-acc"></iconify-icon>
+            </div>
+            <div id="cmpList" class="space-y-2.5"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 캐릭터별 기여 -->
+      <div id="res-b" class="hidden">
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-3">
+          <div class="lg:col-span-3 shell-sm">
+            <div class="core-sm p-6">
+              <div class="flex items-center justify-between mb-5">
+                <div>
+                  <div class="text-[13px] font-semibold tracking-tight">캐릭터별 기여</div>
+                  <div class="text-[11.5px] text-dim mt-0.5">덱 2 · 총 1,482,905,113</div>
+                </div>
+                <iconify-icon icon="solar:chart-2-linear" class="text-[18px] text-acc"></iconify-icon>
+              </div>
+              <div id="contribList" class="space-y-3"></div>
+            </div>
+          </div>
+          <div class="lg:col-span-2 space-y-3">
+            <div class="shell-sm">
+              <div class="core-sm p-6">
+                <div class="text-[13px] font-semibold tracking-tight mb-4">평타 / 스킬 분해</div>
+                <div class="space-y-3">
+                  <div>
+                    <div class="flex justify-between text-[12px] mb-1.5"><span class="text-dim">평타</span><span class="num">616,888,526 · 41.6%</span></div>
+                    <div class="h-1.5 rounded-full bg-white/[0.08] overflow-hidden"><div class="h-full rounded-full bg-teal/70" style="width:41.6%"></div></div>
+                  </div>
+                  <div>
+                    <div class="flex justify-between text-[12px] mb-1.5"><span class="text-dim">스킬 1</span><span class="num">203,410,882 · 13.7%</span></div>
+                    <div class="h-1.5 rounded-full bg-white/[0.08] overflow-hidden"><div class="h-full rounded-full bg-acc/70" style="width:13.7%"></div></div>
+                  </div>
+                  <div>
+                    <div class="flex justify-between text-[12px] mb-1.5"><span class="text-dim">스킬 2</span><span class="num">318,240,117 · 21.5%</span></div>
+                    <div class="h-1.5 rounded-full bg-white/[0.08] overflow-hidden"><div class="h-full rounded-full bg-acc/70" style="width:21.5%"></div></div>
+                  </div>
+                  <div>
+                    <div class="flex justify-between text-[12px] mb-1.5"><span class="text-dim">버스트</span><span class="num">344,365,588 · 23.2%</span></div>
+                    <div class="h-1.5 rounded-full bg-white/[0.08] overflow-hidden"><div class="h-full rounded-full bg-acc" style="width:23.2%"></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="shell-sm">
+              <div class="core-sm p-6">
+                <div class="flex items-center gap-2 mb-3">
+                  <iconify-icon icon="solar:info-circle-linear" class="text-[16px] text-danger"></iconify-icon>
+                  <span class="text-[13px] font-semibold tracking-tight">기본 스펙 이탈</span>
+                </div>
+                <p class="text-[11.5px] text-dim leading-relaxed mb-3">기본값과 다르게 설정된 항목입니다. 결과 비교 시 참고하세요.</p>
+                <ul class="space-y-1.5 text-[12px]">
+                  <li class="flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-danger"></span>홍련 · 오버로드 공격력 <span class="num text-dim">3옵 초과</span></li>
+                  <li class="flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-danger"></span>도로시 · 큐브 <span class="text-dim">없음</span></li>
+                  <li class="flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-danger"></span>크라운 · 스킬 <span class="num text-dim">7/10/10</span></li>
+                  <li class="flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-danger"></span>덱 4 · 버스트 게이지 <span class="num text-dim">100%</span></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 스킬별 내역 -->
+      <div id="res-c" class="hidden">
+        <div class="shell-sm">
+          <div class="core-sm p-6">
+            <div class="flex items-center justify-between mb-5">
+              <div>
+                <div class="text-[13px] font-semibold tracking-tight">스킬별 내역</div>
+                <div class="text-[11.5px] text-dim mt-0.5">발동 횟수와 누적 대미지입니다.</div>
+              </div>
+              <button onclick="openM('mdReport')" class="tq text-[12px] text-acc hover:text-acc2 inline-flex items-center gap-1">이미지로 저장<iconify-icon icon="solar:gallery-send-linear" class="text-[13px]"></iconify-icon></button>
+            </div>
+            <div class="overflow-x-auto scr -mx-2 px-2">
+              <table class="w-full min-w-[46rem] text-[12.5px]">
+                <thead>
+                  <tr class="text-[10.5px] uppercase tracking-[0.14em] text-dim dsp border-b border-white/[0.08]">
+                    <th class="text-left font-medium pb-3">니케</th>
+                    <th class="text-left font-medium pb-3">항목</th>
+                    <th class="text-right font-medium pb-3">발동</th>
+                    <th class="text-right font-medium pb-3">히트</th>
+                    <th class="text-right font-medium pb-3">총 대미지</th>
+                    <th class="text-right font-medium pb-3">비중</th>
+                  </tr>
+                </thead>
+                <tbody id="skillRows" class="divide-y divide-white/[0.05]"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 타임라인 -->
+      <div id="res-d" class="hidden">
+        <div class="shell-sm">
+          <div class="core-sm p-6">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+              <div>
+                <div class="text-[13px] font-semibold tracking-tight">초당 대미지</div>
+                <div class="text-[11.5px] text-dim mt-0.5">버스트 시점은 초상화 핀으로, 족자·속저는 밴드로 표시합니다.</div>
+              </div>
+              <div class="flex gap-1.5" id="tlTabs"></div>
+            </div>
+            <div class="relative">
+              <div id="tlChart"></div>
+              <div id="tlPins" class="absolute inset-0 pointer-events-none"></div>
+            </div>
+            <div class="mt-4 flex flex-wrap items-center gap-4 text-[11.5px] text-dim">
+              <span class="flex items-center gap-1.5"><span class="w-3 h-2 rounded-sm bg-danger/25 ring-1 ring-danger/40"></span>족자 (무적)</span>
+              <span class="flex items-center gap-1.5"><span class="w-3 h-2 rounded-sm bg-teal/20 ring-1 ring-teal/40"></span>속저 (피해 감소)</span>
+              <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 rounded-full bg-acc"></span>초당 대미지</span>
+              <span class="flex items-center gap-1.5"><iconify-icon icon="solar:pin-linear" class="text-[13px]"></iconify-icon>풀버스트 진입</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 전투 사실 -->
+      <div id="res-e" class="hidden">
+        <div class="grid grid-cols-1 md:grid-cols-6 gap-3">
+          <div class="md:col-span-4 shell-sm">
+            <div class="core-sm p-6">
+              <div class="text-[13px] font-semibold tracking-tight mb-5">전투 사실</div>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-y-5 gap-x-4">
+                <div><div class="text-[10.5px] uppercase tracking-[0.14em] text-dim dsp">전투 시간</div><div class="dsp text-[18px] font-semibold mt-1">180.00초</div></div>
+                <div><div class="text-[10.5px] uppercase tracking-[0.14em] text-dim dsp">총 히트</div><div class="dsp text-[18px] font-semibold mt-1">24,617</div></div>
+                <div><div class="text-[10.5px] uppercase tracking-[0.14em] text-dim dsp">난수 시드</div><div class="dsp text-[18px] font-semibold mt-1">20260827</div></div>
+                <div><div class="text-[10.5px] uppercase tracking-[0.14em] text-dim dsp">코어 명중</div><div class="dsp text-[18px] font-semibold mt-1">62.8%</div></div>
+                <div><div class="text-[10.5px] uppercase tracking-[0.14em] text-dim dsp">재장전 횟수</div><div class="dsp text-[18px] font-semibold mt-1">37회</div></div>
+                <div><div class="text-[10.5px] uppercase tracking-[0.14em] text-dim dsp">무적 손실</div><div class="dsp text-[18px] font-semibold mt-1">14.00초</div></div>
+                <div><div class="text-[10.5px] uppercase tracking-[0.14em] text-dim dsp">첫 버스트</div><div class="dsp text-[18px] font-semibold mt-1">7.42초</div></div>
+                <div><div class="text-[10.5px] uppercase tracking-[0.14em] text-dim dsp">버스트 주기</div><div class="dsp text-[18px] font-semibold mt-1">12.31초</div></div>
+                <div><div class="text-[10.5px] uppercase tracking-[0.14em] text-dim dsp">계산 소요</div><div class="dsp text-[18px] font-semibold mt-1">2.14초</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="md:col-span-2 shell-sm">
+            <div class="core-sm p-6 h-full">
+              <div class="text-[13px] font-semibold tracking-tight mb-4">덱별 히트 분포</div>
+              <div class="space-y-3 text-[12px]">
+                <div class="flex items-center gap-3"><span class="w-10 text-dim dsp">덱 1</span><div class="flex-1 h-1.5 rounded-full bg-white/[0.08] overflow-hidden"><div class="h-full rounded-full bg-acc/60" style="width:93%"></div></div><span class="num w-14 text-right">23,048</span></div>
+                <div class="flex items-center gap-3"><span class="w-10 text-dim dsp">덱 2</span><div class="flex-1 h-1.5 rounded-full bg-white/[0.08] overflow-hidden"><div class="h-full rounded-full bg-acc" style="width:100%"></div></div><span class="num w-14 text-right">24,617</span></div>
+                <div class="flex items-center gap-3"><span class="w-10 text-dim dsp">덱 3</span><div class="flex-1 h-1.5 rounded-full bg-white/[0.08] overflow-hidden"><div class="h-full rounded-full bg-white/20" style="width:0%"></div></div><span class="num w-14 text-right text-dim">—</span></div>
+                <div class="flex items-center gap-3"><span class="w-10 text-dim dsp">덱 4</span><div class="flex-1 h-1.5 rounded-full bg-white/[0.08] overflow-hidden"><div class="h-full rounded-full bg-acc/60" style="width:81%"></div></div><span class="num w-14 text-right">19,942</span></div>
+                <div class="flex items-center gap-3"><span class="w-10 text-dim dsp">덱 5</span><div class="flex-1 h-1.5 rounded-full bg-white/[0.08] overflow-hidden"><div class="h-full rounded-full bg-acc/60" style="width:76%"></div></div><span class="num w-14 text-right">18,703</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 다시 실행 -->
+    <div class="mt-8 rise" style="--i:3">
+      <div class="shell">
+        <div class="core px-6 md:px-10 py-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div>
+            <h3 class="text-[19px] md:text-[22px] font-bold tracking-tight leading-snug">조건을 바꿔서 한 번 더 돌려 볼까요</h3>
+            <p class="text-[13px] text-dim mt-1.5 max-w-[46ch]">앞 단계로 돌아가도 지금 결과는 그대로 남아 있습니다.</p>
+          </div>
+          <div class="flex flex-wrap gap-2 shrink-0">
+            <button onclick="go(1)" class="tq rounded-full px-5 py-3.5 text-[13px] bg-white/[0.05] hover:bg-white/[0.1] ring-1 ring-white/10">조건 고치기</button>
+            <button onclick="runSim()" class="mag magnet relative overflow-hidden rounded-full bg-gradient-to-r from-acc to-acc2 text-[#0b1420] pl-6 pr-2 py-2 flex items-center gap-3 shadow-[0_18px_46px_-22px_rgba(255,157,31,.85)]">
+              <span class="mag-sheen"></span>
+              <span class="text-[14px] font-bold tracking-tight">다시 실행</span>
+              <span class="arrow w-9 h-9 rounded-full bg-[#0b1420]/12 grid place-items-center"><iconify-icon icon="solar:refresh-bold" class="text-[16px]"></iconify-icon></span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="border-t border-white/[0.06] mt-10">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+    <div class="text-[12px] text-dim">NIKKE 스쿼드 계산기 · 재설계 시안 «흐름» · 데이터 기준 2026.08.27</div>
+    <div class="flex items-center gap-4 text-[12px]">
+      <button onclick="openM('mdNotice')" class="tq text-dim hover:text-ink">업데이트 공지</button>
+      <button onclick="openM('mdHistory')" class="tq text-dim hover:text-ink">계산 기록</button>
+      <button onclick="openM('mdReset')" class="tq text-dim hover:text-danger">완전 초기화</button>
+    </div>
+  </div>
+</footer>
+
+<!-- ══════════════════════════════════════════════════════════
+     창 (모달)
+     ══════════════════════════════════════════════════════════ -->
+
+<!-- 니케 고르기 -->
+<div class="md fixed inset-0 z-50" id="mdRoster" role="dialog" aria-modal="true" aria-label="니케 고르기">
+  <div class="md-bd absolute inset-0 bg-[#02060b]/85 backdrop-blur-xl" data-close></div>
+  <div class="relative min-h-[100dvh] flex items-end sm:items-center justify-center p-0 sm:p-6">
+    <div class="md-pn w-full sm:max-w-5xl shell max-h-[100dvh] sm:max-h-[88dvh] flex flex-col">
+      <div class="core flex flex-col min-h-0 overflow-hidden">
+        <div class="px-6 pt-6 pb-4 shrink-0">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <h2 class="text-[20px] font-bold tracking-tight">니케 고르기</h2>
+              <p class="text-[12.5px] text-dim mt-1" id="rosterSlotLabel">덱 1 · 2번 자리에 넣습니다</p>
+            </div>
+            <button data-close class="tq w-9 h-9 rounded-full bg-white/[0.05] hover:bg-white/[0.12] grid place-items-center shrink-0"><iconify-icon icon="solar:close-circle-linear" class="text-[19px]"></iconify-icon></button>
+          </div>
+
+          <div class="mt-4 relative">
+            <iconify-icon icon="solar:magnifer-linear" class="absolute left-4 top-1/2 -translate-y-1/2 text-[17px] text-dim"></iconify-icon>
+            <input id="rosterQ" type="text" oninput="renderRoster()" placeholder="이름 · 초성(ㅎㄹ) · 별칭으로 찾기" class="w-full rounded-full pl-11 pr-4 py-3 text-[14px] ring-1 ring-white/10">
+          </div>
+
+          <div class="mt-3 flex flex-wrap items-center gap-1.5">
+            <span class="text-[11px] uppercase tracking-[0.14em] text-dim dsp mr-1">정렬</span>
+            <button aria-pressed="true" onclick="pick(this,'sort');setSort('cp')" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04]">전투력</button>
+            <button onclick="pick(this,'sort');setSort('name')" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04]">이름</button>
+            <button onclick="pick(this,'sort');setSort('sup')" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04]">우월코드</button>
+            <button onclick="pick(this,'sort');setSort('cube')" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04]">우공합</button>
+          </div>
+
+          <div class="mt-2.5 flex flex-wrap items-center gap-1.5">
+            <span class="text-[11px] uppercase tracking-[0.14em] text-dim dsp mr-1">버스트</span>
+            <button onclick="tgc(this);renderRoster()" data-f="burst" data-v="I" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04] dsp">B1</button>
+            <button onclick="tgc(this);renderRoster()" data-f="burst" data-v="II" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04] dsp">B2</button>
+            <button onclick="tgc(this);renderRoster()" data-f="burst" data-v="III" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04] dsp">B3</button>
+            <button onclick="tgc(this);renderRoster()" data-f="burst" data-v="A" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04] dsp">BA</button>
+          </div>
+
+          <details class="mt-2.5">
+            <summary class="inline-flex items-center gap-1.5 text-[12px] text-dim hover:text-ink tq">
+              <iconify-icon icon="solar:filter-linear" class="text-[14px]"></iconify-icon>등급 · 클래스 · 코드 · 무기 · 기업 필터
+              <iconify-icon icon="solar:alt-arrow-down-linear" class="disc-ar text-[14px]"></iconify-icon>
+            </summary>
+            <div class="mt-3 space-y-2.5 rounded-2xl bg-white/[0.03] p-4">
+              <div class="flex flex-wrap items-center gap-1.5"><span class="w-11 text-[11px] text-dim dsp">등급</span>
+                <button onclick="tgc(this);renderRoster()" data-f="grade" data-v="SSR" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04] dsp">SSR</button>
+                <button onclick="tgc(this);renderRoster()" data-f="grade" data-v="SR" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04] dsp">SR</button>
+                <button onclick="tgc(this);renderRoster()" data-f="grade" data-v="R" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04] dsp">R</button>
+              </div>
+              <div class="flex flex-wrap items-center gap-1.5"><span class="w-11 text-[11px] text-dim dsp">클래스</span>
+                <button onclick="tgc(this);renderRoster()" data-f="cls" data-v="화력형" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04]">화력형</button>
+                <button onclick="tgc(this);renderRoster()" data-f="cls" data-v="방어형" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04]">방어형</button>
+                <button onclick="tgc(this);renderRoster()" data-f="cls" data-v="지원형" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04]">지원형</button>
+              </div>
+              <div class="flex flex-wrap items-center gap-1.5"><span class="w-11 text-[11px] text-dim dsp">코드</span>
+                <button onclick="tgc(this);renderRoster()" data-f="code" data-v="작열" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04]">작열</button>
+                <button onclick="tgc(this);renderRoster()" data-f="code" data-v="수랭" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04]">수랭</button>
+                <button onclick="tgc(this);renderRoster()" data-f="code" data-v="풍압" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04]">풍압</button>
+                <button onclick="tgc(this);renderRoster()" data-f="code" data-v="전격" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04]">전격</button>
+                <button onclick="tgc(this);renderRoster()" data-f="code" data-v="철갑" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04]">철갑</button>
+              </div>
+              <div class="flex flex-wrap items-center gap-1.5"><span class="w-11 text-[11px] text-dim dsp">무기</span>
+                <button onclick="tgc(this);renderRoster()" data-f="wp" data-v="AR" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04] dsp">AR</button>
+                <button onclick="tgc(this);renderRoster()" data-f="wp" data-v="SMG" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04] dsp">SMG</button>
+                <button onclick="tgc(this);renderRoster()" data-f="wp" data-v="SR" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04] dsp">SR</button>
+                <button onclick="tgc(this);renderRoster()" data-f="wp" data-v="RL" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04] dsp">RL</button>
+                <button onclick="tgc(this);renderRoster()" data-f="wp" data-v="SG" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04] dsp">SG</button>
+                <button onclick="tgc(this);renderRoster()" data-f="wp" data-v="MG" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04] dsp">MG</button>
+              </div>
+              <div class="flex flex-wrap items-center gap-1.5"><span class="w-11 text-[11px] text-dim dsp">기업</span>
+                <button onclick="tgc(this);renderRoster()" data-f="corp" data-v="엘리시온" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04]">엘리시온</button>
+                <button onclick="tgc(this);renderRoster()" data-f="corp" data-v="미실리스" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04]">미실리스</button>
+                <button onclick="tgc(this);renderRoster()" data-f="corp" data-v="테트라" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04]">테트라</button>
+                <button onclick="tgc(this);renderRoster()" data-f="corp" data-v="필그림" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04]">필그림</button>
+                <button onclick="tgc(this);renderRoster()" data-f="corp" data-v="어브노말" class="chip rounded-full px-3 py-1.5 text-[11.5px] text-dim bg-white/[0.04]">어브노말</button>
+              </div>
+              <button onclick="clearFilters()" class="tq text-[11.5px] text-dim hover:text-acc inline-flex items-center gap-1"><iconify-icon icon="solar:restart-linear" class="text-[13px]"></iconify-icon>필터 모두 해제</button>
+            </div>
+          </details>
+        </div>
+
+        <div class="flex-1 min-h-0 overflow-y-auto scr px-6 pb-6">
+          <div class="text-[11.5px] text-dim mb-3" id="rosterCount">11명</div>
+          <div id="rosterGrid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2.5"></div>
+          <button onclick="openM('mdNewNikke')" class="tq mt-4 w-full rounded-2xl py-3.5 text-[13px] text-dim hover:text-ink bg-white/[0.03] hover:bg-white/[0.07] ring-1 ring-dashed ring-white/15 flex items-center justify-center gap-2">
+            <iconify-icon icon="solar:user-plus-linear" class="text-[16px]"></iconify-icon>찾는 니케가 없다면 직접 추가하기
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 캐릭터 설정 -->
+<div class="md fixed inset-0 z-50" id="mdChar" role="dialog" aria-modal="true" aria-label="캐릭터 설정">
+  <div class="md-bd absolute inset-0 bg-[#02060b]/85 backdrop-blur-xl" data-close></div>
+  <div class="relative min-h-[100dvh] flex items-end sm:items-center justify-center p-0 sm:p-6">
+    <div class="md-pn w-full sm:max-w-4xl shell max-h-[100dvh] sm:max-h-[90dvh] flex flex-col">
+      <div class="core flex flex-col min-h-0 overflow-hidden">
+        <div class="px-6 pt-6 pb-4 shrink-0 flex items-start justify-between gap-4">
+          <div class="flex items-center gap-4 min-w-0">
+            <div class="shrink-0 w-14 h-14 rounded-2xl overflow-hidden ring-1 ring-white/10 bg-[#0a1421]">
+              <img id="charFace" src="/nikke-calc/characters/188.webp" alt="" loading="lazy" decoding="async" class="w-full h-full object-cover">
+            </div>
+            <div class="min-w-0">
+              <h2 class="text-[20px] font-bold tracking-tight truncate" id="charName">홍련</h2>
+              <p class="text-[12.5px] text-dim mt-0.5" id="charMeta">B3 · 화력형 · 작열 · AR · 필그림</p>
+            </div>
+          </div>
+          <button data-close class="tq w-9 h-9 rounded-full bg-white/[0.05] hover:bg-white/[0.12] grid place-items-center shrink-0"><iconify-icon icon="solar:close-circle-linear" class="text-[19px]"></iconify-icon></button>
+        </div>
+
+        <div class="px-6 shrink-0 flex flex-wrap gap-1.5 pb-4" data-tabs="chr">
+          <button aria-pressed="true" onclick="tabs(this,'chr','chr')" data-panel="chr-a" class="chip rounded-full px-4 py-2 text-[12.5px] text-dim bg-white/[0.04]">돌파 · 스킬</button>
+          <button onclick="tabs(this,'chr','chr')" data-panel="chr-b" class="chip rounded-full px-4 py-2 text-[12.5px] text-dim bg-white/[0.04]">오버로드 장비</button>
+          <button onclick="tabs(this,'chr','chr')" data-panel="chr-c" class="chip rounded-full px-4 py-2 text-[12.5px] text-dim bg-white/[0.04]">큐브 · 애장품</button>
+          <button onclick="tabs(this,'chr','chr')" data-panel="chr-d" class="chip rounded-full px-4 py-2 text-[12.5px] text-dim bg-white/[0.04]">수동 스탯</button>
+        </div>
+
+        <div class="flex-1 min-h-0 overflow-y-auto scr px-6 pb-6">
+          <!-- 돌파·스킬 -->
+          <div id="chr-a" class="space-y-3">
+            <div class="rounded-2xl bg-white/[0.03] p-5">
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-[13px] font-semibold tracking-tight">돌파 · 코어 강화</span>
+                <span class="text-[12px] text-acc dsp" id="cbLabel">3돌 · 코어 7</span>
+              </div>
+              <div class="flex items-center gap-4 flex-wrap">
+                <div class="flex items-center gap-1" id="cbStars"></div>
+                <div class="flex items-center gap-2">
+                  <span class="text-[12px] text-dim">진화</span>
+                  <button onclick="coreStep(-1)" class="tq w-8 h-8 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] grid place-items-center"><iconify-icon icon="solar:minus-square-linear" class="text-[15px]"></iconify-icon></button>
+                  <span class="dsp text-[18px] font-semibold w-7 text-center" id="cbCore">7</span>
+                  <button onclick="coreStep(1)" class="tq w-8 h-8 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] grid place-items-center"><iconify-icon icon="solar:add-square-linear" class="text-[15px]"></iconify-icon></button>
+                </div>
+              </div>
+              <p class="mt-3 text-[11.5px] text-dim leading-relaxed">별 3개는 돌파, 진화 숫자는 코어 강화 단계입니다. 최대 3돌 + 코어 11.</p>
+            </div>
+
+            <div class="rounded-2xl bg-white/[0.03] p-5">
+              <div class="text-[13px] font-semibold tracking-tight mb-4">스킬 레벨</div>
+              <div class="space-y-4">
+                <div>
+                  <div class="flex justify-between text-[12.5px] mb-2"><span class="text-dim">스킬 1</span><span class="dsp font-semibold" id="sk1v">10</span></div>
+                  <input type="range" min="1" max="10" value="10" class="w-full" oninput="setTxt('sk1v',this.value);skSum()">
+                </div>
+                <div>
+                  <div class="flex justify-between text-[12.5px] mb-2"><span class="text-dim">스킬 2</span><span class="dsp font-semibold" id="sk2v">10</span></div>
+                  <input type="range" min="1" max="10" value="10" class="w-full" oninput="setTxt('sk2v',this.value);skSum()">
+                </div>
+                <div>
+                  <div class="flex justify-between text-[12.5px] mb-2"><span class="text-dim">버스트 스킬</span><span class="dsp font-semibold" id="sk3v">10</span></div>
+                  <input type="range" min="1" max="10" value="10" class="w-full" oninput="setTxt('sk3v',this.value);skSum()">
+                </div>
+              </div>
+              <div class="mt-4 flex gap-1.5">
+                <button onclick="skAll(10)" class="tq rounded-full px-3.5 py-2 text-[11.5px] text-dim hover:text-ink bg-white/[0.04] hover:bg-white/[0.08]">전부 10</button>
+                <button onclick="skAll(7)" class="tq rounded-full px-3.5 py-2 text-[11.5px] text-dim hover:text-ink bg-white/[0.04] hover:bg-white/[0.08]">전부 7</button>
+                <button onclick="skAll(4)" class="tq rounded-full px-3.5 py-2 text-[11.5px] text-dim hover:text-ink bg-white/[0.04] hover:bg-white/[0.08]">전부 4</button>
+                <button onclick="skAll(1)" class="tq rounded-full px-3.5 py-2 text-[11.5px] text-dim hover:text-ink bg-white/[0.04] hover:bg-white/[0.08]">전부 1</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 오버로드 -->
+          <div id="chr-b" class="hidden space-y-3">
+            <div class="rounded-2xl bg-white/[0.03] p-5">
+              <div class="text-[13px] font-semibold tracking-tight mb-1">장비 상태</div>
+              <div class="text-[11.5px] text-dim mb-3">네 부위 모두에 같은 상태를 적용합니다.</div>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5" data-radio="gear">
+                <button onclick="pick(this,'gear')" class="chip rounded-xl px-3 py-2.5 text-[12px] text-dim bg-white/[0.04]">미장착</button>
+                <button onclick="pick(this,'gear')" class="chip rounded-xl px-3 py-2.5 text-[12px] text-dim bg-white/[0.04]">T9 (일반)</button>
+                <button onclick="pick(this,'gear')" class="chip rounded-xl px-3 py-2.5 text-[12px] text-dim bg-white/[0.04]">T9 기업</button>
+                <button aria-pressed="true" onclick="pick(this,'gear')" class="chip rounded-xl px-3 py-2.5 text-[12px] text-dim bg-white/[0.04]">오버로드</button>
+              </div>
+              <div class="mt-3 flex items-center gap-2">
+                <span class="text-[12px] text-dim">오버로드 강화</span>
+                <div class="flex gap-1" data-radio="olv">
+                  <button onclick="pick(this,'olv')" class="chip rounded-lg w-8 h-8 text-[12px] text-dim bg-white/[0.04] dsp">1</button>
+                  <button onclick="pick(this,'olv')" class="chip rounded-lg w-8 h-8 text-[12px] text-dim bg-white/[0.04] dsp">2</button>
+                  <button onclick="pick(this,'olv')" class="chip rounded-lg w-8 h-8 text-[12px] text-dim bg-white/[0.04] dsp">3</button>
+                  <button onclick="pick(this,'olv')" class="chip rounded-lg w-8 h-8 text-[12px] text-dim bg-white/[0.04] dsp">4</button>
+                  <button aria-pressed="true" onclick="pick(this,'olv')" class="chip rounded-lg w-8 h-8 text-[12px] text-dim bg-white/[0.04] dsp">5</button>
+                </div>
+                <span class="text-[11.5px] text-dim ml-1">강</span>
+              </div>
+            </div>
+
+            <div class="rounded-2xl bg-white/[0.03] p-5">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-[13px] font-semibold tracking-tight">오버로드 옵션 9종</span>
+                <span class="text-[12px] text-acc dsp" id="olCount">합 6옵</span>
+              </div>
+              <div class="text-[11.5px] text-dim mb-4">부위 4곳에서 나온 옵션의 총합을 넣습니다. 한 옵션당 최대 15.</div>
+              <div id="olList" class="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-3"></div>
+            </div>
+          </div>
+
+          <!-- 큐브 · 애장품 -->
+          <div id="chr-c" class="hidden space-y-3">
+            <div class="rounded-2xl bg-white/[0.03] p-5">
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-[13px] font-semibold tracking-tight">큐브</span>
+                <span class="text-[12px] text-dim">레벨 <span class="dsp text-ink" id="cubeLv">15</span></span>
+              </div>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5" data-radio="cube">
+                <button onclick="pick(this,'cube')" class="chip rounded-xl px-3 py-2.5 text-[12px] text-dim bg-white/[0.04]">없음</button>
+                <button aria-pressed="true" onclick="pick(this,'cube')" class="chip rounded-xl px-3 py-2.5 text-[12px] text-dim bg-white/[0.04]">강타</button>
+                <button onclick="pick(this,'cube')" class="chip rounded-xl px-3 py-2.5 text-[12px] text-dim bg-white/[0.04]">분열</button>
+                <button onclick="pick(this,'cube')" class="chip rounded-xl px-3 py-2.5 text-[12px] text-dim bg-white/[0.04]">회복</button>
+                <button onclick="pick(this,'cube')" class="chip rounded-xl px-3 py-2.5 text-[12px] text-dim bg-white/[0.04]">방어</button>
+                <button onclick="pick(this,'cube')" class="chip rounded-xl px-3 py-2.5 text-[12px] text-dim bg-white/[0.04]">탄창</button>
+                <button onclick="pick(this,'cube')" class="chip rounded-xl px-3 py-2.5 text-[12px] text-dim bg-white/[0.04]">신속</button>
+                <button onclick="pick(this,'cube')" class="chip rounded-xl px-3 py-2.5 text-[12px] text-dim bg-white/[0.04]">항전</button>
+              </div>
+              <input type="range" min="1" max="15" value="15" class="w-full mt-4" oninput="setTxt('cubeLv',this.value)">
+            </div>
+
+            <div class="rounded-2xl bg-white/[0.03] p-5">
+              <div class="text-[13px] font-semibold tracking-tight mb-1">소장품 · 애장품</div>
+              <div class="text-[11.5px] text-dim mb-3">전용 애장품이 있으면 등급과 레벨을 함께 정합니다.</div>
+              <div class="grid grid-cols-2 sm:grid-cols-5 gap-1.5" data-radio="fav">
+                <button onclick="pick(this,'fav')" class="chip rounded-xl px-2 py-2.5 text-[12px] text-dim bg-white/[0.04]">없음</button>
+                <button onclick="pick(this,'fav')" class="chip rounded-xl px-2 py-2.5 text-[12px] text-dim bg-white/[0.04] dsp">SR</button>
+                <button onclick="pick(this,'fav')" class="chip rounded-xl px-2 py-2.5 text-[12px] text-dim bg-white/[0.04] dsp">SSR</button>
+                <button aria-pressed="true" onclick="pick(this,'fav')" class="chip rounded-xl px-2 py-2.5 text-[12px] text-dim bg-white/[0.04]">전용 2성</button>
+                <button onclick="pick(this,'fav')" class="chip rounded-xl px-2 py-2.5 text-[12px] text-dim bg-white/[0.04]">전용 3성</button>
+              </div>
+              <div class="mt-4 flex items-center gap-3">
+                <span class="text-[12px] text-dim shrink-0">애장품 레벨</span>
+                <input type="range" min="0" max="15" value="12" class="flex-1" oninput="setTxt('favLv',this.value)">
+                <span class="dsp text-[16px] font-semibold w-7 text-right" id="favLv">12</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 수동 스탯 -->
+          <div id="chr-d" class="hidden">
+            <div class="rounded-2xl bg-white/[0.03] p-5">
+              <div class="flex items-center justify-between gap-3 mb-1">
+                <div>
+                  <div class="text-[13px] font-semibold tracking-tight">수동 스탯 덮어쓰기</div>
+                  <div class="text-[11.5px] text-dim mt-0.5">위 설정으로 계산한 값 대신 이 숫자를 씁니다.</div>
+                </div>
+                <button aria-pressed="false" onclick="tg(this);tgHidden('manualBox')" class="sw shrink-0 w-[38px] h-[22px] rounded-full bg-white/10 p-[3px] flex items-center"><span class="knob block w-4 h-4 rounded-full bg-[#0b1420] shadow"></span></button>
+              </div>
+              <div id="manualBox" class="hidden mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <label class="block"><span class="block text-[11px] text-dim mb-1.5">공격력</span><input type="text" value="184,062" class="num w-full rounded-lg px-2.5 py-2 text-[13px] ring-1 ring-white/10"></label>
+                <label class="block"><span class="block text-[11px] text-dim mb-1.5">방어력</span><input type="text" value="42,918" class="num w-full rounded-lg px-2.5 py-2 text-[13px] ring-1 ring-white/10"></label>
+                <label class="block"><span class="block text-[11px] text-dim mb-1.5">체력</span><input type="text" value="1,207,440" class="num w-full rounded-lg px-2.5 py-2 text-[13px] ring-1 ring-white/10"></label>
+                <label class="block"><span class="block text-[11px] text-dim mb-1.5">크리 확률</span><input type="text" value="15.0%" class="num w-full rounded-lg px-2.5 py-2 text-[13px] ring-1 ring-white/10"></label>
+                <label class="block"><span class="block text-[11px] text-dim mb-1.5">크리 피해</span><input type="text" value="50.0%" class="num w-full rounded-lg px-2.5 py-2 text-[13px] ring-1 ring-white/10"></label>
+                <label class="block"><span class="block text-[11px] text-dim mb-1.5">차지 배율</span><input type="text" value="1.00" class="num w-full rounded-lg px-2.5 py-2 text-[13px] ring-1 ring-white/10"></label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="px-6 py-4 shrink-0 border-t border-white/[0.07] flex items-center justify-between gap-3">
+          <button onclick="toast('이 니케의 설정을 기본값으로 되돌렸습니다')" class="tq text-[12.5px] text-dim hover:text-ink">기본값으로</button>
+          <div class="flex gap-2">
+            <button data-close class="tq rounded-full px-5 py-2.5 text-[13px] bg-white/[0.05] hover:bg-white/[0.1] ring-1 ring-white/10">취소</button>
+            <button onclick="saveChar()" class="mag relative overflow-hidden rounded-full bg-gradient-to-r from-acc to-acc2 text-[#0b1420] px-6 py-2.5 text-[13px] font-bold">저장</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 컨트롤 -->
+<div class="md fixed inset-0 z-50" id="mdCtrl" role="dialog" aria-modal="true" aria-label="컨트롤">
+  <div class="md-bd absolute inset-0 bg-[#02060b]/85 backdrop-blur-xl" data-close></div>
+  <div class="relative min-h-[100dvh] flex items-end sm:items-center justify-center p-0 sm:p-6">
+    <div class="md-pn w-full sm:max-w-2xl shell max-h-[100dvh] sm:max-h-[88dvh] flex flex-col">
+      <div class="core flex flex-col min-h-0 overflow-hidden">
+        <div class="px-6 pt-6 pb-4 shrink-0 flex items-start justify-between gap-4">
+          <div>
+            <h2 class="text-[20px] font-bold tracking-tight">컨트롤</h2>
+            <p class="text-[12.5px] text-dim mt-1">사람이 어떻게 조작하는지를 흉내 냅니다.</p>
+          </div>
+          <button data-close class="tq w-9 h-9 rounded-full bg-white/[0.05] hover:bg-white/[0.12] grid place-items-center shrink-0"><iconify-icon icon="solar:close-circle-linear" class="text-[19px]"></iconify-icon></button>
+        </div>
+        <div class="flex-1 min-h-0 overflow-y-auto scr px-6 pb-6 space-y-3">
+          <div class="grid grid-cols-2 gap-1.5" data-radio="ctrlmode">
+            <button aria-pressed="true" onclick="pick(this,'ctrlmode');ctrlMode(0)" class="chip rounded-2xl px-4 py-4 text-left bg-white/[0.04]">
+              <span class="block text-[13.5px] font-semibold">추천 자동</span>
+              <span class="block text-[11.5px] text-dim mt-1">니케마다 알아서 최적 조작</span>
+            </button>
+            <button onclick="pick(this,'ctrlmode');ctrlMode(1)" class="chip rounded-2xl px-4 py-4 text-left bg-white/[0.04]">
+              <span class="block text-[13.5px] font-semibold">직접 설정</span>
+              <span class="block text-[11.5px] text-dim mt-1">아래 항목을 하나씩 지정</span>
+            </button>
+          </div>
+
+          <div id="ctrlManual" class="opacity-40 pointer-events-none space-y-3 tq">
+            <div class="rounded-2xl bg-white/[0.03] p-5 space-y-4">
+              <div class="flex items-center justify-between gap-3">
+                <span class="text-[13px] leading-snug">재장전 컨트롤<span class="block text-[11.5px] text-dim mt-0.5">탄창을 다 비우기 전에 미리 채웁니다.</span></span>
+                <button aria-pressed="true" onclick="tg(this)" class="sw shrink-0 w-[38px] h-[22px] rounded-full bg-white/10 p-[3px] flex items-center"><span class="knob block w-4 h-4 rounded-full bg-[#0b1420] shadow"></span></button>
+              </div>
+              <div class="h-px bg-white/[0.06]"></div>
+              <div class="flex items-center justify-between gap-3">
+                <span class="text-[13px] leading-snug">버스트 엄폐 컨트롤<span class="block text-[11.5px] text-dim mt-0.5">버스트 직전 엄폐로 재장전을 앞당깁니다.</span></span>
+                <button aria-pressed="true" onclick="tg(this)" class="sw shrink-0 w-[38px] h-[22px] rounded-full bg-white/10 p-[3px] flex items-center"><span class="knob block w-4 h-4 rounded-full bg-[#0b1420] shadow"></span></button>
+              </div>
+              <div class="h-px bg-white/[0.06]"></div>
+              <div class="flex items-center justify-between gap-3">
+                <span class="text-[13px] leading-snug">톡톡이<span class="block text-[11.5px] text-dim mt-0.5">차지 무기를 끊어 쏘는 조작입니다.</span></span>
+                <button aria-pressed="false" onclick="tg(this)" class="sw shrink-0 w-[38px] h-[22px] rounded-full bg-white/10 p-[3px] flex items-center"><span class="knob block w-4 h-4 rounded-full bg-[#0b1420] shadow"></span></button>
+              </div>
+              <div class="h-px bg-white/[0.06]"></div>
+              <div class="flex items-center justify-between gap-3">
+                <span class="text-[13px] leading-snug">홀드<span class="block text-[11.5px] text-dim mt-0.5">풀차지를 유지하며 타이밍을 맞춥니다.</span></span>
+                <button aria-pressed="false" onclick="tg(this)" class="sw shrink-0 w-[38px] h-[22px] rounded-full bg-white/10 p-[3px] flex items-center"><span class="knob block w-4 h-4 rounded-full bg-[#0b1420] shadow"></span></button>
+              </div>
+            </div>
+          </div>
+
+          <div class="rounded-2xl bg-white/[0.03] p-5">
+            <div class="text-[13px] font-semibold tracking-tight mb-1">버스트 운용</div>
+            <div class="text-[11.5px] text-dim mb-3">풀버스트를 언제 터뜨릴지 정합니다.</div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5" data-radio="bmode">
+              <button aria-pressed="true" onclick="pick(this,'bmode');bMode(0)" class="chip rounded-xl px-4 py-3 text-left text-[12.5px] text-dim bg-white/[0.04]">자동</button>
+              <button onclick="pick(this,'bmode');bMode(1)" class="chip rounded-xl px-4 py-3 text-left text-[12.5px] text-dim bg-white/[0.04]">n의 배수 우선</button>
+              <button onclick="pick(this,'bmode');bMode(2)" class="chip rounded-xl px-4 py-3 text-left text-[12.5px] text-dim bg-white/[0.04]">막바지 최우선</button>
+              <button onclick="pick(this,'bmode');bMode(3)" class="chip rounded-xl px-4 py-3 text-left text-[12.5px] text-dim bg-white/[0.04]">안 씀</button>
+            </div>
+            <div id="bmodeN" class="hidden mt-3 flex items-center gap-3">
+              <span class="text-[12px] text-dim shrink-0" id="bmodeNLabel">배수 n</span>
+              <input type="text" value="3" class="num w-20 rounded-lg px-2.5 py-2 text-[13px] text-center ring-1 ring-white/10">
+              <span class="text-[11.5px] text-dim" id="bmodeNHint">3번째 버스트마다 우선 사용합니다.</span>
+            </div>
+          </div>
+        </div>
+        <div class="px-6 py-4 shrink-0 border-t border-white/[0.07] flex justify-end gap-2">
+          <button data-close class="tq rounded-full px-5 py-2.5 text-[13px] bg-white/[0.05] hover:bg-white/[0.1] ring-1 ring-white/10">취소</button>
+          <button onclick="closeM('mdCtrl');toast('컨트롤 설정을 적용했습니다')" class="mag relative overflow-hidden rounded-full bg-gradient-to-r from-acc to-acc2 text-[#0b1420] px-6 py-2.5 text-[13px] font-bold">적용</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
