@@ -87,11 +87,19 @@ export const MEMBER_SNIPPET = `await (async () => {
   const items = (members.data || {}).items || [];
   if (!items.length) { console.error('명단이 비어 있습니다:', members.msg || members.code); return; }
   const text = JSON.stringify({ guild_name: info.guild_name, items: items });
-  try { copy(text); console.log(info.guild_name + ' · 유니온원 ' + items.length + '명을 클립보드에 담았습니다. 계산기에 붙여넣으세요.'); }
-  catch (e) {
-    try { await navigator.clipboard.writeText(text); console.log(info.guild_name + ' · 유니온원 ' + items.length + '명을 클립보드에 담았습니다.'); }
-    catch (e2) { console.log('아래 한 줄을 통째로 복사해 계산기에 붙여넣으세요 (우클릭 → Copy string contents):'); console.log(text); }
-  }
+  const done = (how) => console.log(info.guild_name + ' · 유니온원 ' + items.length + '명 ' + how);
+  try { copy(text); done('을 클립보드에 담았습니다. 계산기에 붙여넣으세요.'); return; } catch (e) {}
+  try { await navigator.clipboard.writeText(text); done('을 클립보드에 담았습니다. 계산기에 붙여넣으세요.'); return; } catch (e) {}
+  // 클립보드가 둘 다 막히면(콘솔에 포커스가 있으면 그렇다) 페이지에 상자를 띄우고
+  // 내용을 통째로 골라 둔다 — 브라우저마다 이름이 다른 우클릭 메뉴를 찾을 필요가 없다.
+  const box = document.createElement('textarea');
+  box.value = text;
+  box.setAttribute('style', 'position:fixed;left:5%;top:10%;width:90%;height:60%;z-index:2147483647;padding:12px;font:12px monospace;background:#0b1420;color:#e8f1f8;border:2px solid #45d6d0');
+  document.body.appendChild(box);
+  box.focus(); box.select();
+  try { document.execCommand('copy'); } catch (e) {}
+  box.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') box.remove(); });
+  done('을 페이지 상자에 띄웠습니다. 상자를 클릭하고 Ctrl+A → Ctrl+C로 복사해 계산기에 붙여넣으세요 (Esc로 닫힙니다).');
 })();`;
 
 const num = (value: unknown, fallback = 0): number => {

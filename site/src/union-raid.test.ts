@@ -73,10 +73,13 @@ describe('명단 스니펫', () => {
 
   it('클립보드가 막혀도 길이 있다', () => {
     // 콘솔에서 실행하면 문서가 포커스를 잃어 `navigator.clipboard`가 거절된다.
-    // 데브툴의 `copy()`를 먼저 쓰고, 그것도 없으면 통째로 찍어 준다.
+    // 데브툴의 `copy()`를 먼저 쓰고, 둘 다 막히면 페이지에 상자를 띄워 골라 둔다 —
+    // 「우클릭 → Copy string contents」는 엣지에 없어서 길로 삼을 수 없다.
     expect(MEMBER_SNIPPET).toContain('copy(text)');
     expect(MEMBER_SNIPPET).toContain('navigator.clipboard.writeText');
-    expect(MEMBER_SNIPPET).toContain('Copy string contents');
+    expect(MEMBER_SNIPPET).toContain('createElement(\'textarea\')');
+    expect(MEMBER_SNIPPET).toContain('box.select()');
+    expect(MEMBER_SNIPPET).not.toContain('Copy string contents');
   });
 
   it('스니펫이 뱉는 모양을 그대로 읽는다', () => {
