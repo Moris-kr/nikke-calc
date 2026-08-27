@@ -774,8 +774,8 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
 .slot-pick { margin-top: 6px; padding: 6px 8px; width: 100%; border: 1px solid rgba(69,214,208,.28); background: rgba(69,214,208,.08); color: #cfeceb; font-size: 11px; font-weight: 700; border-radius: 6px; cursor: pointer; }
 .slot-pick:hover { background: rgba(69,214,208,.18); border-color: var(--cyan); }
 
-/* 덱마다 다른 버스트 충전 — 켤 때만 다섯 칸이 나온다 */
-.deck-regen-toggle { grid-column: 1 / -1; }
+/* 덱마다 다른 버스트 충전 — 켤 때만 다섯 칸이 나온다. 토글은 다른 토글과 같은
+   `.toggle-field` 규칙을 쓰고, 자리만 «버스트 게이지 충전» 바로 다음으로 고정한다. */
 .deck-regen-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px;
   margin-top: 10px; }
 .deck-regen-grid[hidden] { display: none; }

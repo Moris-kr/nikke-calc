@@ -636,7 +636,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
               <label><span>적 방어력</span><input id="enemy-def" type="number" min="0" max="999999" step="1" value="31784" /></label>
               <label><span>난수 시드</span><input id="seed" type="number" min="0" max="2147483647" step="1" value="42" /></label>
               <label title="게이지 충전만의 시간입니다. 여기에 단계 전환 0.3초와 버스트 쿨 여유가 더해져 실제 공백은 더 깁니다."><span>버스트 게이지 충전</span><div class="input-unit"><input id="burst-regen" type="number" min="0" max="20" step="0.1" value="2" /><em>초</em></div></label>
-              <label class="deck-regen-toggle" title="버스트 쿨이 밀리는 덱만 다른 값으로 재고 싶을 때 켭니다"><input id="burst-regen-per-deck" type="checkbox" /><span class="toggle"></span><span>버스트 충전을 덱마다 따로</span></label>
+              <label class="toggle-field deck-regen-toggle" title="버스트 쿨이 밀리는 덱만 다른 값으로 재고 싶을 때 켭니다"><input id="burst-regen-per-deck" type="checkbox" /><span class="toggle"></span><span>버스트 충전을 덱마다 따로</span></label>
               <label title="조건이 갖춰진 뒤 실제로 버스트를 누르기까지 걸리는 시간입니다. 버스트 하나하나마다 더해지므로 3단계까지 쓰면 그 세 배만큼 늦어집니다."><span>버스트 반응속도</span><div class="input-unit"><input id="burst-reaction" type="number" min="0" max="3" step="0.01" value="${DEFAULT_BURST_REACTION}" /><em>초</em></div></label>
               <label><span>난수 처리</span><select id="rng-mode"><option value="expected">기대값 (권장)</option><option value="random">난수</option></select></label>
               <label class="toggle-field" title="족자 구간에는 평타가 빗나가므로 게이지도 차지 않는 것으로 계산합니다. 켜면 그만큼 버스트가 밀립니다."><input id="immune-blocks-burst" type="checkbox" checked /><span class="toggle"></span><span>족자 중 버스트 충전 정지</span></label>
