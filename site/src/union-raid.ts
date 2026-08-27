@@ -77,6 +77,40 @@ export const DECK_SLOTS = 3;
  * 명단 JSON이 클립보드에 담긴다. 여기서 하는 일은 그 페이지가 이미 하는 호출 하나뿐이고,
  * 쿠키는 브라우저가 알아서 싣는다 — 우리가 받아 보관하는 값이 아니다.
  */
+/**
+ * 클립보드가 둘 다 막혔을 때 페이지에 띄우는 상자. 두 스니펫이 같이 쓴다.
+ *
+ * 닫는 길을 **눈에 보이게** 둔다 — Esc만 두면 상자 밖을 눌러 포커스를 잃은 사람은
+ * 닫을 방법이 없다(실제로 그런 제보가 왔다). ✕ 단추, Esc, 바깥 누르기 셋 다 받는다.
+ */
+const COPY_BOX = `
+  const wrap = document.createElement('div');
+  wrap.setAttribute('style', 'position:fixed;inset:0;z-index:2147483647;background:rgba(2,7,13,.72);display:flex;align-items:center;justify-content:center');
+  const card = document.createElement('div');
+  card.setAttribute('style', 'width:90%;max-width:900px;background:#0b1420;border:2px solid #45d6d0;padding:12px;box-shadow:0 20px 60px rgba(0,0,0,.5)');
+  const head = document.createElement('div');
+  head.setAttribute('style', 'display:flex;align-items:center;gap:10px;margin-bottom:8px;color:#cfeceb;font:700 13px system-ui,sans-serif');
+  const title = document.createElement('span');
+  title.textContent = '계산기에 붙여넣을 내용 — Ctrl+A → Ctrl+C';
+  const close = document.createElement('button');
+  close.textContent = '✕';
+  close.setAttribute('style', 'margin-left:auto;width:30px;height:30px;cursor:pointer;background:transparent;border:1px solid rgba(146,176,201,.4);color:#cfeceb;font:700 14px system-ui,sans-serif');
+  close.title = '닫기 (Esc)';
+  head.appendChild(title); head.appendChild(close);
+  const holder = document.createElement('textarea');
+  holder.value = text;
+  holder.setAttribute('style', 'width:100%;height:52vh;padding:10px;font:12px ui-monospace,monospace;background:#03090f;color:#e8f1f8;border:1px solid rgba(146,176,201,.25);resize:vertical');
+  card.appendChild(head); card.appendChild(holder); wrap.appendChild(card);
+  document.body.appendChild(wrap);
+  holder.focus(); holder.select();
+  try { document.execCommand('copy'); } catch (e) {}
+  const shut = () => { wrap.remove(); document.removeEventListener('keydown', onKey, true); };
+  const onKey = (ev) => { if (ev.key === 'Escape') { ev.stopPropagation(); shut(); } };
+  close.addEventListener('click', shut);
+  wrap.addEventListener('mousedown', (ev) => { if (ev.target === wrap) shut(); });
+  document.addEventListener('keydown', onKey, true);
+`;
+
 export const MEMBER_SNIPPET = `await (async () => {
   const call = async (route, body) => (await fetch('https://api.blablalink.com/api/game/proxy/' + route, {
     method: 'POST', credentials: 'include',
@@ -97,14 +131,8 @@ export const MEMBER_SNIPPET = `await (async () => {
   try { await navigator.clipboard.writeText(text); done('을 클립보드에 담았습니다. 계산기에 붙여넣으세요.'); return; } catch (e) {}
   // 클립보드가 둘 다 막히면(콘솔에 포커스가 있으면 그렇다) 페이지에 상자를 띄우고
   // 내용을 통째로 골라 둔다 — 브라우저마다 이름이 다른 우클릭 메뉴를 찾을 필요가 없다.
-  const holder = document.createElement('textarea');
-  holder.value = text;
-  holder.setAttribute('style', 'position:fixed;left:5%;top:10%;width:90%;height:60%;z-index:2147483647;padding:12px;font:12px monospace;background:#0b1420;color:#e8f1f8;border:2px solid #45d6d0');
-  document.body.appendChild(holder);
-  holder.focus(); holder.select();
-  try { document.execCommand('copy'); } catch (e) {}
-  holder.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') holder.remove(); });
-  done('을 페이지 상자에 띄웠습니다. 상자를 클릭하고 Ctrl+A → Ctrl+C로 복사해 계산기에 붙여넣으세요 (Esc로 닫힙니다).');
+  ${COPY_BOX}
+  done('을 페이지 상자에 띄웠습니다. Ctrl+A → Ctrl+C로 복사해 계산기에 붙여넣고, ✕나 Esc로 닫으세요.');
 })();`;
 
 /**
@@ -202,14 +230,8 @@ export const DIRECT_SNIPPET = `await (async () => {
   const done = (how) => console.log('유니온원 ' + members.length + '명(공개 ' + open + '명) ' + how);
   try { copy(text); done('을 클립보드에 담았습니다. 계산기에 붙여넣으세요.'); return; } catch (e) {}
   try { await navigator.clipboard.writeText(text); done('을 클립보드에 담았습니다. 계산기에 붙여넣으세요.'); return; } catch (e) {}
-  const area2 = document.createElement('textarea');
-  area2.value = text;
-  area2.setAttribute('style', 'position:fixed;left:5%;top:10%;width:90%;height:60%;z-index:2147483647;padding:12px;font:12px monospace;background:#0b1420;color:#e8f1f8;border:2px solid #45d6d0');
-  document.body.appendChild(area2);
-  area2.focus(); area2.select();
-  try { document.execCommand('copy'); } catch (e) {}
-  area2.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') area2.remove(); });
-  done('을 페이지 상자에 띄웠습니다. 상자를 클릭하고 Ctrl+A → Ctrl+C로 복사하세요 (Esc로 닫힙니다).');
+  ${COPY_BOX}
+  done('을 페이지 상자에 띄웠습니다. Ctrl+A → Ctrl+C로 복사해 계산기에 붙여넣고, ✕나 Esc로 닫으세요.');
 })();`;
 
 /** 직접 긁어 온 유니온원 한 명. `profile`은 `areaToOverrides`가 그대로 먹는 모양이다. */

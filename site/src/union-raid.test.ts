@@ -92,6 +92,16 @@ describe('명단 스니펫', () => {
     expect(MEMBER_SNIPPET).not.toContain('Copy string contents');
   });
 
+  it('띄운 상자는 눈에 보이는 길로 닫힌다', () => {
+    // Esc만 두면 상자 밖을 눌러 포커스를 잃은 사람은 닫을 방법이 없다(제보 2026-08-27).
+    for (const snippet of [MEMBER_SNIPPET, DIRECT_SNIPPET]) {
+      expect(snippet).toContain("close.textContent = '✕'");
+      expect(snippet).toContain('close.addEventListener(\'click\', shut)');
+      expect(snippet).toContain("ev.key === 'Escape'");
+      expect(snippet).toContain('wrap.remove()');
+    }
+  });
+
   it('스니펫이 뱉는 모양을 그대로 읽는다', () => {
     const spat = JSON.stringify({
       guild_name: '니삭스',
