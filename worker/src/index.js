@@ -92,11 +92,23 @@ async function post(route, body, cookie) {
   return payload;
 }
 
+/**
+ * 니케 목록을 못 받는 이유는 둘이다 — **비공개**이거나, 상류가 잠깐 흔들린 것이다.
+ * 둘을 뭉뚱그리면 부르는 쪽이 «이 사람은 비공개»라고 잘못 단정한다(유니온 레이드처럼
+ * 여럿을 훑을 때 실제로 그런 오판이 났다). 그래서 코드를 그대로 실어 보낸다.
+ */
+const PRIVACY_CODES = new Set([
+  1301002,   // user not allow show nikkeinfo in Shiftypad
+  1303002,   // proxy.GetUserShiftyspadPrivacy error
+]);
+
 async function collectArea(openid, area, cookie) {
   const roster = await post('Game/GetUserCharacters',
     { intl_open_id: openid, nikke_area_id: area }, cookie);
   const characters = roster.code === 0 ? (roster.data?.characters ?? null) : null;
-  if (!characters || characters.length === 0) return null;
+  if (!characters || characters.length === 0) {
+    return { failedCode: roster.code ?? 0, failedMsg: roster.msg ?? '' };
+  }
 
   const codes = characters.map((entry) => entry.name_code);
   const details = [];
@@ -184,14 +196,24 @@ async function sync(profileUrl, cookie, requestedArea) {
   }
 
   const areas = [];
+  const failures = [];
   for (const area of selectedArea === null ? AREAS : [selectedArea]) {
     const collected = await collectArea(openid, area, cookie);
-    if (collected) areas.push(collected);
+    if (collected.failedCode === undefined) areas.push(collected);
+    else failures.push(collected);
   }
   if (areas.length === 0) {
-    throw new SyncError('private',
-      '니케 목록을 받지 못했습니다. 블라블라링크에서 프로필과 니케 목록을 공개로 바꾼 뒤 다시 시도해 주세요.',
-      404);
+    // 비공개라고 단정할 수 있는 건 상류가 그렇게 말했을 때뿐이다. 나머지는 «다시 해 보라»가 맞다.
+    const privacy = failures.some((fail) => PRIVACY_CODES.has(fail.failedCode));
+    if (privacy) {
+      throw new SyncError('private',
+        '니케 목록을 받지 못했습니다. 블라블라링크에서 프로필과 니케 목록을 공개로 바꾼 뒤 다시 시도해 주세요.',
+        404);
+    }
+    const first = failures[0] ?? {};
+    throw new SyncError('upstream',
+      `니케 목록을 받지 못했습니다 (${first.failedCode ?? '?'} ${first.failedMsg ?? ''}). 잠시 뒤 다시 시도해 주세요.`,
+      502);
   }
   return { openid, areas };
 }

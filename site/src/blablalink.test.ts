@@ -223,10 +223,12 @@ describe('consoleFrom', () => {
       },
     }));
 
+    // 안 올린 연구실도 0으로 채워 보낸다 — 자리를 비우면 엔진이 «빠진 소속이 있다»로
+    // 거절한다(빠진 소속이 조용히 0이 되는 걸 막는 장치라, 우리가 뜻을 분명히 적는다).
     expect(result).toEqual({
       common_level: 12,
-      class_level: { 화력형: 8 },
-      company_level: { 필그림: 5 },
+      class_level: { 화력형: 8, 방어형: 0, 지원형: 0 },
+      company_level: { 필그림: 5, 엘리시온: 0, 미실리스: 0, 테트라: 0, 어브노말: 0 },
     });
   });
 

@@ -292,11 +292,30 @@ export interface ConsoleImport {
   company_level: Record<string, number>;
 }
 
-/** 전초기지 응답 → 콘솔 레벨. 전초기지가 비공개면 안 오므로 null이 정상이다. */
+/**
+ * 아무것도 안 올린 콘솔. **자리는 다 있고 값만 0**이다 — 엔진은 빠진 소속을 거절하므로
+ * «모른다»를 «0으로 친다»로 바꿔 적어야 계산이 돈다(전초기지가 비공개일 때 쓴다).
+ */
+export function emptyConsole(): ConsoleImport {
+  const out: ConsoleImport = { common_level: 0, class_level: {}, company_level: {} };
+  for (const [kind, bucket] of Object.values(CONSOLE_TIDS)) {
+    if (kind === 'class') out.class_level[bucket] = 0;
+    else if (kind === 'company') out.company_level[bucket] = 0;
+  }
+  return out;
+}
+
+/**
+ * 전초기지 응답 → 콘솔 레벨. 전초기지가 비공개면 안 오므로 null이 정상이다.
+ *
+ * 안 올린 연구실은 응답에 아예 **없다**. 그 자리를 비운 채 넘기면 엔진이
+ * «클래스 콘솔에 빠진 소속이 있다»로 거절한다(빠진 소속이 조용히 0이 되는 걸
+ * 막는 장치다). 여기서 0으로 채워 «안 올렸다»는 뜻을 분명히 적어 보낸다.
+ */
 export function consoleFrom(area: RawArea): ConsoleImport | null {
   const researches = area.outpost?.recycle_room_researches;
   if (!researches || researches.length === 0) return null;
-  const result: ConsoleImport = { common_level: 0, class_level: {}, company_level: {} };
+  const result = emptyConsole();
   let seen = false;
   for (const entry of researches) {
     const slot = CONSOLE_TIDS[Number(entry.tid)];

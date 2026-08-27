@@ -41,6 +41,7 @@ import {
 } from './share-code';
 import { LATEST_NOTICE_ID, NOTICES, noticeToShow } from './notices';
 import { mountSharePanel, squadPreview, type SharePanel } from './share-panel';
+import { mountUnionRaid } from './union-raid';
 import { ShareServer, summarizeBattle, summarizeSquad } from './share-server';
 import { createTimelineBlock } from './timeline';
 import {
@@ -470,8 +471,71 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
       <nav class="view-tabs" aria-label="화면 전환">
         <button type="button" class="view-tab is-on" data-view-tab="calc" aria-pressed="true">계산기</button>
+        ${blablaProxy ? '<button type="button" class="view-tab" data-view-tab="union" aria-pressed="false">유니온 레이드<b class="tab-beta">BETA</b></button>' : ''}
         <button type="button" class="view-tab" data-view-tab="enikk" aria-pressed="false">ENIKK 조합 가져오기</button>
       </nav>
+
+      ${blablaProxy ? `
+      <section class="panel union-panel" data-view="union" aria-labelledby="union-heading" hidden>
+        <div class="section-heading">
+          <div><p class="step">UNION</p><h2 id="union-heading">유니온 레이드 <b class="beta-tag">BETA</b></h2></div>
+        </div>
+        <p class="union-lede">유니온원 <b>각자의 실제 스펙과 싱크로 레벨</b>로 같은 보스·같은 덱을 돌려, 누가 얼마나 기여할 수 있는지 견줍니다. 니케 목록을 공개한 사람만 계산할 수 있습니다.</p>
+
+        <div class="union-step" data-union-step="1">
+          <h3>유니온 명단 가져오기</h3>
+          <p class="field-note">유니온원 명단은 <b>지휘관님 로그인으로만</b> 열립니다(우리 서버로는 막혀 있습니다). 그래서 한 번만 직접 떠 오시면 됩니다 — 쿠키나 비밀번호는 저희가 만지지 않습니다.</p>
+          <ol class="union-guide">
+            <li>블라블라링크에 로그인한 채 <b>유니온 스퀘어</b>를 엽니다.</li>
+            <li><kbd>F12</kbd> → <b>Console</b> 탭에 아래 내용을 붙여넣고 <kbd>Enter</kbd>.</li>
+            <li>명단이 클립보드에 담깁니다. 아래 상자에 붙여넣으세요.</li>
+          </ol>
+          <textarea class="union-snippet" data-union-snippet rows="3" readonly spellcheck="false"></textarea>
+          <div class="union-actions">
+            <button type="button" class="roster-import" data-union-copy>스니펫 복사</button>
+          </div>
+          <textarea class="union-paste" data-union-paste rows="3" placeholder="여기에 명단을 붙여넣으세요" spellcheck="false"></textarea>
+          <div class="union-actions">
+            <button type="button" class="roster-import" data-union-read>명단 읽기</button>
+            <span class="union-status" data-union-list-status></span>
+          </div>
+        </div>
+
+        <div class="union-step" data-union-step="2" hidden>
+          <h3>공개여부 확인</h3>
+          <p class="field-note">한 명씩 실제로 조회해 봐야 알 수 있습니다. 셋씩 동시에 부르며, 공개한 사람은 니케 상세까지 함께 받아 둡니다.</p>
+          <div class="union-actions">
+            <button type="button" class="roster-import" data-union-scan>공개여부 스캔</button>
+            <button type="button" class="roster-import" data-union-scan-stop hidden>중단</button>
+            <span class="union-status" data-union-scan-status></span>
+          </div>
+          <div class="union-progress" data-union-scan-progress hidden><i></i></div>
+          <div class="union-members" data-union-members></div>
+          <div class="union-ask" data-union-ask hidden>
+            <p data-union-ask-text></p>
+            <button type="button" class="roster-import" data-union-pick-all>공개된 사람 전부 고르기</button>
+            <button type="button" class="roster-import" data-union-pick-none>전부 해제</button>
+          </div>
+        </div>
+
+        <div class="union-step" data-union-step="3" hidden>
+          <h3>보스와 덱</h3>
+          <p class="field-note">보스는 <b>전투 조건 코드</b>(NK3-), 덱은 <b>조합 코드</b>(NK2-)로 채웁니다. 계산기에 잡아 둔 설정을 그대로 가져올 수도 있습니다. 체크를 끈 보스는 계산하지 않습니다 — 풍압엔 강한데 전격엔 약한 사람이 있으니까요.</p>
+          <div class="union-bosses" data-union-bosses></div>
+        </div>
+
+        <div class="union-step" data-union-step="4" hidden>
+          <h3>시뮬레이션</h3>
+          <p class="field-note">유니온원 × 보스 × 덱을 하나씩 돌립니다. <b>오래 걸리니 창을 열어 둔 채 기다려 주세요</b> — 결과는 나오는 대로 아래에 쌓입니다.</p>
+          <div class="union-actions">
+            <button type="button" class="roster-import union-run" data-union-run disabled>시뮬레이션 실행</button>
+            <button type="button" class="roster-import" data-union-stop hidden>중단</button>
+            <span class="union-status" data-union-run-status></span>
+          </div>
+          <div class="union-progress" data-union-run-progress hidden><i></i></div>
+          <div class="union-report" data-union-report></div>
+        </div>
+      </section>` : ''}
 
       <section class="panel enikk-panel" data-view="enikk" aria-labelledby="enikk-heading" hidden>
         <div class="section-heading">
@@ -3140,7 +3204,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   // 300명을 한 줄로 늘어놓으면 스크롤이 끝없다 — 열 명씩 끊어 쪽으로 넘긴다.
   const ENIKK_PER_PAGE = 10;
   let enikkPage = 0;
-  let currentView: 'calc' | 'enikk' = 'calc';
+  let currentView: 'calc' | 'union' | 'enikk' = 'calc';
 
   const readEnikkCache = (): EnikkImport | null => {
     try {
@@ -3529,8 +3593,30 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   enikkLoad.addEventListener('click', () => { void loadEnikk(false); });
   enikkRefresh.addEventListener('click', () => { void loadEnikk(true); });
 
+  // ── 유니온 레이드 (BETA) ────────────────────────────────────────────────
+  // 프록시가 있어야 유니온원 스펙을 받아 올 수 있다 — 없으면 탭 자체를 안 그렸다.
+  const unionPanel = root.querySelector<HTMLElement>('[data-view="union"]');
+  if (unionPanel && blablaProxy) {
+    mountUnionRaid({ panel: unionPanel }, {
+      proxy: blablaProxy,
+      settings,
+      catalog: [...catalogByName.values()],
+      simulate: (request) => client.simulate(request),
+      imageOf: (name) => {
+        const image = catalogByName.get(name)?.image;
+        return image ? `${import.meta.env.BASE_URL}${image}` : undefined;
+      },
+      currentBattleCode: () => encodeBattleCode(readBattle(), settings.normalHitCoeff),
+      currentDeckCode: (index) => {
+        const deck = decks[index];
+        return deck ? encodeShareCode([deck], false) : '';
+      },
+      catalogNames: () => [...catalogByName.keys()],
+    });
+  }
+
   // ── 화면 전환 ───────────────────────────────────────────────────────────
-  function switchView(view: 'calc' | 'enikk') {
+  function switchView(view: 'calc' | 'union' | 'enikk') {
     currentView = view;
     for (const section of root.querySelectorAll<HTMLElement>('[data-view]')) {
       const mine = section.dataset.view === view;
@@ -3554,7 +3640,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     }
   }
   for (const tab of root.querySelectorAll<HTMLButtonElement>('[data-view-tab]')) {
-    tab.addEventListener('click', () => switchView(tab.dataset.viewTab as 'calc' | 'enikk'));
+    tab.addEventListener('click', () => switchView(tab.dataset.viewTab as 'calc' | 'union' | 'enikk'));
   }
 
   // 렛츠도로 CSV 받는 법 안내. 스크린샷이 아직 없으면 이미지만 숨긴다 — 링크·설명은 남는다.

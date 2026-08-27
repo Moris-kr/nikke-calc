@@ -1010,3 +1010,82 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
 @media (max-width: 700px) {
   .enikk-page-info { margin-left: 0; width: 100%; }
 }
+
+/* ── 유니온 레이드 (BETA) ────────────────────────────────────────────────
+   네 단계가 위에서 아래로 하나씩 열린다. 명단을 읽기 전에는 2단계가 없고,
+   공개된 사람이 없으면 3단계도 안 열린다 — 할 수 없는 일을 미리 보여 주지 않는다. */
+.union-panel { grid-column: 1 / -1; padding: 28px; }
+.union-lede { margin: 0 0 16px; color: var(--muted); font-size: 13px; line-height: 1.7; }
+.union-lede b { color: var(--ink); }
+.beta-tag, .tab-beta { margin-left: 6px; padding: 2px 6px; border: 1px solid rgba(255,191,60,.45);
+  background: rgba(255,191,60,.1); color: var(--amber); font: 800 9px/1 ui-monospace, monospace;
+  vertical-align: middle; letter-spacing: .06em; }
+
+.union-step { margin-top: 18px; padding: 16px; border: 1px solid var(--line); background: rgba(7,15,25,.5); }
+.union-step > h3 { margin: 0 0 8px; font-size: 13px; letter-spacing: .02em; }
+.union-guide { margin: 8px 0 10px; padding-left: 18px; color: var(--muted); font-size: 12px; line-height: 1.9; }
+.union-guide b { color: var(--ink); }
+.union-guide kbd { padding: 1px 5px; border: 1px solid var(--line); border-radius: 3px;
+  background: rgba(3,9,16,.6); font: 700 10px ui-monospace, monospace; color: #cfeceb; }
+.union-snippet, .union-paste { width: 100%; margin: 6px 0; padding: 10px; border: 1px solid var(--line);
+  background: rgba(3,9,16,.6); color: var(--muted); font: 400 11px/1.55 ui-monospace, monospace; resize: vertical; }
+.union-paste { color: var(--ink); }
+.union-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.union-status { color: var(--cyan); font: 700 11px ui-monospace, monospace; }
+
+/* 진행 막대. 몇 분씩 걸리는 일이라, 살아 있다는 신호가 숫자보다 먼저 읽혀야 한다. */
+.union-progress { height: 4px; margin-top: 10px; background: rgba(146,176,201,.12); }
+.union-progress > i { display: block; height: 100%; width: 0; background: var(--cyan); transition: width .2s ease; }
+
+.union-table { margin-top: 12px; border: 1px solid rgba(146,176,201,.12); }
+.union-row { display: grid; grid-template-columns: 22px minmax(0,1fr) 9ch 6ch minmax(0,1.4fr);
+  align-items: center; gap: 10px; padding: 7px 10px; cursor: pointer; }
+.union-row + .union-row { border-top: 1px solid rgba(146,176,201,.07); }
+.union-row:hover { background: rgba(69,214,208,.05); }
+.union-name { font-size: 12px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.union-sync { color: var(--muted); font: 700 10.5px ui-monospace, monospace; }
+.union-note { color: var(--muted); font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.union-state { font: 800 10px ui-monospace, monospace; text-align: center; }
+.union-state.is-public { color: #7ee0a8; }
+.union-state.is-private { color: var(--muted); }
+.union-state.is-error { color: var(--amber); }
+.union-state.is-scanning { color: var(--cyan); }
+
+.union-ask { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px;
+  padding: 12px; border: 1px solid rgba(69,214,208,.3); background: rgba(69,214,208,.06); }
+.union-ask p { margin: 0 auto 0 0; font-size: 12.5px; font-weight: 700; color: #cfeceb; }
+
+/* 보스 다섯 칸. 넓으면 둘씩 서고, 좁으면 한 줄로 접힌다. */
+.union-bosses { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; margin-top: 12px; }
+.union-boss { padding: 12px; border: 1px solid var(--line); background: rgba(4,12,21,.55); }
+.union-boss.is-off { opacity: .45; }
+.union-boss-head { display: flex; align-items: center; gap: 8px; }
+.union-boss-name { flex: 1 1 auto; min-width: 0; padding: 6px 8px; border: 1px solid var(--line);
+  background: rgba(3,9,16,.6); color: var(--ink); font: 700 12px inherit; }
+.union-boss-summary { color: var(--muted); font: 700 10px ui-monospace, monospace; white-space: nowrap; }
+.union-code-row, .union-deck { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
+.union-code { flex: 1 1 180px; min-width: 0; padding: 6px 8px; border: 1px solid var(--line);
+  background: rgba(3,9,16,.6); color: var(--ink); font: 400 11px ui-monospace, monospace; }
+.union-decks { margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(146,176,201,.08); }
+.union-error { flex: 1 1 100%; margin: 2px 0 0; color: var(--amber); font-size: 10.5px; }
+.union-run { border-color: var(--amber) !important; color: var(--amber) !important; }
+
+/* 결과 — [이름][싱크로] 아래로 보스마다 덱 줄이 선다. */
+.union-report { margin-top: 14px; }
+.union-report-card { margin-bottom: 10px; border: 1px solid var(--line); background: rgba(4,12,21,.55); }
+.union-report-head { display: flex; align-items: baseline; gap: 10px; padding: 9px 12px;
+  border-bottom: 1px solid rgba(146,176,201,.12); }
+.union-report-name { font-size: 14px; }
+.union-report-sync { color: var(--muted); font: 700 10.5px ui-monospace, monospace; }
+.union-report-boss { margin: 10px 12px 4px; color: var(--cyan); font: 800 11px ui-monospace, monospace; }
+.union-report-row { display: flex; align-items: center; gap: 12px; padding: 5px 12px; }
+.union-report-row .share-decks { margin: 0; }
+.union-report-damage { margin-left: auto; color: var(--amber);
+  font: 800 15px/1.1 ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.union-report-skip { margin-left: auto; color: var(--muted); font-size: 10.5px; }
+
+@media (max-width: 720px) {
+  .union-panel { padding: 20px 16px; }
+  .union-row { grid-template-columns: 22px minmax(0,1fr) auto; row-gap: 4px; }
+  .union-row .union-note { grid-column: 2 / -1; }
+}
