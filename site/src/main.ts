@@ -1,6 +1,6 @@
 import './styles.css';
 
-import { CalculatorWorkerClient } from './worker-client';
+import { CalculatorPool } from './worker-client';
 import { mountCalculator } from './ui';
 import type { CharacterMeta, RuntimeManifest, SettingsCatalog } from './types';
 
@@ -22,7 +22,7 @@ async function start(): Promise<void> {
   const catalog = await catalogResponse.json() as CharacterMeta[];
   const manifest = await manifestResponse.json() as RuntimeManifest;
   const settings = await settingsResponse.json() as SettingsCatalog;
-  const client = new CalculatorWorkerClient();
+  const client = new CalculatorPool();
   const cleanup = mountCalculator(root, {
     catalog,
     settings,

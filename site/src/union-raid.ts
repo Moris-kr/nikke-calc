@@ -523,6 +523,8 @@ export interface UnionDeps {
   currentDeckCode: (index: number) => string;
   /** 계산기가 아는 니케 이름 전부 — 조합 코드 해석에 쓴다. */
   catalogNames: () => string[];
+  /** 한 번에 몇 판을 함께 돌릴지(병렬 설정). 1이면 한 판씩. */
+  concurrency?: () => number;
 }
 
 const el = <K extends keyof HTMLElementTagNameMap>(
@@ -999,9 +1001,8 @@ export function mountUnionRaid(hosts: UnionHosts, deps: UnionDeps): void {
     results = [];
     renderReport();
     const started = Date.now();
-    for (let index = 0; index < jobs.length; index += 1) {
-      if (cancelled) break;
-      const job = jobs[index]!;
+    let done = 0;
+    const runJob = async (job: Job) => {
       const roster = rosters.get(job.member.openid) ?? {};
       const { deck, missing } = deckForMember(job.squad, roster);
       if (missing.length > 0) {
@@ -1020,11 +1021,20 @@ export function mountUnionRaid(hosts: UnionHosts, deps: UnionDeps): void {
           results.push({ job, error: lastLine(error instanceof Error ? error.message : String(error)) });
         }
       }
-      setBar(runBar, index + 1, jobs.length);
-      runStatus.textContent = `${index + 1}/${jobs.length} · ${job.member.name} · ${job.bossName} `
-        + `· 남은 시간 약 ${humanSeconds(remainingSeconds(index + 1, jobs.length, Date.now() - started))}`;
-      renderReport();
-    }
+      done += 1;
+      setBar(runBar, done, jobs.length);
+      runStatus.textContent = `${done}/${jobs.length} · ${job.member.name} · ${job.bossName} `
+        + `· 남은 시간 약 ${humanSeconds(remainingSeconds(done, jobs.length, Date.now() - started))}`;
+      renderReport();     // 도착 순서와 무관하게 사람→보스→덱으로 다시 세운다
+    };
+    // 판마다 서로 독립이라 나눠 돌려도 결과가 같다. 여기가 병렬로 가장 크게 덕을 보는
+    // 자리다 — 유니온원 × 보스 × 덱이라 수십 판이 쌓인다.
+    const lanes = Math.max(1, Math.trunc(deps.concurrency?.() ?? 1));
+    const queue = [...jobs];
+    const lane = async () => {
+      while (queue.length > 0 && !cancelled) await runJob(queue.shift()!);
+    };
+    await Promise.all(Array.from({ length: Math.min(lanes, jobs.length) }, lane));
     running = false;
     runStop.hidden = true;
     runButton.disabled = false;

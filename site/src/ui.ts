@@ -82,6 +82,10 @@ export interface CalculatorClientLike {
   simulate(request: SimulationRequest): Promise<SimulationResult>;
   /** 목록 정렬용 전투력. 없는 구현(테스트 대역)도 있어 선택으로 둔다. */
   combatPower?(request: CombatPowerRequest): Promise<Record<string, number>>;
+  /** 병렬 계산. 풀이 아닌 구현(테스트 대역·워커 하나)도 있어 전부 선택으로 둔다. */
+  setPoolSize?(size: number): void;
+  defaultPoolSize?(): number;
+  maxPoolSize?: number;
   dispose(): void;
 }
 
@@ -598,6 +602,10 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
               <button type="button" class="roster-import" data-add-nikke title="미출시·미등록 니케를 직접 추가">새 니케 추가</button>
               <button type="button" class="roster-import" data-preset-open title="현재 편성을 저장하거나 저장한 편성을 불러옵니다. 개인 스펙과 전투 조건은 저장하지 않습니다">편성 프리셋</button>
               <button type="button" class="roster-import" data-share-open title="편성을 코드로 만들어 공유하거나, 받은 코드를 붙여넣어 5덱을 한 번에 적용">조합 공유</button>
+              <label class="roster-import parallel-pick" title="계산을 여러 작업 스레드에 나눠 돌립니다. 이 기기의 코어를 더 쓰는 대신 5덱 계산이 몇 배 빨라집니다 — 서버 비용과는 무관합니다(계산은 이 기기에서 돕니다)">
+                <input type="checkbox" data-parallel-toggle checked /><span>병렬 계산</span>
+                <select data-parallel-size title="띄울 작업 스레드 수. 워커마다 계산 런타임이 하나씩 떠서 메모리를 50~80MB씩 씁니다"></select>
+              </label>
               <button type="button" class="roster-import danger" data-reset-all title="편성·설정·CSV 로스터·추가한 니케·저장된 결과를 모두 지우고 처음 상태로 되돌립니다">완전 초기화</button>
               <label class="toggle-field mode-toggle" title="다른 덱에서 이미 만져 둔 개별 설정을 편성할 때 그대로 가져옵니다"><input id="carry-settings" type="checkbox" checked /><span class="toggle"></span><span>설정 이어받기</span></label>
               <label class="toggle-field mode-toggle"><input id="squad-mode" type="checkbox" /><span class="toggle"></span><span>5덱 모드</span></label>
@@ -3612,6 +3620,53 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   enikkLoad.addEventListener('click', () => { void loadEnikk(false); });
   enikkRefresh.addEventListener('click', () => { void loadEnikk(true); });
 
+  // ── 병렬 계산 ───────────────────────────────────────────────────────────
+  // 계산은 이 기기에서 돈다. 워커를 여럿 띄우면 덱을 나눠 돌려 빨라지지만, 워커마다
+  // 계산 런타임이 하나씩 떠서 메모리를 먹는다 — 그래서 끌 수 있고 개수도 고를 수 있다.
+  // 결과는 몇 개로 나누든 같다(판마다 독립·결정론적).
+  const PARALLEL_KEY = 'nikke-parallel-v1';
+  const parallelToggle = element<HTMLInputElement>(root, '[data-parallel-toggle]');
+  const parallelSize = element<HTMLSelectElement>(root, '[data-parallel-size]');
+  const poolDefault = client.defaultPoolSize ? client.defaultPoolSize() : 1;
+  const poolMax = client.maxPoolSize ?? 1;
+  let parallelOn = true;
+  let parallelCount = poolDefault;
+  try {
+    const saved = JSON.parse(resolveStorage()?.getItem(PARALLEL_KEY) ?? 'null') as
+      { on?: boolean; count?: number } | null;
+    if (saved) {
+      if (typeof saved.on === 'boolean') parallelOn = saved.on;
+      if (typeof saved.count === 'number') parallelCount = saved.count;
+    }
+  } catch { /* 저장된 값이 깨졌으면 기본값으로 간다 */ }
+  parallelCount = Math.max(1, Math.min(poolMax, Math.trunc(parallelCount) || 1));
+
+  for (let n = 1; n <= poolMax; n += 1) {
+    const option = document.createElement('option');
+    option.value = String(n);
+    option.textContent = n === poolDefault ? `${n}개 (권장)` : `${n}개`;
+    parallelSize.append(option);
+  }
+  const applyParallel = (save: boolean) => {
+    parallelToggle.checked = parallelOn;
+    parallelSize.value = String(parallelCount);
+    parallelSize.disabled = !parallelOn;
+    client.setPoolSize?.(parallelOn ? parallelCount : 1);
+    if (!save) return;
+    try {
+      resolveStorage()?.setItem(PARALLEL_KEY, JSON.stringify({ on: parallelOn, count: parallelCount }));
+    } catch { /* 저장 실패는 무시한다 — 이번 판만 못 기억할 뿐이다 */ }
+  };
+  parallelToggle.addEventListener('change', () => {
+    parallelOn = parallelToggle.checked;
+    applyParallel(true);
+  });
+  parallelSize.addEventListener('change', () => {
+    parallelCount = Number(parallelSize.value) || 1;
+    applyParallel(true);
+  });
+  applyParallel(false);
+
   // ── 유니온 레이드 (BETA) ────────────────────────────────────────────────
   // 프록시가 있어야 유니온원 스펙을 받아 올 수 있다 — 없으면 탭 자체를 안 그렸다.
   const unionPanel = root.querySelector<HTMLElement>('[data-view="union"]');
@@ -3631,6 +3686,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         return deck ? encodeShareCode([deck], false) : '';
       },
       catalogNames: () => [...catalogByName.keys()],
+      concurrency: () => (parallelOn ? parallelCount : 1),
     });
   }
 
@@ -3884,11 +3940,14 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     activity = 'running';
     const completed: DeckResultEntry[] = [];
     let cachedCount = 0;
+    let failedIndex = -1;
     try {
       await prepared;
-      for (let index = 0; index < requests.length; index += 1) {
+      // 덱 하나하나는 서로 독립이라 나눠 돌려도 결과가 같다. 도착 순서만 뒤섞이므로
+      // 화면에 세울 때 **덱 번호 순으로 다시 정렬**한다 — 좌→우가 곧 1→5덱이어야 한다.
+      let done = 0;
+      const runOne = async (index: number) => {
         const { deck, request } = requests[index]!;
-        status.textContent = `계산 중 · 덱 ${index + 1}/${requests.length} (덱 ${deck.id})`;
         const key = cacheKey(request, version);
         let result = cache.get(key);
         if (result) {
@@ -3897,8 +3956,29 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           result = await client.simulate(request);
           cache.set(key, result);
         }
+        done += 1;
+        status.textContent = `계산 중 · ${done}/${requests.length}덱`;
         completed.push({ deckId: deck.id, request, result });
+        completed.sort((a, b) => a.deckId - b.deckId);
         renderBatchResult(aggregateDeckResults(completed));
+      };
+      // 병렬을 꺼 뒀으면 한 판씩. 켜져 있으면 풀이 알아서 워커에 나눠 준다.
+      const guarded = async (index: number) => {
+        try {
+          await runOne(index);
+        } catch (error) {
+          // 어느 덱이 깨졌는지 아래 catch가 알아야 한다 — 병렬에서는 «몇 개 끝났나»로
+          // 짚을 수 없다(끝난 순서와 덱 번호가 다르다).
+          if (failedIndex < 0) failedIndex = index;
+          throw error;
+        }
+      };
+      if (parallelOn && requests.length > 1) {
+        const settled = await Promise.allSettled(requests.map((_, index) => guarded(index)));
+        const broke = settled.find((outcome) => outcome.status === 'rejected');
+        if (broke && broke.status === 'rejected') throw broke.reason;
+      } else {
+        for (let index = 0; index < requests.length; index += 1) await guarded(index);
       }
       activity = cachedCount === requests.length ? 'cached' : 'complete';
       status.textContent = cachedCount === requests.length
@@ -3906,7 +3986,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         : `${requests.length}개 덱 계산 완료 · 같은 조건은 이 기기에 저장됩니다.`;
     } catch (error) {
       if (completed.length > 0) renderBatchResult(aggregateDeckResults(completed));
-      const failedEntry = requests[completed.length];
+      const failedEntry = requests[failedIndex >= 0 ? failedIndex : completed.length];
       const failed = failedEntry?.deck.id;
       const detail = cleanEngineError(error instanceof Error ? error.message : String(error));
       const messages = [`덱 ${failed ?? '?'} 계산 실패: ${detail}`];
