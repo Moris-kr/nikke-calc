@@ -1038,7 +1038,8 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
 .union-progress > i { display: block; height: 100%; width: 0; background: var(--cyan); transition: width .2s ease; }
 
 .union-table { margin-top: 12px; border: 1px solid rgba(146,176,201,.12); }
-.union-row { display: grid; grid-template-columns: 22px minmax(0,1fr) 9ch 6ch minmax(0,1.4fr);
+.union-row { display: grid;
+  grid-template-columns: 22px minmax(0,1fr) 9ch 6ch minmax(0,1.2fr) auto;
   align-items: center; gap: 10px; padding: 7px 10px; cursor: pointer; }
 .union-row + .union-row { border-top: 1px solid rgba(146,176,201,.07); }
 .union-row:hover { background: rgba(69,214,208,.05); }
@@ -1088,4 +1089,19 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
   .union-panel { padding: 20px 16px; }
   .union-row { grid-template-columns: 22px minmax(0,1fr) auto; row-gap: 4px; }
   .union-row .union-note { grid-column: 2 / -1; }
+  .union-boss-picks { grid-column: 2 / -1; justify-content: flex-start; }
 }
+
+/* 직접 긁기 — 기본 길은 서버 스캔이라, 접어 두고 필요한 사람만 편다. */
+.union-direct { margin-top: 12px; padding: 10px 12px; border: 1px dashed rgba(146,176,201,.25); background: rgba(3,9,16,.35); }
+.union-direct > summary { cursor: pointer; color: var(--cyan); font: 700 11.5px inherit; }
+.union-direct > summary:hover { color: #cfeceb; }
+.union-direct[open] > summary { margin-bottom: 8px; }
+
+/* 유니온원 줄 오른쪽의 보스 칩 — 아래 보스 체크에서 켠 것만 나온다. */
+.union-boss-picks { display: flex; gap: 4px; justify-content: flex-end; }
+.union-boss-chip { display: inline-flex; align-items: center; gap: 3px; padding: 2px 5px;
+  border: 1px solid rgba(69,214,208,.35); background: rgba(69,214,208,.08);
+  color: #cfeceb; font: 800 10px ui-monospace, monospace; cursor: pointer; }
+.union-boss-chip.is-off { border-color: rgba(146,176,201,.18); background: transparent; color: var(--muted); }
+.union-boss-chip input { width: 11px; height: 11px; margin: 0; }

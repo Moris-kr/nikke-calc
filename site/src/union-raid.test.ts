@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildJobs, deckForMember, estimateScanSeconds, groupResults, humanSeconds,
-  MEMBER_SNIPPET, parseMemberList, readBossCode, readDeckCode, remainingSeconds,
+  DIRECT_SNIPPET, MEMBER_SNIPPET, parseDirectScan, parseMemberList, readBossCode, readDeckCode,
+  remainingSeconds,
 } from './union-raid';
 import type { BossSlot, JobResult, MemberRow } from './union-raid';
 import { encodeBattleCode, encodeShareCode } from './share-code';
@@ -93,6 +94,53 @@ describe('명단 스니펫', () => {
   });
 });
 
+describe('직접 긁기', () => {
+  const packed = {
+    v: 1,
+    guild_name: '니삭스',
+    members: [
+      { name: '유니온만공개', openid: '111', synchro: 900, level: 910, area: 83, state: 'public',
+        profile: { openid: '111', areas: [{ area: 83, characters: [], details: [], stateEffects: [], outpost: null }] } },
+      { name: '진짜비공개', openid: '222', synchro: 800, level: 900, area: 83, state: 'private', note: '1301002' },
+    ],
+  };
+
+  it('날 JSON도 읽는다 — gzip을 못 쓰는 브라우저를 위한 길이다', async () => {
+    const rows = await parseDirectScan(JSON.stringify(packed));
+    expect(rows.map((row) => [row.name, row.state]))
+      .toEqual([['유니온만공개', 'public'], ['진짜비공개', 'private']]);
+    expect(rows[0]!.profile).toBeTruthy();
+    expect(rows[1]!.note).toBe('1301002');
+  });
+
+  it('gzip+base64로 눌러 온 것도 푼다', async () => {
+    // 스니펫이 실제로 만드는 모양 — 200종 상세 32명치는 눌러야 붙여넣을 크기가 된다.
+    const gz = new Blob([JSON.stringify(packed)]).stream()
+      .pipeThrough(new CompressionStream('gzip'));
+    const bytes = new Uint8Array(await new Response(gz).arrayBuffer());
+    let binary = '';
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    const rows = await parseDirectScan(`NKU1-${btoa(binary)}`);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]!.synchro).toBe(900);
+  });
+
+  it('잘려 온 자료와 빈 자료는 그 사실을 말해 준다', async () => {
+    await expect(parseDirectScan('NKU1-이건망가진것')).rejects.toThrow(/푸는 데 실패/);
+    await expect(parseDirectScan('  ')).rejects.toThrow(/비어 있습니다/);
+    await expect(parseDirectScan('{"members":[]}')).rejects.toThrow(/찾지 못했습니다/);
+  });
+
+  it('스니펫이 프록시를 거치지 않고 직접 부른다', () => {
+    // 이 길이 있는 이유는 하나다 — 「유니온원에게만 공개」는 우리 프록시 계정이 못 본다.
+    expect(DIRECT_SNIPPET).toContain('Game/GetUserCharacterDetails');
+    expect(DIRECT_SNIPPET).toContain('Game/GetUserProfileOutpostInfo');
+    expect(DIRECT_SNIPPET).toContain('credentials: \'include\'');
+    expect(DIRECT_SNIPPET).toContain('NKU1-');
+    expect(DIRECT_SNIPPET).not.toContain('workers.dev');
+  });
+});
+
 describe('보스·덱 칸', () => {
   it('전투 조건 코드를 읽고, 싱크로·콘솔은 0으로 자리를 채워 둔다', () => {
     // 싱크로와 콘솔은 코드에 담기지 않는다 — 유니온원마다 자기 것으로 덮어야 한다.
@@ -137,6 +185,15 @@ describe('돌릴 것 늘어놓기', () => {
     const rows = [member({ name: '공개' }), member({ name: '비공개', openid: '2', state: 'private' }),
       member({ name: '뺀 사람', openid: '3', picked: false })];
     expect(buildJobs(rows, [bossWith()]).map((job) => job.member.name)).toEqual(['공개']);
+  });
+
+  it('사람마다 보스를 갈라 맡길 수 있다', () => {
+    // 아래 보스 체크가 켜져 있어도, 그 사람에게서 뺐으면 안 돌린다.
+    const rows = [member({ name: '풍압만', openid: '1', bossPicks: { 1: false } }),
+      member({ name: '둘 다', openid: '2' })];
+    const jobs = buildJobs(rows, [bossWith({ name: '1보스' }), bossWith({ name: '2보스' })]);
+    expect(jobs.map((job) => `${job.member.name}/${job.bossName}`))
+      .toEqual(['풍압만/1보스', '둘 다/1보스', '둘 다/2보스']);
   });
 
   it('이름 없는 보스 칸에는 번호를 붙인다', () => {

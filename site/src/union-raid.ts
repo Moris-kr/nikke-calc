@@ -44,6 +44,11 @@ export interface MemberRow extends UnionMember {
   note?: string;
   /** 계산에 넣을지. 공개인 사람만 켤 수 있다. */
   picked: boolean;
+  /**
+   * 이 사람에게 어느 보스를 맡길지. 보스 번호(0~4) → 켬/끔이고, 안 적힌 보스는 켠 것으로 친다.
+   * 풍압엔 강한데 전격엔 약한 사람이 있어서, 보스별로 사람을 갈라 맡길 수 있어야 한다.
+   */
+  bossPicks?: Record<number, boolean>;
 }
 
 /** 보스 한 칸. 체크를 끄면 그 보스는 통째로 건너뛴다. */
@@ -101,6 +106,168 @@ export const MEMBER_SNIPPET = `await (async () => {
   box.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') box.remove(); });
   done('을 페이지 상자에 띄웠습니다. 상자를 클릭하고 Ctrl+A → Ctrl+C로 복사해 계산기에 붙여넣으세요 (Esc로 닫힙니다).');
 })();`;
+
+/**
+ * 직접 긁기 스니펫. **저희 프록시를 거치지 않고** 지휘관님 세션으로 유니온원 스펙을
+ * 그대로 받아 온다. 이 길이 따로 있어야 하는 이유는 하나다 —
+ * 「유니온원에게만 공개」로 둔 사람은 우리 프록시 계정(그 유니온 소속이 아니다)이
+ * 영원히 못 본다. 같은 유니온인 지휘관님 브라우저만 볼 수 있다.
+ *
+ * 200종 상세를 32명치 받으면 12MB가 넘는다. 계산에 쓰는 칸만 남기고(26%) gzip으로
+ * 눌러 base64로 옮긴다 — 한 명에 9KB, 32명이면 300KB쯤이라 붙여넣기로 옮길 수 있다.
+ */
+export const DIRECT_SNIPPET = `await (async () => {
+  const call = async (route, body) => (await fetch('https://api.blablalink.com/api/game/proxy/' + route, {
+    method: 'POST', credentials: 'include',
+    headers: { 'Content-Type': 'application/json', 'X-Channel-Type': '2', 'X-Language': 'ko',
+      'X-Common-Params': JSON.stringify({ game_id: '29080', area_id: 'global', source: 'pc_web', intl_game_id: '29080', language: 'ko', env: 'prod' }) },
+    body: JSON.stringify(body),
+  })).json();
+  const gap = (ms) => new Promise((done) => setTimeout(done, ms));
+
+  const mine = await call('Game/GetMyGuildInfo', { latest: false });
+  const box0 = mine.data || {};
+  const info = box0.card || box0.guild_info || box0.guild_detail || box0;
+  if (!info.guild_id) { console.error('유니온을 찾지 못했습니다:', mine.msg || mine.code); return; }
+  const list = await call('Game/GetGuildMembers', { guild_id: String(info.guild_id), nikke_area_id: String(info.nikke_area_id || '') });
+  const roster = (list.data || {}).items || [];
+  if (!roster.length) { console.error('명단이 비어 있습니다:', list.msg || list.code); return; }
+
+  const PARTS = ['head', 'torso', 'arm', 'leg'];
+  const KEEP = ['name_code', 'skill1_lv', 'skill2_lv', 'ulti_skill_lv', 'favorite_item_tid',
+    'favorite_item_lv', 'harmony_cube_tid', 'harmony_cube_lv'];
+  for (const part of PARTS) {
+    KEEP.push(part + '_equip_tier', part + '_equip_lv',
+      part + '_equip_option1_id', part + '_equip_option2_id', part + '_equip_option3_id');
+  }
+  const slimDetail = (detail) => {
+    const out = {};
+    for (const key of KEEP) if (detail[key]) out[key] = detail[key];
+    return out;
+  };
+
+  const members = [];
+  for (let i = 0; i < roster.length; i += 1) {
+    const person = roster[i];
+    const area = person.bind_area_id;
+    const row = { name: person.nickname, openid: String(person.member_id),
+      synchro: person.synchro_level || 0, level: person.level || 0, area: area, state: 'private' };
+    try {
+      await gap(500);
+      const chars = await call('Game/GetUserCharacters', { intl_open_id: row.openid, nikke_area_id: area });
+      const characters = chars.code === 0 ? ((chars.data || {}).characters || []) : [];
+      if (characters.length === 0) {
+        row.note = chars.msg || String(chars.code || '');
+      } else {
+        const codes = characters.map((c) => c.name_code);
+        const details = [], effects = [];
+        for (let at = 0; at < codes.length; at += 60) {
+          await gap(500);
+          const chunk = await call('Game/GetUserCharacterDetails',
+            { intl_open_id: row.openid, nikke_area_id: area, name_codes: codes.slice(at, at + 60) });
+          const data = chunk.data || {};
+          for (const d of data.character_details || []) details.push(slimDetail(d));
+          for (const e of data.state_effects || []) {
+            const first = (e.function_details || [])[0] || {};
+            effects.push({ id: e.id, function_details: [{ function_type: first.function_type, function_value: first.function_value }] });
+          }
+        }
+        let outpost = null;
+        try {
+          await gap(500);
+          const info2 = await call('Game/GetUserProfileOutpostInfo', { intl_open_id: row.openid, nikke_area_id: area });
+          const got = (info2.data || {}).outpost_info;
+          if (got) outpost = { recycle_room_researches: (got.recycle_room_researches || []).map((r) => ({ tid: r.tid, lv: r.lv })), synchro_level: got.synchro_level };
+        } catch (e) {}
+        row.state = 'public';
+        row.profile = { openid: row.openid, areas: [{ area: area,
+          characters: characters.map((c) => ({ name_code: c.name_code, grade: c.grade, core: c.core })),
+          details: details, stateEffects: effects, outpost: outpost }] };
+      }
+    } catch (e) { row.state = 'error'; row.note = String(e).slice(0, 80); }
+    members.push(row);
+    console.log((i + 1) + '/' + roster.length + ' ' + row.name + ' · ' + (row.state === 'public' ? '공개' : row.state === 'error' ? '오류' : '비공개'));
+  }
+
+  const packed = JSON.stringify({ v: 1, guild_name: info.guild_name, members: members });
+  let text = packed;
+  if (typeof CompressionStream === 'function') {
+    const gz = new Blob([packed]).stream().pipeThrough(new CompressionStream('gzip'));
+    const bytes = new Uint8Array(await new Response(gz).arrayBuffer());
+    let binary = '';
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    text = 'NKU1-' + btoa(binary);
+  }
+  const open = members.filter((m) => m.state === 'public').length;
+  const done = (how) => console.log('유니온원 ' + members.length + '명(공개 ' + open + '명) ' + how);
+  try { copy(text); done('을 클립보드에 담았습니다. 계산기에 붙여넣으세요.'); return; } catch (e) {}
+  try { await navigator.clipboard.writeText(text); done('을 클립보드에 담았습니다. 계산기에 붙여넣으세요.'); return; } catch (e) {}
+  const area2 = document.createElement('textarea');
+  area2.value = text;
+  area2.setAttribute('style', 'position:fixed;left:5%;top:10%;width:90%;height:60%;z-index:2147483647;padding:12px;font:12px monospace;background:#0b1420;color:#e8f1f8;border:2px solid #45d6d0');
+  document.body.appendChild(area2);
+  area2.focus(); area2.select();
+  try { document.execCommand('copy'); } catch (e) {}
+  area2.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') area2.remove(); });
+  done('을 페이지 상자에 띄웠습니다. 상자를 클릭하고 Ctrl+A → Ctrl+C로 복사하세요 (Esc로 닫힙니다).');
+})();`;
+
+/** 직접 긁어 온 유니온원 한 명. `profile`은 `areaToOverrides`가 그대로 먹는 모양이다. */
+export interface DirectMember {
+  name: string;
+  openid: string;
+  synchro: number;
+  level: number;
+  area: number;
+  state: 'public' | 'private' | 'error';
+  note?: string;
+  profile?: { openid: string; areas: unknown[] };
+}
+
+/** 직접 긁기 결과를 푼다. `NKU1-`은 gzip+base64, 아니면 날 JSON이다. */
+export async function parseDirectScan(text: string): Promise<DirectMember[]> {
+  const trimmed = text.trim();
+  if (!trimmed) throw new Error('붙여넣은 내용이 비어 있습니다.');
+  let json = trimmed;
+  if (trimmed.startsWith('NKU1-')) {
+    try {
+      const binary = atob(trimmed.slice(5));
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+      const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+      json = await new Response(stream).text();
+    } catch {
+      throw new Error('직접 긁은 자료를 푸는 데 실패했습니다. 복사가 중간에 잘리지 않았는지 확인해 주세요.');
+    }
+  }
+  let box: { members?: unknown };
+  try {
+    box = JSON.parse(json) as { members?: unknown };
+  } catch {
+    throw new Error('직접 긁은 자료를 알아보지 못했습니다. 스니펫이 준 내용을 통째로 붙여넣어 주세요.');
+  }
+  const rows = Array.isArray(box.members) ? box.members : [];
+  const out: DirectMember[] = [];
+  for (const raw of rows) {
+    if (!raw || typeof raw !== 'object') continue;
+    const row = raw as Record<string, any>;
+    const openid = String(row.openid ?? '').trim();
+    const name = String(row.name ?? '').trim();
+    if (!name || !/^\d+$/.test(openid)) continue;
+    out.push({
+      name,
+      openid,
+      synchro: num(row.synchro, 0),
+      level: num(row.level, 0),
+      area: num(row.area, 0),
+      state: row.state === 'public' ? 'public' : row.state === 'error' ? 'error' : 'private',
+      note: typeof row.note === 'string' && row.note ? row.note : undefined,
+      profile: row.profile,
+    });
+  }
+  if (out.length === 0) throw new Error('직접 긁은 자료에서 유니온원을 찾지 못했습니다.');
+  return out;
+}
 
 const num = (value: unknown, fallback = 0): number => {
   const n = Number(value);
@@ -243,6 +410,8 @@ export function buildJobs(members: MemberRow[], bosses: BossSlot[]): Job[] {
     if (!member.picked || member.state !== 'public') continue;
     bosses.forEach((boss, bossIndex) => {
       if (!boss.enabled || !boss.battle) return;
+      // 아래 보스 체크가 켜져 있어도, 이 사람에게서 뺐으면 돌리지 않는다.
+      if (member.bossPicks?.[bossIndex] === false) return;
       boss.decks.forEach((deck, deckIndex) => {
         if (!deck.squad) return;
         jobs.push({
@@ -455,6 +624,36 @@ export function mountUnionRaid(hosts: UnionHosts, deps: UnionDeps): void {
     if (fill) fill.style.width = `${total === 0 ? 0 : Math.round((done / total) * 100)}%`;
   };
 
+  /**
+   * 유니온원 줄 오른쪽의 보스 칩. **아래 보스 체크와 연동한다** — 꺼 둔 보스는 칩 자체가
+   * 안 나온다. 여기서 끄면 그 사람만 그 보스를 건너뛴다(풍압은 되는데 전격은 아닌 사람).
+   */
+  const bossChips = (row: MemberRow): HTMLElement => {
+    const wrap = el('div', 'union-boss-picks');
+    const live = bosses.filter((boss) => boss.enabled);
+    if (live.length === 0 || row.state !== 'public') return wrap;
+    bosses.forEach((boss, index) => {
+      if (!boss.enabled) return;
+      const chip = el('label', 'union-boss-chip');
+      const mark = document.createElement('input');
+      mark.type = 'checkbox';
+      mark.checked = row.bossPicks?.[index] !== false;
+      mark.dataset.unionBossPick = String(index);
+      const label = boss.name.trim() || `보스 ${index + 1}`;
+      chip.title = `${row.name} — ${label}`;
+      chip.classList.toggle('is-off', !mark.checked);
+      mark.addEventListener('change', (event) => {
+        event.stopPropagation();
+        row.bossPicks = { ...(row.bossPicks ?? {}), [index]: mark.checked };
+        chip.classList.toggle('is-off', !mark.checked);
+        refreshRunGate();
+      });
+      chip.append(mark, el('span', '', String(index + 1)));
+      wrap.append(chip);
+    });
+    return wrap;
+  };
+
   function renderMembers(): void {
     memberBox.replaceChildren();
     if (members.length === 0) return;
@@ -477,7 +676,8 @@ export function mountUnionRaid(hosts: UnionHosts, deps: UnionDeps): void {
         el('span', 'union-sync', row.synchro > 0 ? `싱크로 ${row.synchro}` : '싱크로 ?'),
         state,
         el('span', 'union-note', [row.owned !== undefined ? `니케 ${row.owned}종` : '', row.note ?? '']
-          .filter(Boolean).join(' · ')));
+          .filter(Boolean).join(' · ')),
+        bossChips(row));
       table.append(line);
     }
     memberBox.append(table);
@@ -589,6 +789,66 @@ export function mountUnionRaid(hosts: UnionHosts, deps: UnionDeps): void {
   };
 
   scanButton.addEventListener('click', () => { void runScan(); });
+
+  // 직접 긁기 — 저희 프록시를 거치지 않는 길. 「유니온원에게만 공개」는 이쪽으로만 보인다.
+  const directSnippet = pick<HTMLTextAreaElement>(panel, '[data-union-direct-snippet]');
+  const directCopy = pick<HTMLButtonElement>(panel, '[data-union-direct-copy]');
+  const directPaste = pick<HTMLTextAreaElement>(panel, '[data-union-direct-paste]');
+  const directRead = pick<HTMLButtonElement>(panel, '[data-union-direct-read]');
+  const directStatus = pick(panel, '[data-union-direct-status]');
+  directSnippet.value = DIRECT_SNIPPET;
+
+  directCopy.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(DIRECT_SNIPPET);
+      directStatus.textContent = '복사했습니다. 블라블라링크에서 콘솔(F12)에 붙여넣으세요 — 32명이면 2~3분 걸립니다.';
+    } catch {
+      directSnippet.select();
+      directStatus.textContent = '복사가 막혀 있습니다 — 위 상자의 내용을 직접 복사하세요.';
+    }
+  });
+
+  directRead.addEventListener('click', () => {
+    directStatus.textContent = '푸는 중…';
+    void (async () => {
+      try {
+        const rows = await parseDirectScan(directPaste.value);
+        members = rows.map((row) => ({
+          name: row.name, openid: row.openid, synchro: row.synchro, level: row.level, area: row.area,
+          state: row.state, picked: false, note: row.note,
+        }));
+        rosters = new Map();
+        consoles = new Map();
+        results = [];
+        let open = 0;
+        for (let index = 0; index < rows.length; index += 1) {
+          const row = rows[index]!;
+          const seat = members[index]!;
+          if (row.state !== 'public' || !row.profile) continue;
+          const area = pickArea(row.profile as never, row.area > 0 ? row.area : undefined);
+          if (!area) { seat.state = 'private'; seat.note = '니케 목록이 비어 있습니다'; continue; }
+          const { overrides, matched } = areaToOverrides(area, deps.settings, deps.catalog);
+          if (matched.length === 0) { seat.state = 'private'; seat.note = '계산기가 아는 니케가 없습니다'; continue; }
+          rosters.set(seat.openid, overrides);
+          const levels = consoleFrom(area);
+          if (levels) consoles.set(seat.openid, levels);
+          seat.owned = matched.length;
+          seat.note = levels ? undefined : '콘솔 비공개 · 0으로 계산';
+          seat.picked = true;
+          open += 1;
+        }
+        renderMembers();
+        renderReport();
+        showStep('2', true);
+        if (open > 0) showStep('3', true);
+        directStatus.textContent = `유니온원 ${members.length}명을 읽었습니다 · 공개 ${open}명. `
+          + '서버 스캔 없이 바로 고르실 수 있습니다.';
+      } catch (error) {
+        directStatus.textContent = error instanceof Error ? error.message : String(error);
+      }
+    })();
+  });
+
   scanStop.addEventListener('click', () => { cancelled = true; });
   pick<HTMLButtonElement>(panel, '[data-union-pick-all]').addEventListener('click', () => {
     for (const row of members) row.picked = row.state === 'public';
@@ -616,13 +876,21 @@ export function mountUnionRaid(hosts: UnionHosts, deps: UnionDeps): void {
       toggle.addEventListener('change', () => {
         boss.enabled = toggle.checked;
         renderBosses();
+        renderMembers();       // 줄 오른쪽 칩이 보스 체크를 따라간다
       });
       const name = document.createElement('input');
       name.type = 'text';
       name.className = 'union-boss-name';
       name.placeholder = `보스 ${index + 1} 이름`;
       name.value = boss.name;
-      name.addEventListener('input', () => { boss.name = name.value; refreshRunGate(); });
+      name.addEventListener('input', () => {
+        boss.name = name.value;
+        refreshRunGate();
+        for (const chip of memberBox.querySelectorAll<HTMLElement>('.union-boss-chip')) {
+          const at = Number(chip.querySelector<HTMLInputElement>('[data-union-boss-pick]')?.dataset.unionBossPick);
+          if (at === index) chip.title = `${chip.title.split(' — ')[0]} — ${boss.name.trim() || `보스 ${index + 1}`}`;
+        }
+      });
       head.append(toggle, name, el('span', 'union-boss-summary', battleSummary(boss)));
       card.append(head);
 

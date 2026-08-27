@@ -511,6 +511,22 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <span class="union-status" data-union-scan-status></span>
           </div>
           <div class="union-progress" data-union-scan-progress hidden><i></i></div>
+
+          <details class="union-direct">
+            <summary>내 브라우저로 직접 긁기 — 「유니온원에게만 공개」까지 봅니다</summary>
+            <p class="field-note">위 스캔은 저희 서버를 거칩니다. 저희 계정은 이 유니온 소속이 아니라서, <b>「유니온원에게만 공개」로 둔 사람은 영원히 비공개로 보입니다</b>. 지휘관님 브라우저로 직접 긁으면 그분들까지 보입니다 — 서버를 안 거치는 쪽이 편한 분께도 이 길이 낫습니다.</p>
+            <p class="field-note">유니온원 수만큼 조회하므로 <b>32명이면 2~3분</b> 걸리고, 진행 상황이 콘솔에 한 줄씩 찍힙니다. 다 되면 위와 같은 방법으로 복사해 아래에 붙여넣으세요.</p>
+            <textarea class="union-snippet" data-union-direct-snippet rows="3" readonly spellcheck="false"></textarea>
+            <div class="union-actions">
+              <button type="button" class="roster-import" data-union-direct-copy>직접 긁기 스니펫 복사</button>
+            </div>
+            <textarea class="union-paste" data-union-direct-paste rows="3" placeholder="직접 긁은 자료를 여기에 붙여넣으세요 (NKU1-…)" spellcheck="false"></textarea>
+            <div class="union-actions">
+              <button type="button" class="roster-import" data-union-direct-read>직접 긁은 자료 읽기</button>
+              <span class="union-status" data-union-direct-status></span>
+            </div>
+          </details>
+
           <div class="union-members" data-union-members></div>
           <div class="union-ask" data-union-ask hidden>
             <p data-union-ask-text></p>
