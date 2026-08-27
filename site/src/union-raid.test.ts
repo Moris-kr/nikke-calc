@@ -229,6 +229,15 @@ describe('유니온원 로스터로 덱 짜기', () => {
     expect(Object.keys(deck.characters)).toEqual(['리타']);
     expect(deck.squad).toEqual(['리타', '라피', '', '', '']);
   });
+
+  it('로스터 자체가 없으면(개인용·CSV 미입력) 기본 스펙으로 돌린다', () => {
+    // 그때 빠진 이름은 «못 가졌다»가 아니라 «모른다»다. 전부 미보유로 막으면
+    // 개인용 모드가 한 판도 못 돈다.
+    const { deck, missing } = deckForMember(['리타', '라피', '', '', ''], {}, true);
+    expect(missing).toEqual([]);
+    expect(deck.squad).toEqual(['리타', '라피', '', '', '']);
+    expect(Object.keys(deck.characters)).toEqual([]);
+  });
 });
 
 describe('결과 접기', () => {

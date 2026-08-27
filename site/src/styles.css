@@ -1122,3 +1122,14 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
 .parallel-pick select { margin-left: 6px; padding: 1px 3px; border: 1px solid var(--line);
   background: rgba(3,9,16,.6); color: var(--muted); font: 700 10px ui-monospace, monospace; }
 .parallel-pick select:disabled { opacity: .4; }
+
+/* 유니온 / 개인용 — 「누구의 스펙으로 도는가」라 화면 맨 위에서 고른다. */
+.union-modes { display: inline-flex; margin-bottom: 12px; border: 1px solid var(--line); }
+.union-mode { padding: 7px 18px; border: 0; background: transparent; color: var(--muted);
+  font: 800 11.5px inherit; cursor: pointer; }
+.union-mode + .union-mode { border-left: 1px solid var(--line); }
+.union-mode:hover { color: var(--ink); }
+.union-mode.is-on { background: rgba(255,191,60,.1); color: var(--amber); }
+
+/* 개인용 줄은 체크박스·공개여부가 없다 — 칸 수가 달라 격자를 따로 잡는다. */
+.union-row.is-personal { grid-template-columns: minmax(0,1fr) 9ch minmax(0,1.2fr) auto; cursor: default; }

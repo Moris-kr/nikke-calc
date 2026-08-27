@@ -486,7 +486,12 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         <div class="section-heading">
           <div><p class="step">UNION</p><h2 id="union-heading">유니온 레이드 <b class="beta-tag">BETA</b></h2></div>
         </div>
-        <p class="union-lede">유니온원 <b>각자의 실제 스펙과 싱크로 레벨</b>로 같은 보스·같은 덱을 돌려, 누가 얼마나 기여할 수 있는지 견줍니다. 니케 목록을 공개한 사람만 계산할 수 있습니다.</p>
+        <div class="union-modes" role="group" aria-label="계산 대상">
+          <button type="button" class="union-mode is-on" data-union-mode="union" aria-pressed="true">유니온</button>
+          <button type="button" class="union-mode" data-union-mode="personal" aria-pressed="false">개인용</button>
+        </div>
+        <p class="union-lede" data-union-lede-union>유니온원 <b>각자의 실제 스펙과 싱크로 레벨</b>로 같은 보스·같은 덱을 돌려, 누가 얼마나 기여할 수 있는지 견줍니다. 니케 목록을 공개한 사람만 계산할 수 있습니다.</p>
+        <p class="union-lede" data-union-lede-personal hidden><b>내 스펙만</b> 씁니다. 명단을 가져올 필요 없이, 보스마다 다른 전투 조건을 걸고 덱을 세 개까지 돌려 한눈에 견줍니다 — 계산기에 잡아 둔 싱크로·콘솔·니케 육성을 그대로 씁니다.</p>
 
         <div class="union-step" data-union-step="1">
           <h3>유니온 명단 가져오기</h3>
@@ -3693,6 +3698,18 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       },
       catalogNames: () => [...catalogByName.keys()],
       concurrency: () => (parallelOn ? parallelCount : 1),
+      me: () => {
+        const battle = readBattle();
+        return {
+          name: '내 설정',
+          synchro: battle.synchroLevel,
+          console: battle.console,
+          // 가져온 로스터(CSV·블라블라링크)가 내 스펙이다. 없으면 기본 스펙으로 돈다.
+          roster: Object.fromEntries(Object.entries(roster)
+            .filter(([name]) => catalogByName.has(name))),
+          owned: Object.keys(roster).length,
+        };
+      },
     });
   }
 

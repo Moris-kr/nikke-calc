@@ -466,13 +466,16 @@ export interface JobResult {
 export function deckForMember(
   squad: string[],
   roster: Record<string, DeckState['characters'][string]>,
+  allowDefaults = false,
 ): { deck: DeckState; missing: string[] } {
   const missing: string[] = [];
   const characters: DeckState['characters'] = {};
   for (const name of squad) {
     if (!name) continue;
     const found = roster[name];
-    if (!found) { missing.push(name); continue; }
+    // `allowDefaults`는 «로스터 자체가 없다»는 뜻이다(개인용인데 CSV를 안 넣은 경우).
+    // 그때는 못 가진 게 아니라 **모르는** 것이므로 기본 스펙으로 돌린다.
+    if (!found) { if (!allowDefaults) missing.push(name); continue; }
     characters[name] = found;
   }
   return { deck: { id: 1, squad: [...squad], characters }, missing };
@@ -547,6 +550,12 @@ export interface UnionDeps {
   catalogNames: () => string[];
   /** 한 번에 몇 판을 함께 돌릴지(병렬 설정). 1이면 한 판씩. */
   concurrency?: () => number;
+  /**
+   * 개인용 모드에서 쓰는 «나». 명단·공개여부를 건너뛰고 계산기에 잡아 둔 내 스펙으로
+   * 보스×덱을 돈다 — 「남의 딜은 궁금하지 않고 내 것만 보고 싶다」는 요청에서 나왔다.
+   */
+  me: () => { name: string; synchro: number; console: BattleSettings['console'];
+    roster: Record<string, CharacterOverrides>; owned: number };
 }
 
 const el = <K extends keyof HTMLElementTagNameMap>(
@@ -590,6 +599,47 @@ export function mountUnionRaid(hosts: UnionHosts, deps: UnionDeps): void {
   let results: JobResult[] = [];
   let running = false;
   let cancelled = false;
+
+  // 모드 — 유니온원을 훑는 «유니온»과, 내 스펙만 쓰는 «개인용».
+  let personal = false;
+  const modeButtons = [...panel.querySelectorAll<HTMLButtonElement>('[data-union-mode]')];
+
+  /** 내 로스터를 실제로 가져다 뒀는가. 없으면 개인용은 기본 스펙으로 돈다. */
+  const hasMyRoster = () => (rosters.get('me') ? Object.keys(rosters.get('me')!).length > 0 : false);
+
+  /** 계산기에 잡아 둔 내 스펙을 «유니온원 한 명»처럼 세운다 — 뒤 단계가 그대로 돈다. */
+  const loadMe = () => {
+    const me = deps.me();
+    members = [{
+      name: me.name, openid: 'me', synchro: me.synchro, level: 0, area: 0,
+      state: 'public', picked: true, owned: me.owned,
+      note: me.owned > 0 ? undefined : '가져온 스펙이 없어 기본 스펙으로 계산합니다',
+    }];
+    rosters = new Map([['me', me.roster]]);
+    consoles = new Map([['me', me.console]]);
+    results = [];
+  };
+
+  const setMode = (next: boolean) => {
+    personal = next;
+    for (const button of modeButtons) {
+      const on = (button.dataset.unionMode === 'personal') === personal;
+      button.classList.toggle('is-on', on);
+      button.setAttribute('aria-pressed', String(on));
+    }
+    if (personal) loadMe();
+    else { members = []; rosters = new Map(); consoles = new Map(); results = []; }
+    const unionLede = panel.querySelector<HTMLElement>('[data-union-lede-union]');
+    const personalLede = panel.querySelector<HTMLElement>('[data-union-lede-personal]');
+    if (unionLede) unionLede.hidden = personal;
+    if (personalLede) personalLede.hidden = !personal;
+    showStep('1', !personal);
+    showStep('2', !personal && members.length > 0);
+    showStep('3', personal || members.some((row) => row.state === 'public'));
+    renderMembers();
+    renderReport();
+    refreshRunGate();
+  };
 
   const steps = new Map<string, HTMLElement>();
   for (const step of panel.querySelectorAll<HTMLElement>('[data-union-step]')) {
@@ -712,12 +762,16 @@ export function mountUnionRaid(hosts: UnionHosts, deps: UnionDeps): void {
       const state = el('span', `union-state is-${row.state}`, {
         unknown: '미확인', scanning: '확인 중', public: '공개', private: '비공개', error: '오류',
       }[row.state]);
-      line.append(box, el('span', 'union-name', row.name),
-        syncCell(row),
-        state,
-        el('span', 'union-note', [row.owned !== undefined ? `니케 ${row.owned}종` : '', row.note ?? '']
-          .filter(Boolean).join(' · ')),
-        bossChips(row));
+      // 개인용은 «나» 한 줄뿐이다 — 고를 것도, 공개여부를 따질 것도 없어 아예 안 그린다
+      // (`hidden`만으로는 격자 자리가 남아 줄이 어긋난다).
+      const owned = row.owned !== undefined && row.owned > 0 ? `니케 ${row.owned}종` : '';
+      const note = el('span', 'union-note', [owned, row.note ?? ''].filter(Boolean).join(' · '));
+      if (personal) {
+        line.classList.add('is-personal');
+        line.append(el('span', 'union-name', row.name), syncCell(row), note, bossChips(row));
+      } else {
+        line.append(box, el('span', 'union-name', row.name), syncCell(row), state, note, bossChips(row));
+      }
       table.append(line);
     }
     memberBox.append(table);
@@ -1007,13 +1061,19 @@ export function mountUnionRaid(hosts: UnionHosts, deps: UnionDeps): void {
     runButton.disabled = !ready;
     showStep('4', jobs.length > 0 || results.length > 0);
     if (!running) {
+      const people = new Set(jobs.map((job) => job.member.openid)).size;
       runStatus.textContent = jobs.length === 0
-        ? '고른 유니온원과 보스·덱이 있어야 돌립니다.'
-        : `${jobs.length}판을 돌립니다 — 유니온원 ${new Set(jobs.map((job) => job.member.openid)).size}명 × 보스·덱.`;
+        ? (personal ? '보스와 덱을 채워야 돌립니다.' : '고른 유니온원과 보스·덱이 있어야 돌립니다.')
+        : (personal
+          ? `${jobs.length}판을 돌립니다 — 보스·덱 조합만큼입니다.`
+          : `${jobs.length}판을 돌립니다 — 유니온원 ${people}명 × 보스·덱.`);
     }
   }
 
   const runAll = async () => {
+    // 개인용은 돌리기 직전에 내 스펙을 다시 읽는다 — 그 사이 싱크로나 로스터를
+    // 바꿨을 수 있고, 그때 화면에 적힌 값과 계산이 어긋나면 안 된다.
+    if (personal) { loadMe(); renderMembers(); }
     const jobs = buildJobs(members, bosses);
     if (jobs.length === 0 || running) return;
     running = true;
@@ -1026,7 +1086,7 @@ export function mountUnionRaid(hosts: UnionHosts, deps: UnionDeps): void {
     let done = 0;
     const runJob = async (job: Job) => {
       const roster = rosters.get(job.member.openid) ?? {};
-      const { deck, missing } = deckForMember(job.squad, roster);
+      const { deck, missing } = deckForMember(job.squad, roster, personal && !hasMyRoster());
       if (missing.length > 0) {
         results.push({ job, missing });
       } else {
@@ -1097,6 +1157,10 @@ export function mountUnionRaid(hosts: UnionHosts, deps: UnionDeps): void {
     }
   }
 
+  for (const button of modeButtons) {
+    button.addEventListener('click', () => setMode(button.dataset.unionMode === 'personal'));
+  }
+
   renderBosses();
-  renderMembers();
+  setMode(false);
 }
