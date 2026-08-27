@@ -208,13 +208,13 @@ describe('character settings editor', () => {
 
     const head = root.querySelector<HTMLSelectElement>('[data-equip-level="머리"]')!;
     const arm = root.querySelector<HTMLSelectElement>('[data-equip-level="팔"]')!;
-    // 실전에서 쓰는 것만 남긴다 — 미장착 / T9(일반) / T9 기업 / 오버로드 1~5강.
+    // 실전에서 쓰는 것만 남긴다 — 미장착 / 오버로드 0~5강.
     // 강화 레벨은 스킬 레벨과 같은 방향(오름차순)으로 통일했다.
     expect([...head.options].map((option) => option.value)).toEqual(
-      ['없음', 'T9', '0', '1', '2', '3', '4', '5'],
+      ['없음', '0', '1', '2', '3', '4', '5'],
     );
     expect([...head.options].map((option) => option.textContent)).toEqual(
-      ['미장착', 'T9 (일반)', 'T9 기업', '오버로드 1강', '오버로드 2강',
+      ['미장착', '오버로드 0강', '오버로드 1강', '오버로드 2강',
         '오버로드 3강', '오버로드 4강', '오버로드 5강'],
     );
     expect(head.value).toBe('5');
@@ -229,9 +229,13 @@ describe('character settings editor', () => {
     arm.value = '없음';
     arm.dispatchEvent(new Event('change'));
     expect(value?.equipLevels?.팔).toBe('없음');
-    arm.value = 'T9';
-    arm.dispatchEvent(new Event('change'));
-    expect(value?.equipLevels?.팔).toBe('T9');
+
+    // 고를 수 있는 건 미장착과 오버로드 0~5강뿐이다 — 일반 T1~T9는 뺐고,
+    // 강화 0단계는 계산 그대로 「오버로드 0강」이라 적는다.
+    expect([...arm.options].map((option) => option.textContent)).toEqual([
+      '미장착', '오버로드 0강', '오버로드 1강', '오버로드 2강',
+      '오버로드 3강', '오버로드 4강', '오버로드 5강',
+    ]);
   });
 
   it('offers Crystal Wave sniper mode with a six-second default delay', () => {
@@ -645,7 +649,7 @@ describe('character settings editor', () => {
     expect(head.value).toBe('0');
     // 계산기가 0강 아래를 구분하지 못한다는 사실을 화면에 적어 둔다.
     expect(root.querySelector('.equip-editor .field-note')!.textContent)
-      .toContain('오버로드 0강 이하를 모두 오버로드 0강으로 계산합니다');
+      .toContain('오버로드 0강 이하(T9 기업 포함)는 전부 오버로드 0강으로 계산합니다');
 
     const arm = root.querySelector<HTMLSelectElement>('[data-equip-level="팔"]')!;
     arm.value = '0';
@@ -653,12 +657,17 @@ describe('character settings editor', () => {
     expect(value?.equipLevels).toEqual({ 머리: 0, 몸통: 0, 팔: 0, 다리: 0 });
   });
 
-  it('keeps an older T1~T8 setting selectable instead of silently moving it', () => {
-    value = { equipLevels: { 머리: 'T3', 몸통: 5, 팔: 5, 다리: 5 } };
+  it('keeps an older plain-tier setting selectable instead of silently moving it', () => {
+    // 목록에서 뺀 일반 등급이라도, 이미 그렇게 적혀 있거나 계정 가져오기가 넣었으면
+    // 그대로 남겨 둔다 — 조용히 오버로드로 바뀌면 없던 스탯이 생긴다.
+    value = { equipLevels: { 머리: 'T3', 몸통: 'T9', 팔: 5, 다리: 5 } };
     render();
     const head = root.querySelector<HTMLSelectElement>('[data-equip-level="머리"]')!;
     expect(head.value).toBe('T3');
     expect([...head.options].map((option) => option.textContent)).toContain('T3 (옛 설정)');
+    const body = root.querySelector<HTMLSelectElement>('[data-equip-level="몸통"]')!;
+    expect(body.value).toBe('T9');
+    expect([...body.options].map((option) => option.textContent)).toContain('T9 (옛 설정)');
   });
 
   it('lets a character wear no cube at all', () => {

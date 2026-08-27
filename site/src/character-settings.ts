@@ -467,7 +467,9 @@ export function renderCharacterSettings(
     partText.textContent = EQUIP_PART_LABELS[part];
     const partSelect = document.createElement('select');
     partSelect.dataset.equipLevel = part;
-    // 장비는 세 갈래다 — 미장착 / 일반 T1~T9(강화 없음) / 기업·오버로드 강화 0~5.
+    // 장비는 세 갈래다 — 미장착 / 일반 T1~T9(강화 없음) / 오버로드 강화 0~5.
+    // 고를 수 있는 건 미장착과 오버로드 0~5강뿐이고, 일반 등급은 옛 설정·계정
+    // 가져오기로 들어온 값일 때만 목록에 남는다.
     // 미장착을 «강화 0»으로 적으면 안 낀 부위가 플랫 스탯을 얻어 딜이 부푼다.
     // 스킬 레벨과 같은 방향(낮은 값이 위)으로 둔다 — 한 패널 안에서 정렬이
     // 엇갈리면 고를 때마다 방향을 다시 읽어야 한다.
@@ -477,17 +479,15 @@ export function renderCharacterSettings(
       option.textContent = label;
       partSelect.append(option);
     };
-    // 실전에서 쓰는 것만 남긴다 — T1~T8은 사실상 안 쓴다. 「기업」은 오해를 사서
-    // (기업 장비 등급으로 읽힌다) 인게임 표기대로 「오버로드」로 적는다.
+    // 실전에서 쓰는 것만 남긴다 — 일반 T1~T9는 골라 봐야 쓸 일이 없어 아예 뺐다.
+    // 강화 0단계는 「T9 기업」이 아니라 인게임 표기대로 「오버로드 0강」으로 적는다:
+    // 계산도 그쪽(오버로드 강화 0)으로 하고 있었으므로 이름이 계산을 따라간 것이다.
     addOption('없음', '미장착');
-    addOption('T9', 'T9 (일반)');
-    // T9 기업은 오버로드와 엄연히 다른 판정이라 이름을 합치지 않는다. 다만 우리 스탯표는
-    // «기업 장비 강화 0~5»가 한 줄이라 0강과 그 아래를 구분하지 못한다 — 그 사실은
-    // 숨기지 않고 아래 설명에 적는다.
-    addOption('0', 'T9 기업');
+    addOption('0', '오버로드 0강');
     for (let lv = 1; lv <= 5; lv += 1) addOption(String(lv), `오버로드 ${lv}강`);
     const currentEquip = String(current.equipLevels?.[part] ?? 5);
-    // 옛 설정이 T1~T8을 가리키면 그 값도 목록에 남겨 둔다 — 조용히 바뀌면 안 된다.
+    // 옛 설정이나 계정 가져오기가 일반 T1~T9를 가리키면 그 값도 목록에 남겨 둔다 —
+    // 조용히 바뀌면 안 된다. 계산은 그대로 일반 장비 표로 한다.
     if (![...partSelect.options].some((option) => option.value === currentEquip)) {
       addOption(currentEquip, `${currentEquip} (옛 설정)`);
     }
@@ -506,9 +506,9 @@ export function renderCharacterSettings(
   }
   const equipNote = document.createElement('p');
   equipNote.className = 'field-note';
-  equipNote.textContent = '부위별 장비 · 미장착 / T9(일반) / T9 기업 / 오버로드 1~5강. '
+  equipNote.textContent = '부위별 장비 · 미장착 / 오버로드 0~5강. '
     + '오버로드 «옵션»(우코·공증 등)과는 별개인 장비 기본 스탯입니다. '
-    + 'T9 기업은 오버로드와 다른 판정이지만, 계산기는 오버로드 0강 이하를 모두 오버로드 0강으로 계산합니다.';
+    + '오버로드 0강 이하(T9 기업 포함)는 전부 오버로드 0강으로 계산합니다.';
   equipEditor.append(equipHeading, equipGrid, equipNote);
   body.append(equipEditor);
 
