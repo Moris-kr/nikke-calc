@@ -228,14 +228,19 @@ describe('calculator UI', () => {
   it('exposes composition-only presets as a first-class squad action', () => {
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
 
-    const open = root.querySelector<HTMLButtonElement>('[data-preset-open]')!;
+    // 프리셋과 공유는 같은 창이다 — 단추도 하나로 합쳤다.
+    const open = root.querySelector<HTMLButtonElement>('[data-share-open]')!;
     expect(open).not.toBeNull();
     expect(open.textContent).toContain('프리셋');
+    expect(open.textContent).toContain('조합 공유');
+    expect(root.querySelector('[data-preset-open]')).toBeNull();
     open.click();
 
     const modal = root.querySelector<HTMLElement>('[data-share-modal]')!;
     expect(modal.hidden).toBe(false);
-    expect(root.querySelector<HTMLInputElement>('[data-preset-name]')).toBe(document.activeElement);
+    // 창 하나가 저장(프리셋)과 주고받기(코드·링크)를 같이 맡는다.
+    expect(root.querySelector('[data-preset-name]')).not.toBeNull();
+    expect(root.querySelector('[data-share-out]')).not.toBeNull();
     expect(modal.textContent).toContain('개인 스펙과 전투 조건은 담기지 않습니다');
 
     const name = root.querySelector<HTMLInputElement>('[data-preset-name]')!;
@@ -285,7 +290,7 @@ describe('calculator UI', () => {
       catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
     });
 
-    root.querySelector<HTMLButtonElement>('[data-preset-open]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-share-open]')!.click();
     root.querySelector<HTMLInputElement>('[data-preset-name]')!.value = '한 덱짜리';
     root.querySelector<HTMLButtonElement>('[data-preset-save]')!.click();
     expect(root.querySelector('[data-share-msg]')?.textContent).toContain('덱 1만');

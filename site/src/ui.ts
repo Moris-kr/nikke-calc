@@ -630,8 +630,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
               </span>
               ${blablaProxy ? '<button type="button" class="roster-import" data-blabla-open title="블라블라링크 프로필 URL로 보유 니케의 육성을 한 번에 불러옵니다">블라블라링크 연동</button>' : ''}
               <button type="button" class="roster-import" data-add-nikke title="미출시·미등록 니케를 직접 추가">새 니케 추가</button>
-              <button type="button" class="roster-import" data-preset-open title="현재 편성을 저장하거나 저장한 편성을 불러옵니다. 개인 스펙과 전투 조건은 저장하지 않습니다">편성 프리셋</button>
-              <button type="button" class="roster-import" data-share-open title="편성을 코드로 만들어 공유하거나, 받은 코드를 붙여넣어 5덱을 한 번에 적용">조합 공유</button>
+              <button type="button" class="roster-import" data-share-open title="편성을 이 브라우저에 이름 붙여 저장하거나, 코드·링크로 주고받습니다. 개인 스펙과 전투 조건은 담기지 않습니다">프리셋 / 조합 공유</button>
               <button type="button" class="roster-import danger" data-reset-all title="편성·설정·CSV 로스터·추가한 니케·저장된 결과를 모두 지우고 처음 상태로 되돌립니다">완전 초기화</button>
               <label class="toggle-field mode-toggle" title="다른 덱에서 이미 만져 둔 개별 설정을 편성할 때 그대로 가져옵니다"><input id="carry-settings" type="checkbox" checked /><span class="toggle"></span><span>설정 이어받기</span></label>
               <label class="toggle-field mode-toggle"><input id="squad-mode" type="checkbox" /><span class="toggle"></span><span>5덱 모드</span></label>
@@ -866,8 +865,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       </div>
 
       <div class="custom-modal" data-share-modal hidden>
-        <div class="custom-card share-card" role="dialog" aria-label="조합 공유">
-          <div class="custom-head"><h2>조합 공유</h2><button type="button" class="custom-close" data-share-close aria-label="닫기">✕</button></div>
+        <div class="custom-card share-card" role="dialog" aria-label="프리셋 / 조합 공유">
+          <div class="custom-head"><h2>프리셋 / 조합 공유</h2><button type="button" class="custom-close" data-share-close aria-label="닫기">✕</button></div>
           <p class="custom-desc">누가 편성됐는지(캐릭터 조합)만 주고받습니다. <b>오버로드·공격력·돌파 같은 개인 스펙과 전투 조건은 담기지 않습니다</b> — 적용하면 캐릭터만 바뀌고 스펙은 각자 자기 설정(CSV 로스터를 넣었다면 그 값)이 그대로 쓰입니다. ${SHARE_API ? '<b>서버로는 «올리기»를 누를 때만 전송됩니다.</b>' : '서버로 전송되지 않습니다.'}</p>
           <div class="share-scope" data-share-scope>
             <span class="share-scope-label">범위</span>
@@ -2392,9 +2391,6 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   };
   element<HTMLButtonElement>(root, '[data-share-open]').addEventListener('click', () => {
     openShareModal();
-  });
-  element<HTMLButtonElement>(root, '[data-preset-open]').addEventListener('click', () => {
-    openShareModal(true);
   });
   element<HTMLButtonElement>(root, '[data-share-close]').addEventListener('click', () => {
     shareModal.hidden = true;
