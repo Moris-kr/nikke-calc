@@ -251,6 +251,12 @@ export function renderCharacterSettings(
   // 「누가 이 버프를 받았나」. 대상이 공격력 순위로 갈려 편성만 보고는 알 수 없고
   // 전투 중에 바뀌기도 해서, 추정하지 않고 **실제 발동 로그**의 수령자를 띄운다.
   // 계산을 돌리기 전에는 아직 알 수 없으므로 빈 괄호로 자리만 잡는다.
+  //
+  // 접이(개별값) **밖**에 세운다. 리버렐리오·미란다처럼 대상이 갈리는 버프는
+  // 결과를 읽는 데 필요한 정보이지 내 육성값이 아니다 — 펴 보지 않으면 못 보는
+  // 자리에 두면 있는 줄도 모른다.
+  const buffTargetList = document.createElement('div');
+  buffTargetList.className = 'buff-target-list';
   for (const row of buffTargets ?? []) {
     const box = document.createElement('p');
     box.className = 'buff-target';
@@ -287,8 +293,9 @@ export function renderCharacterSettings(
       open.addEventListener('click', () => onShowOrder(row));
       box.append(open);
     }
-    summaryBox.append(box);
+    buffTargetList.append(box);
   }
+  if (buffTargetList.childElementCount > 0) container.append(buffTargetList);
 
   const toggleLabel = document.createElement('label');
   toggleLabel.className = 'inline-check';

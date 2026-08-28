@@ -542,16 +542,21 @@ describe('character settings editor', () => {
     expect(root.textContent).toContain('기본값');
   });
 
-  it('shows who receives a watched buff, between the stat summary and the toggle', () => {
+  it('shows who receives a watched buff, outside the collapsed 개별값 fold', () => {
     // 대상이 공격력 순위로 갈려 편성만 보고는 알 수 없다 — 계산 전에는 빈 괄호로
     // 자리만 잡고, 결과가 오면 실제 수령자가 채워진다.
     renderCharacterSettings(root, characterName, settings, value, (next) => { value = next; },
       [{ label: '크확 대상', buff: '웨이크업! 4', targets: [], count: 0 }]);
     let row = root.querySelector<HTMLElement>('[data-buff-target]')!;
     expect(row.textContent).toBe('크확 대상 : []');
-    // 스탯 요약 바로 뒤, 같은 접이 안에 선다.
-    expect(row.previousElementSibling?.className).toContain('loadout-summary');
-    expect(row.closest('[data-loadout-fold]')).not.toBeNull();
+    // 접이 **밖**에 선다 — 펴 보지 않아도 보여야 하는 정보다.
+    expect(row.closest('[data-loadout-fold]')).toBeNull();
+    const fold = root.querySelector<HTMLElement>('[data-loadout-fold]')!;
+    expect(fold.hidden).toBe(true);                    // 접힌 채로도
+    expect(row.getClientRects).toBeDefined();
+    expect(fold.contains(row)).toBe(false);
+    // 접이 바로 다음 자리다 — 요약과 개별 설정 사이.
+    expect(fold.nextElementSibling!.contains(row)).toBe(true);
 
     renderCharacterSettings(root, characterName, settings, value, (next) => { value = next; },
       [{ label: '크확 대상', buff: '웨이크업! 4', targets: ['리버렐리오'], count: 3 }]);
