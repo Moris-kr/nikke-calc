@@ -196,24 +196,29 @@ export interface BattleTimeline {
   bursts: Record<string, BurstCast[]>;
   fullBurst: [number, number][];
   /** 버프가 걸려 있던 구간. 구버전 캐시에는 없다. */
-  buffs?: BuffSpan[];
+  buffs?: BuffTrack[];
 }
 
-/** 버프 하나가 걸려 있던 구간. 갱신·중첩은 한 막대로 묶고 최대 중첩만 남긴다. */
-export interface BuffSpan {
+/**
+ * 버프 한 줄 — «누가 건 무슨 버프»가 하나. 받는 사람이 여럿이면 한 줄에 모은다.
+ * 같은 버프가 여러 번 걸리면 `spans`에 그만큼 쌓이고, **중첩이 바뀔 때마다 끊긴다**
+ * (언제부터 몇 겹이었는지가 타임라인의 핵심이다).
+ */
+/** 한 구간 — `[시작(초), 끝(초), 중첩]`. */
+export type BuffSpan = [number, number, number];
+
+export interface BuffTrack {
   name: string;
   /** 건 사람 — 막대 색이 이 사람의 색이다. */
   caster: string;
-  /** 받은 사람. */
-  target: string;
-  from: number;
-  to: number;
+  /** 받는 사람들. */
+  targets: string[];
   stat?: string | null;
   value?: number | null;
-  /** 이 구간에서 도달한 최대 중첩. */
-  stack: number;
   /** 그 버프가 쌓을 수 있는 최대 중첩. 1이면 스택형이 아니다. */
   maxStack: number;
+  /** `[시작, 끝, 그 구간의 중첩]`. */
+  spans: BuffSpan[];
 }
 
 // 캐릭터 한 명의 딜을 일반공격(평타)과 스킬로 나눈 내역.

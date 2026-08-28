@@ -1,5 +1,5 @@
 import { formatDamage } from './model';
-import type { BattleTimeline, BuffSpan, DeckResultEntry } from './types';
+import type { BattleTimeline, BuffSpan, BuffTrack, DeckResultEntry } from './types';
 
 const LINE_COLORS = ['#45d6d0', '#ffbf3c', '#9b8cff', '#5fd08a', '#ff7db0'];
 const MIN_SPAN = 4; // 최대 확대: 화면에 4초까지
@@ -21,6 +21,7 @@ const BUFF_ROWS_MAX = 12;   // 최대 줄 수 — 넘으면 «+n줄 더»만 적
 const BUFF_PAD = 8;         // 레인과 그래프 사이 여백
 const BUFF_STACK_W = 20;    // 막대 오른쪽 «중첩 수» 자리 — 이름보다 이쪽이 우선이다
 const BUFF_MIN_W = 6;       // 이보다 좁으면 글자를 넣지 않는다
+const BASE_H = 424;         // 그래프만 있을 때 높이(CSS와 같은 값) — 레인은 이 위로 더 붙는다
 
 export interface TimelineSeries {
   names: string[];
@@ -34,7 +35,7 @@ export interface TimelineSeries {
   /** 속저 — 우월 코드만 통과하는 구간. 푸른 밴드로 깐다. */
   elementWindows: Array<{ from: number; to: number; code: string }>;
   /** 버프가 걸려 있던 구간. 「버프 표시」를 켰을 때만 그린다. */
-  buffs: BuffSpan[];
+  buffs: BuffTrack[];
   peak: number;
   buckets: number;
   /**
@@ -43,6 +44,33 @@ export interface TimelineSeries {
    */
   bucket: number;
   duration: number;
+}
+
+/** 화면에 놓인 한 구간 — 픽셀 자리와 중첩 수. */
+export interface BuffPart { x0: number; x1: number; stack: number; span: BuffSpan; }
+
+/** 붙어 있는 구간들을 한 막대로 묶은 것. 안쪽 경계는 눈금으로만 긋는다. */
+export interface BuffRun { x0: number; x1: number; parts: BuffPart[]; }
+
+/**
+ * 붙어 있는 구간을 한 막대로 묶는다.
+ *
+ * 중첩이 잘게 오르내리는 버프(예: 릴렉스는 231구간)를 구간마다 둥근 네모로 그리면
+ * 줄 전체가 바코드가 된다. **끊긴 자리에서만** 막대를 나누고, 중첩이 바뀐 자리는
+ * 막대 안쪽 눈금으로 표시한다 — 확대하면 칸이 넓어져 숫자가 다시 드러난다.
+ */
+export function buffRuns(parts: BuffPart[]): BuffRun[] {
+  const runs: BuffRun[] = [];
+  for (const part of parts) {
+    const last = runs[runs.length - 1];
+    if (last && part.x0 - last.x1 <= 1) {
+      last.x1 = Math.max(last.x1, part.x1);
+      last.parts.push(part);
+    } else {
+      runs.push({ x0: part.x0, x1: part.x1, parts: [part] });
+    }
+  }
+  return runs;
 }
 
 /**
@@ -110,7 +138,7 @@ export function buildSeries(
     immuneWindows: phases.immuneWindows ?? [],
     elementWindows: phases.elementWindows ?? [],
     // 이 덱에 없는 사람이 건 버프는 색을 줄 수 없으니 뺀다(옛 결과에는 목록 자체가 없다).
-    buffs: (timeline.buffs ?? []).filter((span) => names.includes(span.caster)),
+    buffs: (timeline.buffs ?? []).filter((track) => names.includes(track.caster)),
     peak,
     buckets: timeline.buckets,
     // 옛 결과에는 이 값이 없을 수 있다 — 그때는 1초 버킷이었다.
@@ -161,13 +189,21 @@ class TimelineChart {
   /** 「버프 표시」를 켰는가. 껐을 때는 레인을 아예 만들지 않는다(그래프가 그만큼 넓어진다). */
   private showBuffs = false;
   /** 화면에 그린 막대와 그 자리 — 마우스가 어느 버프 위인지 이걸로 찾는다. */
-  private buffHits: Array<{ span: BuffSpan; x0: number; x1: number; y: number }> = [];
-  private hoverBuff: BuffSpan | null = null;
-  /** 겹치지 않게 나눈 줄. 켤 때 한 번 계산해 둔다 — 확대해도 줄은 그대로다. */
-  private buffRows: BuffSpan[][] = [];
+  private buffHits: Array<{
+    track: BuffTrack; span: [number, number, number]; x0: number; x1: number; y: number;
+  }> = [];
+  private hoverSpan: [number, number, number] | null = null;
+  /** 그릴 줄. 한 줄이 버프 하나다 — 켤 때와 범례가 바뀔 때 다시 고른다. */
+  private buffRows: BuffTrack[] = [];
   private buffHidden = 0;
+  /** 「+n줄 더」를 눌러 전부 편 상태인가. 펴면 레인이 길어지고 그래프가 그만큼 낮아진다. */
+  private buffExpanded = false;
+  /** 「+n줄 더」 글자의 자리 — 여기를 누르면 편다. */
+  private buffMoreHit: { x0: number; x1: number; y0: number; y1: number } | null = null;
   private plot: Rect = { left: 0, top: 0, width: 0, height: 0 };
   private dragging = false;
+  /** 누른 뒤 실제로 끌었는가. 끌지 않았으면 «누른 것»으로 친다. */
+  private dragMoved = false;
   private lastX = 0;
 
   private portraits = new Map<string, HTMLImageElement>();
@@ -246,28 +282,23 @@ class TimelineChart {
    * 그래도 상한을 넘으면 더 얹지 않고 몇 줄을 못 그렸는지만 적는다.
    */
   private packBuffs(): void {
-    const byBuff = new Map<string, BuffSpan[]>();
-    for (const span of this.series.buffs) {
-      if (this.hidden.has(span.caster)) continue;
-      const key = `${span.caster}\u0000${span.name}`;
-      const row = byBuff.get(key);
-      if (row) row.push(span);
-      else byBuff.set(key, [span]);
-    }
     const order = new Map(this.series.names.map((name, index) => [name, index]));
-    const rows = [...byBuff.values()].sort((a, b) => {
-      const byCaster = (order.get(a[0]!.caster) ?? 99) - (order.get(b[0]!.caster) ?? 99);
-      return byCaster !== 0 ? byCaster : a[0]!.from - b[0]!.from;
-    });
-    this.buffRows = rows.slice(0, BUFF_ROWS_MAX);
-    this.buffHidden = Math.max(0, rows.length - BUFF_ROWS_MAX);
+    const rows = this.series.buffs
+      .filter((track) => !this.hidden.has(track.caster) && track.spans.length > 0)
+      .sort((a, b) => {
+        const byCaster = (order.get(a.caster) ?? 99) - (order.get(b.caster) ?? 99);
+        return byCaster !== 0 ? byCaster : a.spans[0]![0] - b.spans[0]![0];
+      });
+    const cap = this.buffExpanded ? rows.length : BUFF_ROWS_MAX;
+    this.buffRows = rows.slice(0, cap);
+    this.buffHidden = Math.max(0, rows.length - cap);
   }
 
   /** 「버프 표시」 켜기·끄기. */
   setShowBuffs(on: boolean): void {
     this.showBuffs = on && this.series.buffs.length > 0;
     if (this.showBuffs) this.packBuffs();
-    this.hoverBuff = null;
+    this.hoverSpan = null;
     this.draw();
   }
 
@@ -294,9 +325,26 @@ class TimelineChart {
     this.draw();
   }
 
+  /**
+   * 버프 레인이 붙은 만큼 판을 키운다.
+   *
+   * 레인을 그래프 안에서 나눠 쓰면 줄이 늘수록 그래프가 납작해진다 — 그래서 판이
+   * 아래로 자란다. 「+n줄 더 보기」로 전부 펴면 그만큼 더 길어진다.
+   * 높이를 바꿨으면 `true`를 준다(그 판에 맞춰 다시 그려야 한다).
+   */
+  private syncHeight(): boolean {
+    const wrap = this.canvas.parentElement;
+    if (!wrap) return false;
+    const want = `${BASE_H + this.buffLaneHeight()}px`;
+    if (wrap.style.height === want) return false;
+    wrap.style.height = want;
+    return true;
+  }
+
   draw(): void {
     const ctx = this.ctx;
     if (!ctx) return;
+    if (this.syncHeight()) { this.resize(); return; }
     this.plot = this.layout();
     const { left, top, width, height } = this.plot;
     const dpr = window.devicePixelRatio || 1;
@@ -383,47 +431,76 @@ class TimelineChart {
       ctx.rect(left, 12, width, this.buffLaneHeight());
       ctx.clip();
       ctx.textBaseline = 'middle';
-      this.buffRows.forEach((row, rowIndex) => {
+      this.buffRows.forEach((track, rowIndex) => {
         const y = 12 + rowIndex * (BUFF_H + BUFF_GAP);
-        for (const span of row) {
-          if (span.to < this.view0 || span.from > this.view1) continue;
-          const x0 = Math.max(left, this.xFor(span.from));
-          const x1 = Math.min(left + width, this.xFor(span.to));
-          const w = Math.max(2, x1 - x0);
-          const color = this.series.colors[span.caster] ?? '#8394a6';
-          const on = this.hoverBuff === span;
-          ctx.fillStyle = on ? color : `${color}33`;
+        const color = this.series.colors[track.caster] ?? '#8394a6';
+        const parts: BuffPart[] = [];
+        for (const span of track.spans) {
+          const [from, to, stack] = span;
+          if (to < this.view0 || from > this.view1) continue;
+          const x0 = Math.max(left, this.xFor(from));
+          const x1 = Math.max(x0 + 2, Math.min(left + width, this.xFor(to)));
+          parts.push({ x0, x1, stack, span });
+        }
+        for (const run of buffRuns(parts)) {
+          const runW = run.x1 - run.x0;
+          const hot = run.parts.some((part) => this.hoverSpan === part.span);
+          ctx.fillStyle = hot ? `${color}66` : `${color}33`;
           ctx.strokeStyle = color;
           ctx.lineWidth = 1;
-          roundRect(ctx, x0, y, w, BUFF_H, 4);
+          roundRect(ctx, run.x0, y, runW, BUFF_H, 4);
           ctx.fill();
           ctx.stroke();
-          this.buffHits.push({ span, x0, x1: x0 + w, y });
 
-          // 중첩 수가 이름보다 우선이다 — 좁아지면 이름부터 잘린다.
-          const plan = buffTextPlan(w, span.maxStack > 1);
-          if (plan.stack) {
-            ctx.fillStyle = on ? '#04101c' : color;
-            ctx.font = '700 10px ui-monospace, monospace';
-            ctx.textAlign = 'right';
-            ctx.fillText(String(span.stack), x0 + w - 4, y + BUFF_H / 2);
+          // 중첩이 바뀐 자리는 눈금만 긋는다 — 칸마다 네모를 그리면 바코드가 된다.
+          // 숫자를 적을 수 없을 만큼 좁은 칸은 눈금도 접는다(확대하면 다시 드러난다).
+          for (const part of run.parts) {
+            this.buffHits.push({ track, span: part.span, x0: part.x0, x1: part.x1, y });
+            if (part === run.parts[0] || part.x1 - part.x0 < BUFF_MIN_W) continue;
+            ctx.strokeStyle = `${color}88`;
+            ctx.beginPath();
+            ctx.moveTo(part.x0, y + 2);
+            ctx.lineTo(part.x0, y + BUFF_H - 2);
+            ctx.stroke();
           }
-          const room = plan.nameRoom;
-          if (room >= BUFF_MIN_W) {
-            ctx.fillStyle = on ? '#04101c' : '#cfe3f2';
+
+          // 이름은 막대 하나에 한 번만 적는다 — 잘게 나뉜 칸마다 적으면 읽히지 않는다.
+          const stacked = track.maxStack > 1;
+          const nameRoom = buffTextPlan(runW, stacked).nameRoom;
+          let nameEnd = run.x0;
+          if (nameRoom >= BUFF_MIN_W) {
+            ctx.fillStyle = hot ? '#eaf6ff' : '#cfe3f2';
             ctx.font = '600 10px system-ui, sans-serif';
             ctx.textAlign = 'left';
-            ctx.fillText(fitText(ctx, span.name, room), x0 + 5, y + BUFF_H / 2);
+            const label = fitText(ctx, track.name, nameRoom);
+            ctx.fillText(label, run.x0 + 5, y + BUFF_H / 2);
+            nameEnd = run.x0 + 5 + ctx.measureText(label).width + 4;
+          }
+          // 중첩 수가 이름보다 우선이다 — 다만 이름 글자를 덮어쓰지는 않는다.
+          if (stacked) {
+            ctx.font = '700 10px ui-monospace, monospace';
+            ctx.textAlign = 'right';
+            for (const part of run.parts) {
+              if (!buffTextPlan(part.x1 - part.x0, true).stack) continue;
+              if (part.x1 - 4 < nameEnd) continue;
+              ctx.fillStyle = this.hoverSpan === part.span ? '#eaf6ff' : color;
+              ctx.fillText(String(part.stack), part.x1 - 4, y + BUFF_H / 2);
+            }
           }
         }
       });
       ctx.restore();
-      if (this.buffHidden > 0) {
-        ctx.fillStyle = '#8394a6';
-        ctx.font = '600 10px system-ui, sans-serif';
+      this.buffMoreHit = null;
+      if (this.buffHidden > 0 || this.buffExpanded) {
+        const label = this.buffExpanded ? '접기' : `+${this.buffHidden}줄 더 보기`;
+        ctx.fillStyle = '#cfe3f2';
+        ctx.font = '700 10px system-ui, sans-serif';
         ctx.textAlign = 'right';
         ctx.textBaseline = 'top';
-        ctx.fillText(`+${this.buffHidden}줄 더 (범례에서 캐릭터를 줄이면 다 보입니다)`, left + width, 12 + this.buffLaneHeight() - BUFF_PAD);
+        const ty = 12 + this.buffLaneHeight() - BUFF_PAD;
+        ctx.fillText(label, left + width, ty);
+        const tw = ctx.measureText(label).width;
+        this.buffMoreHit = { x0: left + width - tw - 6, x1: left + width + 4, y0: ty - 3, y1: ty + 13 };
       }
     }
 
@@ -575,32 +652,42 @@ class TimelineChart {
     this.tooltip.style.display = 'block';
   }
 
-  /** 버프 막대 하나의 상세. 「무엇을·누가·누구에게·언제부터 언제까지·얼마나」를 적는다. */
-  private showBuffTip(span: BuffSpan, clientX: number, clientY: number): void {
-    const color = this.series.colors[span.caster] ?? '#8394a6';
+  /** 버프 막대 하나의 상세. 「무엇을·누가·누구에게·언제부터 언제까지·몇 겹」을 적는다. */
+  private showBuffTip(track: BuffTrack, span: [number, number, number],
+    clientX: number, clientY: number): void {
+    const color = this.series.colors[track.caster] ?? '#8394a6';
     const seconds = (value: number) => `${value.toFixed(1)}초`;
+    const [from, to, stack] = span;
+    const faces = track.targets.map((name) => {
+      const url = this.portraits.get(name)?.src;
+      const dot = `<span class="tl-dot" style="background:${this.series.colors[name] ?? '#8394a6'}"></span>`;
+      return url
+        ? `<img class="tl-face" src="${url}" alt="${name}" title="${name}" />`
+        : `<span class="tl-face tl-face-none" title="${name}">${dot}</span>`;
+    }).join('');
     const rows: string[] = [
       `<div class="tl-tip-row"><span class="tl-name">지속</span>` +
-      `<span class="tl-val">${seconds(span.from)} → ${seconds(span.to)} (${seconds(span.to - span.from)})</span></div>`,
-      `<div class="tl-tip-row"><span class="tl-name">건 사람</span><span class="tl-val">${span.caster}</span></div>`,
+      `<span class="tl-val">${seconds(from)} → ${seconds(to)} (${seconds(to - from)})</span></div>`,
+      `<div class="tl-tip-row"><span class="tl-name">건 사람</span><span class="tl-val">${track.caster}</span></div>`,
     ];
-    if (span.target && span.target !== span.caster) {
-      rows.push(`<div class="tl-tip-row"><span class="tl-name">받는 사람</span><span class="tl-val">${span.target}</span></div>`);
+    if (track.stat) {
+      const value = typeof track.value === 'number'
+        ? ` ${track.value > 0 ? '+' : ''}${Math.round(track.value * 100) / 100}` : '';
+      rows.push(`<div class="tl-tip-row"><span class="tl-name">효과</span><span class="tl-val">${track.stat}${value}</span></div>`);
     }
-    if (span.stat) {
-      const value = typeof span.value === 'number'
-        ? ` ${span.value > 0 ? '+' : ''}${Math.round(span.value * 100) / 100}` : '';
-      rows.push(`<div class="tl-tip-row"><span class="tl-name">효과</span><span class="tl-val">${span.stat}${value}</span></div>`);
-    }
-    if (span.maxStack > 1) {
+    if (track.maxStack > 1) {
       rows.push(`<div class="tl-tip-row"><span class="tl-name">중첩</span>` +
-        `<span class="tl-val">${span.stack} / ${span.maxStack}</span></div>`);
+        `<span class="tl-val">${stack} / ${track.maxStack}</span></div>`);
     }
+    // 받는 사람은 얼굴로 보인다 — 다섯 명한테 걸리는 버프를 이름으로 늘어놓으면 길기만 하다.
+    const targets = faces
+      ? `<div class="tl-tip-faces"><span class="tl-name">받는 사람</span><span>${faces}</span></div>`
+      : '';
     this.tooltip.innerHTML =
-      `<div class="tl-tip-time" style="color:${color}">${span.name}</div>${rows.join('')}`;
+      `<div class="tl-tip-time" style="color:${color}">${track.name}</div>${rows.join('')}${targets}`;
     const host = this.canvas.parentElement!.getBoundingClientRect();
     let px = clientX - host.left + 14;
-    if (px + 200 > host.width) px = clientX - host.left - 214;
+    if (px + 220 > host.width) px = clientX - host.left - 234;
     this.tooltip.style.left = `${Math.max(4, px)}px`;
     this.tooltip.style.top = `${Math.max(4, clientY - host.top + 12)}px`;
     this.tooltip.style.display = 'block';
@@ -610,6 +697,7 @@ class TimelineChart {
     const canvas = this.canvas;
     canvas.addEventListener('pointerdown', (event) => {
       this.dragging = true;
+      this.dragMoved = false;
       this.lastX = event.clientX;
       canvas.setPointerCapture(event.pointerId);
     });
@@ -618,6 +706,7 @@ class TimelineChart {
       if (this.dragging) {
         const dx = event.clientX - this.lastX;
         this.lastX = event.clientX;
+        if (Math.abs(dx) > 2) this.dragMoved = true;
         const dt = (dx / this.plot.width) * (this.view1 - this.view0);
         this.setView(this.view0 - dt, this.view1 - dt);
         return;
@@ -628,13 +717,17 @@ class TimelineChart {
         y >= hit.y && y <= hit.y + BUFF_H
         && event.clientX - rect.left >= hit.x0 && event.clientX - rect.left <= hit.x1);
       if (this.showBuffs && overBuff) {
-        this.hoverBuff = overBuff.span;
+        this.hoverSpan = overBuff.span;
         this.hoverIndex = null;
         this.draw();
-        this.showBuffTip(overBuff.span, event.clientX, event.clientY);
+        this.showBuffTip(overBuff.track, overBuff.span, event.clientX, event.clientY);
         return;
       }
-      this.hoverBuff = null;
+      this.hoverSpan = null;
+      const more = this.buffMoreHit;
+      canvas.style.cursor = this.showBuffs && more
+        && event.clientX - rect.left >= more.x0 && event.clientX - rect.left <= more.x1
+        && y >= more.y0 && y <= more.y1 ? 'pointer' : 'crosshair';
       const t = this.tFor(event.clientX - rect.left);
       const index = Math.floor(t / this.series.bucket);
       this.hoverIndex = index >= 0 && index < this.series.buckets ? index : null;
@@ -642,14 +735,28 @@ class TimelineChart {
       this.showTooltip(event.clientX, event.clientY);
     });
     const end = (event: PointerEvent) => {
+      // 끌었으면 그림을 옮긴 것이고, 그대로 뗐으면 누른 것이다 —
+      // 둘을 가르지 않으면 «+n줄 더 보기»는 영영 눌리지 않는다.
+      const wasDrag = this.dragging && this.dragMoved;
       this.dragging = false;
+      this.dragMoved = false;
       try { canvas.releasePointerCapture(event.pointerId); } catch { /* noop */ }
+      if (wasDrag || !this.showBuffs || !this.buffMoreHit) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      const hit = this.buffMoreHit;
+      if (x >= hit.x0 && x <= hit.x1 && y >= hit.y0 && y <= hit.y1) {
+        this.buffExpanded = !this.buffExpanded;
+        this.packBuffs();
+        this.draw();
+      }
     };
     canvas.addEventListener('pointerup', end);
     canvas.addEventListener('pointercancel', end);
     canvas.addEventListener('pointerleave', () => {
       this.hoverIndex = null;
-      this.hoverBuff = null;
+      this.hoverSpan = null;
       this.tooltip.style.display = 'none';
       this.draw();
     });
@@ -719,14 +826,23 @@ export function createTimelineBlock(
   // 버프 표시 — 켜면 그래프 위에 막대가 쌓이고 그만큼 그래프가 낮아진다. 기본은 끔이다
   // (막대가 수십 개라 처음부터 켜 두면 무엇을 보는 화면인지 흐려진다).
   if (chart.hasBuffs) {
-    const buffToggle = document.createElement('label');
+    // 확대·축소 단추와 같은 생김새의 «켜고 끄는 단추»다. 기본 체크박스를 그대로 두면
+    // 옆 단추들과 크기·정렬이 어긋나 화면이 흐트러진다.
+    const buffToggle = document.createElement('button');
+    buffToggle.type = 'button';
     buffToggle.className = 'timeline-buff-toggle';
+    buffToggle.dataset.timelineBuffs = '';
+    buffToggle.setAttribute('aria-pressed', 'false');
     buffToggle.title = '버프가 걸려 있던 구간을 그래프 위에 막대로 보여 줍니다. 막대에 마우스를 올리면 자세히 나옵니다';
-    const box = document.createElement('input');
-    box.type = 'checkbox';
-    box.dataset.timelineBuffs = '';
-    box.addEventListener('change', () => chart.setShowBuffs(box.checked));
-    buffToggle.append(box, textSpan('버프 표시', ''));
+    const mark = textSpan('', 'tl-buff-mark');
+    mark.setAttribute('aria-hidden', 'true');
+    buffToggle.append(mark, textSpan('버프 표시', ''));
+    buffToggle.addEventListener('click', () => {
+      const on = buffToggle.getAttribute('aria-pressed') !== 'true';
+      buffToggle.setAttribute('aria-pressed', String(on));
+      buffToggle.classList.toggle('is-on', on);
+      chart.setShowBuffs(on);
+    });
     controls.prepend(buffToggle);
   }
   zoomIn.addEventListener('click', () => chart.zoomBy(0.6));

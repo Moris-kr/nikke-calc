@@ -81,19 +81,30 @@ def _build_timeline(result, names: list[str]) -> dict:
     }
 
 
-# 화면에 실어 보낼 버프 막대 상한. 5인 180초면 활성 이벤트가 수천 건까지 가는데,
-# 그걸 다 그리면 읽히지도 않고 결과 저장도 무거워진다. 긴 것부터 남긴다.
-BUFF_SPAN_LIMIT = 400
+# 늘 걸려 있는 것들 — 소장품·큐브·장비 옵션은 전투 내내 그대로라 타임라인에 그려도
+# 「언제 무엇이 걸렸나」를 말해 주지 않는다. 막대만 차지하므로 뺀다.
+ALWAYS_ON_PREFIXES = ("소장품", "큐브", "장비 옵션")
+
+
+def _is_always_on(name: str) -> bool:
+    return any(name.startswith(prefix) for prefix in ALWAYS_ON_PREFIXES)
+
+
+# 화면에 실어 보낼 버프 줄 상한. 5인 180초에서 실측 22줄이라 넉넉하다.
+BUFF_TRACK_LIMIT = 60
 # 이보다 짧은 버프는 막대로 그려도 한 픽셀이라 뺀다 (즉시 발동에 가까운 것들).
 BUFF_MIN_SPAN = 0.2
 
 
 def _build_buff_spans(result, names: list[str]) -> list[dict]:
-    """버프 활성/만료 이벤트 → 화면에 그릴 «구간» 목록.
+    """버프 활성/만료 이벤트 → 화면에 그릴 «버프별 구간 묶음».
 
-    같은 (버프, 시전자, 대상)이 이어지는 동안을 한 막대로 본다. 갱신·중첩은 새 막대를
-    만들지 않고 **끝을 늘리고 최대 중첩만 올린다** — 한 버프가 스택이 오를 때마다 토막
-    나면 무엇이 언제부터 걸려 있었는지가 되레 안 읽힌다.
+    한 버프(이름·시전자·대상)가 한 줄이고, 그 안에 걸려 있던 구간들이 들어간다. 같은
+    버프가 200번 다시 걸려도 이름·대상·stat을 한 번만 싣는다 — 구간마다 다 실으면
+    5인 180초에서 140KB가 넘어 결과 저장이 감당하지 못한다(실측).
+
+    **중첩이 바뀌면 구간을 끊는다.** 언제부터 몇 겹이었는지가 타임라인의 핵심이라
+    한 막대에 최대치만 적으면 그 정보가 사라진다.
 
     만료 이벤트가 없는 버프(전투가 끝날 때까지 살아 있던 것)는 전투 끝에서 닫는다.
     """
@@ -101,44 +112,70 @@ def _build_buff_spans(result, names: list[str]) -> list[dict]:
         return []
     duration = float(result.duration or 0.0)
     open_spans: dict[tuple, dict] = {}
-    done: list[dict] = []
+    tracks: dict[tuple, dict] = {}
+
+    def track_for(event) -> dict:
+        # 한 줄은 «누가 건 무슨 버프»다. 받는 사람이 여럿이면 한 줄에 모으고 대상만
+        # 늘린다 — 대상마다 줄을 따로 내면 같은 버프가 다섯 줄로 흩어진다.
+        key = (event.name, event.caster)
+        found = tracks.get(key)
+        if found is None:
+            found = tracks[key] = {
+                "name": event.name, "caster": event.caster, "targets": [],
+                "stat": event.stat, "value": event.value,
+                "maxStack": int(event.max_stack) if event.max_stack else 1,
+                "spans": [],
+            }
+        if event.target and event.target not in found["targets"]:
+            found["targets"].append(event.target)
+        return found
+
+    def close(key: tuple, at: float) -> None:
+        span = open_spans.pop(key, None)
+        if span is None:
+            return
+        start = span["from"]
+        if at - start < BUFF_MIN_SPAN:
+            return
+        row = [round(start, 2), round(at, 2), span["stack"]]
+        spans = span["track"]["spans"]
+        # 대상이 여럿이면 같은 구간이 사람 수만큼 들어온다 — 한 번만 남긴다.
+        if not spans or spans[-1] != row:
+            if row not in spans[-4:]:
+                spans.append(row)
+
     for event in result.log.buff_events:
         if event.target not in names and event.caster not in names:
             continue
+        if _is_always_on(event.name):
+            continue
         key = (event.name, event.caster, event.target)
         if event.kind == "activate":
-            span = open_spans.get(key)
             stack = int(event.stack) if event.stack else 1
-            if span is None:
-                open_spans[key] = {
-                    "name": event.name, "caster": event.caster, "target": event.target,
-                    "from": round(event.t, 2), "to": None, "stat": event.stat,
-                    "value": event.value, "stack": stack,
-                    "maxStack": int(event.max_stack) if event.max_stack else 1,
-                    "expires": event.expires_at,
-                }
+            open_span = open_spans.get(key)
+            if open_span is not None and open_span["stack"] != stack:
+                close(key, event.t)
+                open_span = None
+            track = track_for(event)
+            if event.value is not None:
+                track["value"] = event.value
+            if open_span is None:
+                open_spans[key] = {"from": event.t, "stack": stack,
+                                   "track": track, "expires": event.expires_at}
             else:
-                span["stack"] = max(span["stack"], stack)
-                span["value"] = event.value if event.value is not None else span["value"]
-                span["expires"] = event.expires_at
-        elif key in open_spans:
-            span = open_spans.pop(key)
-            span["to"] = round(event.t, 2)
-            done.append(span)
-    for span in open_spans.values():
-        # 만료 없이 끝난 것 — 예정 만료가 전투 안이면 그때까지, 아니면 전투 끝까지.
-        expires = span.pop("expires", math.inf)
+                open_span["expires"] = event.expires_at
+        else:
+            close(key, event.t)
+
+    for key, span in list(open_spans.items()):
+        expires = span["expires"]
         end = duration if expires in (None, math.inf) or expires > duration else float(expires)
-        span["to"] = round(end, 2)
-        done.append(span)
-    for span in done:
-        span.pop("expires", None)
-    kept = [span for span in done if (span["to"] - span["from"]) >= BUFF_MIN_SPAN]
-    # 길이 순으로 추려 상한을 지키고, 화면이 읽기 좋게 다시 시간순으로 세운다.
-    kept.sort(key=lambda span: span["from"] - span["to"])
-    kept = kept[:BUFF_SPAN_LIMIT]
-    kept.sort(key=lambda span: (span["from"], span["name"]))
-    return kept
+        close(key, end)
+
+    kept = [track for track in tracks.values() if track["spans"]]
+    # 처음 걸린 순서대로 세운다 — 화면이 위에서 아래로 그 순서로 읽는다.
+    kept.sort(key=lambda track: (track["spans"][0][0], track["name"]))
+    return kept[:BUFF_TRACK_LIMIT]
 
 
 def _build_breakdown(result, names: list[str]) -> dict:

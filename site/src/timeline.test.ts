@@ -2,7 +2,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { buildSeries, createTimelineBlock, formatSpan, niceMax, buffTextPlan } from './timeline';
+import { buildSeries, createTimelineBlock, formatSpan, niceMax, buffRuns, buffTextPlan } from './timeline';
 import type { BattleTimeline, DeckResultEntry } from './types';
 
 const timeline: BattleTimeline = {
@@ -129,6 +129,20 @@ describe('버프 막대', () => {
     expect(buffTextPlan(24, false).nameRoom).toBeGreaterThan(buffTextPlan(24, true).nameRoom);
   });
 
+  it('붙어 있는 칸은 한 막대로 묶고, 끊긴 자리에서만 나눈다', () => {
+    // 중첩이 잘게 오르내리는 버프를 칸마다 네모로 그리면 줄이 바코드가 된다.
+    const part = (x0: number, x1: number, stack: number) =>
+      ({ x0, x1, stack, span: [x0, x1, stack] as [number, number, number] });
+    const runs = buffRuns([part(10, 20, 1), part(20, 30, 2), part(30, 40, 3), part(80, 90, 1)]);
+    expect(runs).toHaveLength(2);
+    expect([runs[0]!.x0, runs[0]!.x1]).toEqual([10, 40]);
+    expect(runs[0]!.parts.map((p) => p.stack)).toEqual([1, 2, 3]);  // 눈금 자리는 그대로 남는다
+    expect([runs[1]!.x0, runs[1]!.x1]).toEqual([80, 90]);
+  });
+
+  it('빈 줄에서는 막대를 만들지 않는다', () => {
+    expect(buffRuns([])).toEqual([]);
+  });
 
   const withBuffs = (buffs: Array<Record<string, unknown>>) => buildSeries(
     {
@@ -142,10 +156,20 @@ describe('버프 막대', () => {
 
   it('덱에 없는 사람이 건 버프는 뺀다 — 색을 줄 수 없다', () => {
     const series = withBuffs([
-      { name: '있는버프', caster: '리타', target: '리타', from: 0, to: 2, stack: 1, maxStack: 1 },
-      { name: '없는사람', caster: '앨리스', target: '리타', from: 0, to: 2, stack: 1, maxStack: 1 },
+      { name: '있는버프', caster: '리타', targets: ['리타'], maxStack: 1, spans: [[0, 2, 1]] },
+      { name: '없는사람', caster: '앨리스', targets: ['리타'], maxStack: 1, spans: [[0, 2, 1]] },
     ])!;
-    expect(series.buffs.map((span) => span.name)).toEqual(['있는버프']);
+    expect(series.buffs.map((track) => track.name)).toEqual(['있는버프']);
+  });
+
+  it('한 줄에 여러 구간이 들어오고, 구간마다 중첩이 따로 적힌다', () => {
+    const series = withBuffs([
+      { name: '스택버프', caster: '크라운', targets: ['크라운', '리타'], maxStack: 20,
+        spans: [[0, 1, 1], [1, 2, 2], [2, 3, 3]] },
+    ])!;
+    expect(series.buffs).toHaveLength(1);
+    expect(series.buffs[0]!.spans.map((span) => span[2])).toEqual([1, 2, 3]);
+    expect(series.buffs[0]!.targets).toEqual(['크라운', '리타']);
   });
 
   it('옛 결과(버프 목록이 없는 것)도 그대로 읽는다', () => {
@@ -156,6 +180,7 @@ describe('버프 막대', () => {
     expect(series.buffs).toEqual([]);
   });
 });
+
 
 describe('buildSeries', () => {
   it('collects per-character totals, colors, and the shared peak', () => {
