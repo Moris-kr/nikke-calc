@@ -1171,3 +1171,9 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
   100% { box-shadow: 0 0 0 0 rgba(126,224,168,0); }
 }
 @media (prefers-reduced-motion: reduce) { .online-dot { animation: none; } }
+
+/* 끌어다 놓기 — 누르는 길은 그대로 두고 더한 길이다(손가락에서는 끌기가 안 된다). */
+.roster-cell[draggable="true"] { cursor: grab; }
+.roster-cell.is-dragging, .squad-slot.is-dragging { opacity: .45; }
+.squad-slot.is-drop { outline: 2px dashed var(--amber); outline-offset: -2px;
+  background: rgba(255,191,60,.06); }

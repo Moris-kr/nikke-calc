@@ -161,6 +161,70 @@ describe('calculator UI', () => {
     localStorage.clear();
   });
 
+  /** jsdom에는 DragEvent가 없다 — 필요한 부분(dataTransfer)만 흉내 낸다. */
+  const dragEvent = (type: string, data: Record<string, string>) => {
+    const event = new Event(type, { bubbles: true, cancelable: true });
+    const store = new Map(Object.entries(data));
+    Object.defineProperty(event, 'dataTransfer', {
+      value: {
+        types: [...store.keys()],
+        getData: (key: string) => store.get(key) ?? '',
+        setData: (key: string, value: string) => { store.set(key, value); },
+        dropEffect: 'none',
+        effectAllowed: 'none',
+      },
+    });
+    return event;
+  };
+
+  /** 저장된 편성. 시험 카탈로그는 처음부터 다섯 칸이 차 있다. */
+  const savedSquad = () => (JSON.parse(localStorage.getItem('nikke-state-v1')!) as
+    { decks: Array<{ squad: string[] }> }).decks[0]!.squad;
+
+  it('니케를 끌어다 칸에 놓는다', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const cell = root.querySelector<HTMLButtonElement>('[data-roster-cell="프리바티"]')!;
+    expect(cell.draggable).toBe(true);
+
+    // 4번 칸에 놓는다 — 고른 칸(activeSlot)이 아니라 **놓은 칸**에 들어가야 한다.
+    const slot = root.querySelector<HTMLElement>('[data-slot-card="3"]')!;
+    cell.dispatchEvent(dragEvent('dragstart', {}));
+    slot.dispatchEvent(dragEvent('dragover', { 'application/x-nikke-name': '프리바티' }));
+    expect(slot.classList.contains('is-drop')).toBe(true);
+    slot.dispatchEvent(dragEvent('drop', { 'application/x-nikke-name': '프리바티' }));
+
+    expect(savedSquad()[3]).toBe('프리바티');
+    // 다시 그린 칸에는 끌던 표시가 남지 않는다.
+    expect(root.querySelector<HTMLElement>('[data-slot-card="3"]')!.classList.contains('is-drop'))
+      .toBe(false);
+  });
+
+  it('이미 그 덱에 있는 니케는 놓아도 안 들어가고 이유를 말한다', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    root.querySelector<HTMLElement>('[data-slot-card="4"]')!
+      .dispatchEvent(dragEvent('drop', { 'application/x-nikke-name': '프리바티' }));
+    const taken = savedSquad()[1]!;          // 2번 칸의 니케
+
+    root.querySelector<HTMLElement>('[data-slot-card="4"]')!
+      .dispatchEvent(dragEvent('drop', { 'application/x-nikke-name': taken }));
+
+    expect(savedSquad()[4]).toBe('프리바티');   // 그대로다
+    expect(root.querySelector('[data-errors]')!.textContent).toContain('이미 2번 칸에 있습니다');
+  });
+
+  it('칸끼리 끌면 자리가 맞바뀐다', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    root.querySelector<HTMLElement>('[data-slot-card="4"]')!
+      .dispatchEvent(dragEvent('drop', { 'application/x-nikke-name': '프리바티' }));
+    const before = savedSquad().slice(0, 3);
+
+    // 1번을 3번 칸으로 끌어다 놓는다 — 이름에 걸린 설정은 그대로 두고 자리만 바뀐다.
+    root.querySelector<HTMLElement>('[data-slot-card="2"]')!
+      .dispatchEvent(dragEvent('drop', { 'application/x-nikke-slot': '0' }));
+
+    expect(savedSquad().slice(0, 3)).toEqual([before[2], before[1], before[0]]);
+  });
+
   it('exposes composition-only presets as a first-class squad action', () => {
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
 

@@ -1366,6 +1366,64 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     if (event.target === charPanelModal) closeCharPanel();
   });
 
+  // ── 끌어다 놓기 ─────────────────────────────────────────────────────────
+  // 누르는 길(칸을 고르고 카드를 누른다)은 그대로 두고 «끌어다 놓기»를 더한다.
+  // 손가락에서는 HTML 끌기가 동작하지 않으므로, 누르는 길이 없어지면 안 된다.
+  const DRAG_NAME = 'application/x-nikke-name';   // 니케 고르기 → 칸
+  const DRAG_SLOT = 'application/x-nikke-slot';   // 칸 → 칸 (자리 맞바꾸기)
+
+  /** 이 끌기가 우리 것인가. `dragover`에서는 값이 아니라 종류만 볼 수 있다. */
+  const dragKind = (event: DragEvent): 'name' | 'slot' | null => {
+    const types = event.dataTransfer?.types;
+    if (!types) return null;
+    const has = (type: string) => Array.prototype.includes.call(types, type);
+    if (has(DRAG_NAME)) return 'name';
+    if (has(DRAG_SLOT)) return 'slot';
+    return null;
+  };
+
+  /** 칸 하나를 받는 자리로 만든다. */
+  const makeDropTarget = (card: HTMLElement, index: number) => {
+    const lit = (on: boolean) => card.classList.toggle('is-drop', on);
+    card.addEventListener('dragover', (event) => {
+      const kind = dragKind(event as DragEvent);
+      if (!kind) return;
+      event.preventDefault();                  // 이걸 해야 놓을 수 있다
+      (event as DragEvent).dataTransfer!.dropEffect = kind === 'slot' ? 'move' : 'copy';
+      lit(true);
+    });
+    card.addEventListener('dragleave', () => lit(false));
+    card.addEventListener('drop', (event) => {
+      const drag = event as DragEvent;
+      const kind = dragKind(drag);
+      if (!kind) return;
+      event.preventDefault();
+      lit(false);
+      const deck = activeDeck();
+      if (kind === 'slot') {
+        const from = Number(drag.dataTransfer!.getData(DRAG_SLOT));
+        if (!Number.isInteger(from) || from < 0 || from > 4 || from === index) return;
+        // 자리만 맞바꾼다. 개별 설정은 이름에 걸려 있어 슬롯과 무관하다.
+        [deck.squad[index], deck.squad[from]] = [deck.squad[from] ?? '', deck.squad[index] ?? ''];
+        showErrors([]);
+        saveState();
+        renderDeckTabs();
+        renderSquad();
+        renderRosterGrid();
+        return;
+      }
+      const name = drag.dataTransfer!.getData(DRAG_NAME);
+      if (!name || !catalogByName.has(name)) return;
+      // 한 덱에 같은 니케를 두 번 넣을 수 없다 — 누르는 길에서 막는 것과 같은 규칙이다.
+      const already = deck.squad.indexOf(name);
+      if (already >= 0 && already !== index) {
+        showErrors([`${name}은(는) 이미 ${already + 1}번 칸에 있습니다.`]);
+        return;
+      }
+      pickCharacter(name, index);
+    });
+  };
+
   const renderSquad = () => {
     const deck = activeDeck();
     squadGrid.replaceChildren();
@@ -1376,6 +1434,19 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       card.className = 'squad-slot';
       card.dataset.slotCard = String(index);
       card.classList.toggle('is-preview', Boolean(char?.preview));
+      makeDropTarget(card, index);
+      if (name) {
+        // 채워진 칸은 집어서 다른 칸에 놓을 수 있다 — ‹ › 단추와 같은 «자리 맞바꾸기»다.
+        card.draggable = true;
+        card.addEventListener('dragstart', (event) => {
+          const drag = event as DragEvent;
+          drag.dataTransfer?.setData(DRAG_SLOT, String(index));
+          drag.dataTransfer?.setData('text/plain', name);
+          if (drag.dataTransfer) drag.dataTransfer.effectAllowed = 'move';
+          card.classList.add('is-dragging');
+        });
+        card.addEventListener('dragend', () => card.classList.remove('is-dragging'));
+      }
 
       const top = document.createElement('div');
       top.className = 'slot-top';
@@ -3099,6 +3170,18 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         createText('span', [char.elementCode, char.weaponType, char.className].filter(Boolean).join(' · ')),
       );
       cell.addEventListener('click', () => pickCharacter(char.name));
+      // 끌어다 칸에 놓을 수도 있다. 이미 이 덱에 있는 니케는 누를 수 없으니 끌 수도 없다.
+      if (!cell.disabled) {
+        cell.draggable = true;
+        cell.addEventListener('dragstart', (event) => {
+          const drag = event as DragEvent;
+          drag.dataTransfer?.setData(DRAG_NAME, char.name);
+          drag.dataTransfer?.setData('text/plain', char.name);
+          if (drag.dataTransfer) drag.dataTransfer.effectAllowed = 'copy';
+          cell.classList.add('is-dragging');
+        });
+        cell.addEventListener('dragend', () => cell.classList.remove('is-dragging'));
+      }
       rosterGrid.append(cell);
     }
     rosterEmpty.hidden = shown.length > 0;
@@ -3126,9 +3209,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     saveState();
   });
 
-  const pickCharacter = (name: string) => {
+  const pickCharacter = (name: string, targetSlot = activeSlot) => {
     const deck = activeDeck();
-    const slot = activeSlot;
+    const slot = Math.max(0, Math.min(4, targetSlot));
     const previous = deck.squad[slot] ?? '';
     deck.squad[slot] = name;
     if (previous && previous !== name) delete deck.characters[previous];
