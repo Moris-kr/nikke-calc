@@ -77,7 +77,68 @@ def _build_timeline(result, names: list[str]) -> dict:
         "damage": damage,
         "bursts": bursts,
         "fullBurst": full_burst,
+        "buffs": _build_buff_spans(result, names),
     }
+
+
+# 화면에 실어 보낼 버프 막대 상한. 5인 180초면 활성 이벤트가 수천 건까지 가는데,
+# 그걸 다 그리면 읽히지도 않고 결과 저장도 무거워진다. 긴 것부터 남긴다.
+BUFF_SPAN_LIMIT = 400
+# 이보다 짧은 버프는 막대로 그려도 한 픽셀이라 뺀다 (즉시 발동에 가까운 것들).
+BUFF_MIN_SPAN = 0.2
+
+
+def _build_buff_spans(result, names: list[str]) -> list[dict]:
+    """버프 활성/만료 이벤트 → 화면에 그릴 «구간» 목록.
+
+    같은 (버프, 시전자, 대상)이 이어지는 동안을 한 막대로 본다. 갱신·중첩은 새 막대를
+    만들지 않고 **끝을 늘리고 최대 중첩만 올린다** — 한 버프가 스택이 오를 때마다 토막
+    나면 무엇이 언제부터 걸려 있었는지가 되레 안 읽힌다.
+
+    만료 이벤트가 없는 버프(전투가 끝날 때까지 살아 있던 것)는 전투 끝에서 닫는다.
+    """
+    if result.log is None:
+        return []
+    duration = float(result.duration or 0.0)
+    open_spans: dict[tuple, dict] = {}
+    done: list[dict] = []
+    for event in result.log.buff_events:
+        if event.target not in names and event.caster not in names:
+            continue
+        key = (event.name, event.caster, event.target)
+        if event.kind == "activate":
+            span = open_spans.get(key)
+            stack = int(event.stack) if event.stack else 1
+            if span is None:
+                open_spans[key] = {
+                    "name": event.name, "caster": event.caster, "target": event.target,
+                    "from": round(event.t, 2), "to": None, "stat": event.stat,
+                    "value": event.value, "stack": stack,
+                    "maxStack": int(event.max_stack) if event.max_stack else 1,
+                    "expires": event.expires_at,
+                }
+            else:
+                span["stack"] = max(span["stack"], stack)
+                span["value"] = event.value if event.value is not None else span["value"]
+                span["expires"] = event.expires_at
+        elif key in open_spans:
+            span = open_spans.pop(key)
+            span["to"] = round(event.t, 2)
+            done.append(span)
+    for span in open_spans.values():
+        # 만료 없이 끝난 것 — 예정 만료가 전투 안이면 그때까지, 아니면 전투 끝까지.
+        expires = span.pop("expires", math.inf)
+        end = duration if expires in (None, math.inf) or expires > duration else float(expires)
+        span["to"] = round(end, 2)
+        done.append(span)
+    for span in done:
+        span.pop("expires", None)
+    kept = [span for span in done if (span["to"] - span["from"]) >= BUFF_MIN_SPAN]
+    # 길이 순으로 추려 상한을 지키고, 화면이 읽기 좋게 다시 시간순으로 세운다.
+    kept.sort(key=lambda span: span["from"] - span["to"])
+    kept = kept[:BUFF_SPAN_LIMIT]
+    kept.sort(key=lambda span: (span["from"], span["name"]))
+    return kept
 
 
 def _build_breakdown(result, names: list[str]) -> dict:
