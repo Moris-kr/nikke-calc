@@ -1058,6 +1058,7 @@ class BuffManager:
                         self._buff_event_handler(
                             "activate", ab.effect["name"], ab.caster, tgt,
                             t, ab.expires_at, new_val, ab.effect.get("stat"),
+                            ab.stack, ab.effect.get("max_stack", 1),
                         )
             # 스택이 새 값에 도달했으면 stack_reach 이벤트 발생 (_activate()와 동일)
             for name, stack, ab_caster in reached:
@@ -1104,6 +1105,7 @@ class BuffManager:
                             self._buff_event_handler(
                                 "activate", target_name, caster, tgt,
                                 t, expires, new_val, target_eff.get("stat"),
+                                init_count, target_eff.get("max_stack", 1),
                             )
             return
 
@@ -1150,6 +1152,7 @@ class BuffManager:
                         self._buff_event_handler(
                             "activate", ab.effect["name"], ab.caster, tgt,
                             t, ab.expires_at, new_val, ab.effect.get("stat"),
+                            ab.stack, ab.effect.get("max_stack", 1),
                         )
             return
 
@@ -1290,6 +1293,7 @@ class BuffManager:
                             self._buff_event_handler(
                                 "activate", ab.effect["name"], ab.caster, tgt,
                                 t, ab.expires_at, new_val, ab.effect.get("stat"),
+                                ab.stack, ab.effect.get("max_stack", 1),
                             )
             return
 
@@ -2205,7 +2209,7 @@ class BuffManager:
                         existing.expires_at = expires
                     if self._buff_event_handler and eff.get("name"):
                         for tgt in (existing.target_chars or []):
-                            self._buff_event_handler("activate", eff["name"], caster, tgt, t, existing.expires_at, None, eff.get("stat"))
+                            self._buff_event_handler("activate", eff["name"], caster, tgt, t, existing.expires_at, None, eff.get("stat"), existing.stack, eff.get("max_stack", 1))
                 else:
                     self._invalidate_buffs_cache()
                     self._active.append(ActiveBuff(
@@ -2215,7 +2219,7 @@ class BuffManager:
                     ))
                     if self._buff_event_handler and eff.get("name") and targets:
                         for tgt in targets:
-                            self._buff_event_handler("activate", eff["name"], caster, tgt, t, expires, None, eff.get("stat"))
+                            self._buff_event_handler("activate", eff["name"], caster, tgt, t, expires, None, eff.get("stat"), 1, eff.get("max_stack", 1))
 
                 # target이 `same_target:[이름]`인 DoT는 짝 효과가 **히트마다 한 중첩씩**
                 # 얹고, 얹는 즉시 그 중첩 수로 1틱을 때린다 (사쿠라 : 블룸 인 서머
@@ -2379,7 +2383,8 @@ class BuffManager:
                 for tgt in (log_chars or []):
                     tgt_stack = existing.per_char_stacks.get(tgt) if existing.per_char_stacks else None
                     _val = self._get_value(eff, existing, caster, stack_override=tgt_stack)
-                    self._buff_event_handler("activate", name, caster, tgt, t, existing.expires_at, _val, _stat)
+                    self._buff_event_handler("activate", name, caster, tgt, t, existing.expires_at, _val, _stat,
+                                              tgt_stack or existing.stack, eff.get("max_stack", 1))
         else:
             self._invalidate_buffs_cache()
             self._active.append(ActiveBuff(
@@ -2413,7 +2418,8 @@ class BuffManager:
                     _val = self._get_value(eff, ab_new, caster) if ab_new else None
                     _stat = eff.get("stat")
                     for tgt in targets:
-                        self._buff_event_handler("activate", name, caster, tgt, t, expires, _val, _stat)
+                        self._buff_event_handler("activate", name, caster, tgt, t, expires, _val, _stat,
+                                              (ab_new.stack if ab_new else 1), eff.get("max_stack", 1))
 
         # event:stat_applied:XXX — stat 유형별 버프 적용 시 해당 target_chars에게 notify
         stat = eff.get("stat", "")
@@ -2627,7 +2633,8 @@ class BuffManager:
                     _val = self._get_value(ab.effect, ab, ab.caster)
                     _stat = ab.effect.get("stat")
                     for tgt in tgt_chars:
-                        self._buff_event_handler("activate", ab.effect.get("name", ""), ab.caster, tgt, t, math.inf, _val, _stat)
+                        self._buff_event_handler("activate", ab.effect.get("name", ""), ab.caster, tgt, t, math.inf, _val, _stat,
+                                              ab.stack, ab.effect.get("max_stack", 1))
                 elif not now_met and prev_met:
                     # True → False: 조건 해제 → expire 이벤트
                     self._cond_passive_prev[bid] = False
@@ -3340,7 +3347,8 @@ class BuffManager:
                     stat = ab.effect.get("stat")
                     for tgt in ab.target_chars:
                         self._buff_event_handler("activate", name, ab.caster, tgt,
-                                                 ab.activated_at, ab.expires_at, val, stat)
+                                                 ab.activated_at, ab.expires_at, val, stat,
+                                                 ab.stack, ab.effect.get("max_stack", 1))
         return ab.target_chars
 
     def _resolve_target(self, target: Any, caster: str) -> list[str]:

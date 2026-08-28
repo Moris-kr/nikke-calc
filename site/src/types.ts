@@ -195,6 +195,25 @@ export interface BattleTimeline {
   damage: Record<string, number[]>;
   bursts: Record<string, BurstCast[]>;
   fullBurst: [number, number][];
+  /** 버프가 걸려 있던 구간. 구버전 캐시에는 없다. */
+  buffs?: BuffSpan[];
+}
+
+/** 버프 하나가 걸려 있던 구간. 갱신·중첩은 한 막대로 묶고 최대 중첩만 남긴다. */
+export interface BuffSpan {
+  name: string;
+  /** 건 사람 — 막대 색이 이 사람의 색이다. */
+  caster: string;
+  /** 받은 사람. */
+  target: string;
+  from: number;
+  to: number;
+  stat?: string | null;
+  value?: number | null;
+  /** 이 구간에서 도달한 최대 중첩. */
+  stack: number;
+  /** 그 버프가 쌓을 수 있는 최대 중첩. 1이면 스택형이 아니다. */
+  maxStack: number;
 }
 
 // 캐릭터 한 명의 딜을 일반공격(평타)과 스킬로 나눈 내역.

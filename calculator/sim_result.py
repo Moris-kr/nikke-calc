@@ -120,6 +120,8 @@ class BuffEvent:
     expires_at: float   # 활성화 시 예정 만료 시각 (expire 이벤트에서는 실제 만료 시각)
     value: float | None = None  # 버프 수치 (스킬 레벨 기준); expire 이벤트는 None
     stat: str | None = None     # 버프 stat 종류 (e.g. "atk_pct", "charge_speed_pct")
+    stack: int | None = None    # 이 시점의 중첩 수. 스택 버프가 아니면 1
+    max_stack: int | None = None  # 그 버프가 쌓을 수 있는 최대 중첩(-1이면 상한 없음)
 
 
 @dataclass

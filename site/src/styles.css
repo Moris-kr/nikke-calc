@@ -1177,3 +1177,9 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
 .roster-cell.is-dragging, .squad-slot.is-dragging { opacity: .45; }
 .squad-slot.is-drop { outline: 2px dashed var(--amber); outline-offset: -2px;
   background: rgba(255,191,60,.06); }
+
+/* 타임라인의 「버프 표시」 — 확대·축소 단추와 한 줄에 선다. */
+.timeline-buff-toggle { display: inline-flex; align-items: center; gap: 5px; margin-right: 8px;
+  color: var(--muted); font: 700 11px inherit; cursor: pointer; }
+.timeline-buff-toggle input { margin: 0; }
+.timeline-buff-toggle:hover { color: var(--ink); }

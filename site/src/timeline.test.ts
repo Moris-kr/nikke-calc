@@ -2,7 +2,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { buildSeries, createTimelineBlock, formatSpan, niceMax } from './timeline';
+import { buildSeries, createTimelineBlock, formatSpan, niceMax, buffTextPlan } from './timeline';
 import type { BattleTimeline, DeckResultEntry } from './types';
 
 const timeline: BattleTimeline = {
@@ -113,6 +113,49 @@ function renderOnClippingCanvas(target: DeckResultEntry) {
     vi.useRealTimers();
   }
 }
+
+describe('버프 막대', () => {
+  it('좁아지면 이름부터 접고 중첩 수를 남긴다', () => {
+    // 스택형은 오른쪽 끝을 중첩 수에 내준다 — 이름보다 그쪽이 우선이다.
+    const wide = buffTextPlan(160, true);
+    expect(wide.stack).toBe(true);
+    expect(wide.nameRoom).toBeGreaterThan(100);
+
+    const narrow = buffTextPlan(24, true);
+    expect(narrow.stack).toBe(true);        // 중첩 수는 끝까지 남는다
+    expect(narrow.nameRoom).toBeLessThan(6); // 이름은 들어갈 자리가 없다
+
+    // 스택형이 아니면 그 자리를 이름이 다 쓴다.
+    expect(buffTextPlan(24, false).nameRoom).toBeGreaterThan(buffTextPlan(24, true).nameRoom);
+  });
+
+
+  const withBuffs = (buffs: Array<Record<string, unknown>>) => buildSeries(
+    {
+      bucket: 1, buckets: 3,
+      damage: { 리타: [1, 2, 3], 크라운: [1, 1, 1] },
+      bursts: { 리타: [], 크라운: [] }, fullBurst: [],
+      buffs: buffs as never,
+    } as never,
+    ['리타', '크라운'], 3,
+  );
+
+  it('덱에 없는 사람이 건 버프는 뺀다 — 색을 줄 수 없다', () => {
+    const series = withBuffs([
+      { name: '있는버프', caster: '리타', target: '리타', from: 0, to: 2, stack: 1, maxStack: 1 },
+      { name: '없는사람', caster: '앨리스', target: '리타', from: 0, to: 2, stack: 1, maxStack: 1 },
+    ])!;
+    expect(series.buffs.map((span) => span.name)).toEqual(['있는버프']);
+  });
+
+  it('옛 결과(버프 목록이 없는 것)도 그대로 읽는다', () => {
+    const series = buildSeries(
+      { bucket: 1, buckets: 2, damage: { 리타: [1, 2] }, bursts: { 리타: [] }, fullBurst: [] } as never,
+      ['리타'], 2,
+    )!;
+    expect(series.buffs).toEqual([]);
+  });
+});
 
 describe('buildSeries', () => {
   it('collects per-character totals, colors, and the shared peak', () => {
