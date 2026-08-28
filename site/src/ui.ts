@@ -39,7 +39,7 @@ import {
 import {
   applyShareToDecks, decodeBattleCode, decodeShareCode, encodeBattleCode, encodeShareCode,
 } from './share-code';
-import { LATEST_NOTICE_ID, NOTICES, noticeToShow } from './notices';
+import { LATEST_NOTICE_ID, NOTICES, noticeFragment, noticeToShow } from './notices';
 import { mountSharePanel, squadPreview, type SharePanel } from './share-panel';
 import { startPresence } from './presence';
 import { mountUnionRaid } from './union-raid';
@@ -1304,7 +1304,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         const row = document.createElement('li');
         const tag = createText('em', item.tag, 'notice-tag');
         tag.dataset.noticeTag = item.tag;
-        row.append(tag, createText('span', item.text));
+        const body = document.createElement('span');
+        body.append(noticeFragment(item.text));
+        row.append(tag, body);
         list.append(row);
       }
       block.append(list);

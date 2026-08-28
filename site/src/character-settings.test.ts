@@ -359,7 +359,7 @@ describe('character settings editor', () => {
     setToggle('[data-custom-toggle]', true);
 
     const stats = root.querySelector<HTMLElement>('[data-char-panel-open="settings"]')!;
-    const control = root.querySelector<HTMLElement>('[data-char-panel-open="control"]')!;
+    const control = root.querySelector<HTMLElement>('[data-control-open]')!;
 
     // 둘 다 닫힌 채로 시작한다 — 개별 설정을 켜는 것과 여는 것은 별개다.
     expect(stats.getAttribute('aria-expanded')).toBe('false');
@@ -371,10 +371,59 @@ describe('character settings editor', () => {
     // 그리고 그 아래에 온다.
     expect(statsPanel.compareDocumentPosition(control) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
-    // 각자 따로 펼쳐진다.
+    // 컨트롤은 창으로 가지 않고 그 자리에서 펴진다 — 수치 설정은 그대로 닫혀 있다.
     control.click();
     expect(control.getAttribute('aria-expanded')).toBe('true');
+    expect(root.querySelector<HTMLElement>('[data-control-panel]')!.hidden).toBe(false);
     expect(stats.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('컨트롤 칩은 열지 않아도 지금 상태를 적어 둔다', () => {
+    characterName = '라피';
+    render();
+    setToggle('[data-custom-toggle]', true);
+    const chipText = () => root.querySelector('.control-chip-text')!.textContent;
+    expect(chipText()).toBe('추천 자동 · 버스트 자동');
+
+    setToggle('[data-control-mode="manual"]', true);
+    expect(chipText()).toBe('직접 설정 · 버스트 자동');   // 0개라고 세어 보이지 않는다
+    setToggle('[data-control="reload"]', true);
+    expect(chipText()).toBe('직접 1개 · 버스트 자동');
+
+    const burst = root.querySelector<HTMLSelectElement>('[data-burst-assignment]')!;
+    burst.value = 'priority';
+    burst.dispatchEvent(new Event('change'));
+    expect(chipText()).toBe('직접 1개 · 버스트 1의 배수');
+
+    burst.value = 'skip';
+    burst.dispatchEvent(new Event('change'));
+    expect(chipText()).toBe('직접 1개 · 버스트 안 씀');
+  });
+
+  it('컨트롤 판 안의 긴 설명도 펴 둔 채로 남는다', () => {
+    // 접이판 상태를 카드가 비워진 뒤에 찾으면 늘 «접힘»만 나온다.
+    characterName = '라피';
+    render();
+    setToggle('[data-custom-toggle]', true);
+    root.querySelector<HTMLButtonElement>('[data-control-open]')!.click();
+    const note = () => root.querySelector<HTMLDetailsElement>('[data-note-fold="burst"]')!;
+    expect(note().open).toBe(false);
+    note().open = true;
+    setToggle('[data-control-mode="manual"]', true);
+    expect(note().open).toBe(true);
+    // 다른 접이판까지 덩달아 펴지지는 않는다.
+    expect(root.querySelector<HTMLDetailsElement>('[data-note-fold="control-warning"]')!.open).toBe(false);
+  });
+
+  it('컨트롤을 펴 둔 채로 값을 바꿔도 접히지 않는다', () => {
+    // 체크 하나 누를 때마다 카드가 다시 그려진다 — 그때 접히면 둘째 항목을 못 켠다.
+    characterName = '라피';
+    render();
+    setToggle('[data-custom-toggle]', true);
+    root.querySelector<HTMLButtonElement>('[data-control-open]')!.click();
+    setToggle('[data-control-mode="manual"]', true);
+    expect(root.querySelector<HTMLElement>('[data-control-open]')!.getAttribute('aria-expanded')).toBe('true');
+    expect(root.querySelector<HTMLElement>('[data-control-panel]')!.hidden).toBe(false);
   });
 
   it('switches from recommended controls to exact per-character controls', () => {
@@ -566,10 +615,14 @@ describe('character settings editor', () => {
       }),
     );
     setToggle('[data-custom-toggle]', true);
-    root.querySelector<HTMLButtonElement>('[data-char-panel-open="control"]')!.click();
-    expect(opened).toEqual([{ kind: 'control', label: '컨트롤 · 버스트', hasBurst: true }]);
+    root.querySelector<HTMLButtonElement>('[data-char-panel-open="settings"]')!.click();
+    expect(opened).toEqual([{ kind: 'settings', label: '돌파 · 스킬 · 오버로드 · 큐브', hasBurst: false }]);
     // 넘겼으면 제자리에서 펼치지는 않는다 — 같은 것이 두 곳에 보이면 안 된다.
-    expect(root.querySelector<HTMLElement>('[data-char-panel="control"]')!.hidden).toBe(true);
+    expect(root.querySelector<HTMLElement>('[data-char-panel="settings"]')!.hidden).toBe(true);
+    // 컨트롤은 애초에 창으로 넘기지 않는다 — 카드에서 그 자리에 펴진다.
+    root.querySelector<HTMLButtonElement>('[data-control-open]')!.click();
+    expect(opened).toHaveLength(1);
+    expect(root.querySelector<HTMLElement>('[data-control-panel]')!.hidden).toBe(false);
   });
 
   it('keeps advanced mode on while the panel lives in a window', () => {
@@ -729,8 +782,7 @@ describe('character settings editor', () => {
 
   it('keeps 버스트 운용 inside the 컨트롤 · 버스트 fold', () => {
     setToggle('[data-custom-toggle]', true);
-    const fold = root.querySelector<HTMLElement>('[data-char-panel-open="control"]')!;
-    expect(fold.querySelector('.disclosure-label')!.textContent).toBe('컨트롤 · 버스트');
+    const fold = root.querySelector<HTMLElement>('[data-control-open]')!;
     // 접이판 안에 있고, 본문(돌파·스킬·오버로드·큐브)에는 남아 있지 않다.
     expect(fold.nextElementSibling!.querySelector('.burst-editor')).not.toBeNull();
     expect(root.querySelector('.character-settings-body .burst-editor')).toBeNull();

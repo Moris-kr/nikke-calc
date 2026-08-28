@@ -105,8 +105,24 @@ export const NO_CUBE = '없음';
 /** 막바지 최우선의 기본 구간(초). 엔진 기본값(`calculator/customization.py`)과 같다. */
 const ENDGAME_DEFAULT = 20;
 
-/** 창으로 여는 설정 뭉치의 종류. */
-export type CharPanelKind = 'settings' | 'control';
+/** 창으로 여는 설정 뭉치의 종류. 컨트롤은 카드에서 그 자리에 펼친다. */
+export type CharPanelKind = 'settings';
+
+/**
+ * 컨트롤 칩에 적히는 한 줄. **열지 않아도 지금 상태를 읽을 수 있어야** 칩이 값을 한다 —
+ * 대부분은 «추천 자동 · 버스트 자동»이라 열어 볼 일이 없다.
+ */
+export function controlChipText(value?: CharacterOverrides): string {
+  const picked = value?.control === undefined ? -1 : Object.keys(value.control).length;
+  // 하나도 안 고른 «직접»은 «직접 0개»가 아니라 그냥 직접이다 — 0을 세어 보일 이유가 없다.
+  const control = picked < 0 ? '추천 자동' : picked === 0 ? '직접 설정' : `직접 ${picked}개`;
+  const burst = value?.burst;
+  const burstText = burst === undefined ? '버스트 자동'
+    : burst.mode === 'priority' ? `버스트 ${burst.every}의 배수`
+    : burst.mode === 'endgame' ? `버스트 막바지 ${burst.seconds}초`
+    : '버스트 안 씀';
+  return `${control} · ${burstText}`;
+}
 
 /**
  * 지난번에 그린 «창으로 여는» 뭉치들. 창으로 띄우면 그 뭉치는 카드 밖(모달)으로
@@ -147,6 +163,14 @@ export function renderCharacterSettings(
   const wasOpen = (flag: string): boolean =>
     previous<HTMLElement>(`[${flag}]`)?.getAttribute('aria-expanded') === 'true';
   const summaryWasOpen = wasOpen('data-loadout-open');
+  const controlWasOpen = wasOpen('data-control-open');
+  // 접이판 상태는 **카드를 비우기 전에** 읽어 둔다. 아래에서 다시 그릴 때는 옛 화면이
+  // 이미 지워져 있어, 그때 찾아서는 늘 «접힘»만 나온다.
+  const openNotes = new Set(
+    [...container.querySelectorAll<HTMLDetailsElement>('[data-note-fold]')]
+      .filter((fold) => fold.open)
+      .map((fold) => fold.dataset.noteFold!),
+  );
 
   /**
    * 눌러서 여는 설정 뭉치. 카드가 좁아 그 자리에서 펼치면 다섯 장이 서로를 밀어낸다 —
@@ -290,10 +314,31 @@ export function renderCharacterSettings(
   current.cube ??= { ...defaults.cube };
   current.collection ??= { ...defaults.collection };
   current.manualStats ??= {};
+  /** 컨트롤 칩의 글을 지금 값으로 고쳐 쓴다. 칩이 만들어진 뒤에 채워진다. */
+  let paintControlChip: () => void = () => undefined;
+
+  /**
+   * 긴 안내문을 접어 둔다. 카드 폭(약 130px)에서는 네 문장이 열 줄을 넘겨,
+   * 정작 만지러 온 체크박스가 화면 밖으로 밀린다. 읽고 싶을 때만 편다 —
+   * 펼침 상태는 다시 그려도 남는다.
+   */
+  const foldedNote = (label: string, note: HTMLElement, key: string): HTMLElement => {
+    const fold = document.createElement('details');
+    fold.className = 'note-fold';
+    fold.dataset.noteFold = key;
+    fold.open = openNotes.has(key);
+    const head = document.createElement('summary');
+    head.textContent = label;
+    fold.append(head, note);
+    return fold;
+  };
+
   const emitNumericChange = (next: CharacterOverrides) => {
     current = cloneOverrides(next);
     onChange(current);
     summary.textContent = summaryText(name, catalog, current);
+    // 버스트를 바꾸면 카드를 다시 그리지 않는다 — 칩에 적힌 글은 여기서 따라간다.
+    paintControlChip();
   };
 
   const body = document.createElement('div');
@@ -451,7 +496,7 @@ export function renderCharacterSettings(
     + ' «막바지 최우선»은 전투가 그만큼 남았을 때부터 누구보다 먼저 씁니다 — 그 전에는 평소 순서입니다.'
     + ' «안 씀»은 이 캐릭터가 버스트를 아예 쓰지 않습니다 — 같은 단계 동료가 전부 쿨이어도 나가지 않으므로,'
     + ' 그 단계를 맡을 동료가 없으면 버스트 사이클 자체가 멈춥니다.';
-  burstEditor.append(burstHeading, burstRow, burstNote);
+  burstEditor.append(burstHeading, burstRow, foldedNote('버스트 운용 설명', burstNote, 'burst'));
   // `body`가 아니라 아래 «컨트롤 · 버스트» 접이판에 넣는다 — 버스트 운용도 결국
   // 조작 방식이라 컨트롤과 한자리에 있는 편이 찾기 쉽다.
 
@@ -852,10 +897,43 @@ export function renderCharacterSettings(
   const controlWarning = document.createElement('p');
   controlWarning.className = 'field-note warning';
   controlWarning.textContent = '여러 캐릭터 동시 컨트롤은 실제 한 명 조작보다 유리한 상한일 수 있습니다.';
-  // 컨트롤은 따로 접는다. 손대는 사람은 적은데 자리는 가장 많이 먹는다.
-  const controlFold = panelOpener('컨트롤 · 버스트', 'control', '컨트롤 · 버스트');
-  controlFold.panel.append(controlMode, recommendation, controlGrid, controlWarning, burstEditor);
-  controlEditor.append(controlFold.head, controlFold.panel);
+  // 컨트롤은 창으로 띄우지 않고 **카드에서 그 자리에 펼친다**. 창을 열면 편성이
+  // 가려지는데, 컨트롤은 옆 사람 것을 보며 정하는 설정이라 그 대가가 크다.
+  // 대신 접힌 칩에 지금 상태를 적어 두어, 열지 않고도 읽히게 한다.
+  const controlChip = document.createElement('button');
+  controlChip.type = 'button';
+  controlChip.className = 'control-chip';
+  controlChip.dataset.controlOpen = '';
+  controlChip.setAttribute('aria-expanded', String(controlWasOpen));
+  const chipGear = document.createElement('span');
+  chipGear.className = 'control-chip-gear';
+  chipGear.setAttribute('aria-hidden', 'true');
+  chipGear.textContent = '⚙';
+  const chipText = document.createElement('span');
+  chipText.className = 'control-chip-text';
+  paintControlChip = () => {
+    chipText.textContent = controlChipText(current);
+    chipText.title = `컨트롤 · 버스트 — ${chipText.textContent}`;
+  };
+  paintControlChip();
+  const chipCaret = document.createElement('span');
+  chipCaret.className = 'control-chip-caret';
+  chipCaret.textContent = controlWasOpen ? '▴' : '▾';
+  controlChip.append(chipGear, chipText, chipCaret);
+
+  const controlPanel = document.createElement('div');
+  controlPanel.className = 'control-panel';
+  controlPanel.dataset.controlPanel = '';
+  controlPanel.hidden = !controlWasOpen;
+  controlPanel.append(controlMode, recommendation, controlGrid,
+    foldedNote('동시 컨트롤 주의', controlWarning, 'control-warning'), burstEditor);
+  controlChip.addEventListener('click', () => {
+    const next = controlChip.getAttribute('aria-expanded') !== 'true';
+    controlChip.setAttribute('aria-expanded', String(next));
+    controlPanel.hidden = !next;
+    chipCaret.textContent = next ? '▴' : '▾';
+  });
+  controlEditor.append(controlChip, controlPanel);
   // 컨트롤은 돌파·스킬·오버로드·큐브와 **형제**로 둔다. 그 안에 넣으면 컨트롤만
   // 보려 해도 설정 뭉치를 먼저 펼쳐야 한다 — 두 뭉치는 만지는 이유가 다르다.
 
@@ -954,5 +1032,5 @@ export function renderCharacterSettings(
   const bodyFold = panelOpener('돌파 · 스킬 · 오버로드 · 큐브', 'settings', '수치 설정');
   bodyFold.panel.append(body);
   container.append(bodyFold.head, bodyFold.panel, controlEditor);
-  lastPanels.set(container, [bodyFold.panel, controlFold.panel]);
+  lastPanels.set(container, [bodyFold.panel]);
 }

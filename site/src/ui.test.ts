@@ -780,27 +780,30 @@ describe('calculator UI', () => {
     expect(root.querySelector<HTMLElement>('[data-notice-modal]')!.hidden).toBe(false);
   });
 
-  it('keeps the control window in step with the card it came from', async () => {
+  it('keeps the control fold open and live inside the card', async () => {
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
     root.querySelector<HTMLButtonElement>('[data-notice-dismiss]')!.click();
     const card = root.querySelector<HTMLElement>('[data-slot-card="0"]')!;
     card.querySelector<HTMLInputElement>('[data-custom-toggle]')!.click();
-    card.querySelector<HTMLButtonElement>('[data-char-panel-open="control"]')!.click();
+    card.querySelector<HTMLButtonElement>('[data-control-open]')!.click();
 
-    const inWindow = (selector: string) =>
-      root.querySelector<HTMLInputElement>(`[data-char-panel-body] ${selector}`);
-    // 창에는 컨트롤 뭉치가 실려 있고, 처음엔 «추천 자동 적용»이라 체크박스가 잠겨 있다.
-    expect(inWindow('[data-control-mode="manual"]')).not.toBeNull();
-    expect(inWindow('[data-control="reload"]')!.disabled).toBe(true);
+    // 컨트롤은 창으로 나가지 않는다 — 카드 안에서 펴진다.
+    expect(root.querySelector('[data-char-panel-body] [data-control-mode]')).toBeNull();
+    const inCard = (selector: string) =>
+      root.querySelector<HTMLInputElement>(`[data-slot-card="0"] ${selector}`);
+    expect(inCard('[data-control-panel]')!.hidden).toBe(false);
+    // 처음엔 «추천 자동 적용»이라 체크박스가 잠겨 있다.
+    expect(inCard('[data-control="reload"]')!.disabled).toBe(true);
 
-    // «직접 설정»을 고르면 카드가 다시 그려진다 — 창도 새 뭉치로 갈려야 한다.
-    inWindow('[data-control-mode="manual"]')!.click();
+    // «직접 설정»을 고르면 카드가 다시 그려진다 — 펴 둔 판은 그대로 살아 있어야 한다.
+    inCard('[data-control-mode="manual"]')!.click();
     await Promise.resolve();
-    expect(inWindow('[data-control="reload"]')!.disabled).toBe(false);
+    expect(inCard('[data-control-panel]')!.hidden).toBe(false);
+    expect(inCard('[data-control="reload"]')!.disabled).toBe(false);
     // 그리고 그 체크박스가 실제로 먹는다.
-    inWindow('[data-control="reload"]')!.click();
+    inCard('[data-control="reload"]')!.click();
     await Promise.resolve();
-    expect(inWindow('[data-control="reload"]')!.checked).toBe(true);
+    expect(inCard('[data-control="reload"]')!.checked).toBe(true);
   });
 
   it('does not yank the page back to the squad when results arrive', async () => {

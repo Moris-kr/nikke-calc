@@ -22,6 +22,17 @@ export interface Notice {
 /** 최신이 맨 앞. */
 export const NOTICES: Notice[] = [
   {
+    id: '2026-08-28-7',
+    date: '2026-08-28',
+    title: '컨트롤 · 버스트를 창 없이 카드에서 폅니다',
+    items: [
+      { tag: '개선', text: '캐릭터 카드의 「컨트롤 · 버스트」가 더 이상 창을 열지 않습니다. 카드에서 바로 펴지고, 접혀 있을 때도 <b>지금 상태가 칩에 적혀</b> 있습니다(예: 「추천 자동 · 버스트 자동」, 「직접 2개 · 버스트 3의 배수」). 대부분은 열어 볼 일 없이 읽고 지나가면 됩니다.' },
+      { tag: '개선', text: '편 채로 값을 바꿔도 접히지 않고, 편성이 창에 가리지 않아 옆 니케 컨트롤을 보며 정할 수 있습니다. 카드는 편 것만 길어집니다 — 나머지 넷은 그대로입니다.' },
+      { tag: '개선', text: '컨트롤 판 안의 긴 안내문(동시 컨트롤 주의, 버스트 운용 설명)은 접어 뒀습니다. 카드가 좁아 네 문장이 열 줄이 되면 정작 만지러 온 체크박스가 화면 밖으로 밀립니다. 「▸ 설명」을 누르면 그대로 나옵니다.' },
+      { tag: '고침', text: '업데이트 내역에서 강조 표시가 <code>&lt;b&gt;</code> 같은 글자로 보이던 것을 고쳤습니다. 지난 항목들도 함께 제대로 나옵니다.' },
+    ],
+  },
+  {
     id: '2026-08-28-6',
     date: '2026-08-28',
     title: '버프 막대에 몇 겹인지 적힙니다',
@@ -173,6 +184,31 @@ export const NOTICES: Notice[] = [
 ];
 
 /** 이 값을 본 적 있으면 공지를 띄우지 않는다. */
+/**
+ * 공지 문구를 화면에 올릴 조각으로 만든다.
+ *
+ * 문구에는 «어디를 눈여겨보라»는 표시로 `<b>`와 `<code>`만 쓴다. 통째로 `innerHTML`에
+ * 넘기지 않고 **이 둘만** 진짜 태그로 세우고 나머지는 글자 그대로 둔다 — 문구는 우리가
+ * 소스에 적는 글이지만, 화면에 올리는 길은 좁을수록 좋다.
+ *
+ * 예전에는 `textContent`로만 넣어 `<b>…</b>`가 글자 그대로 보였다.
+ */
+export function noticeFragment(text: string, doc: Document = document): DocumentFragment {
+  const fragment = doc.createDocumentFragment();
+  // 여는 태그와 닫는 태그를 경계로 자른다. 짝이 맞지 않으면 그 조각은 글자로 남는다.
+  const parts = text.split(/(<\/?(?:b|code)>)/);
+  let open: HTMLElement | null = null;
+  for (const part of parts) {
+    const opening = /^<(b|code)>$/.exec(part);
+    const closing = /^<\/(b|code)>$/.exec(part);
+    if (opening && !open) { open = doc.createElement(opening[1]!); fragment.append(open); continue; }
+    if (closing && open?.tagName.toLowerCase() === closing[1]) { open = null; continue; }
+    if (!part) continue;
+    (open ?? fragment).append(doc.createTextNode(part));
+  }
+  return fragment;
+}
+
 export const LATEST_NOTICE_ID = NOTICES[0]?.id ?? '';
 
 /**
