@@ -1,0 +1,200 @@
+/**
+ * 효과 키의 한글 이름.
+ *
+ * 계산 엔진은 효과를 `atk_dmg_pct` 같은 영어 키로 다룬다 — 스킬 텍스트를 파싱한
+ * 결과라 이름이 하나로 고정돼야 하기 때문이다. 다만 화면에 그대로 내보이면
+ * «무슨 뜻인지 모를 글자»가 된다. 여기서 그 키를 한글로 바꾼다.
+ *
+ * 모르는 키는 **키를 그대로 돌려준다**. 새 캐릭터가 들어와 못 보던 효과가 붙어도
+ * 빈칸이 되는 대신 영어로라도 남는다 — 없는 것보다 낫다.
+ */
+
+/** 값 뒤에 붙는 단위. 퍼센트 포인트인 키가 대부분이고, 몇 개만 초를 쓴다. */
+const SECONDS = new Set([
+  'burst_cooldown', 'burst_cooldown_reduce', 'fullburst_duration', 'charge_time_fixed',
+  'charge_time_flat', 'reload_time_fixed', 'effect_interval', 'named_buff_duration_extend',
+]);
+
+/** `_pct`로 끝나지 않지만 퍼센트 포인트인 키. */
+const PERCENT = new Set(['crit_rate', 'crit_dmg', 'normal_atk_crit_rate', 'received_dmg']);
+
+export const STAT_NAMES: Record<string, string> = {
+  accumulate_max_scale_pct: '누적 상한 배율',
+  accuracy_pct: '명중률',
+  ammo_charge_flat: '장탄 충전',
+  ammo_charge_pct: '장탄 충전',
+  armor_break_damage: '아머 브레이크 대미지',
+  armor_break_dmg_pct: '아머 브레이크 대미지 증가',
+  armor_break_enabled: '아머 브레이크 부여',
+  atk_buff_mag_pct: '공격력 버프 증폭',
+  atk_caster_based_pct: '공격력 증가(건 사람 기준)',
+  atk_copy: '공격력 복사',
+  atk_dmg_pct: '주는 대미지 증가',
+  atk_flat: '공격력 증가(고정값)',
+  atk_from_hp_pct: '최대 HP 비례 공격력',
+  atk_pct: '공격력 증가',
+  attack_speed_pct: '공격 속도',
+  auto_damage: '자동 대미지',
+  bonus_damage: '추가 대미지',
+  buff_max_stack_add: '버프 최대 중첩 증가',
+  buff_stack_add: '버프 중첩 추가',
+  buff_stack_init: '버프 중첩 초기화',
+  buff_stack_remove: '버프 중첩 제거',
+  burst_charge_pct: '버스트 게이지 충전',
+  burst_charge_speed_pct: '버스트 게이지 충전 속도',
+  burst_cooldown: '버스트 쿨타임',
+  burst_cooldown_reduce: '버스트 쿨타임 감소',
+  burst_damage: '버스트 대미지',
+  burst_dmg_aoe_pct: '버스트 광역 대미지 증가',
+  burst_dmg_pct: '버스트 대미지 증가',
+  burst_reentry: '버스트 재진입',
+  charge_dmg_mag_pct: '차지 대미지 배율 증폭',
+  charge_dmg_pct: '차지 대미지 증가',
+  charge_dmg_per_max_ammo_pct: '최대 장탄당 차지 대미지',
+  charge_speed_buff_immune: '차지 속도 버프 면역',
+  charge_speed_caster_based_pct: '차지 속도(건 사람 기준)',
+  charge_speed_debuff_immune: '차지 속도 디버프 면역',
+  charge_speed_overflow_conversion_pct: '초과 차지 속도 전환',
+  charge_speed_pct: '차지 속도',
+  charge_time_fixed: '차지 시간 고정',
+  charge_time_flat: '차지 시간 증감',
+  core_damage: '코어 대미지',
+  core_dmg_pct: '코어 대미지 증가',
+  cover_def_pct: '엄폐물 방어력',
+  cover_disabled: '엄폐 불가',
+  cover_heal_from_caster_max_hp_pct: '엄폐물 회복(건 사람 최대 HP 비례)',
+  cover_heal_pct: '엄폐물 회복',
+  cover_hp_caster_based_pct: '엄폐물 HP(건 사람 기준)',
+  cover_max_hp_caster_based_pct: '엄폐물 최대 HP(건 사람 기준)',
+  cover_received_dmg_split: '엄폐물 피해 분산',
+  cover_revive: '엄폐물 재생성',
+  crit_dmg: '치명타 대미지',
+  crit_rate: '치명타 확률',
+  current_hp_reduce: '현재 HP 감소',
+  damage: '대미지',
+  damage_accumulate: '대미지 누적',
+  damage_accumulate_ratio_pct: '대미지 누적 비율',
+  debuff_cleanse: '디버프 해제',
+  debuff_immune: '디버프 면역',
+  debuff_stack_add: '디버프 중첩 추가',
+  debuff_stack_remove: '디버프 중첩 제거',
+  decoy: '디코이',
+  decoy_from_max_hp_pct: '디코이 HP(최대 HP 비례)',
+  decoy_heal_from_caster_max_hp_pct: '디코이 회복(건 사람 최대 HP 비례)',
+  def_caster_based_pct: '방어력 증가(건 사람 기준)',
+  def_ignore_pct: '방어력 무시',
+  def_pct: '방어력 증가',
+  dmg_scale_mag_pct: '대미지 배율 증폭',
+  dot_damage: '지속 대미지',
+  dot_dmg_pct: '지속 대미지 증가',
+  effect_interval: '효과 간격',
+  effect_range_pct: '효과 범위',
+  effect_target_count_add: '효과 대상 수 증가',
+  element_bonus_pct: '우월 코드 대미지',
+  element_code_override: '코드 변경',
+  element_received_dmg_pct: '코드 피해 증가',
+  enemy_buff_cleanse: '적 버프 해제',
+  enemy_def_down_pct: '적 방어력 감소',
+  enemy_movement_disable: '적 이동 불가',
+  explosion_range: '폭발 범위',
+  feather_refresh: '깃털 재충전',
+  fixed_damage_from_dealt_pct: '준 대미지 비례 고정 대미지',
+  focus_fire: '집중 사격',
+  force_move: '강제 이동',
+  force_reload: '강제 재장전',
+  force_skill_use: '강제 스킬 사용',
+  fullburst_duration: '풀버스트 시간',
+  gauge_charge: '게이지 충전',
+  gauge_charge_enabled: '게이지 충전 가능',
+  gauge_consume: '게이지 소모',
+  gauge_consume_as_ammo: '게이지를 탄으로 소모',
+  gauge_max_add: '게이지 최대치 증가',
+  harmful_immune_count: '해로운 효과 면역 횟수',
+  heal_equal_split: '회복 균등 분배',
+  heal_given_pct: '주는 회복량',
+  heal_hp_pct: 'HP 회복',
+  heal_overcharge_discharge: '과충전 회복 방출',
+  heal_overcharge_store: '과충전 회복 저장',
+  heal_overcharge_store_atk_pct: '과충전 저장(공격력 비례)',
+  heal_received_pct: '받는 회복량',
+  heal_split: '회복 분배',
+  hp_caster_based_pct: 'HP 회복(건 사람 기준)',
+  hp_copy: 'HP 복사',
+  hp_only_caster_based_pct: 'HP 증가(건 사람 기준)',
+  indomitable: '불굴',
+  infinite_ammo: '무한 탄약',
+  intercept_dmg_pct: '요격 대미지 증가',
+  invincible: '무적',
+  lifesteal_pct: '흡혈',
+  lock_on: '락온',
+  max_ammo_flat: '최대 장탄 수 증가',
+  max_ammo_infinite: '최대 장탄 무한',
+  max_ammo_pct: '최대 장탄 수',
+  max_hp_only_pct: '최대 HP 증가',
+  max_hp_pct: '최대 HP',
+  mg_warmup_speed_pct: 'MG 예열 속도',
+  named_buff_duration_extend: '지정 버프 지속 연장',
+  next_shield_hp_pct: '다음 보호막 HP',
+  normal_atk_crit_rate: '평타 치명타 확률',
+  normal_atk_dmg_pct: '평타 대미지 증가',
+  optimal_range_max_pct: '최적 사거리 상한',
+  optimal_range_min: '최적 사거리 하한',
+  outgoing_heal_pct: '주는 회복량',
+  part_dmg_pct: '파트 대미지 증가',
+  pellet_count: '펠릿 수',
+  pellet_count_fixed: '펠릿 수 고정',
+  persona_state: '페르소나 상태',
+  pierce_dmg_pct: '관통 대미지 증가',
+  pierce_enabled: '관통 부여',
+  pierce_range: '관통 범위',
+  possessed: '빙의',
+  projectile_attachment_damage: '부착 발사체 대미지',
+  projectile_attachment_dmg_pct: '부착 발사체 대미지 증가',
+  projectile_dmg_pct: '발사체 대미지 증가',
+  projectile_explosion_damage: '발사체 폭발 대미지',
+  projectile_explosion_dmg_pct: '발사체 폭발 대미지 증가',
+  received_dmg: '적이 받는 대미지 증가',
+  received_dmg_pct: '받는 대미지 증가',
+  received_dmg_split: '받는 대미지 분산',
+  reload_speed_pct: '재장전 속도',
+  reload_time_fixed: '재장전 시간 고정',
+  remove_named_buff: '지정 버프 제거',
+  revive: '부활',
+  sequential_dmg_pct: '연속 대미지 증가',
+  shared_shield_from_max_hp_pct: '공용 보호막(최대 HP 비례)',
+  shield_dmg_pct: '보호막 대미지 증가',
+  shield_from_max_hp_pct: '보호막(최대 HP 비례)',
+  shield_heal_from_caster_max_hp_pct: '보호막 회복(건 사람 최대 HP 비례)',
+  shield_invincible: '보호막 무적',
+  skill_cooldown_pct: '스킬 쿨타임',
+  skill_cooldown_reduce_pct: '스킬 쿨타임 감소',
+  split_damage: '분열 대미지',
+  split_dmg_pct: '분열 대미지 증가',
+  squad_ammo_consume_as: '아군 탄약 소모 대체',
+  stealth: '은신',
+  stun: '스턴',
+  stun_immune: '스턴 면역',
+  targeting_exclude: '타겟 제외',
+  taunt: '도발',
+  trigger_count_reduce: '발동 횟수 감소',
+  undying: '불사',
+};
+
+/** 효과 키의 한글 이름. 모르는 키는 그대로 돌려준다. */
+export function statName(stat: string): string {
+  return STAT_NAMES[stat] ?? stat;
+}
+
+/**
+ * 「이름 +값단위」 한 줄. 값이 없으면 이름만 준다.
+ *
+ * 퍼센트로 다루는 수치가 대부분이라 `_pct`로 끝나면 %를 붙이고, 쿨타임·지속처럼
+ * 시간을 담는 몇 개만 초를 붙인다. 나머지는 단위 없이 숫자만 적는다.
+ */
+export function statText(stat: string, value?: number | null): string {
+  const name = statName(stat);
+  if (typeof value !== 'number' || !Number.isFinite(value)) return name;
+  const unit = SECONDS.has(stat) ? '초' : (stat.endsWith('_pct') || PERCENT.has(stat) ? '%' : '');
+  const rounded = Math.round(value * 100) / 100;
+  return `${name} ${rounded > 0 ? '+' : ''}${rounded}${unit}`;
+}

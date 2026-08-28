@@ -1,4 +1,5 @@
 import { formatDamage } from './model';
+import { statText } from './stat-names';
 import type { BattleTimeline, BuffSpan, BuffTrack, DeckResultEntry } from './types';
 
 const LINE_COLORS = ['#45d6d0', '#ffbf3c', '#9b8cff', '#5fd08a', '#ff7db0'];
@@ -671,9 +672,9 @@ class TimelineChart {
       `<div class="tl-tip-row"><span class="tl-name">건 사람</span><span class="tl-val">${track.caster}</span></div>`,
     ];
     if (track.stat) {
-      const value = typeof track.value === 'number'
-        ? ` ${track.value > 0 ? '+' : ''}${Math.round(track.value * 100) / 100}` : '';
-      rows.push(`<div class="tl-tip-row"><span class="tl-name">효과</span><span class="tl-val">${track.stat}${value}</span></div>`);
+      // 엔진 키는 영어다 — 화면에는 한글로 적고, 원래 키는 마우스를 올리면 나온다.
+      rows.push(`<div class="tl-tip-row"><span class="tl-name">효과</span>`
+        + `<span class="tl-val" title="${track.stat}">${statText(track.stat, track.value)}</span></div>`);
     }
     if (track.maxStack > 1) {
       rows.push(`<div class="tl-tip-row"><span class="tl-name">중첩</span>` +
