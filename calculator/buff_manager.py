@@ -114,7 +114,9 @@ _BUFFS_ZERO: dict[str, Any] = {
     "atk_flat":         0.0,
     "def_ignore_pct":   0.0,
     "crit_rate":        0.0,   # 아래 _CRIT_RATE_STATS 경로에서 별도 합산
-    "crit_dmg":         0.0,
+    "crit_rate_skill":  0.0,   # 같은 경로. 일반 공격 한정 크리율을 뺀 값 (스킬 딜용)
+    "crit_dmg":         0.0,   # 아래 _CRIT_DMG_STATS 경로에서 별도 합산
+    "crit_dmg_skill":   0.0,   # 같은 경로. 일반 공격 한정 크리뎀을 뺀 값 (스킬 딜용)
     "core_dmg_pct":     0.0,
     "atk_dmg_pct":                  0.0,
     "burst_dmg_pct":                0.0,
@@ -238,6 +240,14 @@ _STAT_TO_BUFF: dict[str, str] = {
 
 # 크리확률로 합산되는 stat 집합 (백분율 → 확률 환산 후 기본 15%와 합연산)
 _CRIT_RATE_STATS = {"crit_rate", "normal_atk_crit_rate"}
+# 원문이 `[일반 공격 크리티컬 확률 n% ▲]`인 것들(헬름 진두지휘·율리아 데크레센도 3).
+# 이 기여는 **스킬 딜의 크리 판정에 실리면 안 된다** — 그래서 합을 둘로 낸다.
+_NORMAL_ATK_ONLY_CRIT_RATE_STATS = {"normal_atk_crit_rate"}
+
+# 크리 대미지도 같은 구조다. 합연산 자체는 평범하지만 일반 공격 한정분을 빼야 해서
+# `_PLAN_CDMG` 전용 경로로 뽑아 `crit_dmg` / `crit_dmg_skill` 두 합을 동시에 만든다.
+_CRIT_DMG_STATS = {"crit_dmg", "normal_atk_crit_dmg"}
+_NORMAL_ATK_ONLY_CRIT_DMG_STATS = {"normal_atk_crit_dmg"}
 
 # **소스별로 따로 반올림되는** buff_key. 인게임은 이 둘을 합산 후 한 번 반올림하지 않고,
 # 소스(장비 옵션 단계·큐브·소장품·스킬 버프 하나) 각각을 기본값에 곱해 눈금
@@ -294,7 +304,7 @@ _BOOL_BUFF_KEYS = frozenset([
 ])
 
 # get_buffs 실행 계획의 스텝 종류 (`BuffManager._build_plan` 참고)
-_PLAN_ADD, _PLAN_CRIT, _PLAN_FLAG, _PLAN_LIVE, _PLAN_QUANT = 0, 1, 2, 3, 4
+_PLAN_ADD, _PLAN_CRIT, _PLAN_FLAG, _PLAN_LIVE, _PLAN_QUANT, _PLAN_CDMG = 0, 1, 2, 3, 4, 5
 
 # 계획 캐시 감사 모드. `NIKKE_BUFF_AUDIT=1`이면 매 조회마다 계획을 다시 만들어 캐시와
 # 대조하고, 다르면 즉시 예외를 던진다 (조용히 틀리는 대신 터진다).
@@ -2857,7 +2867,10 @@ class BuffManager:
         if val is None:
             return None
         if stat in _CRIT_RATE_STATS:
-            return (_PLAN_CRIT, None, val / 100)
+            # key 자리에 「일반 공격 한정인가」를 싣는다 — 스킬 딜용 합에서 뺄 기여를 가린다
+            return (_PLAN_CRIT, stat in _NORMAL_ATK_ONLY_CRIT_RATE_STATS, val / 100)
+        if stat in _CRIT_DMG_STATS:
+            return (_PLAN_CDMG, stat in _NORMAL_ATK_ONLY_CRIT_DMG_STATS, val)
         if buff_key in _QUANT_BUFF_KEYS:
             return (_PLAN_QUANT, (buff_key, _quant_group_key(ab)), val)
         return (_PLAN_ADD, buff_key, val)
@@ -2923,7 +2936,14 @@ class BuffManager:
             plan = fresh
 
         buffs = dict(_BUFFS_ZERO)
-        crit_rate_parts: list[float] = [0.15]  # 기본 크리확률 15%
+        crit_rate_parts: list[float] = [0.15]
+        # 일반 공격 한정 기여를 뺀 합. **따로 누산**하는 이유는 순서 보존이다 —
+        # 전체 합에서 나중에 빼면 부동소수점 마지막 자리가 달라져 골든 스냅샷이 깨진다.
+        crit_rate_skill_parts: list[float] = [0.15]
+        # 크리 대미지도 같은 이유로 순서 보존 리스트. 시작값 0.0은 `_BUFFS_ZERO["crit_dmg"]`와
+        # 같아서, 종전의 `buffs[key] += val` 누산과 부동소수점까지 동일한 결과를 낸다.
+        crit_dmg_parts: list[float] = [0.0]
+        crit_dmg_skill_parts: list[float] = [0.0]  # 기본 크리확률 15%
         # 소스별 반올림 스탯의 그룹별 기여. {(buff_key, 그룹키): 합} — 삽입 순서가
         # 곧 `_active` 순서라 부동소수점 합산 순서가 결정론적으로 유지된다.
         quant_parts: dict[tuple, float] = {}
@@ -2935,6 +2955,13 @@ class BuffManager:
                 continue
             if kind == _PLAN_CRIT:
                 crit_rate_parts.append(pre)
+                if not key:  # key = 일반 공격 한정 여부
+                    crit_rate_skill_parts.append(pre)
+                continue
+            if kind == _PLAN_CDMG:
+                crit_dmg_parts.append(pre)
+                if not key:  # key = 일반 공격 한정 여부
+                    crit_dmg_skill_parts.append(pre)
                 continue
             if kind == _PLAN_QUANT:
                 quant_parts[key] = quant_parts.get(key, 0.0) + pre
@@ -3010,6 +3037,12 @@ class BuffManager:
 
             if stat in _CRIT_RATE_STATS:
                 crit_rate_parts.append(val / 100)
+                if stat not in _NORMAL_ATK_ONLY_CRIT_RATE_STATS:
+                    crit_rate_skill_parts.append(val / 100)
+            elif stat in _CRIT_DMG_STATS:
+                crit_dmg_parts.append(val)
+                if stat not in _NORMAL_ATK_ONLY_CRIT_DMG_STATS:
+                    crit_dmg_skill_parts.append(val)
             elif buff_key in _QUANT_BUFF_KEYS:
                 gk = (buff_key, _quant_group_key(ab))
                 quant_parts[gk] = quant_parts.get(gk, 0.0) + val
@@ -3019,6 +3052,11 @@ class BuffManager:
         # 크리확률 합성: 단순 합연산 (유저 인게임 확인). 100%에서 자른다 —
         # 초과분은 게임에서도 버려지고, calc_avg_damage()의 기댓값 계산이 1을 넘으면 깨진다.
         buffs["crit_rate"] = min(1.0, sum(crit_rate_parts))
+        buffs["crit_rate_skill"] = min(1.0, sum(crit_rate_skill_parts))
+
+        # 크리 대미지는 상한이 없다 — 합만 낸다 (③ 가산 항 `0.5 + crit_dmg%`).
+        buffs["crit_dmg"] = sum(crit_dmg_parts)
+        buffs["crit_dmg_skill"] = sum(crit_dmg_skill_parts)
 
         # 소스별 반올림 스탯: 그룹별 목록과 합계를 함께 싣는다. 합계는 표시·후처리
         # (면역·초과분 환산)용이고, 실제 반올림은 기본값을 아는 timeline이 목록으로 한다.

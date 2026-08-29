@@ -142,20 +142,19 @@ def _factor3(weapon: dict, buffs: dict, hit_type: dict,
     bonus = 1.0
     is_crit = False
 
-    # 크리티컬 확률 판정
-    # normal_atk_crit_rate는 is_normal_atk=True일 때만 가산
-    base_crit_rate = buffs.get("crit_rate", 0.15)  # get_buffs에서 이미 0.15 포함
-    if not hit_type["is_normal_atk"]:
-        # 스킬 공격: normal_atk_crit_rate 제외한 순수 crit_rate만 사용
-        # (buff_manager가 normal_atk_crit_rate와 crit_rate를 모두 crit_rate에 합성함)
-        # → 스킬 히트의 크리확률은 별도 인자로 넘기는 방식이 정확하지만,
-        #   현재 parsed_skills에 normal_atk_crit_rate를 분리 추적하지 않으므로
-        #   스킬 히트도 buffs["crit_rate"]를 그대로 사용 (보수적 근사)
-        crit_rate = base_crit_rate
+    # 크리티컬 확률·배율 판정
+    # `normal_atk_crit_rate` / `normal_atk_crit_dmg`(원문 `[일반 공격 크리티컬 확률 n% ▲]`,
+    # `[일반 공격 크리티컬 대미지 n% ▲]` — 헬름 진두지휘 등)는 일반 공격에만 실린다.
+    # get_buffs가 그 기여를 뺀 합을 `crit_rate_skill` / `crit_dmg_skill`로 따로 내므로
+    # 스킬 딜 히트는 그쪽을 쓴다. 크리확률 쪽은 둘 다 기본 15%를 이미 포함한 값이다.
+    if hit_type["is_normal_atk"]:
+        crit_rate = buffs.get("crit_rate", 0.15)
+        crit_dmg = buffs.get("crit_dmg", 0.0)
     else:
-        crit_rate = base_crit_rate
+        crit_rate = buffs.get("crit_rate_skill", buffs.get("crit_rate", 0.15))
+        crit_dmg = buffs.get("crit_dmg_skill", buffs.get("crit_dmg", 0.0))
 
-    crit_bonus = 0.5 + buffs.get("crit_dmg", 0.0) / 100.0
+    crit_bonus = 0.5 + crit_dmg / 100.0
     if expected:
         # 확률 판정 대신 기대값: 크리 기여분 = min(크리확률, 1) × (0.5 + crit_dmg%)
         # (확률 판정 경로는 crit_rate > 1이면 항상 크리라 100%로 잘린다 — 여기서도 맞춘다)
@@ -197,12 +196,23 @@ def _factor4(weapon: dict, buffs: dict, hit_type: dict) -> float:
     ④ 차지 배율.
     풀 차지가 아니면 1.0.
 
-    무기의 풀차지 배율과 「차지 대미지 ▲」 버프는 **가산**이다 (유저 인게임 확인, 2026-08-25).
-    RL 250% + 차지 대미지 87.05% = 337%로 인게임 표기 335%와 맞는다. 곱연산이면 468%가 되어
-    차지 무기 전체가 부풀었다 — GAMEPLAY.md §차지 배율은 가산이다.
+    무기의 풀차지 배율과 「차지 대미지 N% ▲」(평문) 버프는 **가산**이다
+    (유저 인게임 확인, 2026-08-25). RL 250% + 차지 대미지 87.05% = 337%로 인게임 표기
+    335%와 맞는다. 곱연산이면 468%가 되어 차지 무기 전체가 부풀었다.
 
-    charge_dmg_mag_pct가 있으면: (1 + charge_dmg_mag_pct%) × (full_charge_mult% + charge_dmg_pct%)
-    없으면: full_charge_mult% + charge_dmg_pct%
+    「차지 대미지 N% **배율** ▲」(`charge_dmg_mag_pct`)는 별개 층인데, 곱하는 대상이
+    합 전체가 아니라 **무기 기본 배율뿐**이다. 배율끼리는 서로 가산된다:
+
+        full_charge_mult% × (1 + Σ배율%) + Σ평문%
+
+    근거는 헬름 실측 (유저 인게임 확인, 2026-08-28 — GAMEPLAY.md §차지 배율).
+    기본 250% · 오버로드 평문 11.11% · 소장품 SR15 배율 9.47% · 버스트 배율 158.4%:
+
+        평시   250 × (1 + 0.0947)         + 11.11 = 284.79  ← 인게임 285
+        버스트 250 × (1 + 0.0947 + 1.584) + 11.11 = 680.79  ← 인게임 681
+
+    버스트가 더하는 396은 평시 표기(285)가 아니라 **기본 배율 250**의 158.4%다.
+    합 전체에 곱했다면 699가 되어 버스트 구간이 통째로 부푼다.
     """
     if not hit_type["is_full_charge"]:
         return 1.0
@@ -211,10 +221,7 @@ def _factor4(weapon: dict, buffs: dict, hit_type: dict) -> float:
     charge_dmg_pct = buffs.get("charge_dmg_pct", 0.0) / 100.0
     charge_dmg_mag_pct = buffs.get("charge_dmg_mag_pct", 0.0) / 100.0
 
-    if charge_dmg_mag_pct:
-        return (1.0 + charge_dmg_mag_pct) * (full_charge_mult + charge_dmg_pct)
-    else:
-        return full_charge_mult + charge_dmg_pct
+    return full_charge_mult * (1.0 + charge_dmg_mag_pct) + charge_dmg_pct
 
 
 def _factor5(buffs: dict, hit_type: dict) -> float:
@@ -419,6 +426,16 @@ if __name__ == "__main__":
     expected4 = (50.0 / 100) * (50000 - 31784) * 1.0 * 2.5
     print(f"검산 4 — SR 풀 차지: {avg4:.2f}  (수작업: {expected4:.2f})")
     assert abs(avg4 - expected4) < 1.0, f"불일치: {avg4} vs {expected4}"
+
+    # ── 검산 4-B: 차지 대미지 배율 층 — 헬름 인게임 표기 재현 (2026-08-28 유저 확인)
+    # 기본 250% · 오버로드 평문 11.11% · 소장품 SR15 배율 9.47% · 버스트 배율 158.4%
+    for mag, 인게임 in ((9.47, 284.785), (9.47 + 158.4, 680.785)):
+        b4b = dict(zero_buffs)
+        b4b["charge_dmg_pct"] = 11.11
+        b4b["charge_dmg_mag_pct"] = mag
+        f4b = _factor4(weapon_sr, b4b, ht4) * 100
+        print(f"검산 4-B — 차지 배율(배율 {mag}%): {f4b:.2f}%  (인게임: {round(인게임)}%)")
+        assert abs(f4b - 인게임) < 0.01, f"불일치: {f4b} vs {인게임}"
 
     # ── 검산 5: 풀버스트 + 우월코드
     buffs5 = dict(zero_buffs)
