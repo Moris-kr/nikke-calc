@@ -258,6 +258,35 @@ describe('calculator UI', () => {
     root.remove();
   });
 
+  it('외부고리 탭이 네 곳으로 새 탭에서 나간다', () => {
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+
+    const tab = root.querySelector<HTMLButtonElement>('[data-view-tab="links"]')!;
+    expect(tab.textContent).toBe('외부고리');
+    tab.click();
+
+    const panel = root.querySelector<HTMLElement>('[data-view="links"]')!;
+    expect(panel.hidden).toBe(false);
+    // 계산기 판은 물러나 있어야 한다.
+    expect(root.querySelector<HTMLElement>('form[data-view="calc"]')!.hidden).toBe(true);
+
+    const cards = [...root.querySelectorAll<HTMLAnchorElement>('.link-card')];
+    expect(cards).toHaveLength(4);
+    expect(cards.map((card) => card.querySelector('.link-name')?.textContent))
+      .toEqual(['렛츠도로', '딜도로', '솔레 금서고', '도로파티']);
+    for (const card of cards) {
+      expect(card.target).toBe('_blank');
+      // 남의 페이지에 우리 창을 넘기지 않는다.
+      expect(card.rel).toContain('noopener');
+      expect(card.rel).toContain('noreferrer');
+      expect(card.href.startsWith('https://')).toBe(true);
+    }
+    // 우리가 운영하는 곳이 아니라는 사실이 화면에 적혀 있어야 한다.
+    expect(panel.textContent).toContain('우리가 운영하지 않습니다');
+  });
+
   it('적 수치를 초기화하면 조건 한 줄도 함께 바뀐다', () => {
     mountCalculator(root, {
       catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,

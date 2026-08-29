@@ -43,6 +43,7 @@ import { LATEST_NOTICE_ID, NOTICES, noticeFragment, noticeToShow } from './notic
 import { mountSharePanel, squadPreview, type SharePanel } from './share-panel';
 import { startPresence } from './presence';
 import { mountUnionRaid } from './union-raid';
+import { EXTERNAL_LINKS, hostOf } from './external-links';
 import { ShareServer, summarizeBattle, summarizeSquad } from './share-server';
 import { createTimelineBlock } from './timeline';
 import {
@@ -480,7 +481,17 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         <button type="button" class="view-tab is-on" data-view-tab="calc" aria-pressed="true">계산기</button>
         ${blablaProxy ? '<button type="button" class="view-tab" data-view-tab="union" aria-pressed="false">유니온 레이드<b class="tab-beta">BETA</b></button>' : ''}
         <button type="button" class="view-tab" data-view-tab="enikk" aria-pressed="false">ENIKK 조합 가져오기</button>
+        <button type="button" class="view-tab" data-view-tab="links" aria-pressed="false">외부고리</button>
       </nav>
+
+      <section class="panel links-panel" data-view="links" aria-labelledby="links-heading" hidden>
+        <div class="section-heading">
+          <div><p class="step">LINKS</p><h2 id="links-heading">외부고리</h2></div>
+        </div>
+        <p class="links-lede">니케를 굴리는 데 쓰는 <b>다른 사람들의 도구</b>입니다. 새 탭에서 열립니다.</p>
+        <p class="links-warn"><b>여기 적힌 곳은 우리가 운영하지 않습니다.</b> 계산기에 넣어 둔 값이나 계정 정보가 저쪽으로 넘어가지 않고, 저쪽 내용·주소가 바뀌어도 우리가 알지 못합니다.</p>
+        <div class="links-grid" data-links-grid></div>
+      </section>
 
       ${blablaProxy ? `
       <section class="panel union-panel" data-view="union" aria-labelledby="union-heading" hidden>
@@ -3429,7 +3440,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   // 300명을 한 줄로 늘어놓으면 스크롤이 끝없다 — 열 명씩 끊어 쪽으로 넘긴다.
   const ENIKK_PER_PAGE = 10;
   let enikkPage = 0;
-  let currentView: 'calc' | 'union' | 'enikk' = 'calc';
+  let currentView: 'calc' | 'union' | 'enikk' | 'links' = 'calc';
 
   const readEnikkCache = (): EnikkImport | null => {
     try {
@@ -3917,7 +3928,10 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   }
 
   // ── 화면 전환 ───────────────────────────────────────────────────────────
-  function switchView(view: 'calc' | 'union' | 'enikk') {
+  /** 위쪽 탭이 고를 수 있는 화면. 「외부고리」는 우리 것이 아닌 곳으로 나가는 판이다. */
+  type ViewName = 'calc' | 'union' | 'enikk' | 'links';
+
+  function switchView(view: ViewName) {
     currentView = view;
     for (const section of root.querySelectorAll<HTMLElement>('[data-view]')) {
       const mine = section.dataset.view === view;
@@ -3941,7 +3955,42 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     }
   }
   for (const tab of root.querySelectorAll<HTMLButtonElement>('[data-view-tab]')) {
-    tab.addEventListener('click', () => switchView(tab.dataset.viewTab as 'calc' | 'union' | 'enikk'));
+    tab.addEventListener('click', () => switchView(tab.dataset.viewTab as ViewName));
+  }
+
+  // ── 외부고리 ────────────────────────────────────────────────────────────
+  // 표(`external-links.ts`)를 그대로 편다. 주소를 HTML에 박지 않는 이유는 고칠 곳을
+  // 한 군데로 두기 위해서다 — 새 고리는 그 배열에 한 줄만 더하면 여기 나온다.
+  const linksGrid = element<HTMLElement>(root, '[data-links-grid]');
+  for (const link of EXTERNAL_LINKS) {
+    const card = document.createElement('a');
+    card.className = 'link-card';
+    card.href = link.url;
+    card.target = '_blank';
+    // 남의 페이지에 우리 창을 넘기지 않는다.
+    card.rel = 'noopener noreferrer';
+
+    const head = document.createElement('div');
+    head.className = 'link-head';
+    const name = document.createElement('h3');
+    name.className = 'link-name';
+    name.textContent = link.label;
+    const host = document.createElement('span');
+    host.className = 'link-host';
+    host.textContent = hostOf(link.url);
+    head.append(name, host);
+
+    const note = document.createElement('p');
+    note.className = 'link-note';
+    note.textContent = link.note;
+
+    const go = document.createElement('span');
+    go.className = 'link-go';
+    go.setAttribute('aria-hidden', 'true');
+    go.textContent = '새 탭에서 열기 ↗';
+
+    card.append(head, note, go);
+    linksGrid.append(card);
   }
 
   // 렛츠도로 CSV 받는 법 안내. 스크린샷이 아직 없으면 이미지만 숨긴다 — 링크·설명은 남는다.
