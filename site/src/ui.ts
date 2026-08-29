@@ -2033,6 +2033,10 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       writeConsoleBuckets('class', battle.console.class_level);
       writeConsoleBuckets('company', battle.console.company_level);
     }
+    // 조건이 창으로 들어간 뒤로 화면에 남는 표시는 요약 한 줄뿐이다. 프로그램이 값을
+    // 써넣을 때는 change가 나지 않아 그 줄이 갱신되지 않았고, 「적 수치 초기화」와
+    // 「받은 코드 적용」이 아무 일도 안 한 것처럼 보였다. 쓰는 자리에서 함께 끌고 간다.
+    refreshBattleSummary();
   };
 
   // ── 전투 조건 접이판 ────────────────────────────────────────────────────
