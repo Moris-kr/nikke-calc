@@ -391,7 +391,12 @@ def run_request(raw: str) -> str:
     if reaction is not None:
         config_in["burst_reaction"] = reaction
     # 난수 처리: "random"(인게임과 같은 분산) / "expected"(기대값, 결정론적).
-    rng_mode = str(payload.get("rngMode") or "random")
+    #
+    # 안 주면 **기대값**이다 — 이 브리지가 받드는 화면의 기본값이다. 엔진 라이브러리
+    # 기본값(`timeline.DEFAULT_CONFIG`)은 난수지만 그것을 여기까지 끌고 오면 안 된다:
+    # 화면은 기대값을 뜻하고 여기서는 난수로 읽어, 기대값으로 둔 사람들이 내내 난수로
+    # 계산하고 시드를 바꿀 때마다 결과가 흔들리고 있었다.
+    rng_mode = str(payload.get("rngMode") or "expected")
     if rng_mode not in ("random", "expected"):
         raise ValueError('난수 모드는 random 또는 expected여야 합니다')
     config_in["rng_mode"] = rng_mode

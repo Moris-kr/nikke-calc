@@ -118,6 +118,43 @@ class BrowserBridgeTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "프리뷰 캐릭터는 스킬 레벨 10"):
             run_request(json.dumps(payload, ensure_ascii=False))
 
+    def _totals_by_seed(self, seeds, **extra):
+        """같은 설정에 시드만 달리 준 결과들."""
+        out = []
+        for seed in seeds:
+            payload = {
+                "squad": ["리타", "크라운", "홍련"],
+                "duration": 20,
+                "enemyDef": 31_784,
+                "enemyCode": "",
+                "corePx": 0,
+                "hasParts": False,
+                "seed": seed,
+                **extra,
+            }
+            out.append(json.loads(run_request(json.dumps(payload, ensure_ascii=False)))["squadTotal"])
+        return out
+
+    def test_expected_mode_ignores_the_seed(self):
+        """기대값은 결정론적이다 — 시드를 바꿔도 한 푼도 달라지면 안 된다."""
+        totals = self._totals_by_seed([42, 7, 12345], rngMode="expected")
+        self.assertEqual(len(set(totals)), 1, f"기대값인데 시드마다 다르다: {totals}")
+
+    def test_random_mode_actually_uses_the_seed(self):
+        """난수 모드는 반대로 시드를 타야 한다 — 위 시험이 «둘 다 안 움직여서» 통과하는 것을 막는다."""
+        totals = self._totals_by_seed([42, 7, 12345], rngMode="random")
+        self.assertGreater(len(set(totals)), 1, f"난수인데 시드를 안 탄다: {totals}")
+
+    def test_missing_rng_mode_is_the_site_default_expected(self):
+        """`rngMode`가 안 오면 **화면 기본값(기대값)**으로 친다.
+
+        이 기본값이 브리지와 화면에서 서로 달랐던 것이 실제 결함이었다 — `model.ts`가
+        「기본값이니 빼도 된다」며 `expected`를 안 실었는데 브리지는 빠지면 `random`으로
+        읽어, 기대값으로 두고 쓴 사람들이 내내 난수 모드로 계산하고 있었다.
+        """
+        totals = self._totals_by_seed([42, 7, 12345])
+        self.assertEqual(len(set(totals)), 1, f"안 주면 난수로 돈다: {totals}")
+
     def test_seeded_request_returns_compact_positive_result(self):
         payload = {
             "squad": ["리타"],

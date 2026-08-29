@@ -91,6 +91,8 @@ describe('request normalization', () => {
       enemyDef: 31_784,
       corePx: 4,
       seed: 42,
+      // 난수 모드는 기본값이어도 언제나 실린다 — 브리지와 기본값이 어긋나지 않게.
+      rngMode: 'expected',
     });
   });
 
@@ -182,6 +184,35 @@ describe('request normalization', () => {
     expect(normalizeRequest(modeSwapChanged).characters?.['신데렐라 : 크리스탈 웨이브']
       ?.weaponModeSwapAt).toBe(6);
     expect(cacheKey(modeSwapBase, 'v1')).not.toBe(cacheKey(modeSwapChanged, 'v1'));
+  });
+});
+
+describe('난수 모드는 언제나 실린다', () => {
+  // 「기본값이니 빼도 된다」고 뺐다가, 빠지면 난수로 읽는 브리지와 기본값이 어긋나
+  // 기대값으로 둔 사람들이 내내 난수 모드로 계산하고 있었다. 경계를 넘는 값은
+  // 양쪽이 같은 기본값을 안다고 믿지 않는다.
+  it('기대값도 요청에 적어 보낸다', () => {
+    const request = requestForDeck(deck(1, ['리타']), { ...battle, rngMode: 'expected' }, {});
+    expect(normalizeRequest(request).rngMode).toBe('expected');
+  });
+
+  it('난수도 그대로 실린다', () => {
+    const request = requestForDeck(deck(1, ['리타']), { ...battle, rngMode: 'random' }, {});
+    expect(normalizeRequest(request).rngMode).toBe('random');
+  });
+
+  it('없으면 화면 기본값(기대값)으로 채운다 — 브리지와 같은 값이다', () => {
+    const request = requestForDeck(deck(1, ['리타']), { ...battle }, {});
+    delete (request as { rngMode?: string }).rngMode;
+    expect(normalizeRequest(request).rngMode).toBe('expected');
+  });
+
+  it('기대값과 난수는 캐시 키가 갈린다 — 서로의 결과를 물려받으면 안 된다', () => {
+    const expectedKey = cacheKey(
+      requestForDeck(deck(1, ['리타']), { ...battle, rngMode: 'expected' }, {}), 'v1');
+    const randomKey = cacheKey(
+      requestForDeck(deck(1, ['리타']), { ...battle, rngMode: 'random' }, {}), 'v1');
+    expect(expectedKey).not.toBe(randomKey);
   });
 });
 

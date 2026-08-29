@@ -49,8 +49,10 @@ export function normalizeRequest(request: SimulationRequest): SimulationRequest 
       [...request.immuneWindows].sort((a, b) => a.from - b.from || a.to - b.to) } : {}),
     ...(request.elementWindows?.length ? { elementWindows:
       [...request.elementWindows].sort((a, b) => a.from - b.from || a.to - b.to) } : {}),
-    // 기본값(기대값)은 요청에서 뺀다 — 옛 캐시 키와 갈리지 않게.
-    ...(request.rngMode && request.rngMode !== 'expected' ? { rngMode: request.rngMode } : {}),
+    // **언제나 싣는다.** 「기본값이니 빼도 된다」고 뺐다가, 빠지면 난수로 읽는 브리지와
+    // 기본값이 어긋나 기대값으로 둔 사람들이 내내 난수 모드로 계산하고 있었다. 경계를
+    // 넘는 값은 양쪽이 같은 기본값을 안다고 믿지 말고 그냥 적어 보낸다.
+    rngMode: request.rngMode ?? 'expected',
     // 기본값(켜짐)은 요청·캐시 키에서 뺀다.
     ...(request.immuneBlocksBurst === false ? { immuneBlocksBurst: false } : {}),
     // 평타 계수도 캐시 키에 실린다 — 값이 다른 결과가 섞이면 안 된다. 키 순서가
