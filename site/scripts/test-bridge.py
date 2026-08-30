@@ -619,6 +619,35 @@ class BrowserBridgeTest(unittest.TestCase):
         got = json.loads(run_request(json.dumps(payload, ensure_ascii=False)))
         self.assertEqual(got["buffTargets"], {})
 
+    def test_fine_timeline_splits_the_same_damage_into_smaller_slots(self):
+        """정밀 분석 표는 «더 정확한» 값이 아니라 «더 잘게 나눈» 값이다.
+
+        엔진은 히트마다 정수로 정확히 센다 — 칸을 잘게 해도 총합은 한 자리도
+        달라지지 않아야 한다. 달라진다면 칸 나누기에서 히트를 흘린 것이다.
+        """
+        payload = {
+            "squad": ["리타", "크라운"], "duration": 20, "enemyDef": 31_784,
+            "enemyCode": "", "corePx": 0, "hasParts": False, "seed": 42,
+            "rngMode": "expected", "fineTimeline": True,
+        }
+        got = json.loads(run_request(json.dumps(payload, ensure_ascii=False)))
+        coarse, fine = got["timeline"], got["fineTimeline"]
+        self.assertEqual(coarse["bucket"], 1)
+        self.assertEqual(fine["bucket"], 0.1)
+        self.assertEqual(fine["buckets"], coarse["buckets"] * 10)
+        for name in ("리타", "크라운"):
+            self.assertEqual(sum(fine["damage"][name]), sum(coarse["damage"][name]))
+            self.assertEqual(sum(fine["damage"][name]), int(got["charTotals"][name]))
+
+    def test_fine_timeline_is_left_out_unless_asked(self):
+        # 늘 실어 보내면 저장되는 결과가 열 배로 무거워진다 — 내보낼 때만 만든다.
+        payload = {
+            "squad": ["리타"], "duration": 10, "enemyDef": 31_784, "enemyCode": "",
+            "corePx": 0, "hasParts": False, "seed": 42,
+        }
+        got = json.loads(run_request(json.dumps(payload, ensure_ascii=False)))
+        self.assertNotIn("fineTimeline", got)
+
     def test_rejects_character_settings_outside_the_squad(self):
         payload = {
             "squad": ["리타"],

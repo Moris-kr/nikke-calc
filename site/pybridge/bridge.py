@@ -32,8 +32,12 @@ from context import spec as char_spec
 # 환산하므로, 여기만 바꾸면 그림·눈금·툴팁이 모두 따라온다.
 TIMELINE_BUCKET = 1
 
+# 「정밀 분석」에서 쓰는 칸 크기(초). 대미지는 원래부터 히트마다 정수로 정확히 세므로
+# 이 값이 **정확도를 바꾸지는 않는다** — 얼마나 잘게 나눠 보여 줄지만 정한다.
+FINE_BUCKET = 0.1
 
-def _build_timeline(result, names: list[str]) -> dict:
+
+def _build_timeline(result, names: list[str], bucket: float = TIMELINE_BUCKET) -> dict:
     """캐릭터별 대미지 · 버스트 시각 · 풀버스트 구간을 `TIMELINE_BUCKET` 단위로 요약한다.
 
     브라우저 타임라인 시각화용. 대미지는 result.hits(항상 채워짐)에서,
@@ -41,11 +45,11 @@ def _build_timeline(result, names: list[str]) -> dict:
     버킷 크기는 응답에 함께 실어 보낸다 — 화면이 «몇 번째 칸이 몇 초인지»를
     그 값으로 환산하므로, 1초 버킷으로 저장된 옛 결과도 그대로 그려진다.
     """
-    buckets = int(math.ceil(result.duration / TIMELINE_BUCKET)) if result.duration > 0 else 0
+    buckets = int(math.ceil(result.duration / bucket)) if result.duration > 0 else 0
     damage = {name: [0] * buckets for name in names}
     for hit in result.hits:
         # 부동소수 나눗셈이 0.3/0.1 = 2.9999…로 떨어져 앞 칸에 붙는 일이 있다 — 보정한다.
-        index = int((hit.t + 1e-9) / TIMELINE_BUCKET)
+        index = int((hit.t + 1e-9) / bucket)
         # 그 보정 때문에 마지막 순간(t = 29.999999999999577처럼 duration에 붙은 값)의
         # 히트가 칸 밖으로 밀려난다. 버리면 버킷 합이 캐릭터 총딜과 어긋나므로
         # 마지막 칸에 넣는다 — 실제로 그 칸에서 일어난 히트다.
@@ -73,7 +77,7 @@ def _build_timeline(result, names: list[str]) -> dict:
                 pending_start = None
 
     return {
-        "bucket": TIMELINE_BUCKET,
+        "bucket": bucket,
         "buckets": buckets,
         "damage": damage,
         "bursts": bursts,
@@ -446,4 +450,9 @@ def run_request(raw: str) -> str:
         "timeline": _build_timeline(result, names),
         "buffTargets": _build_buff_targets(result, names),
     }
+    # 「정밀 분석」 — 같은 결과를 더 잘게 나눈 표를 하나 더 싣는다. 대미지는 원래부터
+    # 히트마다 정수로 정확히 세므로 **수치가 정밀해지는 게 아니라** 보이는 칸이 잘아진다.
+    # 그림은 1초 칸 그대로 쓴다(잘게 떨면 읽기 어렵다) — 이건 내보내기용이다.
+    if bool(payload.get("fineTimeline")):
+        response["fineTimeline"] = _build_timeline(result, names, FINE_BUCKET)
     return json.dumps(response, ensure_ascii=False, separators=(",", ":"))

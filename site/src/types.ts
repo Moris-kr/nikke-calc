@@ -106,6 +106,12 @@ export interface SimulationRequest {
   rngMode?: RngMode;
   /** 손으로 정한 버스트 순서. 안 주면 계산기가 평소 순서로 고른다. */
   burstSequence?: BurstSequence;
+  /**
+   * 「정밀 분석」 표(0.1초 칸)를 함께 받을지. 대미지는 원래부터 히트마다 정수로
+   * 정확히 세므로 **수치가 정밀해지는 게 아니라** 보이는 칸이 잘아진다.
+   * 늘 받으면 저장되는 결과가 열 배로 무거워져, 내보낼 때만 켠다.
+   */
+  fineTimeline?: boolean;
   /** 족자 중에는 버스트 게이지도 안 찬다고 볼지. */
   immuneBlocksBurst?: boolean;
   // 무기군별 평타 계수. 실전에서 탄퍼짐으로 빗나가는 탄을 보정한다 — 평타에만 붙고
@@ -251,6 +257,8 @@ export interface SimulationResult {
   timeline?: BattleTimeline;
   /** 감시 대상 버프의 실제 수령자 — `{시전자: [...]}`. 구버전 캐시에는 없다. */
   buffTargets?: Record<string, BuffTargetRow[]>;
+  /** 0.1초 칸으로 나눈 같은 결과. `fineTimeline`을 켠 요청에만 실려 온다. */
+  fineTimeline?: BattleTimeline;
 }
 
 /** 「누가 이 버프를 받았나」 한 줄. 대상이 공격력 순위로 갈려 편성만으로는 알 수 없다. */

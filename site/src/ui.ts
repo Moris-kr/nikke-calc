@@ -36,6 +36,7 @@ import {
   reportFilename,
   type ReportMeta,
 } from './report';
+import { csvBlob, csvFileName, csvText, damageCsv } from './export-csv';
 import {
   applyShareToDecks, decodeBattleCode, decodeShareCode, encodeBattleCode, encodeShareCode,
 } from './share-code';
@@ -2574,6 +2575,47 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     reportMsg.classList.toggle('is-ok', ok);
   };
 
+  /**
+   * 정밀 수치 CSV. **같은 계산을 0.1초 칸으로 한 번 더 받아** 표로 만든다.
+   *
+   * 결과에 늘 실어 두지 않는 이유는 무게다 — 칸이 열 배가 되면 저장되는 결과도
+   * 그만큼 무거워지는데, 정작 쓰는 사람은 드물다. 다시 받는 데 실패하면(옛 결과를
+   * 불러온 경우 등) 손에 있는 1초 표로 내보낸다 — 수치 자체는 어느 쪽이든 정확하다.
+   */
+  const exportDamageCsv = async (batch: BatchResult, button: HTMLButtonElement) => {
+    const label = button.textContent ?? '정밀 수치 CSV';
+    button.disabled = true;
+    button.textContent = '수치 모으는 중…';
+    try {
+      const parts: string[] = [];
+      let coarseOnly = false;
+      for (const entry of batch.decks) {
+        let result = entry.result;
+        try {
+          result = await client.simulate({ ...entry.request, fineTimeline: true });
+        } catch {
+          coarseOnly = true;   // 다시 못 받았으면 손에 있는 것으로 낸다
+        }
+        const timeline = result.fineTimeline ?? result.timeline;
+        if (!result.fineTimeline) coarseOnly = true;
+        const names = entry.request.squad.filter(Boolean);
+        const note = `${entry.request.duration}초 · 적 방어력 ${entry.request.enemyDef}`;
+        if (batch.decks.length > 1) parts.push(csvText([[`덱 ${entry.deckId}`]]));
+        parts.push(damageCsv({ ...result, timeline }, names, note));
+      }
+      downloadImage(csvBlob(parts.join('\r\n\r\n')),
+        csvFileName(batch.decks.length > 1 ? '5덱' : `덱 ${batch.decks[0]?.deckId ?? 1}`));
+      status.textContent = coarseOnly
+        ? '정밀 수치 CSV를 내려받았습니다 (1초 단위 — 0.1초 표는 다시 계산해야 나옵니다).'
+        : '정밀 수치 CSV를 내려받았습니다 (0.1초 단위).';
+    } catch (error) {
+      status.textContent = `정밀 수치 CSV를 만들지 못했습니다: ${(error as Error).message}`;
+    } finally {
+      button.disabled = false;
+      button.textContent = label;
+    }
+  };
+
   const openReport = async () => {
     if (!lastBatch) return;
     const batch = lastBatch;
@@ -2682,7 +2724,16 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     historyOpen.dataset.historyOpen = '';
     historyOpen.textContent = '결과 불러오기';
     historyOpen.addEventListener('click', () => { renderHistory(); historyModal.hidden = false; });
-    reportTools.append(historySave, historyOpen, reportButton);
+    // 정밀 수치 — 화면은 「1.24억」으로 줄여 적지만 엔진은 처음부터 정수로 정확히 센다.
+    // 1의 자리까지 놓고 따지려는 사람에게 그 정수를 표로 내준다.
+    const csvButton = document.createElement('button');
+    csvButton.type = 'button';
+    csvButton.className = 'report-open';
+    csvButton.dataset.csvExport = '';
+    csvButton.textContent = '정밀 수치 CSV';
+    csvButton.title = '구간별·최종 대미지를 1의 자리까지 담은 표를 내려받습니다 (0.1초 단위)';
+    csvButton.addEventListener('click', () => { void exportDamageCsv(batch, csvButton); });
+    reportTools.append(historySave, historyOpen, reportButton, csvButton);
     resultPanel.append(reportTools);
 
     // 덱 순위 — 딜 내림차순으로 «등수»만 구한다. 세우는 순서는 끝까지 덱 번호 그대로다.
