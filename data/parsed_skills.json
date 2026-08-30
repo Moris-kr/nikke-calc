@@ -4368,7 +4368,7 @@
           "hit_count:5"
         ],
         "condition": [
-          "self_state:무기 변경"
+          "self_state:정정당당 승부다!"
         ]
       },
       "target": "target",
@@ -4426,7 +4426,7 @@
           "hit_count:5"
         ],
         "condition": [
-          "self_state:무기 변경"
+          "self_state:정정당당 승부다!"
         ]
       },
       "target": "target",
@@ -34224,7 +34224,7 @@
           "burst_cast"
         ],
         "condition": [
-          "self_state:평정심"
+          "self_state:바이팅 리더십"
         ]
       },
       "target": "all_enemies",
@@ -34622,7 +34622,7 @@
           "burst_cast"
         ],
         "condition": [
-          "self_state:복수"
+          "self_state:언령 : 기교의 언"
         ]
       },
       "target": "all_enemies",
