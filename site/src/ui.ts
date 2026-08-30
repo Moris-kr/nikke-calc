@@ -45,6 +45,7 @@ import { startPresence } from './presence';
 import { mountUnionRaid } from './union-raid';
 import { EXTERNAL_LINKS, hostOf } from './external-links';
 import {
+  BURST_STAGES,
   candidatesFor, cycleLine, cyclesFromTimeline, estimateCycles, HOTKEYS, MAX_CYCLES,
   picksFrom, progressOf, sequenceForDeck, sequenceFrom, stepKey, stepsFor, trimSequence,
   type BurstStage, type BurstStep,
@@ -655,8 +656,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           </div>
           <div class="deck-tabs" data-deck-tabs hidden></div>
           <div class="deck-controls">
+            <button type="button" class="burst-order-open" data-burst-order-open title="사이클마다 1버·2버·3버를 누가 쓸지 직접 정합니다. 정한 만큼만 따르고 그 뒤는 평소 순서로 돌아갑니다"><span class="burst-order-mark" aria-hidden="true">1·2·3</span><span>버스트 순서</span><b class="burst-order-badge" data-burst-order-badge hidden></b></button>
             <span class="deck-moves" data-deck-moves hidden></span>
-            <button type="button" class="deck-clear" data-burst-order-open title="사이클마다 1버·2버·3버를 누가 쓸지 직접 정합니다. 정한 만큼만 따르고 그 뒤는 평소 순서로 돌아갑니다">버스트 순서<b class="burst-order-badge" data-burst-order-badge hidden></b></button>
             <button type="button" class="deck-clear" data-deck-clear title="지금 보고 있는 덱의 편성과 개별 설정을 비웁니다">덱 비우기</button>
           <div class="deck-copy" data-deck-copy hidden>
             <button type="button" class="deck-copy-open" data-deck-copy-open>현재 덱 복사</button>
@@ -2838,6 +2839,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   // 사이클마다 단계별로 누구를 쓸지 손으로 정한다. 창을 쓰는 이유는 **키보드를
   // 통째로 가져가기 때문**이다 — 탭 안에 두면 A·S·D·F·G가 검색칸과 부딪친다.
   const burstModal = element<HTMLElement>(root, '[data-burst-order-modal]');
+  const burstOpenButton = element<HTMLButtonElement>(root, '[data-burst-order-open]');
   const burstBadge = element<HTMLElement>(root, '[data-burst-order-badge]');
   const burstNow = element<HTMLElement>(root, '[data-burst-now]');
   const burstPicksBox = element<HTMLElement>(root, '[data-burst-picks]');
@@ -2880,6 +2882,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     const kept = sequenceForDeck(activeDeck());
     burstBadge.hidden = kept === null;
     burstBadge.textContent = kept ? `${kept.length}` : '';
+    // 순서를 걸어 두면 단추 자체가 색을 바꾼다 — 열어 보지 않아도 걸린 게 보인다.
+    burstOpenButton.classList.toggle('is-on', kept !== null);
   }
 
   /** 아직 안 고른 첫 칸으로 옮긴다. 창을 다시 열면 하던 자리에서 이어진다. */
@@ -2948,15 +2952,50 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     }
 
     // ── 적어 둔 것 ──
+    // 사이클마다 **빈 칸 셋**이고, 고를 때마다 초상화가 채워진다. 글줄로 적으면
+    // 스물일곱 칸 중 어디까지 왔는지가 안 읽힌다 — 빈 칸이 남아 있는 게 보여야 한다.
     burstList.replaceChildren();
     const sequence = sequenceFrom(burstPicks, burstCycles);
     sequence.forEach((cycle, index) => {
-      const row = el('div', 'burst-row' + (burstSteps[burstAt]?.cycle === index + 1 ? ' is-now' : ''));
-      row.append(el('span', 'burst-row-no', `${index + 1}`), el('span', 'burst-row-body', cycleLine(cycle)));
-      row.addEventListener('click', () => {
-        burstAt = burstSteps.findIndex((s) => s.cycle === index + 1);
-        renderBurstOrder();
-      });
+      const cycleNo = index + 1;
+      const row = el('div', 'burst-row' + (burstSteps[burstAt]?.cycle === cycleNo ? ' is-now' : ''));
+      row.title = cycleLine(cycle);
+      row.append(el('span', 'burst-row-no', `${cycleNo}`));
+
+      const slots = el('div', 'burst-row-slots');
+      for (const stage of BURST_STAGES) {
+        const name = (cycle[stage] ?? [])[0];
+        const here = burstSteps[burstAt]?.cycle === cycleNo && burstSteps[burstAt]?.stage === stage;
+        const slot = el('button', 'burst-slot'
+          + (name ? ' is-filled' : '') + (here ? ' is-here' : ''));
+        (slot as HTMLButtonElement).type = 'button';
+        slot.append(el('span', `burst-slot-stage stage-${stage}`, `${stage}버`));
+
+        const face = el('span', 'burst-slot-face');
+        if (name) {
+          const image = catalogByName.get(name)?.image;
+          if (image) {
+            const img = document.createElement('img');
+            img.src = `${import.meta.env.BASE_URL}${image}`;
+            img.alt = name;
+            img.loading = 'lazy';
+            face.append(img);
+          } else {
+            face.textContent = name.slice(0, 2);
+          }
+          slot.title = `${cycleNo}번째 ${stage}버 — ${name}`;
+        } else {
+          slot.title = `${cycleNo}번째 ${stage}버 — 아직 안 정함(자동)`;
+        }
+        slot.append(face);
+        slot.addEventListener('click', () => {
+          const at = burstSteps.findIndex((s) => s.cycle === cycleNo && s.stage === stage);
+          if (at >= 0) burstAt = at;
+          renderBurstOrder();
+        });
+        slots.append(slot);
+      }
+      row.append(slots);
       burstList.append(row);
     });
   }
@@ -2999,7 +3038,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
   const closeBurstOrder = () => { burstModal.hidden = true; };
 
-  element<HTMLButtonElement>(root, '[data-burst-order-open]').addEventListener('click', openBurstOrder);
+  burstOpenButton.addEventListener('click', openBurstOrder);
   element<HTMLButtonElement>(root, '[data-burst-order-close]').addEventListener('click', closeBurstOrder);
   burstModal.addEventListener('click', (event) => {
     if (event.target === burstModal) closeBurstOrder();

@@ -1278,8 +1278,21 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
    한 걸음에 하나씩 고른다. 초상화가 크고 단축키가 그 위에 박혀 있어야 눈이 아니라
    손이 외운다 — 아홉 사이클이면 스물일곱 번 누르는 화면이다. */
 .burst-order-card { max-width: 620px; }
-.burst-order-badge { margin-left: 6px; padding: 1px 6px; border-radius: 999px;
-  background: rgba(255,191,60,.16); color: var(--amber); font-size: 10px; font-weight: 800; }
+/* 덱 비우기 옆에서 같은 빨간 옷을 입고 있어 눈에 안 띄었다. 파괴 단추가 아니라
+   자주 쓰는 도구이므로 제 색을 주고 줄 맨 앞에 세운다. */
+.burst-order-open { display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px;
+  border: 1px solid rgba(69,214,208,.45); border-radius: 7px; background: rgba(69,214,208,.1);
+  color: var(--cyan); font: 800 11px inherit; cursor: pointer; }
+.burst-order-open:hover { background: rgba(69,214,208,.2); border-color: var(--cyan); }
+.burst-order-open:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.burst-order-mark { padding: 1px 5px; border-radius: 4px; background: rgba(69,214,208,.18);
+  font: 800 9px/1.5 ui-monospace, monospace; letter-spacing: .02em; }
+/* 순서를 걸어 두면 색이 바뀐다 — 열어 보지 않아도 걸린 게 보인다. */
+.burst-order-open.is-on { border-color: rgba(255,191,60,.55); background: rgba(255,191,60,.12);
+  color: var(--amber); }
+.burst-order-open.is-on .burst-order-mark { background: rgba(255,191,60,.2); }
+.burst-order-badge { padding: 1px 6px; border-radius: 999px;
+  background: rgba(255,191,60,.22); color: var(--amber); font-size: 10px; font-weight: 800; }
 .burst-order-badge[hidden] { display: none; }
 
 .burst-order-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 14px 0 4px; }
@@ -1324,12 +1337,29 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
 
 .burst-order-list { display: grid; gap: 4px; max-height: 210px; overflow-y: auto;
   border: 1px solid var(--line); border-radius: 10px; padding: 8px; background: rgba(3,9,16,.4); }
-.burst-row { display: flex; align-items: baseline; gap: 10px; padding: 5px 8px; border-radius: 7px;
-  cursor: pointer; }
-.burst-row:hover { background: rgba(146,176,201,.07); }
-.burst-row.is-now { background: rgba(69,214,208,.1); }
+.burst-row { display: flex; align-items: center; gap: 10px; padding: 5px 8px; border-radius: 7px; }
+.burst-row.is-now { background: rgba(69,214,208,.08); }
 .burst-row-no { min-width: 20px; color: var(--muted); font: 700 10.5px/1.5 ui-monospace, monospace; }
-.burst-row-body { flex: 1; color: #cfe3e6; font-size: 11.5px; }
+
+/* 사이클마다 빈 칸 셋. 채워지면 초상화가 들어간다 — 어디까지 왔는지가 한눈에 보인다. */
+.burst-row-slots { display: flex; gap: 6px; }
+.burst-slot { display: flex; align-items: center; gap: 5px; padding: 3px 6px 3px 5px;
+  border: 1px dashed rgba(146,176,201,.28); border-radius: 8px; background: rgba(3,9,16,.5);
+  color: inherit; font: inherit; cursor: pointer; }
+.burst-slot:hover { border-color: rgba(69,214,208,.5); }
+.burst-slot:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.burst-slot.is-filled { border-style: solid; border-color: var(--line); background: rgba(7,15,25,.7); }
+.burst-slot.is-here { border-color: var(--cyan); box-shadow: 0 0 0 2px rgba(69,214,208,.18); }
+.burst-slot-stage { font: 800 9.5px/1 ui-monospace, monospace; }
+.burst-slot-stage.stage-1 { color: var(--amber); }
+.burst-slot-stage.stage-2 { color: var(--cyan); }
+.burst-slot-stage.stage-3 { color: #c4b5fd; }
+.burst-slot-face { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 6px;
+  background: rgba(146,176,201,.06); overflow: hidden;
+  color: var(--muted); font-size: 9.5px; font-weight: 700; }
+.burst-slot-face img { width: 100%; height: 100%; object-fit: cover; }
+/* 빈 칸은 비어 있다는 것이 보여야 한다 — 채워진 칸과 같은 크기로 자리를 지킨다. */
+.burst-slot:not(.is-filled) .burst-slot-face { border: 1px dashed rgba(146,176,201,.22); }
 .burst-empty { margin: 0; color: var(--muted); font-size: 12px; }
 
 @media (max-width: 520px) {
@@ -1337,4 +1367,8 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
   .burst-pick { width: calc(25% - 6px); padding: 7px 4px; }
   .burst-pick-face { width: 40px; height: 40px; }
   .burst-order-progress { margin-left: 0; }
+  /* 칸 셋이 한 줄에 서야 사이클끼리 견줘진다 — 이름표를 접고 초상화만 남긴다. */
+  .burst-slot { padding: 3px 4px; }
+  .burst-slot-stage { font-size: 9px; }
+  .burst-slot-face { width: 24px; height: 24px; }
 }

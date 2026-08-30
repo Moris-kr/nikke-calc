@@ -299,6 +299,63 @@ describe('calculator UI', () => {
     expect(root.querySelector<HTMLElement>('[data-burst-order-badge]')!.hidden).toBe(false);
   });
 
+  it('목록은 사이클마다 빈 칸 셋이고 고를 때마다 초상화가 채워진다', () => {
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    root.querySelector<HTMLButtonElement>('[data-burst-order-open]')!.click();
+
+    const firstRow = () => root.querySelector<HTMLElement>('[data-burst-list] .burst-row')!;
+    const slots = () => [...firstRow().querySelectorAll<HTMLElement>('.burst-slot')];
+
+    // 아무것도 안 골라도 칸은 셋이다 — 몇 칸이 남았는지가 보여야 한다.
+    expect(slots()).toHaveLength(3);
+    expect(slots().map((slot) => slot.querySelector('.burst-slot-stage')?.textContent))
+      .toEqual(['1버', '2버', '3버']);
+    expect(slots().every((slot) => !slot.classList.contains('is-filled'))).toBe(true);
+    expect(firstRow().querySelectorAll('img')).toHaveLength(0);
+
+    // 첫 칸을 고르면 그 칸만 채워지고 초상화가 들어간다.
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
+    expect(slots()[0]!.classList.contains('is-filled')).toBe(true);
+    expect(slots()[1]!.classList.contains('is-filled')).toBe(false);
+    expect(slots()[0]!.querySelector('img')?.getAttribute('alt')).toBe('리타');
+  });
+
+  it('목록의 칸을 누르면 그 걸음으로 바로 간다', () => {
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    root.querySelector<HTMLButtonElement>('[data-burst-order-open]')!.click();
+    const now = root.querySelector<HTMLElement>('[data-burst-now]')!;
+
+    const rows = [...root.querySelectorAll<HTMLElement>('[data-burst-list] .burst-row')];
+    // 3번째 사이클의 3버 칸.
+    rows[2]!.querySelectorAll<HTMLButtonElement>('.burst-slot')[2]!.click();
+
+    expect(now.textContent).toContain('3번째 풀버스트');
+    expect(now.textContent).toContain('3버');
+    // 지금 서 있는 칸에 표시가 붙는다.
+    const here = root.querySelectorAll('[data-burst-list] .burst-slot.is-here');
+    expect(here).toHaveLength(1);
+  });
+
+  it('버스트 순서 단추는 덱 비우기와 다른 옷을 입고, 걸어 두면 색이 바뀐다', () => {
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    const open = root.querySelector<HTMLButtonElement>('[data-burst-order-open]')!;
+    // 파괴 단추(덱 비우기)와 같은 옷을 입고 있어 눈에 안 띄던 것을 뗐다.
+    expect(open.classList.contains('deck-clear')).toBe(false);
+    expect(open.classList.contains('burst-order-open')).toBe(true);
+    expect(open.classList.contains('is-on')).toBe(false);
+
+    open.click();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
+    root.querySelector<HTMLButtonElement>('[data-burst-order-save]')!.click();
+    expect(open.classList.contains('is-on')).toBe(true);
+  });
+
   it('← 로 한 칸 되돌리고 0으로 자동으로 되돌린다', () => {
     mountCalculator(root, {
       catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
