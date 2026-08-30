@@ -155,6 +155,59 @@ class BrowserBridgeTest(unittest.TestCase):
         totals = self._totals_by_seed([42, 7, 12345])
         self.assertEqual(len(set(totals)), 1, f"안 주면 난수로 돈다: {totals}")
 
+    def _burst_casts(self, sequence=None):
+        """버스트가 시간순으로 누가 몇 단계를 썼는지."""
+        payload = {
+            "squad": ["리타", "크라운", "홍련", "앨리스", "나가"],
+            "duration": 60,
+            "enemyDef": 31_784,
+            "enemyCode": "",
+            "corePx": 0,
+            "hasParts": False,
+            "seed": 42,
+            "rngMode": "expected",
+            "timeline": True,
+        }
+        if sequence is not None:
+            payload["burstSequence"] = sequence
+        result = json.loads(run_request(json.dumps(payload, ensure_ascii=False)))
+        casts = []
+        for name, entries in (result.get("timeline", {}).get("bursts") or {}).items():
+            for entry in entries:
+                casts.append((entry["t"], entry["stage"], name))
+        casts.sort()
+        return casts
+
+    def test_burst_sequence_decides_who_bursts(self):
+        """적어 둔 사이클에서는 그 사람이 그 단계를 쓴다."""
+        auto = self._burst_casts()
+        self.assertTrue(auto, "버스트가 하나도 안 나갔다 — 시험 전제가 깨졌다")
+
+        # 3버는 앨리스·나가 둘 다 가능하다. 첫 사이클만 나가로 못 박는다.
+        forced = self._burst_casts([{"1": ["리타"], "2": ["크라운"], "3": ["나가"]}])
+        first_third = next((name for _, stage, name in forced if stage == "3"), None)
+        self.assertEqual(first_third, "나가")
+
+    def test_burst_sequence_only_binds_the_cycles_it_names(self):
+        """적어 둔 사이클을 넘어가면 평소 순서로 돌아간다 — 우선순위지 절대 규칙이 아니다."""
+        forced = self._burst_casts([{"1": ["리타"], "2": ["크라운"], "3": ["나가"]}])
+        thirds = [name for _, stage, name in forced if stage == "3"]
+        self.assertGreater(len(thirds), 1, "60초면 3버가 여러 번 나가야 한다")
+        self.assertEqual(thirds[0], "나가")
+        # 두 번째부터는 계산기가 알아서 고른다 — 나가로 고정돼 있지 않다.
+        self.assertTrue(any(name != "나가" for name in thirds[1:]),
+                        f"적어 두지 않은 사이클까지 묶였다: {thirds}")
+
+    def test_burst_sequence_rejects_a_name_outside_the_squad(self):
+        """편성에 없는 이름은 조용히 떨구지 않고 거절한다."""
+        with self.assertRaisesRegex(ValueError, "편성에 없는 니케"):
+            self._burst_casts([{"1": ["도로시"], "2": [], "3": []}])
+
+    def test_empty_burst_sequence_is_the_same_as_not_giving_one(self):
+        """빈 사이클만 늘어놓으면 안 준 것과 같다 — 버스트가 막히면 안 된다."""
+        empty = self._burst_casts([{"1": [], "2": [], "3": []}, {"1": [], "2": [], "3": []}])
+        self.assertEqual(empty, self._burst_casts())
+
     def test_seeded_request_returns_compact_positive_result(self):
         payload = {
             "squad": ["리타"],

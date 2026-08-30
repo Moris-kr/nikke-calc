@@ -1,3 +1,5 @@
+import type { BurstSequence } from './burst-order';
+
 export type ElementCode = '' | '풍압' | '수냉' | '작열' | '전격' | '철갑';
 // 큐브 종류의 정본은 `data/base_stat_tables/cube.json`이며 게임 업데이트로 계속
 // 늘어난다. 목록을 여기 박아두면 데이터가 앞서갈 때 조용히 어긋나므로, 이름은
@@ -102,6 +104,8 @@ export interface SimulationRequest {
   immuneWindows?: PhaseWindow[];
   elementWindows?: ElementWindow[];
   rngMode?: RngMode;
+  /** 손으로 정한 버스트 순서. 안 주면 계산기가 평소 순서로 고른다. */
+  burstSequence?: BurstSequence;
   /** 족자 중에는 버스트 게이지도 안 찬다고 볼지. */
   immuneBlocksBurst?: boolean;
   // 무기군별 평타 계수. 실전에서 탄퍼짐으로 빗나가는 탄을 보정한다 — 평타에만 붙고
@@ -163,6 +167,11 @@ export interface DeckState {
   id: number;
   squad: string[];
   characters: Record<string, CharacterOverrides>;
+  /**
+   * 손으로 정한 버스트 순서. 사이클마다 단계별로 누구를 쓸지 적는다.
+   * **덱마다 따로다** — 편성이 다르면 쓸 수 있는 사람도 다르다.
+   */
+  burstSequence?: BurstSequence;
 }
 
 export interface CharacterMeta {

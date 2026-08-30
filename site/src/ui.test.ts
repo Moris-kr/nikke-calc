@@ -258,6 +258,94 @@ describe('calculator UI', () => {
     root.remove();
   });
 
+  it('버스트 순서를 단축키로 걸어 덱에 남긴다', () => {
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+
+    root.querySelector<HTMLButtonElement>('[data-burst-order-open]')!.click();
+    const modal = root.querySelector<HTMLElement>('[data-burst-order-modal]')!;
+    expect(modal.hidden).toBe(false);
+
+    // 첫 걸음은 1번째 풀버스트의 1버다.
+    const now = root.querySelector<HTMLElement>('[data-burst-now]')!;
+    expect(now.textContent).toContain('1번째 풀버스트');
+    expect(now.textContent).toContain('1버');
+
+    // 1버는 리타 하나뿐이라 A와 「자동」(0)만 붙는다.
+    const keysOf = () => [...root.querySelectorAll<HTMLElement>('[data-burst-picks] .burst-pick-key')]
+      .map((node) => node.textContent);
+    expect(keysOf()).toEqual(['A', '0']);
+
+    const firstName = root.querySelector<HTMLElement>('[data-burst-picks] .burst-pick-name')!
+      .textContent!;
+    expect(firstName).toBe('리타');
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
+    // 한 칸 골랐으니 다음 걸음(2버)으로 넘어간다.
+    expect(now.textContent).toContain('2버');
+    // 2버는 둘이라 A·S가 편성 순서대로 붙는다.
+    expect(keysOf()).toEqual(['A', 'S', '0']);
+    expect([...root.querySelectorAll<HTMLElement>('[data-burst-picks] .burst-pick-name')]
+      .map((node) => node.textContent).slice(0, 2)).toEqual(['크라운', '나가']);
+    expect(root.querySelector('[data-burst-progress]')?.textContent).toContain('1 /');
+
+    root.querySelector<HTMLButtonElement>('[data-burst-order-save]')!.click();
+    expect(modal.hidden).toBe(true);
+
+    const saved = JSON.parse(localStorage.getItem('nikke-state-v1')!) as
+      { decks: Array<{ burstSequence?: Array<Record<string, string[]>> }> };
+    expect(saved.decks[0]!.burstSequence![0]!['1']).toEqual([firstName]);
+    // 덱 도구 줄의 배지가 걸려 있음을 알린다.
+    expect(root.querySelector<HTMLElement>('[data-burst-order-badge]')!.hidden).toBe(false);
+  });
+
+  it('← 로 한 칸 되돌리고 0으로 자동으로 되돌린다', () => {
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    root.querySelector<HTMLButtonElement>('[data-burst-order-open]')!.click();
+    const now = root.querySelector<HTMLElement>('[data-burst-now]')!;
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
+    expect(now.textContent).toContain('2버');
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+    expect(now.textContent).toContain('1버');
+    expect(now.textContent).not.toContain('→ 자동');
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: '0', bubbles: true }));
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+    expect(now.textContent).toContain('→ 자동');
+  });
+
+  it('순서를 지우면 덱에서 사라지고 배지도 내려간다', () => {
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    root.querySelector<HTMLButtonElement>('[data-burst-order-open]')!.click();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
+    root.querySelector<HTMLButtonElement>('[data-burst-order-save]')!.click();
+
+    root.querySelector<HTMLButtonElement>('[data-burst-order-open]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-burst-order-clear]')!.click();
+
+    const saved = JSON.parse(localStorage.getItem('nikke-state-v1')!) as
+      { decks: Array<{ burstSequence?: unknown }> };
+    expect(saved.decks[0]!.burstSequence).toBeUndefined();
+    expect(root.querySelector<HTMLElement>('[data-burst-order-badge]')!.hidden).toBe(true);
+  });
+
+  it('창이 닫혀 있으면 단축키를 가져가지 않는다', () => {
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    // 창을 열지 않은 채 A를 눌러도 아무 일이 없어야 한다 — 검색칸과 부딪치면 안 된다.
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
+    const saved = JSON.parse(localStorage.getItem('nikke-state-v1') ?? '{"decks":[{}]}') as
+      { decks: Array<{ burstSequence?: unknown }> };
+    expect(saved.decks[0]!.burstSequence).toBeUndefined();
+  });
+
   it('외부고리 탭이 네 곳으로 새 탭에서 나간다', () => {
     mountCalculator(root, {
       catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,

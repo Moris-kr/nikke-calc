@@ -44,6 +44,11 @@ import { mountSharePanel, squadPreview, type SharePanel } from './share-panel';
 import { startPresence } from './presence';
 import { mountUnionRaid } from './union-raid';
 import { EXTERNAL_LINKS, hostOf } from './external-links';
+import {
+  candidatesFor, cycleLine, cyclesFromTimeline, estimateCycles, HOTKEYS, MAX_CYCLES,
+  picksFrom, progressOf, sequenceForDeck, sequenceFrom, stepKey, stepsFor, trimSequence,
+  type BurstStage, type BurstStep,
+} from './burst-order';
 import { ShareServer, summarizeBattle, summarizeSquad } from './share-server';
 import { createTimelineBlock } from './timeline';
 import {
@@ -651,6 +656,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           <div class="deck-tabs" data-deck-tabs hidden></div>
           <div class="deck-controls">
             <span class="deck-moves" data-deck-moves hidden></span>
+            <button type="button" class="deck-clear" data-burst-order-open title="사이클마다 1버·2버·3버를 누가 쓸지 직접 정합니다. 정한 만큼만 따르고 그 뒤는 평소 순서로 돌아갑니다">버스트 순서<b class="burst-order-badge" data-burst-order-badge hidden></b></button>
             <button type="button" class="deck-clear" data-deck-clear title="지금 보고 있는 덱의 편성과 개별 설정을 비웁니다">덱 비우기</button>
           <div class="deck-copy" data-deck-copy hidden>
             <button type="button" class="deck-copy-open" data-deck-copy-open>현재 덱 복사</button>
@@ -872,6 +878,31 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           <div class="custom-head"><h2 data-buff-order-title>버프 대상 순서</h2><button type="button" class="custom-close" data-buff-order-close aria-label="닫기">✕</button></div>
           <p class="custom-desc" data-buff-order-desc></p>
           <div class="buff-order-list" data-buff-order-list></div>
+        </div>
+      </div>
+
+      <div class="custom-modal" data-burst-order-modal hidden>
+        <div class="custom-card burst-order-card" role="dialog" aria-label="버스트 순서">
+          <div class="custom-head"><h2>버스트 순서</h2><button type="button" class="custom-close" data-burst-order-close aria-label="닫기">✕</button></div>
+          <p class="custom-desc">사이클마다 <b>1버 → 2버 → 3버</b>를 누가 쓸지 직접 정합니다. <b>정한 사이클까지만 따릅니다</b> — 전투가 더 길면 그 뒤는 계산기가 평소 순서로 고릅니다. 초상화를 누르거나 <b>A·S·D·F·G</b> 키로 고르고, <b>←</b>로 한 칸 되돌립니다.</p>
+          <div class="burst-order-bar">
+            <label class="burst-cycles">풀버스트 횟수
+              <button type="button" class="burst-step-btn" data-burst-cycles-down aria-label="한 사이클 줄이기">−</button>
+              <output data-burst-cycles>0</output>
+              <button type="button" class="burst-step-btn" data-burst-cycles-up aria-label="한 사이클 늘리기">+</button>
+            </label>
+            <span class="burst-order-progress" data-burst-progress></span>
+            <button type="button" class="roster-import" data-burst-order-reset>처음부터</button>
+          </div>
+          <p class="burst-order-hint" data-burst-cycles-note></p>
+          <div class="burst-now" data-burst-now></div>
+          <div class="burst-picks" data-burst-picks></div>
+          <div class="burst-order-list" data-burst-list></div>
+          <p class="custom-msg" data-burst-order-msg hidden></p>
+          <div class="deck-copy-actions">
+            <button type="button" class="deck-copy-apply" data-burst-order-save>이 순서로 두기</button>
+            <button type="button" class="deck-copy-cancel" data-burst-order-clear>순서 지우기(자동)</button>
+          </div>
         </div>
       </div>
 
@@ -1438,6 +1469,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
   const renderSquad = () => {
     const deck = activeDeck();
+    // 버스트 순서는 편성에 매여 있다 — 편성이 바뀌면 배지도 따라간다.
+    renderBurstBadge();
     squadGrid.replaceChildren();
     for (let index = 0; index < 5; index += 1) {
       const name = deck.squad[index] ?? '';
@@ -2790,6 +2823,248 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     timelineHasContent = blocks.size > 0;
     timelinePanel.hidden = !timelineHasContent || currentView !== 'calc';
   };
+
+  // ── 버스트 순서 ─────────────────────────────────────────────────────────
+  /** 이 판에서만 쓰는 요소 만들기. union-raid의 같은 이름 도우미와 짝이다. */
+  const el = <K extends keyof HTMLElementTagNameMap>(
+    tag: K, className?: string, text?: string,
+  ): HTMLElementTagNameMap[K] => {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  };
+
+  // 사이클마다 단계별로 누구를 쓸지 손으로 정한다. 창을 쓰는 이유는 **키보드를
+  // 통째로 가져가기 때문**이다 — 탭 안에 두면 A·S·D·F·G가 검색칸과 부딪친다.
+  const burstModal = element<HTMLElement>(root, '[data-burst-order-modal]');
+  const burstBadge = element<HTMLElement>(root, '[data-burst-order-badge]');
+  const burstNow = element<HTMLElement>(root, '[data-burst-now]');
+  const burstPicksBox = element<HTMLElement>(root, '[data-burst-picks]');
+  const burstList = element<HTMLElement>(root, '[data-burst-list]');
+  const burstProgress = element<HTMLElement>(root, '[data-burst-progress]');
+  const burstCyclesOut = element<HTMLOutputElement>(root, '[data-burst-cycles]');
+  const burstCyclesNote = element<HTMLElement>(root, '[data-burst-cycles-note]');
+  const burstMsg = element<HTMLElement>(root, '[data-burst-order-msg]');
+
+  /** 창이 열려 있는 동안의 작업본. 「이 순서로 두기」를 눌러야 덱에 남는다. */
+  let burstPicks: Record<string, string> = {};
+  let burstCycles = 1;
+  let burstAt = 0;          // 지금 서 있는 걸음
+  let burstSteps: BurstStep[] = [];
+
+  const showBurstMsg = (message: string, ok = false) => {
+    burstMsg.hidden = message === '';
+    burstMsg.textContent = message;
+    burstMsg.classList.toggle('is-ok', ok);
+  };
+
+  /** 「버스트 안 씀」으로 잡아 둔 사람. 후보에서 뺀다. */
+  const burstSkipped = (deck: DeckState): Set<string> => new Set(
+    Object.entries(deck.characters)
+      .filter(([, value]) => value.burst?.mode === 'skip')
+      .map(([name]) => name),
+  );
+
+  const burstCandidates = (stage: BurstStage): string[] => {
+    const deck = activeDeck();
+    return candidatesFor(stage, {
+      squad: deck.squad,
+      metaOf: (name) => catalogByName.get(name),
+      skipped: burstSkipped(deck),
+    });
+  };
+
+  /** 덱 도구 줄의 단추에 「9사이클」처럼 적어 둔다 — 열지 않아도 걸려 있는지 보인다. */
+  function renderBurstBadge(): void {
+    const kept = sequenceForDeck(activeDeck());
+    burstBadge.hidden = kept === null;
+    burstBadge.textContent = kept ? `${kept.length}` : '';
+  }
+
+  /** 아직 안 고른 첫 칸으로 옮긴다. 창을 다시 열면 하던 자리에서 이어진다. */
+  const firstUnpicked = (): number => {
+    const at = burstSteps.findIndex((step) => !burstPicks[stepKey(step)]);
+    return at >= 0 ? at : Math.max(0, burstSteps.length - 1);
+  };
+
+  function renderBurstOrder(): void {
+    burstSteps = stepsFor(burstCycles);
+    burstAt = Math.min(Math.max(0, burstAt), Math.max(0, burstSteps.length - 1));
+    burstCyclesOut.textContent = String(burstCycles);
+
+    const { done, total } = progressOf(burstPicks, burstSteps);
+    burstProgress.textContent = `${done} / ${total}칸`;
+
+    // ── 지금 걸음 ──
+    burstNow.replaceChildren();
+    burstPicksBox.replaceChildren();
+    const step = burstSteps[burstAt];
+    if (!step) {
+      burstNow.append(el('p', 'burst-empty', '사이클을 하나 이상 두세요.'));
+    } else {
+      const head = el('div', 'burst-now-head');
+      head.append(
+        el('span', 'burst-now-cycle', `${step.cycle}번째 풀버스트`),
+        el('span', `burst-now-stage stage-${step.stage}`, `${step.stage}버`),
+      );
+      const picked = burstPicks[stepKey(step)];
+      head.append(el('span', 'burst-now-pick', picked ? `→ ${picked}` : '→ 자동'));
+      burstNow.append(head);
+
+      const candidates = burstCandidates(step.stage);
+      if (candidates.length === 0) {
+        burstPicksBox.append(el('p', 'burst-empty',
+          `편성에 ${step.stage}버가 없습니다. 이 단계는 건너뜁니다.`));
+      }
+      candidates.forEach((name, index) => {
+        const button = el('button', 'burst-pick' + (picked === name ? ' is-on' : ''));
+        (button as HTMLButtonElement).type = 'button';
+        const key = HOTKEYS[index];
+        const face = document.createElement('div');
+        face.className = 'burst-pick-face';
+        const image = catalogByName.get(name)?.image;
+        if (image) {
+          const img = document.createElement('img');
+          img.src = `${import.meta.env.BASE_URL}${image}`;
+          img.alt = '';
+          img.loading = 'lazy';
+          face.append(img);
+        } else {
+          face.textContent = name.slice(0, 2);
+        }
+        button.append(face, el('span', 'burst-pick-name', name));
+        if (key) button.append(el('b', 'burst-pick-key', key));
+        button.addEventListener('click', () => pickBurst(name));
+        burstPicksBox.append(button);
+      });
+      // 「이 단계는 자동으로」 — 고른 것을 무르는 자리다.
+      const auto = el('button', 'burst-pick is-auto' + (picked ? '' : ' is-on'));
+      (auto as HTMLButtonElement).type = 'button';
+      auto.append(el('span', 'burst-pick-name', '자동'));
+      auto.append(el('b', 'burst-pick-key', '0'));
+      auto.addEventListener('click', () => pickBurst(null));
+      burstPicksBox.append(auto);
+    }
+
+    // ── 적어 둔 것 ──
+    burstList.replaceChildren();
+    const sequence = sequenceFrom(burstPicks, burstCycles);
+    sequence.forEach((cycle, index) => {
+      const row = el('div', 'burst-row' + (burstSteps[burstAt]?.cycle === index + 1 ? ' is-now' : ''));
+      row.append(el('span', 'burst-row-no', `${index + 1}`), el('span', 'burst-row-body', cycleLine(cycle)));
+      row.addEventListener('click', () => {
+        burstAt = burstSteps.findIndex((s) => s.cycle === index + 1);
+        renderBurstOrder();
+      });
+      burstList.append(row);
+    });
+  }
+
+  /** 한 칸 고르고 다음으로. `null`이면 그 칸을 자동으로 되돌린다. */
+  function pickBurst(name: string | null): void {
+    const step = burstSteps[burstAt];
+    if (!step) return;
+    if (name === null) delete burstPicks[stepKey(step)];
+    else burstPicks[stepKey(step)] = name;
+    if (burstAt < burstSteps.length - 1) burstAt += 1;
+    showBurstMsg('');
+    renderBurstOrder();
+  }
+
+  function openBurstOrder(): void {
+    const deck = activeDeck();
+    if (!deck.squad.some((name) => name.trim())) {
+      showErrors(['버스트 순서를 정하려면 편성을 먼저 채워 주세요.']);
+      return;
+    }
+    const kept = sequenceForDeck(deck);
+    burstPicks = picksFrom(kept ?? undefined);
+    // 사이클 수: 적어 둔 게 있으면 그만큼, 아니면 지난 계산의 **실제 횟수**,
+    // 그것도 없으면 전투 시간으로 어림한다.
+    const measured = cyclesFromTimeline(
+      lastBatch?.decks.find((entry) => entry.deckId === deck.id)?.result.timeline);
+    burstCycles = kept?.length ?? measured ?? estimateCycles(readBattle().duration);
+    burstCyclesNote.textContent = kept
+      ? '적어 둔 순서를 불러왔습니다.'
+      : (measured !== null
+        ? `지난 계산에서 풀버스트가 ${measured}번 돌았습니다.`
+        : `전투 ${readBattle().duration}초로 어림한 값입니다. 한 번 계산해 보면 실제 횟수로 맞춰집니다.`);
+    burstSteps = stepsFor(burstCycles);
+    burstAt = firstUnpicked();
+    showBurstMsg('');
+    renderBurstOrder();
+    burstModal.hidden = false;
+  }
+
+  const closeBurstOrder = () => { burstModal.hidden = true; };
+
+  element<HTMLButtonElement>(root, '[data-burst-order-open]').addEventListener('click', openBurstOrder);
+  element<HTMLButtonElement>(root, '[data-burst-order-close]').addEventListener('click', closeBurstOrder);
+  burstModal.addEventListener('click', (event) => {
+    if (event.target === burstModal) closeBurstOrder();
+  });
+  element<HTMLButtonElement>(root, '[data-burst-cycles-up]').addEventListener('click', () => {
+    burstCycles = Math.min(MAX_CYCLES, burstCycles + 1);
+    renderBurstOrder();
+  });
+  element<HTMLButtonElement>(root, '[data-burst-cycles-down]').addEventListener('click', () => {
+    burstCycles = Math.max(1, burstCycles - 1);
+    renderBurstOrder();
+  });
+  element<HTMLButtonElement>(root, '[data-burst-order-reset]').addEventListener('click', () => {
+    burstPicks = {};
+    burstAt = 0;
+    showBurstMsg('');
+    renderBurstOrder();
+  });
+  element<HTMLButtonElement>(root, '[data-burst-order-save]').addEventListener('click', () => {
+    const deck = activeDeck();
+    const sequence = trimSequence(sequenceFrom(burstPicks, burstCycles));
+    if (sequence) deck.burstSequence = sequence;
+    else delete deck.burstSequence;
+    saveState();
+    renderBurstBadge();
+    closeBurstOrder();
+    showErrors([]);
+  });
+  element<HTMLButtonElement>(root, '[data-burst-order-clear]').addEventListener('click', () => {
+    delete activeDeck().burstSequence;
+    burstPicks = {};
+    burstAt = 0;
+    saveState();
+    renderBurstBadge();
+    renderBurstOrder();
+    showBurstMsg('순서를 지웠습니다. 계산기가 평소 순서로 고릅니다.', true);
+  });
+
+  // 키보드는 창이 열려 있을 때만 가져간다. 조합키가 눌린 입력은 브라우저 것이다.
+  document.addEventListener('keydown', (event) => {
+    if (burstModal.hidden) return;
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+    if (event.key === 'Escape') { closeBurstOrder(); return; }
+    if (event.key === 'ArrowLeft') {
+      burstAt = Math.max(0, burstAt - 1);
+      renderBurstOrder();
+      event.preventDefault();
+      return;
+    }
+    if (event.key === 'ArrowRight') {
+      burstAt = Math.min(Math.max(0, burstSteps.length - 1), burstAt + 1);
+      renderBurstOrder();
+      event.preventDefault();
+      return;
+    }
+    if (event.key === '0') { pickBurst(null); event.preventDefault(); return; }
+    const at = HOTKEYS.indexOf(event.key.toUpperCase() as typeof HOTKEYS[number]);
+    if (at < 0) return;
+    const step = burstSteps[burstAt];
+    if (!step) return;
+    const name = burstCandidates(step.stage)[at];
+    if (!name) return;
+    pickBurst(name);
+    event.preventDefault();
+  });
 
   element<HTMLButtonElement>(root, '[data-deck-clear]').addEventListener('click', () => {
     const deck = activeDeck();

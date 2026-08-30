@@ -1,3 +1,4 @@
+import { sequenceForDeck, trimSequence } from './burst-order';
 import type {
   BatchResult,
   BattleSettings,
@@ -53,6 +54,9 @@ export function normalizeRequest(request: SimulationRequest): SimulationRequest 
     // 기본값이 어긋나 기대값으로 둔 사람들이 내내 난수 모드로 계산하고 있었다. 경계를
     // 넘는 값은 양쪽이 같은 기본값을 안다고 믿지 말고 그냥 적어 보낸다.
     rngMode: request.rngMode ?? 'expected',
+    // 손으로 정한 버스트 순서. 안 정했으면 아예 안 싣는다 — 옛 캐시 키와 갈리지 않게.
+    ...(trimSequence(request.burstSequence)
+      ? { burstSequence: trimSequence(request.burstSequence)! } : {}),
     // 기본값(켜짐)은 요청·캐시 키에서 뺀다.
     ...(request.immuneBlocksBurst === false ? { immuneBlocksBurst: false } : {}),
     // 평타 계수도 캐시 키에 실린다 — 값이 다른 결과가 섞이면 안 된다. 키 순서가
@@ -259,6 +263,8 @@ export function requestForDeck(
     // 덱마다 따로 잡아 뒀으면 그 값이 이긴다 — 버스트 쿨이 밀리는 덱만 달리 잰다.
     burstRegenTime: battle.burstRegenPerDeck?.[deck.id] ?? battle.burstRegenTime,
     burstReaction: battle.burstReaction,
+    // 편성이 바뀌었으면 없는 이름을 떨궈서 싣는다 — 조용히 틀린 순서로 돌지 않게.
+    ...(sequenceForDeck(deck) ? { burstSequence: sequenceForDeck(deck)! } : {}),
   });
 }
 

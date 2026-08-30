@@ -329,6 +329,63 @@ def normalize_burst_reaction(raw: Any) -> float | None:
     return value
 
 
+BURST_STAGES = ("1", "2", "3")
+
+#: 손으로 정할 수 있는 사이클 수 상한. 화면은 30까지만 만들지만, 손으로 만든 JSON도
+#: 받으므로 넉넉히 두고 그 위는 거절한다.
+BURST_SEQUENCE_MAX_CYCLES = 60
+
+
+def normalize_burst_sequence(raw: Any, names: list[str]) -> list[dict] | None:
+    """손으로 정한 버스트 순서 → config `burst_sequence`.
+
+    받는 모양은 사이클 목록이고, 사이클 하나는 `{"1": [이름...], "2": [...], "3": [...]}`다.
+    빈 목록은 「이 단계는 안 정했다」는 뜻이라 그 단계만 평소 순서로 돈다.
+
+    적어 둔 사이클까지만 이 순서를 따르고 전투가 더 길면 그 뒤는 평소 순서로 돌아간다
+    (`timeline._try_use_stage`) — 버스트 패턴은 우선순위지 절대 규칙이 아니다.
+
+    **편성에 없는 이름은 거절한다.** 조용히 떨구면 사람이 정한 순서와 실제로 도는 순서가
+    달라지는데, 그건 이 기능이 존재하는 이유를 무너뜨린다 — 틀렸으면 틀렸다고 말한다.
+    """
+    if raw is None:
+        return None
+    if not isinstance(raw, list):
+        raise ValueError("버스트 순서는 사이클 목록이어야 한다")
+    if not raw:
+        return None
+    if len(raw) > BURST_SEQUENCE_MAX_CYCLES:
+        raise ValueError(f"버스트 순서는 {BURST_SEQUENCE_MAX_CYCLES}사이클까지다")
+
+    allowed = set(names)
+    out: list[dict] = []
+    for index, cycle in enumerate(raw, start=1):
+        if not isinstance(cycle, dict):
+            raise ValueError(f"{index}번째 버스트 순서가 올바르지 않다")
+        entry: dict[str, list[str]] = {}
+        for stage in BURST_STAGES:
+            picked = cycle.get(stage) or []
+            if not isinstance(picked, list):
+                raise ValueError(f"{index}번째 {stage}단계 버스트 순서가 올바르지 않다")
+            slot: list[str] = []
+            for value in picked:
+                name = str(value).strip()
+                if not name:
+                    continue
+                if name not in allowed:
+                    raise ValueError(f"버스트 순서에 편성에 없는 니케가 있다: {name}")
+                if name not in slot:
+                    slot.append(name)
+            entry[stage] = slot
+        out.append(entry)
+
+    # 전부 비어 있으면 안 준 것과 같다. 빈 사이클만 늘어놓으면 그 사이클에서 후보가
+    # 없어 버스트가 통째로 막히므로, 여기서 None으로 되돌린다.
+    if not any(entry[stage] for entry in out for stage in BURST_STAGES):
+        return None
+    return out
+
+
 def normalize_synchro_level(raw: Any) -> int | None:
     """싱크로 레벨 → 캐릭터 `level`. 안 주면 기본 스펙 레벨을 그대로 쓴다.
 

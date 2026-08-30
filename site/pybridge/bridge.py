@@ -15,6 +15,7 @@ from calculator.customization import (
     normalize_immune_windows,
     normalize_normal_hit_coeff,
     normalize_burst_reaction,
+    normalize_burst_sequence,
     normalize_optimal_range,
     normalize_synchro_level,
 )
@@ -386,6 +387,11 @@ def run_request(raw: str) -> str:
         config_in["burst_pattern"] = burst_pattern
     if no_burst:
         config_in["no_burst_chars"] = no_burst
+    # 손으로 정한 버스트 순서 → config["burst_sequence"]. 적어 둔 사이클까지만 따르고,
+    # 전투가 더 길면 그 뒤는 평소 순서로 돌아간다.
+    sequence = normalize_burst_sequence(payload.get("burstSequence"), names)
+    if sequence is not None:
+        config_in["burst_sequence"] = sequence
     # 버스트 반응속도 — 조건이 갖춰진 뒤 누르기까지. 전투 조건이라 config에 둔다.
     reaction = normalize_burst_reaction(payload.get("burstReaction"))
     if reaction is not None:

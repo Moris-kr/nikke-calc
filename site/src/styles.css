@@ -1273,3 +1273,68 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
   .link-head { flex-direction: column; align-items: flex-start; gap: 2px; }
   .link-host { max-width: 100%; }
 }
+
+/* ── 버스트 순서 ──────────────────────────────────────────────────────────
+   한 걸음에 하나씩 고른다. 초상화가 크고 단축키가 그 위에 박혀 있어야 눈이 아니라
+   손이 외운다 — 아홉 사이클이면 스물일곱 번 누르는 화면이다. */
+.burst-order-card { max-width: 620px; }
+.burst-order-badge { margin-left: 6px; padding: 1px 6px; border-radius: 999px;
+  background: rgba(255,191,60,.16); color: var(--amber); font-size: 10px; font-weight: 800; }
+.burst-order-badge[hidden] { display: none; }
+
+.burst-order-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 14px 0 4px; }
+.burst-cycles { display: inline-flex; align-items: center; gap: 6px; color: var(--muted);
+  font-size: 11.5px; font-weight: 700; }
+.burst-cycles output { min-width: 26px; text-align: center; color: var(--ink);
+  font: 800 14px/1 ui-monospace, monospace; }
+.burst-step-btn { width: 26px; height: 26px; border: 1px solid var(--line); border-radius: 7px;
+  background: rgba(3,9,16,.6); color: var(--ink); font: 700 14px/1 inherit; cursor: pointer; }
+.burst-step-btn:hover { border-color: rgba(69,214,208,.45); }
+.burst-order-progress { margin-left: auto; color: var(--muted);
+  font: 11px/1 ui-monospace, monospace; }
+.burst-order-hint { margin: 0 0 12px; color: var(--muted); font-size: 11px; }
+
+/* 지금 서 있는 걸음. 사이클과 단계가 한눈에 읽혀야 손이 안 멈춘다. */
+.burst-now { display: flex; align-items: center; padding: 12px; border: 1px solid var(--line-hot, rgba(69,214,208,.38));
+  border-radius: 10px; background: rgba(69,214,208,.06); }
+.burst-now-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; }
+.burst-now-cycle { color: var(--ink); font-size: 13px; font-weight: 800; }
+.burst-now-stage { padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 800; }
+.burst-now-stage.stage-1 { background: rgba(255,191,60,.16); color: var(--amber); }
+.burst-now-stage.stage-2 { background: rgba(69,214,208,.16); color: var(--cyan); }
+.burst-now-stage.stage-3 { background: rgba(167,139,250,.18); color: #c4b5fd; }
+.burst-now-pick { color: var(--muted); font-size: 12px; }
+
+.burst-picks { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 14px; }
+.burst-pick { position: relative; display: flex; flex-direction: column; align-items: center; gap: 5px;
+  width: 84px; padding: 8px 6px; border: 1px solid var(--line); border-radius: 10px;
+  background: rgba(7,15,25,.55); color: inherit; font: inherit; cursor: pointer; }
+.burst-pick:hover { border-color: rgba(69,214,208,.45); }
+.burst-pick.is-on { border-color: var(--cyan); background: rgba(69,214,208,.12); }
+.burst-pick:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.burst-pick-face { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 9px;
+  background: rgba(146,176,201,.07); border: 1px solid var(--line); overflow: hidden;
+  color: var(--muted); font-size: 13px; font-weight: 800; }
+.burst-pick-face img { width: 100%; height: 100%; object-fit: cover; }
+.burst-pick-name { font-size: 10.5px; font-weight: 700; line-height: 1.25; text-align: center;
+  word-break: keep-all; }
+.burst-pick-key { position: absolute; top: 5px; right: 6px; padding: 0 4px; border-radius: 5px;
+  background: rgba(3,9,16,.85); color: var(--amber); font: 800 10px/1.5 ui-monospace, monospace; }
+.burst-pick.is-auto { justify-content: center; min-height: 84px; }
+
+.burst-order-list { display: grid; gap: 4px; max-height: 210px; overflow-y: auto;
+  border: 1px solid var(--line); border-radius: 10px; padding: 8px; background: rgba(3,9,16,.4); }
+.burst-row { display: flex; align-items: baseline; gap: 10px; padding: 5px 8px; border-radius: 7px;
+  cursor: pointer; }
+.burst-row:hover { background: rgba(146,176,201,.07); }
+.burst-row.is-now { background: rgba(69,214,208,.1); }
+.burst-row-no { min-width: 20px; color: var(--muted); font: 700 10.5px/1.5 ui-monospace, monospace; }
+.burst-row-body { flex: 1; color: #cfe3e6; font-size: 11.5px; }
+.burst-empty { margin: 0; color: var(--muted); font-size: 12px; }
+
+@media (max-width: 520px) {
+  /* 좁으면 초상화를 줄여 한 줄에 넷은 들어가게 한다 — 스크롤하며 고르면 손이 끊긴다. */
+  .burst-pick { width: calc(25% - 6px); padding: 7px 4px; }
+  .burst-pick-face { width: 40px; height: 40px; }
+  .burst-order-progress { margin-left: 0; }
+}
