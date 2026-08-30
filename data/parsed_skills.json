@@ -1774,7 +1774,7 @@
       },
       "target": "self",
       "stat": "remove_named_buff",
-      "target_effect": "방열"
+      "target_effect": "방열 2"
     },
     {
       "source": "스킬1",
@@ -1785,7 +1785,7 @@
           "passive"
         ],
         "condition": [
-          "self_state:방열"
+          "self_state:방열 2"
         ]
       },
       "target": "self",
@@ -1803,7 +1803,7 @@
           "passive"
         ],
         "condition": [
-          "self_state:방열"
+          "self_state:방열 2"
         ]
       },
       "target": "all_allies",
@@ -1832,7 +1832,7 @@
           "passive"
         ],
         "condition": [
-          "self_state:방열"
+          "self_state:방열 2"
         ]
       },
       "target": "all_allies",
@@ -1956,8 +1956,24 @@
     },
     {
       "source": "스킬3",
-      "type": "instant",
+      "type": "buff",
       "name": "미래 예지",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "polarity": "neutral",
+      "max_stack": 1,
+      "duration": 10,
+      "note": "상태 마커. 원문 `[미래 예지]`는 수치 없이 이름만 있는 상태다. `self_state:미래 예지`(과열 II·III)와 `event:state_end:미래 예지`(방열) 게이팅용 — instant로 두면 `_active`에 안 들어가 둘 다 조용히 죽는다"
+    },
+    {
+      "source": "스킬3",
+      "type": "instant",
+      "name": "미래 예지 2",
       "trigger": {
         "timing": [
           "burst_cast"
@@ -8495,7 +8511,7 @@
           "event:ally_hp_below:15"
         ],
         "condition": [
-          "target_state:티켓"
+          "gauge_above:티켓:1"
         ]
       },
       "target": "all_allies",
@@ -8523,7 +8539,7 @@
           "event:ally_hp_below:15"
         ],
         "condition": [
-          "target_state:티켓"
+          "gauge_above:티켓:1"
         ]
       },
       "target": "all_allies",
@@ -26487,7 +26503,7 @@
           "full_charge_hit"
         ],
         "condition": [
-          "target_state:내부 폭발탄"
+          "target_state:내부 폭발탄 2"
         ]
       },
       "target": "self",
@@ -41993,7 +42009,7 @@
       },
       "target": "self",
       "stat": "remove_named_buff",
-      "target_effect": "스타게이저"
+      "target_effect": "스타게이저 2"
     },
     {
       "source": "스킬2",
@@ -42005,7 +42021,7 @@
         ],
         "condition": [
           "self_hp_above:25",
-          "self_state:스타게이저"
+          "self_state:스타게이저 2"
         ]
       },
       "target": "self",
@@ -42021,7 +42037,7 @@
           "full_burst_start"
         ],
         "condition": [
-          "self_state:스타게이저"
+          "self_state:스타게이저 2"
         ]
       },
       "target": "allies_named:아니스 : 스타",
@@ -42051,7 +42067,7 @@
           "full_burst_start"
         ],
         "condition": [
-          "self_state:스타게이저"
+          "self_state:스타게이저 2"
         ]
       },
       "target": "allies_named:아니스 : 스타",
@@ -43405,11 +43421,9 @@
         "timing": [
           "full_charge_count:3"
         ],
-        "condition": [
-          "target_state:회복 독점 서약"
-        ]
+        "condition": []
       },
-      "target": "all_allies",
+      "target": "allies_with_buff:회복 독점 서약",
       "stat": "heal_hp_pct",
       "values": {
         "1": 0.78,
