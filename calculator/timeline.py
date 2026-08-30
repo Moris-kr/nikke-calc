@@ -782,7 +782,11 @@ class CharState:
                 bm.notify("last_bullet_fire", t, self.name)
 
         if self._charge_phase == "charging":
-            if self.tap_fire and not self._force_full_charge:
+            # 홀드 구간에서는 톡톡이를 멈춘다. 둘은 겹쳐 쓰는 컨트롤이다 — 평소에는
+            # 톡톡이로 쏘다가 **본인 버스트 동안만** 풀차지를 들고 있는 조작이
+            # 실제로 쓰인다(아인 + 에이다). 톡톡이가 늘 이기게 두면 홀드가 통째로
+            # 죽어, 홀드를 얹은 조합이 톡톡이만 켠 것과 한 자리도 다르지 않았다.
+            if self.tap_fire and not self._force_full_charge and self._hold_release_t < 0:
                 # 톡톡이: 누르는 시간이 고정이고, 그중 사격 전 딜레이를 뺀 만큼만 차지된다.
                 # 차지속도 버프로 유효 차지 시간이 그 아래로 내려가면 풀차지 샷이 된다.
                 self._charge_end_t = self._charge_start_t + self._tap_hold

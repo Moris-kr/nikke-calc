@@ -2,7 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { renderCharacterSettings } from './character-settings';
+import { recommendedControlText, renderCharacterSettings } from './character-settings';
 import type { BuffTargetRow, CharacterOverrides, SettingsCatalog } from './types';
 
 const settings: SettingsCatalog = {
@@ -376,6 +376,37 @@ describe('character settings editor', () => {
     expect(control.getAttribute('aria-expanded')).toBe('true');
     expect(root.querySelector<HTMLElement>('[data-control-panel]')!.hidden).toBe(false);
     expect(stats.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('추천 컨트롤을 영어 키가 아니라 한글로 적는다', () => {
+    // 「tap_fire」라고 적어 두면 아래 체크박스의 「톡톡이」와 같은 것인 줄 모른다.
+    expect(recommendedControlText(
+      { recommendedControl: { tap_fire: { rate: 3.6, release: 0.03 } }, hasConditionalControl: false },
+    )).toBe('현재 기본 추천: 톡톡이');
+    expect(recommendedControlText({ recommendedControl: {}, hasConditionalControl: false }))
+      .toBe('현재 기본 추천: 자동 사격');
+  });
+
+  it('조합으로 붙는 컨트롤을 누구 때문인지까지 적는다', () => {
+    // 아인은 에이다와 함께일 때 홀드가 붙는다. 예전에는 그 사실이 화면에 없어서
+    // 「홀드를 켰는데 결과가 그대로」로 보였다 — 이미 걸려 있었기 때문이다.
+    const defaults = {
+      recommendedControl: { tap_fire: { rate: 3.6, release: 0.03 } },
+      hasConditionalControl: true,
+      conditionalControl: [{ withMembers: ['에이다'], control: { hold: { policy: 'own_full_burst' as const, lead: 0.5 } } }],
+    };
+    expect(recommendedControlText(defaults, ['아인', '에이다', '미란다']))
+      .toBe('현재 기본 추천: 톡톡이 · 홀드 컨트롤(에이다와 함께라서)');
+    // 그 사람이 빠지면 다시 조건 없는 것만 남는다 — 얼버무리는 말도 붙지 않는다.
+    expect(recommendedControlText(defaults, ['아인', '홍련']))
+      .toBe('현재 기본 추천: 톡톡이');
+  });
+
+  it('화면이 판정할 수 없는 조건은 예전처럼 알리기만 한다', () => {
+    // 같은 단계·자리 번호를 보는 규칙은 내려오지 않는다. 흉내 내면 틀린 값을 적게 된다.
+    expect(recommendedControlText(
+      { recommendedControl: {}, hasConditionalControl: true }, ['아인'],
+    )).toBe('현재 기본 추천: 자동 사격 · 스쿼드 조합에 따라 추천 컨트롤이 추가됩니다.');
   });
 
   it('컨트롤 칩은 열지 않아도 지금 상태를 적어 둔다', () => {

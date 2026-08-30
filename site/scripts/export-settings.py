@@ -35,6 +35,18 @@ def main() -> None:
     ):
         meta = nikke[name]
         profile = growth_profile(name, meta)
+        # 조합 조건부 컨트롤 중 «누가 함께 있는가»만 보는 규칙은 화면이 스스로 판정할 수
+        # 있다 — 스쿼드만 있으면 되기 때문이다. 그런 규칙만 내려보내, 카드가 «지금 이
+        # 조합에서 실제로 걸리는 컨트롤»을 계산 전에도 적을 수 있게 한다.
+        # 다른 조건(같은 단계·자리 번호)을 쓰는 규칙은 내려보내지 않는다. 화면이 판정할
+        # 수 없는 것을 흉내 내면 틀린 값을 자신 있게 적게 되므로, 그쪽은 예전처럼
+        # «조합에 따라 추가됩니다»라고만 알린다(`hasConditionalControl`).
+        member_rules = [
+            {"withMembers": list(rule["when"]["with_member"]),
+             "control": rule.get("control") or {}}
+            for rule in ((CHAR_DEFAULTS.get(name) or {}).get("_control_rules") or [])
+            if set(rule.get("when") or {}) == {"with_member"} and rule.get("control")
+        ]
         char = build_squad([name])[0]
         equip = char["equip_skills"]
         favorite = (raw.get(name) or {}).get("애장품")
@@ -44,6 +56,7 @@ def main() -> None:
             "hasConditionalControl": bool(
                 (CHAR_DEFAULTS.get(name) or {}).get("_control_rules")
             ),
+            **({"conditionalControl": member_rules} if member_rules else {}),
             **({
                 "favoriteItem": {
                     "name": favorite["아이템명"],

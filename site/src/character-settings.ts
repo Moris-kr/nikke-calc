@@ -99,6 +99,50 @@ function summaryText(name: string, catalog: SettingsCatalog, value?: CharacterOv
     + `${cube.name === NO_CUBE ? '큐브 없음' : `${cube.name} Lv${cube.level}`} · ${controlSummary}`;
 }
 
+/**
+ * 컨트롤 키의 한글 이름. 판의 체크박스에 적히는 말과 **같은 말**을 쓴다 —
+ * 추천 줄에서 「tap_fire」라고 읽고 아래에서 「톡톡이」를 찾으면 같은 것인 줄 모른다.
+ */
+export const CONTROL_NAMES: Record<string, string> = {
+  tap_fire: '톡톡이',
+  hold: '홀드 컨트롤',
+  reload: '재장전 컨트롤',
+  cover: '버스트 엄폐 컨트롤',
+};
+
+/** 컨트롤 키 → 한글. 모르는 키는 그대로 둔다(새 컨트롤이 생겨도 빈칸이 되지 않는다). */
+export const controlName = (key: string): string => CONTROL_NAMES[key] ?? key;
+
+/**
+ * 「지금 이 조합에서 실제로 걸리는 컨트롤」 문구.
+ *
+ * 캐릭터별 기본 컨트롤에는 **조합 조건부**가 있다(아인은 에이다와 함께일 때 홀드가
+ * 붙는다). 예전에는 조건 없는 것만 적고 「조합에 따라 추가됩니다」로 얼버무려,
+ * 실제로 걸려 있는 홀드를 아무도 볼 수 없었다 — 그래서 «홀드를 켰는데 결과가
+ * 그대로»라는 말이 나왔다. 이미 걸려 있었기 때문이다.
+ *
+ * `squad`를 주지 않으면(이 모듈만 따로 그리는 곳) 조건 없는 것만 적는다.
+ */
+export function recommendedControlText(
+  defaults: { recommendedControl: CharacterControl; hasConditionalControl: boolean;
+    conditionalControl?: Array<{ withMembers: string[]; control: CharacterControl }> },
+  squad?: string[],
+): string {
+  const names = Object.keys(defaults.recommendedControl).map(controlName);
+  const rules = defaults.conditionalControl ?? [];
+  const roster = new Set((squad ?? []).filter(Boolean));
+  let unresolved = !defaults.hasConditionalControl ? false : rules.length === 0;
+  for (const rule of rules) {
+    const who = rule.withMembers.find((member) => roster.has(member));
+    if (!who) { unresolved = unresolved || squad === undefined; continue; }
+    for (const key of Object.keys(rule.control)) {
+      names.push(`${controlName(key)}(${who}와 함께라서)`);
+    }
+  }
+  const head = names.length ? `현재 기본 추천: ${names.join(' · ')}` : '현재 기본 추천: 자동 사격';
+  return unresolved ? `${head} · 스쿼드 조합에 따라 추천 컨트롤이 추가됩니다.` : head;
+}
+
 /** 큐브를 끼지 않은 상태. 데이터가 아니라 화면이 만드는 선택지다. */
 export const NO_CUBE = '없음';
 
@@ -144,6 +188,11 @@ export function renderCharacterSettings(
    * 이 모듈만 따로 그리는 곳(테스트·미리보기)에서도 쓸 수 있어야 한다.
    */
   onOpenPanel?: (kind: CharPanelKind, panel: HTMLElement, label: string) => void,
+  /**
+   * 지금 편성된 스쿼드 전원. **조합 조건부 컨트롤을 판정하는 데만** 쓴다 —
+   * 안 주면 조건 없는 추천만 적고 예전처럼 «조합에 따라 추가됩니다»로 알린다.
+   */
+  squad?: string[],
 ): void {
   // 지난번 화면을 찾는다. 카드 안이 먼저고, 없으면 창으로 옮겨 간 뭉치까지 뒤진다.
   const previous = <T extends Element>(selector: string): T | null => {
@@ -212,7 +261,7 @@ export function renderCharacterSettings(
   const commit = (next: CharacterOverrides | undefined) => {
     onChange(next);
     renderCharacterSettings(
-      container, name, catalog, next, onChange, buffTargets, onShowOrder, onOpenPanel);
+      container, name, catalog, next, onChange, buffTargets, onShowOrder, onOpenPanel, squad);
   };
 
   // 카드가 좁아졌다 — 요약(«1돌 · 호감도 20 · 스킬 10…»)과 버프 수령자는 접어 두고
@@ -744,13 +793,7 @@ export function renderCharacterSettings(
   }
   const recommendation = document.createElement('p');
   recommendation.className = 'field-note';
-  const recommendedNames = Object.keys(defaults.recommendedControl);
-  recommendation.textContent = recommendedNames.length
-    ? `현재 기본 추천: ${recommendedNames.join(', ')}`
-    : '현재 기본 추천: 자동 사격';
-  if (defaults.hasConditionalControl) {
-    recommendation.textContent += ' · 스쿼드 조합에 따라 추천 컨트롤이 추가됩니다.';
-  }
+  recommendation.textContent = recommendedControlText(defaults, squad);
 
   const controlGrid = document.createElement('div');
   controlGrid.className = 'control-grid';

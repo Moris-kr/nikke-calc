@@ -1625,7 +1625,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           (kind, panel, label) => {
             openCharPanel = { name: cname, kind };
             placeCharPanel(panel, cname, label);
-          });
+          },
+          // 조합 조건부 컨트롤(아인 + 에이다 = 홀드)을 카드가 스스로 판정하게 한다.
+          deck.squad.filter((slot): slot is string => Boolean(slot)));
           syncOpenPanel();
         };
 

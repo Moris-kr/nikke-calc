@@ -302,6 +302,12 @@ export interface CharacterSettingsDefaults {
   weaponType: string;
   recommendedControl: CharacterControl;
   hasConditionalControl: boolean;
+  /**
+   * 조합 조건부 컨트롤 중 «누가 함께 있는가»만 보는 규칙. 스쿼드만 있으면 화면이
+   * 스스로 판정할 수 있어, 계산 전에도 지금 걸리는 컨트롤을 적을 수 있다.
+   * 다른 조건을 쓰는 규칙은 내려오지 않는다 — `hasConditionalControl`로만 알린다.
+   */
+  conditionalControl?: Array<{ withMembers: string[]; control: CharacterControl }>;
   favoriteItem?: { name: string; stage: 3 };
   collection: CollectionSelection;
   growthStage: number;
