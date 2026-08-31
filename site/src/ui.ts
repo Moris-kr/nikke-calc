@@ -1410,7 +1410,11 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         const custom = customPayload();
         const request = requestForDeck(deck, readBattle(),
           Object.keys(custom).length > 0 ? custom : undefined);
+        // 화면이 «값이 잘못됐다»고 막을 편성은 미리 계산도 하지 않는다. 요청 검증만
+        // 보면 스킬 레벨 0 같은 값이 그대로 통과해, 사람이 실행을 막힌 사이에 미리
+        // 계산만 몰래 한 번 도는 일이 생긴다.
         if (validateRequest(request).length > 0) return;
+        if (validateCharacterValues(deck).length > 0) return;
         const key = cacheKey(request, version);
         let result = cache.get(key);
         if (!result) {
