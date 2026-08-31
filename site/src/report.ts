@@ -35,6 +35,8 @@ export interface ReportMeta {
   corePx: number;
   hasParts: boolean;
   siteUrl: string;
+  /** 덱 번호 → 화면에 붙인 이름. 없으면 「덱 N」으로 적는다. */
+  deckNames?: Record<number, string>;
 }
 
 /** 캐릭터 한 명의 보고서용 집계값. */
@@ -321,7 +323,9 @@ function drawBatch(
     const x = PAD + index * (colW + COL_GAP);
     let cy = top;
 
-    text(ctx, `덱 ${entry.deckId}`, x, cy, 13, COLOR.ink, 700);
+    // 이름을 붙였으면 그대로 싣는다 — 「0장 · 1장 · 2장」처럼 무엇을 견줬는지가
+    // 이미지 한 장에 남아야 자료로 쓸 수 있다.
+    text(ctx, meta.deckNames?.[entry.deckId] ?? `덱 ${entry.deckId}`, x, cy, 13, COLOR.ink, 700);
     text(ctx, formatDamage(entry.result.squadTotal), x + colW, cy, 15, COLOR.cyan, 800, 'right');
     cy += 10;
     line(ctx, x, cy, colW);

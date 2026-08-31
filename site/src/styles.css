@@ -232,6 +232,47 @@ input, select {
 }
 input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 
+/* 자주 바꾸는 조건 둘 — 조건 막대 바로 위. 창을 열지 않고 손대는 자리다. */
+.quick-cond { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 8px; }
+.quick-code { display: inline-flex; align-items: center; gap: 7px; color: var(--muted);
+  font-size: 11px; font-weight: 700; }
+.quick-code select { width: auto; min-height: 34px; padding-inline: 8px; font-size: 11px; }
+.quick-core { flex: 0 0 auto; }
+
+/* 고르기 판 닫기 — 판 오른쪽 위. */
+.picker-head { position: relative; }
+.picker-close { position: absolute; top: 0; right: 0; width: 26px; height: 26px; padding: 0;
+  border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--muted);
+  font-size: 12px; cursor: pointer; }
+.picker-close:hover { border-color: var(--danger); color: #ffd7de; }
+
+/* 다른 니케에서 베껴오기 — 카드 맨 아래. 자주 쓰는 것이 아니라 접어 둔다. */
+.copy-from { margin-top: 5px; }
+.copy-from > summary { padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px;
+  color: var(--muted); font: 700 10px ui-monospace, monospace; cursor: pointer; list-style: none; }
+.copy-from > summary::-webkit-details-marker { display: none; }
+.copy-from > summary::before { content: "⧉ "; }
+.copy-from > summary:hover { border-color: rgba(69,214,208,.32); color: #cfeceb; }
+.copy-from-row { display: grid; grid-template-columns: 1fr auto; gap: 5px; margin-top: 6px; }
+.copy-from-row select { min-height: 30px; padding-inline: 6px; font-size: 10px; }
+.copy-from-apply { min-height: 30px; padding: 0 10px; border: 1px solid rgba(69,214,208,.3);
+  border-radius: 6px; background: rgba(69,214,208,.1); color: #cfeceb;
+  font: 800 10px inherit; cursor: pointer; }
+.copy-from-apply:hover { border-color: var(--cyan); background: rgba(69,214,208,.18); }
+.copy-from .field-note { font-size: 9px; }
+
+/* 여러 덱에 겹친 니케 알림 — 막는 게 아니라 알리는 줄이라 색만 바꾼다. */
+.deck-note.is-dup { color: #e5d3a6; }
+.deck-note.is-dup b { color: var(--amber); }
+.deck-note.is-dup em { font-style: normal; color: var(--muted); }
+/* 덱 이름 — 탭을 두 번 누르면 그 자리에서 고친다. */
+.deck-name-input { width: 100%; min-width: 70px; min-height: 0; padding: 1px 4px;
+  border: 1px solid var(--cyan); border-radius: 4px; background: #04121d; color: var(--ink);
+  font: inherit; font-size: 11px; }
+.deck-tabs button.is-dragging { opacity: .45; }
+.deck-tabs button.is-drop { outline: 2px dashed var(--cyan); outline-offset: 1px; }
+/* 다섯을 한 번에 지우는 단추는 «한 번 더» 눌러야 듣는다. */
+.deck-clear.is-armed { border-color: var(--danger); background: rgba(255,77,109,.16); color: #ffd7de; }
 .deck-tabs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; margin: -4px 0 10px; }
 .deck-tabs button { min-height: 40px; border: 1px solid var(--line); background: rgba(4,12,21,.72); color: var(--muted); font-size: 12px; font-weight: 800; cursor: pointer; }
 .deck-tabs button:hover { border-color: rgba(69,214,208,.45); color: var(--ink); }

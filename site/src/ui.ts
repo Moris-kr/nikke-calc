@@ -359,6 +359,12 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   decks[0]!.squad = initialSquad(catalog);
   let activeDeckId = 1;
   let activeSlot = 0;
+  /**
+   * 「니케 고르기」 판을 펴 두었는가. **기본은 접힘**이다 — 고를 상황이 아니면 볼 일이
+   * 없는 판인데 늘 펴 두면 화면을 차지하고, 마우스를 가운데 두고 굴리다 목록만
+   * 스크롤되는 일이 생긴다. 칸을 누르면 펴지고, 빈 곳을 누르거나 Esc면 접힌다.
+   */
+  let pickerOpen = false;
   // 겨냥한 칸을 화면으로 끌어오는 것은 **사용자가 칸을 바꿨을 때만** 한다.
   // 결과가 도착해도 편성은 다시 그려지는데, 그때마다 끌어오면 결과를 보던 사람이
   // 편성 쪽으로 튕겨 올라간다.
@@ -670,6 +676,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <button type="button" class="burst-order-open" data-burst-order-open title="사이클마다 1버·2버·3버를 누가 쓸지 직접 정합니다. 정한 만큼만 따르고 그 뒤는 평소 순서로 돌아갑니다"><span class="burst-order-mark" aria-hidden="true">1·2·3</span><span>버스트 순서</span><b class="burst-order-badge" data-burst-order-badge hidden></b></button>
             <span class="deck-moves" data-deck-moves hidden></span>
             <button type="button" class="deck-clear" data-deck-clear title="지금 보고 있는 덱의 편성과 개별 설정을 비웁니다">덱 비우기</button>
+            <button type="button" class="deck-clear" data-deck-clear-all hidden title="다섯 덱의 편성·개별 설정·이름을 한 번에 비웁니다">5덱 비우기</button>
           <div class="deck-copy" data-deck-copy hidden>
             <button type="button" class="deck-copy-open" data-deck-copy-open>현재 덱 복사</button>
             <div class="deck-copy-panel" data-deck-copy-panel hidden>
@@ -688,10 +695,11 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           <!-- 니케 고르기. 창을 띄우지 않고 늘 펼쳐 두고, 검색은 이 판을 거른다.
                「이름을 쳤는데 아무 일도 안 일어난다」가 지적된 지점이라, 결과를
                감추는 자리를 없앴다. -->
-          <section class="picker" aria-label="니케 고르기">
+          <section class="picker" aria-label="니케 고르기" data-picker hidden>
             <div class="picker-head">
               <h3>니케 고르기 <span data-roster-count></span></h3>
               <p class="picker-target" data-roster-desc></p>
+              <button type="button" class="picker-close" data-picker-close aria-label="니케 고르기 닫기" title="닫기 (Esc)">✕</button>
             </div>
             <input type="search" class="roster-search" data-roster-search placeholder="이름 · 초성 · 속성으로 찾기 (ㄹㅍ, 라피레드, 전격)" autocomplete="off" aria-label="니케 이름 검색" />
             <!-- 정렬·필터는 판을 눌러 펼친다. 칩을 늘 깔아 두면 목록이 화면 밖으로
@@ -739,6 +747,24 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
                밖으로 밀리므로 창으로 띄우고, 이 줄에는 무엇으로 재는지만 한 줄로 남긴다. -->
           <!-- 조건과 실행을 한 막대로 붙인다. 패널 사이에 단추만 덩그러니 뜨는 자리를
                없애고, «이 조건으로 → 실행»이 한 줄로 읽히게 하려는 것이다. -->
+          <!-- 적 코드와 코어는 보스가 바뀔 때마다 손대는 둘이라 창 밖에 꺼내 둔다.
+               나머지 조건은 한 번 정해 두면 그대로 쓰는 값이라 창 안에 남는다. -->
+          <div class="quick-cond" data-quick-cond>
+            <label class="quick-code">
+              <span>보스 코드</span>
+              <select data-quick-enemy-code title="적의 코드입니다. 그 코드에 우월한 니케가 대미지 10%를 더 넣습니다">
+                <option value="">없음</option>
+                <option value="풍압">풍압 (작열이 우월)</option>
+                <option value="수냉">수냉 (전격이 우월)</option>
+                <option value="작열">작열 (수냉이 우월)</option>
+                <option value="전격">전격 (철갑이 우월)</option>
+                <option value="철갑">철갑 (풍압이 우월)</option>
+              </select>
+            </label>
+            <label class="toggle-field mode-toggle quick-core" title="코어가 있으면 그 자리를 맞힌 탄이 코어 배율을 받습니다">
+              <input type="checkbox" data-quick-core /><span class="toggle"></span><span>코어 있음</span>
+            </label>
+          </div>
           <div class="cond-bar">
             <button type="button" class="battle-open" data-battle-open aria-expanded="false">
               <span class="battle-open-label">전투 조건</span>
@@ -1092,6 +1118,81 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     for (const message of messages) errors.append(createText('p', message));
   };
 
+  /** 덱 탭끼리 끌어 옮길 때 쓰는 종류. 니케 끌기와 섞이지 않게 따로 둔다. */
+  const DRAG_DECK = 'application/x-nikke-deck';
+
+  /**
+   * 덱을 부르는 이름. 「0장 · 1장 · 2장」처럼 무엇을 바꿔 본 판인지 적어 두면
+   * 결과·CSV·보고서에서 그대로 읽힌다. 이름을 붙여도 **번호는 남긴다** — 다섯 개가
+   * 늘어서면 번호가 자리 이름 노릇을 한다.
+   */
+  const deckLabelFull = (deck: DeckState): string =>
+    (deck.name?.trim() ? `${deck.id}. ${deck.name.trim()}` : `덱 ${deck.id}`);
+
+  /** 결과·보고서가 쓰는 이름. 결과는 덱 객체가 아니라 번호만 들고 있다. */
+  const deckNameOf = (id: number): string => {
+    const deck = decks.find((entry) => entry.id === id);
+    return deck ? deckLabelFull(deck) : `덱 ${id}`;
+  };
+
+  /** 탭 자리에서 이름을 고친다. Enter로 정하고, Esc로 되돌린다. */
+  const renameDeck = (deck: DeckState, tab: HTMLElement) => {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'deck-name-input';
+    input.dataset.deckName = String(deck.id);
+    input.maxLength = 24;
+    input.value = deck.name ?? '';
+    input.placeholder = `덱 ${deck.id}`;
+    input.title = '무엇을 바꿔 본 판인지 적어 두세요 (예: 0장 · 1장 · 2장)';
+    let done = false;
+    const finish = (save: boolean) => {
+      if (done) return;
+      done = true;
+      if (save) {
+        const next = input.value.trim();
+        if (next) deck.name = next; else delete deck.name;
+        saveState();
+      }
+      renderDeckTabs();
+    };
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') { event.preventDefault(); finish(true); }
+      if (event.key === 'Escape') { event.preventDefault(); finish(false); }
+    });
+    input.addEventListener('blur', () => finish(true));
+    tab.replaceChildren(input);
+    input.focus();
+    input.select();
+  };
+
+  /**
+   * 덱을 다른 자리로 옮긴다. **번호는 자리 이름이라 그대로 두고 내용만 옮긴다** —
+   * ‹ › 단추와 같은 규칙이다. 이름도 내용의 일부라 함께 따라간다.
+   */
+  const moveDeckTo = (fromId: number, toId: number) => {
+    const from = decks.findIndex((deck) => deck.id === fromId);
+    const to = decks.findIndex((deck) => deck.id === toId);
+    if (from < 0 || to < 0 || from === to) return;
+    const carried = decks.map((deck) => ({ name: deck.name, squad: deck.squad, characters: deck.characters, burstSequence: deck.burstSequence }));
+    const [moved] = carried.splice(from, 1);
+    carried.splice(to, 0, moved!);
+    decks.forEach((deck, index) => {
+      const next = carried[index]!;
+      if (next.name === undefined) delete deck.name; else deck.name = next.name;
+      deck.squad = next.squad;
+      deck.characters = next.characters;
+      if (next.burstSequence === undefined) delete deck.burstSequence;
+      else deck.burstSequence = next.burstSequence;
+    });
+    // 옮긴 편성을 계속 보고 있게 한다 — 번호가 아니라 «그 편성»을 따라간다.
+    activeDeckId = decks[to]!.id;
+    closeDeckCopy();
+    saveState();
+    renderDeckTabs();
+    renderSquad();
+  };
+
   const renderDeckTabs = () => {
     deckTabs.replaceChildren();
     for (const deck of decks) {
@@ -1100,7 +1201,34 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       button.dataset.deckTab = String(deck.id);
       button.className = deck.id === activeDeckId ? 'is-active' : '';
       const count = deck.squad.filter(Boolean).length;
-      button.textContent = `덱 ${deck.id}${count ? ` · ${count}` : ''}`;
+      button.textContent = `${deckLabelFull(deck)}${count ? ` · ${count}` : ''}`;
+      button.title = '두 번 누르면 이름을 붙일 수 있습니다. 끌어다 놓으면 순서가 바뀝니다';
+      // 이름 붙이기 — 두 번 누르면 그 자리에서 고친다. 창을 띄우면 다섯 개를
+      // 연달아 이름 붙일 때 창을 다섯 번 여닫아야 한다.
+      button.addEventListener('dblclick', (event) => {
+        event.preventDefault();
+        renameDeck(deck, button);
+      });
+      // 끌어서 순서 바꾸기. ‹ › 단추는 그대로 둔다 — 손가락으로 쓸 때는 그쪽이 낫다.
+      button.draggable = true;
+      button.addEventListener('dragstart', (event) => {
+        (event as DragEvent).dataTransfer?.setData(DRAG_DECK, String(deck.id));
+        if ((event as DragEvent).dataTransfer) (event as DragEvent).dataTransfer!.effectAllowed = 'move';
+        button.classList.add('is-dragging');
+      });
+      button.addEventListener('dragend', () => button.classList.remove('is-dragging'));
+      button.addEventListener('dragover', (event) => {
+        if (!(event as DragEvent).dataTransfer?.types.includes(DRAG_DECK)) return;
+        event.preventDefault();
+        button.classList.add('is-drop');
+      });
+      button.addEventListener('dragleave', () => button.classList.remove('is-drop'));
+      button.addEventListener('drop', (event) => {
+        event.preventDefault();
+        button.classList.remove('is-drop');
+        const from = Number((event as DragEvent).dataTransfer?.getData(DRAG_DECK));
+        if (Number.isFinite(from) && from !== deck.id) moveDeckTo(from, deck.id);
+      });
       button.addEventListener('click', () => {
         activeDeckId = deck.id;
         // 덱을 옮기면 판이 겨냥하는 칸도 그 덱 기준으로 다시 잡는다.
@@ -1113,6 +1241,30 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         renderSquad();
       });
       deckTabs.append(button);
+    }
+
+    // 여러 덱에 겹쳐 편성된 니케를 알린다. 막지는 않는다 — 딜러 하나만 바꿔 견주려고
+    // 일부러 겹치는 쓰임이 정석이기 때문이다. 다만 실제 콘텐츠(유니온 레이드처럼 팀을
+    // 동시에 내보내는 곳)에서는 같은 니케를 두 팀에 넣을 수 없어, 모르고 짜면 낭패다.
+    if (fiveDeckMode) {
+      const seen = new Map<string, number[]>();
+      for (const deck of decks) {
+        for (const name of new Set(deck.squad.filter(Boolean))) {
+          seen.set(name, [...(seen.get(name) ?? []), deck.id]);
+        }
+      }
+      const shared = [...seen].filter(([, ids]) => ids.length > 1);
+      if (shared.length > 0) {
+        deckNote.replaceChildren(
+          createText('b', `여러 덱에 겹친 니케 ${shared.length}명: `),
+          createText('span', shared.map(([name, ids]) => `${name}(덱 ${ids.join('·')})`).join(', ')),
+          createText('em', ' — 견주려고 일부러 겹쳤다면 그대로 두셔도 됩니다. 한 번에 내보내는 편성이라면 겹칠 수 없습니다.'),
+        );
+        deckNote.classList.add('is-dup');
+      } else {
+        deckNote.textContent = '덱 사이에는 같은 캐릭터를 다시 편성할 수 있습니다.';
+        deckNote.classList.remove('is-dup');
+      }
     }
 
     const moves = element<HTMLElement>(root, '[data-deck-moves]');
@@ -1161,7 +1313,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
   const renderDeckCopy = () => {
     const source = activeDeck();
-    deckCopyTitle.textContent = `덱 ${source.id}의 편성과 캐릭터 설정을 복사할 대상`;
+    deckCopyTitle.textContent = `${deckLabelFull(source)}의 편성과 캐릭터 설정을 복사할 대상`;
     deckCopyTargets.replaceChildren();
     for (const deck of decks) {
       if (deck.id === source.id) continue;
@@ -1175,7 +1327,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       box.checked = count === 0;
       label.append(
         box,
-        createText('span', count === 0 ? `덱 ${deck.id} · 비어 있음` : `덱 ${deck.id} · ${count}명 (덮어씀)`,
+        createText('span', count === 0 ? `${deckLabelFull(deck)} · 비어 있음` : `${deckLabelFull(deck)} · ${count}명 (덮어씀)`,
           count === 0 ? undefined : 'deck-copy-warn'),
       );
       deckCopyTargets.append(label);
@@ -1479,6 +1631,92 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     });
   };
 
+  /**
+   * 「다른 니케에서 베껴오기」 — 아직 못 뽑았거나 안 키운 니케를 재 볼 때, 이미 키운
+   * 니케의 육성값을 그대로 옮겨 온다. 하나씩 다시 입력하는 게 가장 잦은 수고였다.
+   *
+   * 옮기는 것은 **육성값뿐**이다 — 돌파·스킬·오버로드·장비 강화·소장품. 컨트롤과
+   * 버스트 운용은 그 캐릭터의 조작이라 건드리지 않고, 큐브도 각자 고르는 것이라 둔다.
+   */
+  const copyFromControl = (name: string): HTMLElement => {
+    const box = document.createElement('details');
+    box.className = 'copy-from';
+    box.dataset.copyFrom = name;
+    const head = document.createElement('summary');
+    head.textContent = '다른 니케에서 베껴오기';
+    head.title = '이미 키운 니케의 돌파·스킬·오버로드·장비 강화·소장품을 그대로 가져옵니다';
+    box.append(head);
+
+    // 후보 = 어딘가에 설정이 잡혀 있는 니케(불러온 로스터 · 다섯 덱 어디든).
+    const sources = new Map<string, CharacterOverrides>();
+    for (const [who, value] of Object.entries(roster)) {
+      if (who !== name && value) sources.set(who, value);
+    }
+    for (const deck of decks) {
+      for (const [who, value] of Object.entries(deck.characters)) {
+        if (who !== name && value) sources.set(who, value);
+      }
+    }
+    if (sources.size === 0) {
+      box.append(createText('p', '베껴올 설정이 아직 없습니다 — CSV·블라블라링크로 불러오거나, 다른 니케를 먼저 설정해 주세요.', 'field-note'));
+      return box;
+    }
+
+    const pick = document.createElement('select');
+    pick.dataset.copyFromPick = '';
+    for (const who of [...sources.keys()].sort((a, b) => a.localeCompare(b, 'ko'))) {
+      const option = document.createElement('option');
+      option.value = who;
+      option.textContent = who;
+      pick.append(option);
+    }
+    const apply = document.createElement('button');
+    apply.type = 'button';
+    apply.className = 'copy-from-apply';
+    apply.dataset.copyFromApply = '';
+    apply.textContent = '베끼기';
+    apply.addEventListener('click', () => {
+      const from = sources.get(pick.value);
+      if (!from) return;
+      const deck = activeDeck();
+      const target = settings.characters[name];
+      const next: CharacterOverrides = { ...cloneOverride(deck.characters[name] ?? {}) };
+      const carried: string[] = [];
+      if (from.growthStage !== undefined && target) {
+        // 돌파 상한은 등급마다 다르다 — SSR 값을 SR에 그대로 부으면 안 된다.
+        next.growthStage = Math.min(from.growthStage, target.maxGrowthStage);
+        carried.push('돌파');
+      }
+      // 수치 미공개(임시·프리뷰) 캐릭터는 스킬 Lv10 고정이라 건너뛴다.
+      if (from.skillLevels && !target?.skillLevelsLocked) {
+        next.skillLevels = { ...from.skillLevels };
+        carried.push('스킬');
+      }
+      if (from.overload) { next.overload = { ...from.overload }; carried.push('오버로드'); }
+      if (from.equipLevels) { next.equipLevels = { ...from.equipLevels }; carried.push('장비 강화'); }
+      if (from.collection) {
+        // 애장품이 없는 캐릭터에 애장품 단계를 옮기면 없는 물건을 낀 셈이 된다.
+        next.collection = target?.favoriteItem
+          ? { ...from.collection }
+          : { stage: from.collection.stage, favorite: 0 };
+        carried.push('소장품');
+      }
+      if (carried.length === 0) {
+        status.textContent = `${pick.value}에게는 베껴올 육성값이 없습니다.`;
+        return;
+      }
+      deck.characters[name] = next;
+      saveState();
+      renderSquad();
+      status.textContent = `${pick.value}의 ${carried.join(' · ')}을(를) ${name}에게 베꼈습니다.`;
+    });
+    const row = document.createElement('div');
+    row.className = 'copy-from-row';
+    row.append(pick, apply);
+    box.append(row, createText('p', '돌파 · 스킬 · 오버로드 · 장비 강화 · 소장품을 가져옵니다. 컨트롤·버스트 운용·큐브는 그대로 둡니다.', 'field-note'));
+    return box;
+  };
+
   const renderSquad = () => {
     const deck = activeDeck();
     // 버스트 순서는 편성에 매여 있다 — 편성이 바뀌면 배지도 따라간다.
@@ -1564,17 +1802,20 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       choose.type = 'button';
       choose.className = 'slot-choose';
       choose.dataset.slotChoose = String(index);
-      choose.setAttribute('aria-pressed', String(activeSlot === index));
+      // 판이 닫혀 있으면 어느 칸도 고른 상태로 보이지 않는다 — 고를 상황이 아니면
+      // 겨냥한 칸도 없는 게 맞다.
+      choose.setAttribute('aria-pressed', String(pickerOpen && activeSlot === index));
       choose.append(createText('strong', char ? char.name : '빈 칸'));
       choose.append(createText(
         'span',
         char ? `B${char.burstStage} · ${char.elementCode} · ${char.weaponType}` : '눌러서 이 칸에 넣기',
       ));
       choose.addEventListener('click', () => {
+        // 같은 칸을 다시 누르면 접는다 — 켜고 끄는 자리가 한 곳이면 헷갈리지 않는다.
+        const same = pickerOpen && activeSlot === index;
         activeSlot = index;
-        pullActiveSlot = true;
-        renderSquad();
-        renderRosterGrid();
+        pullActiveSlot = !same;
+        setPickerOpen(!same);
       });
       // 좁은 화면에서는 슬롯 줄이 옆으로 밀린다. 겨냥한 칸이 화면 밖에 있으면
       // 판이 어디를 채우는지 알 수 없으므로 끌어다 보여 준다.
@@ -1597,7 +1838,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         showErrors([]);
         saveState();
         renderDeckTabs();
-        renderSquad();
+        // 비운 칸은 다시 채우려는 참이다 — 판을 열어 둔다.
+        setPickerOpen(true);
         renderRosterGrid();
       });
 
@@ -1715,6 +1957,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
         renderEditor();
         card.append(editor);
+        card.append(copyFromControl(cname));
       }
       squadGrid.append(card);
     }
@@ -2106,9 +2349,26 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const battleModal = element<HTMLElement>(root, '[data-battle-modal]');
   const battleSummary = element<HTMLElement>(root, '[data-battle-summary]');
   const battleFirstNote = element<HTMLElement>(root, '[data-battle-first-note]');
+  // 창 밖에 꺼내 둔 둘. 창 안의 값과 **같은 하나**를 보는 거울이라, 어느 쪽을
+  // 만져도 반대쪽이 따라온다 — 두 벌로 두면 무엇이 진짜인지 알 수 없게 된다.
+  const quickCode = element<HTMLSelectElement>(root, '[data-quick-enemy-code]');
+  const quickCore = element<HTMLInputElement>(root, '[data-quick-core]');
   const refreshBattleSummary = () => {
-    battleSummary.textContent = summarizeBattle(readBattle());
+    const battle = readBattle();
+    battleSummary.textContent = summarizeBattle(battle);
+    quickCode.value = battle.enemyCode;
+    quickCore.checked = battle.coreEnabled;
   };
+  quickCode.addEventListener('change', () => {
+    element<HTMLSelectElement>(root, '#enemy-code').value = quickCode.value;
+    element<HTMLSelectElement>(root, '#enemy-code').dispatchEvent(new Event('change', { bubbles: true }));
+    refreshBattleSummary();
+  });
+  quickCore.addEventListener('change', () => {
+    coreToggle.checked = quickCore.checked;
+    coreToggle.dispatchEvent(new Event('change', { bubbles: true }));
+    refreshBattleSummary();
+  });
   /** 첫 계산 전 강조. 한 번이라도 열어 봤거나 계산을 돌렸으면 더 붙잡지 않는다. */
   const settleBattleNote = () => { battleFirstNote.hidden = true; };
   const setBattleOpen = (open: boolean) => {
@@ -2503,6 +2763,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         element<HTMLInputElement>(root, '#squad-mode').checked = fiveDeckMode;
         deckTabs.hidden = !fiveDeckMode;
         deckMoves.hidden = !fiveDeckMode;
+        clearAllButton.hidden = !fiveDeckMode;
         deckNote.hidden = !fiveDeckMode;
         activeDeckId = 1;
       }
@@ -2612,7 +2873,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         if (!result.fineTimeline) coarseOnly = true;
         const names = entry.request.squad.filter(Boolean);
         const note = `${entry.request.duration}초 · 적 방어력 ${entry.request.enemyDef}`;
-        if (batch.decks.length > 1) parts.push(csvText([[`덱 ${entry.deckId}`]]));
+        if (batch.decks.length > 1) parts.push(csvText([[deckNameOf(entry.deckId)]]));
         parts.push(damageCsv({ ...result, timeline }, names, note));
       }
       downloadImage(csvBlob(parts.join('\r\n\r\n')),
@@ -2644,6 +2905,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         corePx: battle.coreEnabled ? battle.corePx : 0,
         hasParts: battle.hasParts,
         siteUrl: 'moris-kr.github.io/nikke-calc',
+        // 덱에 붙인 이름을 이미지에도 잇는다 — 자료를 모을 때 한 장으로 끝나게.
+        deckNames: Object.fromEntries(decks.map((deck) => [deck.id, deckLabelFull(deck)])),
       };
       const canvas = renderReport(batch, meta, portraits);
       reportBlob = await canvasToBlob(canvas);
@@ -2802,7 +3065,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       const deckHeader = document.createElement('div');
       deckHeader.className = 'deck-result-header';
       deckHeader.append(
-        createText('h3', `덱 ${entry.deckId}`),
+        createText('h3', deckNameOf(entry.deckId)),
         createText('strong', dmg(entry.result.squadTotal)),
         createText('small', dps(entry.result.squadTotal / entry.result.duration)),
       );
@@ -2864,7 +3127,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         tab.dataset.deckResultTab = String(entry.deckId);
         tab.dataset.deckRank = String(rank);
         const head = document.createElement('b');
-        head.append(document.createTextNode(`덱 ${entry.deckId}`));
+        head.append(document.createTextNode(deckNameOf(entry.deckId)));
         head.append(createText('em', `${rank}위`, 'deck-tab-rank'));
         // 덱끼리 견주는 자리라 줄이지 않고 온전한 숫자를 적는다 — «1.14억»으로는
         // 2위와의 차이가 읽히지 않는다.
@@ -3220,6 +3483,40 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     renderRosterGrid();
   });
 
+  // 5덱 비우기 — 다섯을 한 번에 지우는 일이라 «한 번 더 누르면» 지운다. 창을 띄우는
+  // 대신 단추가 스스로 확인을 받는다(잘못 눌렀으면 다른 데를 누르면 그만이다).
+  const clearAllButton = element<HTMLButtonElement>(root, '[data-deck-clear-all]');
+  let clearAllArmed = false;
+  const disarmClearAll = () => {
+    clearAllArmed = false;
+    clearAllButton.textContent = '5덱 비우기';
+    clearAllButton.classList.remove('is-armed');
+  };
+  clearAllButton.addEventListener('click', () => {
+    if (!clearAllArmed) {
+      clearAllArmed = true;
+      clearAllButton.textContent = '정말 비웁니다';
+      clearAllButton.classList.add('is-armed');
+      return;
+    }
+    for (const deck of decks) {
+      deck.squad = ['', '', '', '', ''];
+      deck.characters = {};
+      delete deck.name;
+      delete deck.burstSequence;
+    }
+    activeSlot = 0;
+    disarmClearAll();
+    closeDeckCopy();
+    showErrors([]);
+    saveState();
+    renderDeckTabs();
+    renderSquad();
+    renderRosterGrid();
+    status.textContent = '다섯 덱을 모두 비웠습니다.';
+  });
+  clearAllButton.addEventListener('blur', disarmClearAll);
+
   element<HTMLInputElement>(root, '#squad-mode').addEventListener('change', (event) => {
     fiveDeckMode = (event.currentTarget as HTMLInputElement).checked;
     // 5덱을 끄면 «지금 보고 있던 덱»이 1덱 자리로 온다 — 2~5덱 중 하나만 계산하려고
@@ -3235,6 +3532,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     activeDeckId = 1;
     deckTabs.hidden = !fiveDeckMode;
     deckMoves.hidden = !fiveDeckMode;
+    clearAllButton.hidden = !fiveDeckMode;
     deckNote.hidden = !fiveDeckMode;
     deckCopy.hidden = !fiveDeckMode;
     closeDeckCopy();
@@ -3330,6 +3628,38 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const rosterEmpty = element<HTMLElement>(root, '[data-roster-empty]');
   const rosterCount = element<HTMLElement>(root, '[data-roster-count]');
   const rosterDesc = element<HTMLElement>(root, '[data-roster-desc]');
+  const pickerPanel = element<HTMLElement>(root, '[data-picker]');
+
+  /** 고르기 판을 펴거나 접는다. 접으면 겨냥한 칸 표시도 함께 풀린다. */
+  const setPickerOpen = (on: boolean) => {
+    if (pickerOpen === on) { if (on) { renderSquad(); renderRosterGrid(); } return; }
+    pickerOpen = on;
+    pickerPanel.hidden = !on;
+    renderSquad();
+    if (on) renderRosterGrid();
+  };
+
+  element<HTMLButtonElement>(root, '[data-picker-close]')
+    .addEventListener('click', () => setPickerOpen(false));
+
+  // 빈 곳을 누르면 접는다. 편성·판·덱 줄 안쪽은 «고르는 중»이라 그대로 둔다.
+  //
+  // **누르는 순간(캡처)에 판정한다.** 버튼 제 손으로 편성을 다시 그리는 자리가 많아,
+  // 거품 단계까지 오면 눌린 요소가 이미 DOM에서 떨어져 나가 조상이 없다 — 그러면
+  // 편성 안을 눌러도 «바깥»으로 읽혀 판이 곧바로 닫힌다.
+  const KEEP_OPEN = '[data-picker], .squad-grid, .deck-tabs, .deck-controls, .custom-modal';
+  root.addEventListener('click', (event) => {
+    if (!pickerOpen) return;
+    const hit = event.target as HTMLElement | null;
+    if (!hit || hit.closest(KEEP_OPEN)) return;
+    setPickerOpen(false);
+  }, true);
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || !pickerOpen) return;
+    // 창이 열려 있으면 그쪽이 먼저다 — 판은 그다음 Esc에 접힌다.
+    if (root.querySelector('.custom-modal:not([hidden])')) return;
+    setPickerOpen(false);
+  });
   // 필터는 **그룹 안에서는 OR, 그룹 사이에서는 AND**다. 무기 SG·SMG를 함께 켜면
   // 둘 중 하나면 통과하고, 거기에 클래스 화력형을 더하면 «화력형이면서 SG나 SMG»가 된다.
   // 인게임 도감이 이 방식이라 익숙하고, 하나만 고르는 것보다 훨씬 빨리 좁혀진다.
@@ -4544,6 +4874,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       savedState.decks.forEach((saved, index) => {
         const deck = decks[index];
         if (!deck || !saved) return;
+        // 덱에 붙인 이름도 되살린다 — 새로고침에 이름이 날아가면 붙일 이유가 없다.
+        if (typeof saved.name === 'string' && saved.name.trim()) deck.name = saved.name.trim();
+        else delete deck.name;
         deck.squad = (saved.squad ?? ['', '', '', '', ''])
           .map((name) => (name && catalogByName.has(name) ? name : ''));
         deck.characters = {};
@@ -4570,6 +4903,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       element<HTMLInputElement>(root, '#squad-mode').checked = true;
       deckTabs.hidden = false;
       deckMoves.hidden = false;
+      clearAllButton.hidden = false;
       deckNote.hidden = false;
       deckCopy.hidden = false;
     }

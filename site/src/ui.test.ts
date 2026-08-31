@@ -1180,6 +1180,34 @@ describe('calculator UI', () => {
     expect(aimed()).toBe(2);
   });
 
+  it('니케 고르기 판은 접힌 채로 시작하고, 칸을 눌러야 펴진다', () => {
+    // 고를 상황이 아니면 볼 일이 없는 판이다. 늘 펴 두면 화면을 차지하고, 마우스를
+    // 가운데 두고 굴리다 목록만 스크롤되는 일이 생긴다.
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const picker = () => root.querySelector<HTMLElement>('[data-picker]')!;
+    expect(picker().hidden).toBe(true);
+
+    focusSlot(root, 1);
+    expect(picker().hidden).toBe(false);
+
+    // 같은 칸을 다시 누르면 접는다.
+    focusSlot(root, 1);
+    expect(picker().hidden).toBe(true);
+
+    // 빈 곳을 누르면 접힌다.
+    focusSlot(root, 1);
+    expect(picker().hidden).toBe(false);
+    root.querySelector<HTMLElement>('.hero')!.click();
+    expect(picker().hidden).toBe(true);
+
+    // 칸을 비우면 다시 채우려는 참이라 펴 준다.
+    clearCharacterSlot(root, 2);
+    expect(picker().hidden).toBe(false);
+    // 닫기 단추로도 접힌다.
+    root.querySelector<HTMLButtonElement>('[data-picker-close]')!.click();
+    expect(picker().hidden).toBe(true);
+  });
+
   it('blocks a nikke already in this deck, except in the slot being replaced', () => {
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
     focusSlot(root, 1);
@@ -1223,6 +1251,9 @@ describe('calculator UI', () => {
     mode.dispatchEvent(new Event('change'));
 
     root.querySelector<HTMLButtonElement>('[data-deck-tab="2"]')!.click();
+    // 겨냥한 칸 표시는 **고르기 판을 폈을 때만** 보인다 — 고를 상황이 아니면 겨냥한
+    // 칸도 없는 게 맞다. 판을 펴 보면 그 덱의 첫 빈 칸을 겨냥하고 있다.
+    focusSlot(root, 0);
     const aimed = [...root.querySelectorAll<HTMLButtonElement>('[data-slot-choose]')]
       .findIndex((c) => c.getAttribute('aria-pressed') === 'true');
     expect(aimed).toBe(0);   // 빈 덱이니 첫 칸

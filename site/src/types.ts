@@ -171,6 +171,11 @@ export interface BattleSettings {
 
 export interface DeckState {
   id: number;
+  /**
+   * 덱에 붙인 이름. 「0장 · 1장 · 2장」처럼 무엇을 바꿔 본 판인지 적어 두는 자리다 —
+   * 비어 있으면 화면은 「덱 N」으로 부른다. 보고서 이미지에도 그대로 실린다.
+   */
+  name?: string;
   squad: string[];
   characters: Record<string, CharacterOverrides>;
   /**
