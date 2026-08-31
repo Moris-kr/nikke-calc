@@ -129,7 +129,9 @@ def _build_buff_spans(result, names: list[str]) -> list[dict]:
                 "name": event.name, "caster": event.caster, "targets": [],
                 "stat": event.stat, "value": event.value,
                 "maxStack": int(event.max_stack) if event.max_stack else 1,
-                "spans": [],
+                # 구간 → 그 구간을 받은 사람들. 같은 구간이 사람 수만큼 들어오므로
+                # 시각으로 묶는다 — 목록이 아니라 사전이라 중복이 저절로 합쳐진다.
+                "_spans": {},
             }
         if event.target and event.target not in found["targets"]:
             found["targets"].append(event.target)
@@ -142,12 +144,12 @@ def _build_buff_spans(result, names: list[str]) -> list[dict]:
         start = span["from"]
         if at - start < BUFF_MIN_SPAN:
             return
-        row = [round(start, 2), round(at, 2), span["stack"]]
-        spans = span["track"]["spans"]
-        # 대상이 여럿이면 같은 구간이 사람 수만큼 들어온다 — 한 번만 남긴다.
-        if not spans or spans[-1] != row:
-            if row not in spans[-4:]:
-                spans.append(row)
+        row = (round(start, 2), round(at, 2), span["stack"])
+        # **누가 받았는지는 구간마다 다를 수 있다.** 리버렐리오 `차분한 수심 4`는
+        # 발동마다 공격력 순위로 대상이 갈려, 한 줄에 뭉치면 «둘 다 받는다»로 보인다.
+        who = span["track"]["_spans"].setdefault(row, [])
+        if span["target"] and span["target"] not in who:
+            who.append(span["target"])
 
     for event in result.log.buff_events:
         if event.target not in names and event.caster not in names:
@@ -165,7 +167,7 @@ def _build_buff_spans(result, names: list[str]) -> list[dict]:
             if event.value is not None:
                 track["value"] = event.value
             if open_span is None:
-                open_spans[key] = {"from": event.t, "stack": stack,
+                open_spans[key] = {"from": event.t, "stack": stack, "target": event.target,
                                    "track": track, "expires": event.expires_at}
             else:
                 open_span["expires"] = event.expires_at
@@ -177,7 +179,24 @@ def _build_buff_spans(result, names: list[str]) -> list[dict]:
         end = duration if expires in (None, math.inf) or expires > duration else float(expires)
         close(key, end)
 
-    kept = [track for track in tracks.values() if track["spans"]]
+    kept = []
+    for track in tracks.values():
+        rows = sorted(track.pop("_spans").items())
+        if not rows:
+            continue
+        # 구간마다 대상이 같으면 줄 하나에 한 번만 적는다. 갈릴 때만 구간에 붙인다 —
+        # 다섯 명에게 걸리는 버프까지 구간마다 이름을 실으면 결과가 몇 배로 무거워진다.
+        sets = [frozenset(who) for _, who in rows]
+        varies = len(set(sets)) > 1
+        spans = []
+        for (start, end, stack), who in rows:
+            if varies:
+                spans.append([start, end, stack,
+                              [track["targets"].index(name) for name in who]])
+            else:
+                spans.append([start, end, stack])
+        track["spans"] = spans
+        kept.append(track)
     # 처음 걸린 순서대로 세운다 — 화면이 위에서 아래로 그 순서로 읽는다.
     kept.sort(key=lambda track: (track["spans"][0][0], track["name"]))
     return kept[:BUFF_TRACK_LIMIT]

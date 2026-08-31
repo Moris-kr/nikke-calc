@@ -3,7 +3,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { buildSeries, createTimelineBlock, formatSpan, niceMax, buffRuns, buffTextPlan } from './timeline';
-import type { BattleTimeline, DeckResultEntry } from './types';
+import { spanTargets } from './types';
+import type { BattleTimeline, BuffTrack, DeckResultEntry } from './types';
 
 const timeline: BattleTimeline = {
   bucket: 1,
@@ -138,6 +139,25 @@ describe('버프 막대', () => {
     expect([runs[0]!.x0, runs[0]!.x1]).toEqual([10, 40]);
     expect(runs[0]!.parts.map((p) => p.stack)).toEqual([1, 2, 3]);  // 눈금 자리는 그대로 남는다
     expect([runs[1]!.x0, runs[1]!.x1]).toEqual([80, 90]);
+  });
+
+  it('구간마다 대상이 갈리면 그 구간의 사람만 센다', () => {
+    // 리버렐리오 「차분한 수심 4」는 발동마다 대상이 바뀐다 — 줄 전체의 목록을
+    // 그대로 쓰면 «둘 다 받는다»로 읽힌다.
+    const track = {
+      name: '차분한 수심 4', caster: '리버렐리오', targets: ['아인', '에이다'],
+      maxStack: 1, spans: [[3.4, 13.4, 1, [0]], [15.9, 25.9, 1, [1]]],
+    } as unknown as BuffTrack;
+    expect(spanTargets(track, track.spans[0]!)).toEqual(['아인']);
+    expect(spanTargets(track, track.spans[1]!)).toEqual(['에이다']);
+  });
+
+  it('구간에 대상이 적혀 있지 않으면 줄 전체가 답이다', () => {
+    const track = {
+      name: '더블 부스트', caster: '리타', targets: ['리타', '크라운'],
+      maxStack: 1, spans: [[0, 5, 1]],
+    } as unknown as BuffTrack;
+    expect(spanTargets(track, track.spans[0]!)).toEqual(['리타', '크라운']);
   });
 
   it('빈 줄에서는 막대를 만들지 않는다', () => {

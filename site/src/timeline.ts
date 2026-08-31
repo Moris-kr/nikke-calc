@@ -1,5 +1,6 @@
 import { formatDamage } from './model';
 import { statText } from './stat-names';
+import { spanTargets } from './types';
 import type { BattleTimeline, BuffSpan, BuffTrack, DeckResultEntry } from './types';
 
 const LINE_COLORS = ['#45d6d0', '#ffbf3c', '#9b8cff', '#5fd08a', '#ff7db0'];
@@ -191,9 +192,9 @@ class TimelineChart {
   private showBuffs = false;
   /** 화면에 그린 막대와 그 자리 — 마우스가 어느 버프 위인지 이걸로 찾는다. */
   private buffHits: Array<{
-    track: BuffTrack; span: [number, number, number]; x0: number; x1: number; y: number;
+    track: BuffTrack; span: BuffSpan; x0: number; x1: number; y: number;
   }> = [];
-  private hoverSpan: [number, number, number] | null = null;
+  private hoverSpan: BuffSpan | null = null;
   /** 그릴 줄. 한 줄이 버프 하나다 — 켤 때와 범례가 바뀔 때 다시 고른다. */
   private buffRows: BuffTrack[] = [];
   private buffHidden = 0;
@@ -654,12 +655,13 @@ class TimelineChart {
   }
 
   /** 버프 막대 하나의 상세. 「무엇을·누가·누구에게·언제부터 언제까지·몇 겹」을 적는다. */
-  private showBuffTip(track: BuffTrack, span: [number, number, number],
+  private showBuffTip(track: BuffTrack, span: BuffSpan,
     clientX: number, clientY: number): void {
     const color = this.series.colors[track.caster] ?? '#8394a6';
     const seconds = (value: number) => `${value.toFixed(1)}초`;
     const [from, to, stack] = span;
-    const faces = track.targets.map((name) => {
+    // 대상이 발동마다 갈리는 버프가 있다 — 이 구간을 실제로 받은 사람만 보인다.
+    const faces = spanTargets(track, span).map((name) => {
       const url = this.portraits.get(name)?.src;
       const dot = `<span class="tl-dot" style="background:${this.series.colors[name] ?? '#8394a6'}"></span>`;
       return url

@@ -219,8 +219,21 @@ export interface BattleTimeline {
  * 같은 버프가 여러 번 걸리면 `spans`에 그만큼 쌓이고, **중첩이 바뀔 때마다 끊긴다**
  * (언제부터 몇 겹이었는지가 타임라인의 핵심이다).
  */
-/** 한 구간 — `[시작(초), 끝(초), 중첩]`. */
-export type BuffSpan = [number, number, number];
+/**
+ * 한 구간 — `[시작(초), 끝(초), 중첩]`, 그리고 **대상이 구간마다 갈릴 때만** 네 번째로
+ * 그 구간을 받은 사람들(`targets` 안의 자리 번호).
+ *
+ * 리버렐리오 「차분한 수심 4」처럼 발동마다 공격력 순위로 대상이 갈리는 버프가 있다.
+ * 줄 하나에 뭉쳐 두면 «둘 다 받는다»로 읽히므로 그런 줄만 구간에 대상을 붙인다 —
+ * 늘 붙이면 다섯 명짜리 버프에서 결과가 몇 배로 무거워진다.
+ */
+export type BuffSpan = [number, number, number] | [number, number, number, number[]];
+
+/** 이 구간을 실제로 받은 사람들. 구간에 적혀 있지 않으면 줄 전체의 대상이 곧 답이다. */
+export const spanTargets = (track: BuffTrack, span: BuffSpan): string[] => {
+  const picked = span[3];
+  return picked ? picked.map((index) => track.targets[index] ?? '').filter(Boolean) : track.targets;
+};
 
 export interface BuffTrack {
   name: string;

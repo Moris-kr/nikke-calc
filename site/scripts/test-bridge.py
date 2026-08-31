@@ -648,6 +648,35 @@ class BrowserBridgeTest(unittest.TestCase):
         got = json.loads(run_request(json.dumps(payload, ensure_ascii=False)))
         self.assertNotIn("fineTimeline", got)
 
+    def test_buff_span_carries_who_actually_got_it_when_the_target_shifts(self):
+        """대상이 발동마다 갈리는 버프는 **구간마다** 누가 받았는지 적는다.
+
+        리버렐리오 `차분한 수심 4`는 공격력 순위로 대상이 갈려 발동마다 사람이
+        바뀐다. 줄 하나에 뭉쳐 두면 «둘 다 받는다»로 읽힌다.
+        """
+        payload = {
+            "squad": ["리틀 머메이드", "나유타", "에이다", "아인", "리버렐리오"],
+            "duration": 60, "enemyDef": 31_784, "enemyCode": "", "corePx": 0,
+            "hasParts": False, "seed": 42, "rngMode": "expected",
+        }
+        got = json.loads(run_request(json.dumps(payload, ensure_ascii=False)))
+        tracks = got["timeline"]["buffs"]
+        shifting = next(t for t in tracks if t["name"] == "차분한 수심 4")
+        self.assertEqual(sorted(shifting["targets"]), ["아인", "에이다"])
+
+        # 구간마다 대상이 하나씩 붙고, 이웃한 두 구간은 서로 다른 사람이다.
+        picked = [
+            [shifting["targets"][i] for i in span[3]]
+            for span in shifting["spans"] if len(span) > 3
+        ]
+        self.assertEqual(len(picked), len(shifting["spans"]))
+        self.assertTrue(all(len(who) == 1 for who in picked), picked)
+        self.assertNotEqual(picked[0], picked[1])
+
+        # 대상이 늘 같은 줄에는 구간에 붙이지 않는다 — 그쪽까지 실으면 결과가 무거워진다.
+        steady = [t for t in tracks if all(len(s) == 3 for s in t["spans"])]
+        self.assertTrue(steady, "대상이 고정인 줄이 하나도 없다")
+
     def test_rejects_character_settings_outside_the_squad(self):
         payload = {
             "squad": ["리타"],
