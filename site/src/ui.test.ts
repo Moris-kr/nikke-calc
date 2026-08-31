@@ -1006,6 +1006,49 @@ describe('calculator UI', () => {
     expect(root.querySelector<HTMLElement>('[data-notice-modal]')!.hidden).toBe(false);
   });
 
+  it('자세히 보기를 켜면 대미지를 1의 자리까지 적는다', async () => {
+    // 「1.24억」은 견주기에 좋지만 두 덱이 같은 글자로 보이는 일이 있다.
+    // 줄여 쓰기는 백만이 넘어야 시작되므로, 그 위의 수치를 내는 대역으로 잰다.
+    const big: SimulationResult = {
+      ...calculated,
+      squadTotal: 124_381_927,
+      charTotals: {
+        리타: 60_000_000, 크라운: 30_000_000, '라피 : 레드 후드': 20_000_000,
+        앨리스: 10_000_000, 나가: 4_381_927,
+      },
+    };
+    class BigClient extends FakeClient {
+      override async simulate(request: SimulationRequest): Promise<SimulationResult> {
+        await super.simulate(request);
+        return big;
+      }
+    }
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new BigClient(), storage: localStorage });
+    root.querySelector<HTMLButtonElement>('[data-notice-dismiss]')!.click();
+    root.querySelector<HTMLFormElement>('form')!.requestSubmit();
+    await flush();
+    await flush();
+
+    // 이 대역의 총딜(123,456)은 줄여 쓰는 문턱 아래라 두 표기가 같다. 자세히 보기가
+    // 실제로 갈리는 자리는 억 단위가 넘는 캐릭터별 수치이므로 그쪽을 본다.
+    const rowTotal = () => root.querySelector<HTMLElement>('.result-row-total, .result-cards strong')?.textContent ?? '';
+    const box = root.querySelector<HTMLInputElement>('[data-detail-damage]')!;
+    expect(box.checked).toBe(false);
+    const short = rowTotal();
+    expect(short).toMatch(/억$/);                  // 켜기 전에는 줄여 쓴다
+    box.click();
+    const exact = rowTotal();
+    expect(exact).not.toBe(short);
+    expect(exact).toMatch(/^[\d,]+$/);            // 쉼표만 든 정수 — 「억」이 붙지 않는다
+    expect(Number(exact.replace(/,/g, ''))).toBeGreaterThan(0);
+
+    // 켠 상태는 남는다 — 다시 열어도 그 눈으로 본다.
+    expect(localStorage.getItem('nikke-detail-damage-v1')).toBe('1');
+    root.querySelector<HTMLInputElement>('[data-detail-damage]')!.click();
+    expect(rowTotal()).toBe(short);
+    expect(localStorage.getItem('nikke-detail-damage-v1')).toBe('0');
+  });
+
   it('keeps the control fold open and live inside the card', async () => {
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
     root.querySelector<HTMLButtonElement>('[data-notice-dismiss]')!.click();

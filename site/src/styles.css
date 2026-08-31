@@ -156,7 +156,17 @@ h2 { margin: 0; font-size: 24px; letter-spacing: -.035em; }
 .squad-code-block .custom-json { margin: 0 0 8px; }
 
 /* 보고서 이미지 */
-.report-tools { display: flex; justify-content: flex-end; margin: 0 0 14px; }
+.report-tools { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center;
+  gap: 8px; margin: 0 0 14px; }
+/* 자세히 보기 — 단추들과 같은 줄에 서되, 누르는 것이 아니라 켜 두는 것이라 결이 다르다. */
+.detail-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 7px 11px;
+  border: 1px solid var(--line); border-radius: 7px; color: var(--muted);
+  font-size: 12px; font-weight: 700; cursor: pointer; }
+.detail-toggle:hover { border-color: rgba(69,214,208,.32); color: #cfeceb; }
+.detail-toggle input { width: 14px; height: 14px; min-height: 14px; padding: 0;
+  accent-color: var(--cyan); }
+.detail-toggle:has(input:checked) { border-color: rgba(69,214,208,.32);
+  background: rgba(69,214,208,.1); color: #cfeceb; }
 .report-open { padding: 8px 14px; border: 1px solid rgba(69,214,208,.32); background: rgba(69,214,208,.1); color: #cfeceb; font-family: inherit; font-size: 12px; font-weight: 700; border-radius: 7px; cursor: pointer; }
 .report-open:hover { background: rgba(69,214,208,.18); border-color: var(--cyan); }
 /* 보고서는 읽으라고 만드는 이미지다 — 모달을 화면의 90%까지 넓혀 크게 보여준다. */

@@ -296,3 +296,17 @@ export function formatDamage(value: number): string {
 export function formatDps(value: number): string {
   return `${formatDamage(value)}/초`;
 }
+
+/**
+ * 줄이지 않은 대미지 — 1의 자리까지.
+ *
+ * 「1.24억」은 한눈에 견주기 좋지만 두 덱이 소수점 둘째 자리까지 같게 보이는 일이
+ * 생긴다. 「자세히 보기」를 켜면 이쪽으로 적는다. 엔진은 처음부터 정수로 세므로
+ * 여기서 정밀해지는 것은 없다 — 있던 자리를 그대로 보일 뿐이다.
+ */
+export const formatExactDamage = (value: number): string =>
+  Math.round(value).toLocaleString('en-US');
+
+/** 줄이지 않은 초당 대미지. 소수점 한 자리까지 — 정수로 자르면 덱 간 차이가 묻힌다. */
+export const formatExactDps = (value: number): string =>
+  `${(Math.round(value * 10) / 10).toLocaleString('en-US', { minimumFractionDigits: 1 })}/초`;

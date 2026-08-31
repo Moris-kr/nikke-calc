@@ -62,6 +62,8 @@ import {
   SYNCHRO_MEASURED_MAX,
   formatDamage,
   formatDps,
+  formatExactDamage,
+  formatExactDps,
   requestForDeck,
   resetEnemy,
   validateDecks,
@@ -174,10 +176,17 @@ function topScorers(entry: DeckResultEntry): Map<string, number> {
  * 카드보다 이쪽이 짧고, 막대 길이로 «누가 캐리했나»가 곧바로 읽힌다.
  * 여기서도 **편성 순서 그대로**이고, 딜 1·2위는 뱃지와 테두리로만 표시한다.
  */
+/** 대미지를 어떻게 적을지. 「자세히 보기」로 갈린다 — 값이 아니라 표기만 바뀐다. */
+interface DamageFormat {
+  dmg(value: number): string;
+  dps(value: number): string;
+}
+
 function renderCharacterRows(
   container: HTMLElement,
   entry: DeckResultEntry,
   imageOf: (name: string) => string | undefined,
+  fmt: DamageFormat,
 ): void {
   const rows = document.createElement('div');
   rows.className = 'result-rows';
@@ -213,7 +222,7 @@ function renderCharacterRows(
     head.className = 'result-row-name';
     head.append(
       createText('b', name),
-      createText('span', `${share.toFixed(1)}% · ${formatDps(value / entry.result.duration)}`),
+      createText('span', `${share.toFixed(1)}% · ${fmt.dps(value / entry.result.duration)}`),
     );
     const track = document.createElement('div');
     track.className = 'share-track';
@@ -238,6 +247,7 @@ function renderCharacterCards(
   container: HTMLElement,
   entry: DeckResultEntry,
   imageOf: (name: string) => string | undefined,
+  fmt: DamageFormat,
 ): void {
   const grid = document.createElement('div');
   grid.className = 'result-cards';
@@ -269,8 +279,8 @@ function renderCharacterCards(
 
     card.append(createText('h3', name));
     card.append(createText('span', `${share.toFixed(1)}% 기여`, 'result-card-share'));
-    card.append(createText('strong', formatDamage(value)));
-    card.append(createText('small', formatDps(value / entry.result.duration)));
+    card.append(createText('strong', fmt.dmg(value)));
+    card.append(createText('small', fmt.dps(value / entry.result.duration)));
 
     const track = document.createElement('div');
     track.className = 'share-track';
@@ -307,8 +317,8 @@ function renderCharacterCards(
       const legend = document.createElement('p');
       legend.className = 'split-legend';
       legend.append(
-        createText('span', `평타 ${formatDamage(breakdown.normal)}`, 'legend-normal'),
-        createText('span', `스킬 ${formatDamage(breakdown.skill)}`, 'legend-skill'),
+        createText('span', `평타 ${fmt.dmg(breakdown.normal)}`, 'legend-normal'),
+        createText('span', `스킬 ${fmt.dmg(breakdown.skill)}`, 'legend-skill'),
       );
       details.append(legend);
 
@@ -319,7 +329,7 @@ function renderCharacterCards(
           const item = document.createElement('li');
           item.append(
             createText('span', skill.name),
-            createText('span', `${formatDamage(skill.damage)} · ${(skill.damage / value * 100).toFixed(1)}% · ${skill.hits}히트`),
+            createText('span', `${fmt.dmg(skill.damage)} · ${(skill.damage / value * 100).toFixed(1)}% · ${skill.hits}히트`),
           );
           list.append(item);
         }
@@ -2673,6 +2683,26 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     showReportMsg('PNG로 저장했습니다.', true);
   });
 
+  // ── 자세히 보기 ─────────────────────────────────────────────────────────
+  // 켠 상태는 이 브라우저에 남는다 — 한 번 켜 둔 사람은 늘 그 눈으로 본다.
+  const DETAIL_KEY = 'nikke-detail-damage-v1';
+  let detailDamage = false;
+  try {
+    detailDamage = resolveStorage()?.getItem(DETAIL_KEY) === '1';
+  } catch { /* 저장된 값을 못 읽으면 줄여 쓰기(기본)로 간다 */ }
+
+  /**
+   * 「자세히 보기」 — 결과의 대미지를 줄이지 않고 1의 자리까지 적는다.
+   *
+   * 두 덱이 「1.24억」으로 똑같이 보이는데 실제로는 수십만이 갈리는 일이 있다.
+   * 켠 상태는 이 브라우저에 남는다. 타임라인 눈금과 보고서 이미지는 자리가 좁아
+   * 늘 줄여 적는다 — 여기서 바뀌는 것은 결과 패널뿐이다.
+   */
+  const dmg = (value: number): string =>
+    (detailDamage ? formatExactDamage(value) : formatDamage(value));
+  const dps = (value: number): string =>
+    (detailDamage ? formatExactDps(value) : formatDps(value));
+
   const renderBatchResult = (batch: BatchResult) => {
     // 한 번이라도 돌렸으면 «조건부터 보라»는 강조는 물러난다.
     settleBattleNote();
@@ -2695,10 +2725,10 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     copy.append(createText('h2', batch.decks.length > 1 ? '5덱 전투 결과' : '전투 결과'));
     const summary = document.createElement('div');
     summary.className = 'total-block';
-    const total = createText('strong', formatDamage(batch.total));
+    const total = createText('strong', dmg(batch.total));
     total.dataset.resultTotal = '';
     total.dataset.batchTotal = '';
-    summary.append(createText('span', batch.decks.length > 1 ? '전체 덱 총 대미지' : '스쿼드 총 대미지'), total, createText('small', formatDps(batch.total / duration)));
+    summary.append(createText('span', batch.decks.length > 1 ? '전체 덱 총 대미지' : '스쿼드 총 대미지'), total, createText('small', dps(batch.total / duration)));
     header.append(copy, summary);
     resultPanel.append(header);
 
@@ -2735,7 +2765,23 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     csvButton.textContent = '정밀 수치 CSV';
     csvButton.title = '구간별·최종 대미지를 1의 자리까지 담은 표를 내려받습니다 (0.1초 단위)';
     csvButton.addEventListener('click', () => { void exportDamageCsv(batch, csvButton); });
-    reportTools.append(historySave, historyOpen, reportButton, csvButton);
+    // 자세히 보기 — 「1.24억」 대신 1의 자리까지. 내려받지 않고 그 자리에서 본다.
+    const detailLabel = document.createElement('label');
+    detailLabel.className = 'inline-check detail-toggle';
+    const detailBox = document.createElement('input');
+    detailBox.type = 'checkbox';
+    detailBox.dataset.detailDamage = '';
+    detailBox.checked = detailDamage;
+    detailLabel.title = '대미지를 줄여 쓰지 않고 1의 자리까지 적습니다';
+    detailBox.addEventListener('change', () => {
+      detailDamage = detailBox.checked;
+      try {
+        resolveStorage()?.setItem(DETAIL_KEY, detailDamage ? '1' : '0');
+      } catch { /* 저장 실패는 무시한다 — 이번 판만 못 기억할 뿐이다 */ }
+      renderBatchResult(batch);
+    });
+    detailLabel.append(detailBox, createText('span', '자세히 보기'));
+    reportTools.append(historySave, historyOpen, reportButton, csvButton, detailLabel);
     resultPanel.append(reportTools);
 
     // 덱 순위 — 딜 내림차순으로 «등수»만 구한다. 세우는 순서는 끝까지 덱 번호 그대로다.
@@ -2757,8 +2803,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       deckHeader.className = 'deck-result-header';
       deckHeader.append(
         createText('h3', `덱 ${entry.deckId}`),
-        createText('strong', formatDamage(entry.result.squadTotal)),
-        createText('small', formatDps(entry.result.squadTotal / entry.result.duration)),
+        createText('strong', dmg(entry.result.squadTotal)),
+        createText('small', dps(entry.result.squadTotal / entry.result.duration)),
       );
       section.append(deckHeader);
       if (ranking.size > 1) {
@@ -2768,7 +2814,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           'p',
           rank === 1
             ? '1위 · 기준'
-            : `${rank}위 · 1위 대비 ${gap.toFixed(1)}% (${formatDamage(entry.result.squadTotal - best)})`,
+            : `${rank}위 · 1위 대비 ${gap.toFixed(1)}% (${dmg(entry.result.squadTotal - best)})`,
           'deck-rank',
         );
         badge.dataset.deckRank = String(rank);
@@ -2778,8 +2824,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       if (entry.result.previewNote) section.append(createText('p', entry.result.previewNote, 'preview-warning'));
       // 덱을 갈아 가며 볼 때는 줄이 짧고 비교가 쉽다. 한 덱만 볼 때는 카드가 편성과
       // 자리가 맞아 낫다 — 화면의 목적이 달라서 모양도 다르다.
-      if (batch.decks.length > 1) renderCharacterRows(section, entry, portraitOf);
-      else renderCharacterCards(section, entry, portraitOf);
+      const fmt: DamageFormat = { dmg, dps };
+      if (batch.decks.length > 1) renderCharacterRows(section, entry, portraitOf, fmt);
+      else renderCharacterCards(section, entry, portraitOf, fmt);
       const facts = document.createElement('div');
       facts.className = 'result-facts';
       facts.append(
