@@ -3593,9 +3593,15 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       // 버스트 단계 맞은편(우상단)에 속성 아이콘.
       const codeIcon = createElementIcon(char.elementCode, 'roster-code');
       if (codeIcon) portrait.append(codeIcon);
+      if (char.preview) {
+        // (임시) — 스킬 미공개라 창작한 값으로 도는 캐릭터. 고르기 전에 보여야 한다.
+        const temp = createText('i', '임시', 'roster-temp');
+        temp.title = '스킬이 공개되지 않아 임의로 창작한 값으로 계산합니다';
+        portrait.append(temp);
+      }
       cell.append(
         portrait,
-        createText('strong', char.name),
+        createText('strong', char.preview ? `${char.name} (임시)` : char.name),
         createText('span', [char.elementCode, char.weaponType, char.className].filter(Boolean).join(' · ')),
       );
       cell.addEventListener('click', () => pickCharacter(char.name));
@@ -3661,6 +3667,11 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     renderDeckTabs();
     renderSquad();
     renderRosterGrid();
+    // (임시) 캐릭터는 넣는 순간 바로 알린다 — 결과까지 가서야 알면 이미 늦다.
+    if (catalogByName.get(name)?.preview) {
+      status.textContent = `${name}은(는) 아직 (임시) 등록입니다 — 스킬이 공개되지 않아 `
+        + '임의로 창작한 값으로 계산합니다. 실제 성능과 무관하니 참고용으로만 봐 주세요.';
+    }
   };
 
   /** 판이 어느 칸을 겨냥하는지 알려 준다. 창이 없으니 이 한 줄이 유일한 안내다. */

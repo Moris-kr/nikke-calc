@@ -299,7 +299,11 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .slot-choose[aria-pressed="true"] span { color: #cfeceb; }
 .slot-clear { position: absolute; top: 7px; right: 6px; width: 20px; height: 20px; padding: 0; display: grid; place-items: center; border: 0; background: none; color: var(--muted); font-size: 12px; line-height: 1; cursor: pointer; border-radius: 4px; }
 .slot-clear:hover { background: rgba(255,119,135,.16); color: var(--danger); }
-.squad-slot.is-preview::after { content: "PREVIEW"; position: absolute; top: 8px; right: 8px; z-index: 3; padding: 3px 5px; background: var(--danger); color: #21050a; font-size: 8px; font-weight: 900; }
+.squad-slot.is-preview::after { content: "임시 · 창작 스킬"; position: absolute; top: 8px; right: 8px; z-index: 3; padding: 3px 5px; background: var(--danger); color: #21050a; font-size: 8px; font-weight: 900; }
+/* 목록 칸의 (임시) 딱지 — 초상화 좌하단, 버스트 배지 맞은편. */
+.roster-temp { position: absolute; left: 4px; bottom: 4px; z-index: 2; padding: 2px 4px;
+  background: var(--danger); color: #21050a; font-size: 8px; font-style: normal; font-weight: 900;
+  border-radius: 3px; }
 /* 돌파·코어 강화 스테퍼 — 초상화 우측하단. 별 + 진화 숫자로 명함~풀코를 보이고 −/+로 조절. */
 .growth-stepper { position: absolute; z-index: 2; right: 7px; bottom: 5px; display: flex; align-items: center; gap: 4px; padding: 3px; border: 1px solid rgba(146,176,201,.22); border-radius: 7px; background: rgba(3,10,17,.78); backdrop-filter: blur(2px); }
 /* 버튼은 별 장식 위에 온다 — 아래 pointer-events와 짝이다. */

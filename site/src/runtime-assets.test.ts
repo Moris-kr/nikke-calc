@@ -13,10 +13,12 @@ describe('generated browser runtime', () => {
       readFileSync(join(publicDir, 'catalog.json'), 'utf8'),
     ) as CharacterMeta[];
 
-    expect(catalog).toHaveLength(199);
+    expect(catalog).toHaveLength(200);
     expect(catalog.every((char) => !char.name.startsWith('test_'))).toBe(true);
-    // 프리뷰(출시 전 카드) 항목은 출시되면 정식 등록되며 사라진다. 지금은 전원 출시됐다.
-    expect(catalog.filter((char) => char.preview).map((char) => char.name)).toEqual([]);
+    // 프리뷰(출시 전) 항목은 출시되면 정식 등록되며 사라진다. 지금은 하나 —
+    // 스킬을 창작해 (임시)로 넣은 캐릭터다 (PARSING-CHARS §프리뷰).
+    expect(catalog.filter((char) => char.preview).map((char) => char.name))
+      .toEqual(['드레이크 : 그레이트 빌런']);
   });
 
   it('lists only runtime files that exist and have content', () => {
@@ -126,12 +128,12 @@ describe('generated browser runtime', () => {
     for (const name of ['라피 : 레드 후드', '아니스 : 스타', '네온 : 비전 아이']) {
       expect(settings.characters[name]!.growthOptions[3]!.affinity).toBe(40);
     }
-    // `skillLevelsLocked`는 프리뷰(출시 전 카드) 캐릭터 전용이다 — 레벨 10 계수만
-    // 존재하기 때문이다. 전원 출시돼 프리뷰가 비었으므로 잠긴 캐릭터도 없어야 한다.
+    // `skillLevelsLocked`는 프리뷰(출시 전) 캐릭터 전용이다 — 레벨 10 계수만
+    // 존재하기 때문이다. 지금 잠긴 것은 (임시) 창작 등록 하나뿐이다.
     // 프리뷰였던 `니지마 마코토`·`아마기 유키코`는 정식 명칭으로 등록되며 잠금이 풀렸다.
     expect(Object.entries(settings.characters)
       .filter(([, meta]) => meta.skillLevelsLocked)
-      .map(([name]) => name)).toEqual([]);
+      .map(([name]) => name)).toEqual(['드레이크 : 그레이트 빌런']);
     for (const name of ['퀸(마코토)', '유키코']) {
       expect(settings.characters[name]).toMatchObject({ skillLevelsLocked: false });
     }

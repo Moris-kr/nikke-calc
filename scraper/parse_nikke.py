@@ -63,6 +63,15 @@ def parse_weapon_skill(text: str, is_charge: bool) -> dict:
     return result
 
 
+# CDN이 말해 주지 않는 수동 확정값. 재생성해도 사라지면 안 되는 값은 전부 여기 둔다 —
+# 생성 파일(parsed_nikke.json)을 손으로 고치면 다음 재생성이 조용히 되돌린다(파스칼의
+# fire_mode가 실제로 그렇게 유실됐다). 근거는 PARSING-CHARS.md §캐릭터별 예외.
+_MANUAL_OVERRIDES: dict[str, dict] = {
+    # RL이지만 차지할 수 없는 전용 무기(Modified Gun) — RL 기본 차지 모드를 덮는다.
+    "파스칼": {"fire_mode": "auto"},
+}
+
+
 def parse_fire_mechanics(weapon: dict) -> dict:
     """무기상세의 CDN 원값 → 발사 메카닉 필드.
 
@@ -183,6 +192,11 @@ def run(skills_data: dict | None = None) -> None:
         }
         if name in preview_only:
             entry["preview"] = True   # 출시 전 카드 기준. context/spec.py가 레벨 10 외 실행을 막는다
+            # 카드조차 없어 스킬을 창작한 항목은 경고문이 달라야 한다 — «카드 기준»이라고
+            # 말하면 실물 근거가 있는 것처럼 읽힌다 (preview_skills.json `_preview.창작`).
+            if (preview.get(name, {}).get("_preview") or {}).get("창작"):
+                entry["fabricated"] = True
+        entry.update(_MANUAL_OVERRIDES.get(name, {}))
         parsed[name] = entry
 
     _dummy_base = {

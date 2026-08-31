@@ -1,4 +1,24 @@
 {
+  "드레이크 : 그레이트 빌런": {
+    "rarity": "SSR",
+    "element_code": "풍압",
+    "class": "방어형",
+    "manufacturer": "미실리스",
+    "squad": "",
+    "squad_name": "",
+    "burst_stage": "3",
+    "burst_cooldown": 40.0,
+    "weapon_type": "SG",
+    "max_ammo": 9,
+    "reload_time": 1.5,
+    "fire_rate": 1.5,
+    "pellets": 10,
+    "muzzles": 1,
+    "damage_coeff": 205.2,
+    "core_dmg_mult": 200.0,
+    "preview": true,
+    "fabricated": true
+  },
   "라피": {
     "rarity": "SR",
     "element_code": "작열",
@@ -3489,14 +3509,14 @@
     "burst_stage": "1",
     "burst_cooldown": 40.0,
     "weapon_type": "RL",
-    "fire_mode": "auto",
     "max_ammo": 6,
     "reload_time": 2.5,
     "fire_rate": 1.5,
     "pellets": 1,
     "muzzles": 1,
     "damage_coeff": 75.0,
-    "core_dmg_mult": 200.0
+    "core_dmg_mult": 200.0,
+    "fire_mode": "auto"
   },
   "렘": {
     "rarity": "SSR",

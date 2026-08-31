@@ -422,8 +422,18 @@ def preview_note(names: list[str]) -> str:
     pv = [n for n in names if is_preview(n)]
     if not pv:
         return ""
-    return (f"[프리뷰 · 미검증] {', '.join(pv)} — 출시 전 카드(스킬 레벨 10) 기준. "
-            "인게임 검증 전이므로 수치·발동 조건이 바뀔 수 있다")
+    # 카드조차 없어 스킬을 창작한 (임시) 항목은 따로 말한다 — «카드 기준»이라고 하면
+    # 실물 근거가 있는 것처럼 읽힌다 (parse_nikke.py가 `fabricated`를 붙인다).
+    made = [n for n in pv if _nikke().get(n, {}).get("fabricated")]
+    carded = [n for n in pv if n not in made]
+    parts = []
+    if carded:
+        parts.append(f"[프리뷰 · 미검증] {', '.join(carded)} — 출시 전 카드(스킬 레벨 10) 기준. "
+                     "인게임 검증 전이므로 수치·발동 조건이 바뀔 수 있다")
+    if made:
+        parts.append(f"[임시 · 창작] {', '.join(made)} — 스킬이 공개되지 않아 임의로 창작한 "
+                     "값으로 계산했다. 실제 성능과 무관하다")
+    return " / ".join(parts)
 
 
 def burst_stage(name: str) -> str:
