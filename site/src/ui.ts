@@ -1799,7 +1799,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     const box = element<HTMLElement>(root, '[data-optimal-range]');
     box.replaceChildren();
     rangeInputs.clear();
-    for (const weapon of settings.weaponTypes) {
+    // 적정거리가 없는 무기군(런처)은 아예 그리지 않는다 — 켤 수 있게 두면
+    // 인게임에 없는 보정을 켜게 된다. 목록의 정본은 무기 데이터다.
+    for (const weapon of settings.optimalRangeWeapons ?? settings.weaponTypes) {
       const label = document.createElement('label');
       label.className = 'range-option';
       const input = document.createElement('input');

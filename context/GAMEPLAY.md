@@ -16,6 +16,10 @@
   +20.7%). 캐릭터가 아니라 적과의 거리에 달린 조건이라 전투 조건에 둔다.
   「적정거리 대미지 ▲」 버프(`optimal_range_dmg_pct`)는 이 고정 +30%와 별개이며
   **아직 미구현**이다 (IMPL-STATUS.md).
+  **런처(RL)는 적정 사거리가 없다** (유저 확인, 2026-08-31). 정본은
+  `data/weapon_mechanics.json`의 `optimal_range: false`이고, `normalize_optimal_range`가
+  목록에서 조용히 뺀다(옛 공유 코드에 RL이 들어 있어도 열리게). 화면도 그 무기군에는
+  체크박스를 그리지 않는다.
 
 ---
 

@@ -333,6 +333,12 @@ export interface SettingsCatalog {
   cubes: Record<CubeName, CubeMeta>;
   collectionStages: string[];
   weaponTypes: string[];
+  /**
+   * 적정거리를 가진 무기군. 런처는 인게임에 적정 사거리가 없어 빠진다 —
+   * 정본은 `data/weapon_mechanics.json`의 `optimal_range`다. 옛 설정에는 없을 수
+   * 있어, 없으면 무기군 전부로 본다(예전 화면과 같게).
+   */
+  optimalRangeWeapons?: string[];
   /** 「누가 이 버프를 받았나」를 카드에 띄울 버프 — 정본은 `calculator.customization`. */
   buffTargetWatch: Record<string, Array<{ buff: string; label: string }>>;
   // 무기군별 평타 계수 기본값 (`data/weapon_mechanics.json`).

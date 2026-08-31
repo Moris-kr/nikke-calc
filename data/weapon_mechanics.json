@@ -96,6 +96,8 @@
    "_fire_rate_note": "차지 무기는 차지 시간 + 발사 후 딜레이로 주기가 결정되므로 fire_rate를 발사 루프에 쓰지 않는다(참고용 기록)"
   },
   "RL": {
+   "optimal_range": false,
+   "_optimal_range_note": "런처는 인게임에 적정 사거리가 없다(유저 확인, 2026-08-31). ③ 보너스 +30%를 붙일 대상이 아니며, 화면도 이 무기군에는 체크박스를 그리지 않는다. 나머지 무기군은 optimal_range가 없으면 있는 것으로 본다.",
    "type": "charge",
    "fire_rate": 1.0,
    "post_fire_delay": 0.215,

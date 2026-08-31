@@ -56,6 +56,7 @@ const settings: SettingsCatalog = {
   collectionStages: ['없음', 'SR0', 'SR5', 'SR15'],
   normalHitCoeff: { AR: 1, SMG: 1, SG: 0.9, MG: 1, SR: 1, RL: 1 },
   weaponTypes: ['AR', 'SMG', 'SG', 'MG', 'SR', 'RL'],
+  optimalRangeWeapons: ['AR', 'SMG', 'SG', 'MG', 'SR'],
   buffTargetWatch: { 리타: [{ buff: '웨이크업! 4', label: '크확 대상' }] },
   consoleClasses: ['화력형', '방어형', '지원형'],
   consoleCompanies: ['엘리시온', '테트라', '미실리스', '필그림', '어브노말'],
@@ -688,9 +689,10 @@ describe('calculator UI', () => {
     mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });
 
     // 기본은 아무 무기군도 적정거리가 아니다 — 요청에서 아예 빠진다.
+    // 런처는 인게임에 적정 사거리가 없어 칸 자체가 없다.
     const boxes = [...root.querySelectorAll<HTMLInputElement>('[data-optimal-range-weapon]')];
     expect(boxes.map((box) => box.dataset.optimalRangeWeapon))
-      .toEqual(['AR', 'SMG', 'SG', 'MG', 'SR', 'RL']);
+      .toEqual(['AR', 'SMG', 'SG', 'MG', 'SR']);
     expect(boxes.every((box) => !box.checked)).toBe(true);
 
     root.querySelector<HTMLFormElement>('form')!.requestSubmit();

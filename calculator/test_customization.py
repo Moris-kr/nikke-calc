@@ -556,13 +556,35 @@ class CharacterCustomizationTest(unittest.TestCase):
         self.assertEqual(normalize_optimal_range(None), [])
         self.assertEqual(normalize_optimal_range([]), [])
         # 고른 순서가 달라도 같은 설정이라 정본 순서로 세운다 (캐시 키가 갈리지 않게).
-        self.assertEqual(normalize_optimal_range(["RL", "AR", "SG"]), ["AR", "SG", "RL"])
+        self.assertEqual(normalize_optimal_range(["SR", "AR", "SG"]), ["AR", "SG", "SR"])
         self.assertEqual(normalize_optimal_range(["SMG", "SMG"]), ["SMG"])
 
         with self.assertRaises(ValueError):
             normalize_optimal_range(["활"])
         with self.assertRaises(ValueError):
             normalize_optimal_range("SMG")
+
+    def test_launchers_have_no_optimal_range(self):
+        """런처는 인게임에 적정 사거리가 없다 (유저 확인, 2026-08-31).
+
+        정본은 `data/weapon_mechanics.json`의 `optimal_range`다 — 화면의 체크박스
+        목록도 같은 값에서 나온다. 오래된 공유 코드에 RL이 들어 있을 수 있으므로
+        **오류로 막지 않고 조용히 뺀다**: 막으면 옛 설정을 아예 열지 못한다.
+        """
+        import json
+        from pathlib import Path
+
+        from calculator.customization import OPTIMAL_RANGE_WEAPONS, normalize_optimal_range
+
+        table = json.loads(
+            (Path(__file__).resolve().parents[1] / "data" / "weapon_mechanics.json")
+            .read_text(encoding="utf-8")
+        )["weapon_type_defaults"]
+        self.assertIs(table["RL"]["optimal_range"], False)
+        self.assertEqual(OPTIMAL_RANGE_WEAPONS, ("AR", "SMG", "SG", "MG", "SR"))
+
+        self.assertEqual(normalize_optimal_range(["RL"]), [])
+        self.assertEqual(normalize_optimal_range(["RL", "SMG"]), ["SMG"])
 
     def test_optimal_range_lifts_only_that_weapon_and_only_normal_attacks(self):
         """적정거리는 ③에 +30% **가산**이고 일반 공격에만 붙는다.

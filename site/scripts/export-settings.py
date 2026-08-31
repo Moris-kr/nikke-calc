@@ -10,7 +10,8 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from calculator.customization import (  # noqa: E402
-    BUFF_TARGET_WATCH, COLLECTION_STAGES, CONSOLE_CLASSES, CONSOLE_COMPANIES, CUBE_NAMES, WEAPON_TYPES,
+    BUFF_TARGET_WATCH, COLLECTION_STAGES, CONSOLE_CLASSES, CONSOLE_COMPANIES, CUBE_NAMES,
+    OPTIMAL_RANGE_WEAPONS, WEAPON_TYPES,
     MANUAL_STATS, OVERLOAD_FIELDS,
 )
 from context.growth import growth_options, growth_profile  # noqa: E402
@@ -118,6 +119,10 @@ def main() -> None:
         "collectionStages": list(COLLECTION_STAGES),
         # 콘솔 소속. 엔진이 빠진 소속을 에러로 끊으므로 목록의 정본을 넘긴다.
         "weaponTypes": list(WEAPON_TYPES),
+        # 적정거리를 가진 무기군. 런처는 인게임에 적정 사거리가 없어 빠진다 —
+        # 화면이 체크박스를 그리지 않게 목록을 그대로 내려보낸다
+        # (정본: `data/weapon_mechanics.json`의 `optimal_range`).
+        "optimalRangeWeapons": list(OPTIMAL_RANGE_WEAPONS),
         "buffTargetWatch": {
             caster: [{"buff": b, "label": l} for b, l in rows]
             for caster, rows in BUFF_TARGET_WATCH.items()

@@ -415,19 +415,27 @@ BUFF_TARGET_WATCH: dict[str, tuple[tuple[str, str], ...]] = {
 }
 
 
-def _load_weapon_types() -> tuple[str, ...]:
-    """무기군 목록. 정본은 `data/weapon_mechanics.json`의 `weapon_type_defaults`다.
+def _load_weapon_types() -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """무기군 목록과 «적정거리가 있는» 무기군.
 
-    키 순서가 곧 인게임 표기 순서(AR·SMG·SG·MG·SR·RL)라 그대로 쓴다.
+    정본은 `data/weapon_mechanics.json`의 `weapon_type_defaults`다. 키 순서가 곧
+    인게임 표기 순서(AR·SMG·SG·MG·SR·RL)라 그대로 쓴다.
+
+    적정거리가 없는 무기군은 그 표에 `optimal_range: false`로 적힌다 — 런처가
+    그렇다. 적혀 있지 않으면 있는 것으로 본다(무기군이 늘어도 기본이 안전하다).
     """
     root = Path(__file__).resolve().parent.parent
     table = json.loads(
         (root / "data" / "weapon_mechanics.json").read_text(encoding="utf-8")
     )
-    return tuple(table["weapon_type_defaults"])
+    defaults = table["weapon_type_defaults"]
+    return (
+        tuple(defaults),
+        tuple(w for w, spec in defaults.items() if spec.get("optimal_range", True)),
+    )
 
 
-WEAPON_TYPES = _load_weapon_types()
+WEAPON_TYPES, OPTIMAL_RANGE_WEAPONS = _load_weapon_types()
 
 
 def normalize_optimal_range(raw: Any) -> list[str]:
@@ -438,6 +446,10 @@ def normalize_optimal_range(raw: Any) -> list[str]:
     스킬 대미지에는 붙지 않는다.
 
     안 주면 빈 목록(아무 무기군도 적정거리가 아님)이다.
+
+    **적정거리가 없는 무기군(런처)은 조용히 뺀다.** 오래된 공유 코드와 저장된
+    전투 조건에 RL이 들어 있을 수 있는데, 그걸 오류로 막으면 옛 설정을 아예 열지
+    못한다 — 값을 못 쓰게 만드는 대신 없던 것으로 친다.
     """
     if raw is None:
         return []
@@ -447,7 +459,7 @@ def normalize_optimal_range(raw: Any) -> list[str]:
     if unknown:
         raise ValueError(f"지원하지 않는 무기군: {sorted(unknown)}")
     # 순서가 흔들려도 같은 설정이다 — 정본 순서로 세워 캐시 키가 갈리지 않게 한다.
-    return [w for w in WEAPON_TYPES if w in set(raw)]
+    return [w for w in OPTIMAL_RANGE_WEAPONS if w in set(raw)]
 
 
 def normalize_normal_hit_coeff(raw: Any) -> dict[str, float]:
