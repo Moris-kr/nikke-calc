@@ -315,7 +315,12 @@ export interface CharacterSettingsDefaults {
    * 스스로 판정할 수 있어, 계산 전에도 지금 걸리는 컨트롤을 적을 수 있다.
    * 다른 조건을 쓰는 규칙은 내려오지 않는다 — `hasConditionalControl`로만 알린다.
    */
-  conditionalControl?: Array<{ withMembers: string[]; control: CharacterControl }>;
+  conditionalControl?: Array<{
+    withMembers: string[];
+    control: CharacterControl;
+    /** 왜 이 컨트롤이 붙는지 — 화면에 그대로 보인다. */
+    help?: string;
+  }>;
   favoriteItem?: { name: string; stage: 3 };
   collection: CollectionSelection;
   growthStage: number;

@@ -44,7 +44,10 @@ def main() -> None:
         # «조합에 따라 추가됩니다»라고만 알린다(`hasConditionalControl`).
         member_rules = [
             {"withMembers": list(rule["when"]["with_member"]),
-             "control": rule.get("control") or {}}
+             "control": rule.get("control") or {},
+             # `_help`는 **화면에 그대로 보일 설명**이다. 같은 자리의 `_note`는
+             # 유지보수용이라(문서 포인터·전제 조건) 내보내지 않는다.
+             **({"help": rule["_help"]} if rule.get("_help") else {})}
             for rule in ((CHAR_DEFAULTS.get(name) or {}).get("_control_rules") or [])
             if set(rule.get("when") or {}) == {"with_member"} and rule.get("control")
         ]

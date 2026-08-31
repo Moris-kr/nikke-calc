@@ -143,6 +143,59 @@ export function recommendedControlText(
   return unresolved ? `${head} · 스쿼드 조합에 따라 추천 컨트롤이 추가됩니다.` : head;
 }
 
+/** 조합 조건부 컨트롤 한 줄 — 지금 걸렸는지와, 왜 걸리는지. */
+export interface ControlRuleNote {
+  /** 지금 이 스쿼드에서 실제로 걸려 있는가. */
+  active: boolean;
+  /** 「에이다와 함께라서 홀드 컨트롤이 걸려 있습니다」 같은 한 줄. */
+  headline: string;
+  /** 왜 그렇게 하는지. 데이터에 적힌 설명이 없으면 비어 있다. */
+  help: string;
+}
+
+/**
+ * 조합으로 붙는 컨트롤을 **왜 붙는지까지** 풀어 쓴다.
+ *
+ * 이 컨트롤들은 아무도 켠 적이 없는데 걸린다 — 그래서 「홀드를 켰는데 결과가 그대로」,
+ * 「추천에 없는 게 왜 도나」 같은 오해가 나온다. 걸린 것은 걸렸다고, 아직 아닌 것은
+ * 무엇과 함께 두면 걸리는지 적어 둔다.
+ *
+ * 설명은 데이터가 들고 온다(`data/char_defaults.json`의 `_help`) — 화면이 지어내지 않는다.
+ */
+/**
+ * 받침에 맞춰 조사를 고른다 — 「홀드 컨트롤이」와 「톡톡이가」.
+ *
+ * 「이(가)」로 뭉개는 편이 짧지만, 카드 안에서 매번 읽히는 문장이라 그대로 두면
+ * 눈에 걸린다. 한글이 아닌 글자로 끝나면(숫자·영문) 받침이 있는 쪽으로 본다.
+ */
+export function withParticle(word: string, withFinal: string, without: string): string {
+  const last = word.trim().slice(-1);
+  const code = last.charCodeAt(0);
+  const hangul = code >= 0xac00 && code <= 0xd7a3;
+  const hasFinal = hangul ? (code - 0xac00) % 28 !== 0 : true;
+  return `${word}${hasFinal ? withFinal : without}`;
+}
+
+export function controlRuleNotes(
+  defaults: { conditionalControl?: Array<{ withMembers: string[]; control: CharacterControl; help?: string }> },
+  squad?: string[],
+): ControlRuleNote[] {
+  const roster = new Set((squad ?? []).filter(Boolean));
+  return (defaults.conditionalControl ?? []).map((rule) => {
+    const names = Object.keys(rule.control).map(controlName).join(' · ');
+    const here = rule.withMembers.find((member) => roster.has(member));
+    const who = here ?? rule.withMembers.join(' 또는 ');
+    const subject = withParticle(names, '이', '가');
+    return {
+      active: Boolean(here),
+      headline: here
+        ? `${withParticle(who, '과', '와')} 함께라서 ${subject} 걸려 있습니다.`
+        : `${withParticle(who, '과', '와')} 함께 편성하면 ${subject} 자동으로 붙습니다.`,
+      help: rule.help ?? '',
+    };
+  });
+}
+
 /** 큐브를 끼지 않은 상태. 데이터가 아니라 화면이 만드는 선택지다. */
 export const NO_CUBE = '없음';
 
@@ -795,6 +848,24 @@ export function renderCharacterSettings(
   recommendation.className = 'field-note';
   recommendation.textContent = recommendedControlText(defaults, squad);
 
+  // 조합으로 붙는 컨트롤은 아무도 켠 적이 없는데 걸린다 — 왜 걸리는지 바로 아래 적는다.
+  const ruleNotes = document.createElement('div');
+  ruleNotes.className = 'control-rules';
+  for (const note of controlRuleNotes(defaults, squad)) {
+    const row = document.createElement('p');
+    row.className = note.active ? 'control-rule is-on' : 'control-rule';
+    row.dataset.controlRule = note.active ? 'on' : 'off';
+    const head = document.createElement('b');
+    head.textContent = note.headline;
+    row.append(head);
+    if (note.help) {
+      const why = document.createElement('span');
+      why.textContent = note.help;
+      row.append(why);
+    }
+    ruleNotes.append(row);
+  }
+
   const controlGrid = document.createElement('div');
   controlGrid.className = 'control-grid';
   const displayedControl = isAutomatic ? defaults.recommendedControl : current.control!;
@@ -975,7 +1046,7 @@ export function renderCharacterSettings(
   controlPanel.className = 'control-panel';
   controlPanel.dataset.controlPanel = '';
   controlPanel.hidden = !controlWasOpen;
-  controlPanel.append(controlMode, recommendation, controlGrid,
+  controlPanel.append(controlMode, recommendation, ruleNotes, controlGrid,
     foldedNote('동시 컨트롤 주의', controlWarning, 'control-warning'), burstEditor);
   controlChip.addEventListener('click', () => {
     const next = controlChip.getAttribute('aria-expanded') !== 'true';

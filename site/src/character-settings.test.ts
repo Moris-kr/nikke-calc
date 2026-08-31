@@ -2,7 +2,9 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { recommendedControlText, renderCharacterSettings } from './character-settings';
+import {
+  controlRuleNotes, recommendedControlText, renderCharacterSettings, withParticle,
+} from './character-settings';
 import type { BuffTargetRow, CharacterOverrides, SettingsCatalog } from './types';
 
 const settings: SettingsCatalog = {
@@ -407,6 +409,49 @@ describe('character settings editor', () => {
     expect(recommendedControlText(
       { recommendedControl: {}, hasConditionalControl: true }, ['아인'],
     )).toBe('현재 기본 추천: 자동 사격 · 스쿼드 조합에 따라 추천 컨트롤이 추가됩니다.');
+  });
+
+  it('조합으로 붙는 컨트롤은 왜 붙는지까지 적는다', () => {
+    // 아무도 켠 적이 없는데 걸리는 컨트롤이라, 걸린 사실만으로는 오해가 남는다.
+    const defaults = {
+      conditionalControl: [{
+        withMembers: ['에이다'],
+        control: { hold: { policy: 'own_full_burst' as const, lead: 0.5 } },
+        help: '에이다와 같은 운용을 함께 씁니다.',
+      }],
+    };
+    const [on] = controlRuleNotes(defaults, ['아인', '에이다']);
+    expect(on!.active).toBe(true);
+    expect(on!.headline).toBe('에이다와 함께라서 홀드 컨트롤이 걸려 있습니다.');
+    expect(on!.help).toBe('에이다와 같은 운용을 함께 씁니다.');
+
+    // 아직 아니면 «무엇과 함께 두면 걸리는지»를 알려 준다.
+    const [off] = controlRuleNotes(defaults, ['아인', '홍련']);
+    expect(off!.active).toBe(false);
+    expect(off!.headline).toBe('에이다와 함께 편성하면 홀드 컨트롤이 자동으로 붙습니다.');
+  });
+
+  it('조사를 받침에 맞춰 고른다', () => {
+    expect(withParticle('홀드 컨트롤', '이', '가')).toBe('홀드 컨트롤이');
+    expect(withParticle('톡톡이', '이', '가')).toBe('톡톡이가');
+    expect(withParticle('홍련', '과', '와')).toBe('홍련과');
+    expect(withParticle('에이다', '과', '와')).toBe('에이다와');
+    // 한글이 아닌 끝글자는 받침이 있는 쪽으로 본다.
+    expect(withParticle('MG', '이', '가')).toBe('MG이');
+  });
+
+  it('설명이 없는 규칙은 한 줄만 적는다', () => {
+    // 설명은 데이터가 들고 온다 — 화면이 지어내지 않는다.
+    const [note] = controlRuleNotes(
+      { conditionalControl: [{ withMembers: ['미란다'], control: { cover: { policy: 'own_full_burst' as const } } }] },
+      ['미하라 : 본딩 체인', '미란다'],
+    );
+    expect(note!.help).toBe('');
+    expect(note!.headline).toContain('버스트 엄폐 컨트롤');
+  });
+
+  it('규칙이 없으면 안내도 없다', () => {
+    expect(controlRuleNotes({}, ['리타'])).toEqual([]);
   });
 
   it('컨트롤 칩은 열지 않아도 지금 상태를 적어 둔다', () => {
