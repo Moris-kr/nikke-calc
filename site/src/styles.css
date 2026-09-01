@@ -1395,6 +1395,12 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
 .vision-code-icon { width: 17px; height: 20px; }
 .vision-numbers { margin-left: auto; color: var(--muted); font-size: 11.5px; font-weight: 700; }
 
+/* 올리기 전에 한 번 보라는 줄. 겁줄 일은 아니라 붉은색 대신 호박색이다. */
+.vision-warn { margin: 0 0 12px; padding: 7px 10px; border: 1px solid rgba(255,191,60,.3);
+  border-radius: 8px; background: rgba(255,191,60,.07); color: #e5d3a6;
+  font-size: 11.5px; line-height: 1.6; }
+.vision-warn::before { content: "⚠ "; color: var(--amber); }
+
 .vision-grid { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
 .vision-cell { margin: 0; display: grid; gap: 3px; }
 .vision-face { position: relative; overflow: hidden; border-radius: 8px;

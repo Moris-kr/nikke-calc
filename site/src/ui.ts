@@ -5036,6 +5036,12 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     }
 
     funBody.append(createText('p', visionSummary(rows, visionMetric), 'vision-summary'));
+    // 남에게 보이려고 만드는 그림이 아니다 — 올리기 전에 한 번 생각하라고 적어 둔다.
+    funBody.append(createText(
+      'p',
+      '갤에 올리면 비틱성으로 여겨질 가능성이 있으니 주의하세요.',
+      'vision-warn',
+    ));
 
     // 크기가 정보다 — 한 변이 값에 비례하고, 아래를 맞춰 세워야 차이가 눈에 든다.
     const grid = document.createElement('div');
