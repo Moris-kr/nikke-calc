@@ -37,34 +37,38 @@ def _table() -> dict:
 
 class LevelBeyondTableTest(unittest.TestCase):
     def test_matches_the_game_within_rounding(self):
-        """실측과 붙여 본다. 어긋나면 «추정이 틀렸다»가 아니라 데이터가 바뀐 것이다."""
-        base = _table()["화력형_SG"]["822"]["atk"]
+        """실측과 붙여 본다. 어긋나면 «추정이 틀렸다»가 아니라 데이터가 바뀐 것이다.
+
+        실측은 SSR 화력형 SG로 쟀다 — 표가 등급별로 갈린 뒤에도 같은 곡선을 본다.
+        """
+        base = _table()["SSR_화력형_SG"]["822"]["atk"]
         worst = 0.0
         for level, delta in MEASURED_ATK_DELTA.items():
             real = base + delta / MULTIPLIER
-            got = _level_stat("화력형", "SG", level)["atk"]
+            got = _level_stat("네온", "SSR", "화력형", "SG", level)["atk"]
             worst = max(worst, abs(got / real - 1))
         self.assertLess(worst, 0.0005, f"최대 오차 {worst:.4%}")
 
     def test_band_shape_survives(self):
         """20레벨 밴드 안에서는 고르게 오르고, 밴드가 바뀔 때 한 번 뛴다."""
-        atk = lambda lv: _level_stat("화력형", "SG", lv)["atk"]
+        atk = lambda lv: _level_stat("네온", "SSR", "화력형", "SG", lv)["atk"]
         steps = [atk(lv + 1) - atk(lv) for lv in range(1122, 1140)]
         self.assertLessEqual(max(steps) - min(steps), 2, steps)
         self.assertGreater(atk(1141) - atk(1140), max(steps) * 10)
 
     def test_keeps_growing_to_the_cap(self):
         """상한까지 계속 오른다. 1000에서 눌리면 1021과 1131이 같은 값이 된다."""
-        top = _level_stat("화력형", "SG", 1000)["atk"]
-        past = [_level_stat("화력형", "SG", lv)["atk"] for lv in (1021, 1131, 1300, SYNCHRO_MAX)]
+        top = _level_stat("네온", "SSR", "화력형", "SG", 1000)["atk"]
+        past = [_level_stat("네온", "SSR", "화력형", "SG", lv)["atk"] for lv in (1021, 1131, 1300, SYNCHRO_MAX)]
         self.assertTrue(all(a < b for a, b in zip([top] + past, past)), past)
         self.assertGreater(past[1] / top, 1.15)   # 싱크로 1131은 1000보다 15% 넘게 세다
 
     def test_every_table_reaches_the_cap(self):
         """클래스·무기 조합 전부가 상한까지 답을 낸다."""
         for key in (k for k in _table() if not k.startswith("_")):
-            cls, weapon = key.split("_", 1)
-            self.assertGreater(_level_stat(cls, weapon, SYNCHRO_MAX)["atk"], 0, key)
+            rarity, cls, weapon = key.split("_", 2)
+            self.assertGreater(
+                _level_stat("검사용", rarity, cls, weapon, SYNCHRO_MAX)["atk"], 0, key)
 
     def test_measured_bands_are_used_as_measured(self):
         """실측이 있는 밴드는 추정으로 덮지 않는다."""

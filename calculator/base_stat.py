@@ -148,12 +148,22 @@ def _beyond_table(table: dict, keys: list, level: int) -> dict:
         band += 1
 
 
-def _level_stat(cls: str, weapon: str, level: int) -> dict:
+def _level_stat(name: str, rarity: str, cls: str, weapon: str, level: int) -> dict:
     """level_stats.json 조회. 키 없는 레벨은 인접 두 키로 선형 보간.
+
+    표는 `등급_클래스_무기유형`으로 갈린다. **등급이 빠지면 SR·R 캐릭터가 SSR 곡선을
+    쓴다** — 같은 클래스·무기의 SR은 SSR의 90% 언저리라, 그만큼 딜이 부푼다
+    (원작 Jgaram/nikke-calc에서 가져왔다).
 
     표 끝(1000)을 넘는 레벨은 `_beyond_table()`이 잇는다 — **추정치다**.
     """
-    table = _LEVEL_STATS[f"{cls}_{weapon}"]
+    combo = _LEVEL_STATS.get("_exceptions", {}).get(name) or f"{rarity}_{cls}_{weapon}"
+    table = _LEVEL_STATS.get(combo)
+    if table is None:
+        raise KeyError(
+            f"[{name}] level_stats.json에 {combo!r} 조합이 없다 — 등급·클래스·무기유형 중 "
+            "하나가 표에 없는 값이다. 예외로 둘 캐릭터면 `_exceptions`에 적는다"
+        )
     key = str(level)
     if key in table:
         return dict(table[key])
@@ -270,9 +280,10 @@ def calc_base_stats(char: dict) -> dict:
     meta   = _NIKKE[name]
     cls    = meta["class"]
     weapon = meta["weapon_type"]
+    rarity = meta.get("rarity", "SSR")
 
-    # 레벨스탯
-    lv_s = _level_stat(cls, weapon, level)
+    # 레벨스탯 — 등급까지 봐야 SR·R이 SSR 곡선을 빌려 쓰지 않는다
+    lv_s = _level_stat(name, rarity, cls, weapon, level)
 
     # 코어공식 (atk/def/hp 각각)
     core = {

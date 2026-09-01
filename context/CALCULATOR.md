@@ -46,8 +46,12 @@ simulate()
 
 ### base_stat.py 흐름
 
+레벨 스탯표는 **등급까지 갈린다.** 빠뜨리면 SR·R 캐릭터가 SSR 곡선을 써서 딜이
+부푼다 — 같은 클래스·무기의 SR은 SSR의 약 90%다(네온 Lv400 공격력 90,318 → 81,288).
+원작(Jgaram/nikke-calc)에서 가져온 표이고, 예외로 둘 캐릭터는 `_exceptions`에 적는다.
+
 ```
-level_stats.json  ──┐   (1000 초과는 level_beyond.json이 잇는다 — 도감 실측)
+level_stats.json  ──┐   (`등급_클래스_무기유형` 37조합. 1000 초과는 level_beyond.json이 잇는다 — 도감 실측)
 affinity.json     ──┼─ _level_stat() + 보정
 console.json      ──┤
 equipment_stats   ──┤  → base atk/def/hp
