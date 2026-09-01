@@ -12,7 +12,7 @@ import {
 } from './blablalink';
 import { parseRosterCsv } from './csv-import';
 import {
-  VISION_METRICS, visionRows, visionSize, visionSummary, type VisionMetric,
+  VISION_METRICS, packBounds, packCircles, visionRows, visionSummary, type VisionMetric,
 } from './fun-vision';
 import {
   formatEok,
@@ -136,6 +136,9 @@ const createText = (tag: keyof HTMLElementTagNameMap, value: string, className?:
 const ELEMENT_ICON: Record<string, string> = {
   작열: 'fire', 수냉: 'water', 풍압: 'wind', 전격: 'electronic', 철갑: 'iron',
 };
+
+/** 코드 다섯. 인게임 표기 순서 그대로 — 필터 아이콘이 이 순서로 선다. */
+const ELEMENT_CODES = Object.keys(ELEMENT_ICON);
 
 const createElementIcon = (elementCode: string, className: string): HTMLElement | null => {
   const slug = ELEMENT_ICON[elementCode];
@@ -4943,13 +4946,22 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   type FunView = (typeof FUN_VIEWS)[number]['key'];
   let funView: FunView = 'vision';
   let visionMetric: VisionMetric = 'element';
+  /** 수치를 동그라미에 적을지. 그림만 보고 싶을 때가 있어 켜고 끈다. */
+  let visionNumbers = true;
+  /** 보고 싶은 속성. 비어 있으면 전부 본다. */
+  const visionCodes = new Set<string>();
 
   /**
    * 니케 시각화. **계산기에 세팅한 값이 아니라 불러온 프로필을 쓴다** — 덱마다 만져 둔
    * 값은 «이 조합에서 이랬으면»이라는 가정이고, 여기서 보고 싶은 것은 계정의 실제 육성이다.
+   *
+   * 격자 대신 원형 팩으로 그린다 — 크기 차이가 자리 배치로도 드러난다(큰 것이 가운데).
    */
   const renderVision = () => {
     funBody.replaceChildren();
+
+    const bar = document.createElement('div');
+    bar.className = 'vision-bar';
 
     const picks = document.createElement('div');
     picks.className = 'vision-metrics';
@@ -4964,50 +4976,130 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       button.addEventListener('click', () => { visionMetric = metric.key; renderVision(); });
       picks.append(button);
     }
-    funBody.append(picks);
+    bar.append(picks);
 
-    const rows = visionRows(roster, visionMetric, (name) => catalogByName.has(name));
+    // 속성 필터 — 아이콘만 세운다. 하나도 안 고르면 전부 본다.
+    const codes = document.createElement('div');
+    codes.className = 'vision-codes';
+    for (const code of ELEMENT_CODES) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      const on = visionCodes.has(code);
+      button.className = `vision-code${on ? ' is-on' : ''}`;
+      button.dataset.visionCode = code;
+      button.setAttribute('aria-pressed', String(on));
+      button.title = `${code} 코드만 보기`;
+      const icon = createElementIcon(code, 'vision-code-icon');
+      if (icon) button.append(icon); else button.textContent = code;
+      button.addEventListener('click', () => {
+        if (visionCodes.has(code)) visionCodes.delete(code); else visionCodes.add(code);
+        renderVision();
+      });
+      codes.append(button);
+    }
+    if (visionCodes.size > 0) {
+      const clear = document.createElement('button');
+      clear.type = 'button';
+      clear.className = 'vision-code is-clear';
+      clear.dataset.visionCodeClear = '';
+      clear.textContent = '전체';
+      clear.title = '속성 필터 풀기';
+      clear.addEventListener('click', () => { visionCodes.clear(); renderVision(); });
+      codes.append(clear);
+    }
+    bar.append(codes);
+
+    const numbers = document.createElement('label');
+    numbers.className = 'inline-check vision-numbers';
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.dataset.visionNumbers = '';
+    box.checked = visionNumbers;
+    box.addEventListener('change', () => { visionNumbers = box.checked; renderVision(); });
+    numbers.append(box, createText('span', '수치 보기'));
+    bar.append(numbers);
+    funBody.append(bar);
+
+    const rows = visionRows(roster, visionMetric, (name) => {
+      const meta = catalogByName.get(name);
+      if (!meta) return false;
+      return visionCodes.size === 0 || visionCodes.has(meta.elementCode);
+    });
     if (rows.length === 0) {
       funBody.append(createText('p', Object.keys(roster).length === 0
         ? '불러온 프로필이 없습니다. 「블라블라링크 연동」이나 「렛츠도로 CSV 불러오기」로 내 육성을 먼저 가져와 주세요.'
-        : '불러온 프로필에 오버로드 옵션이 잡힌 니케가 없습니다.', 'vision-empty'));
+        : visionCodes.size > 0
+          ? '고른 속성에 오버로드 옵션이 잡힌 니케가 없습니다.'
+          : '불러온 프로필에 오버로드 옵션이 잡힌 니케가 없습니다.', 'vision-empty'));
       return;
     }
 
     funBody.append(createText('p', visionSummary(rows, visionMetric), 'vision-summary'));
 
-    const grid = document.createElement('div');
-    grid.className = 'vision-grid';
-    grid.dataset.visionGrid = '';
-    for (const row of rows) {
-      const size = visionSize(row.share);
-      const cell = document.createElement('figure');
-      cell.className = 'vision-cell';
-      cell.dataset.visionCell = row.name;
-      cell.style.width = `${size}px`;
-      const face = document.createElement('div');
-      face.className = 'vision-face';
-      face.style.height = `${size}px`;
-      const image = catalogByName.get(row.name)?.image;
+    // SVG로 그린다 — viewBox가 화면 폭에 맞춰 알아서 줄여 주므로 좌표를 그대로 쓴다.
+    const circles = packCircles(rows);
+    const bounds = packBounds(circles);
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('class', 'vision-bubbles');
+    svg.dataset.visionBubbles = '';
+    svg.setAttribute('viewBox', `-4 -4 ${bounds.width + 8} ${bounds.height + 8}`);
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', `${rows.length}명을 크기로 견준 그림`);
+    const defs = document.createElementNS(NS, 'defs');
+    svg.append(defs);
+
+    circles.forEach((circle, index) => {
+      const id = `vision-clip-${index}`;
+      const clip = document.createElementNS(NS, 'clipPath');
+      clip.setAttribute('id', id);
+      const shape = document.createElementNS(NS, 'circle');
+      shape.setAttribute('cx', String(circle.x));
+      shape.setAttribute('cy', String(circle.y));
+      shape.setAttribute('r', String(circle.r));
+      clip.append(shape);
+      defs.append(clip);
+
+      const group = document.createElementNS(NS, 'g');
+      group.setAttribute('class', 'vision-bubble');
+      group.dataset.visionCell = circle.name;
+
+      const image = catalogByName.get(circle.name)?.image;
       if (image) {
-        const img = document.createElement('img');
-        img.src = `${import.meta.env.BASE_URL}${image}`;
-        img.alt = '';
-        img.loading = 'lazy';
-        face.append(img);
+        const picture = document.createElementNS(NS, 'image');
+        picture.setAttribute('href', `${import.meta.env.BASE_URL}${image}`);
+        picture.setAttribute('x', String(circle.x - circle.r));
+        picture.setAttribute('y', String(circle.y - circle.r));
+        picture.setAttribute('width', String(circle.r * 2));
+        picture.setAttribute('height', String(circle.r * 2));
+        // 얼굴이 위쪽에 있다 — 위를 맞춰 잘라야 눈이 잘리지 않는다.
+        picture.setAttribute('preserveAspectRatio', 'xMidYMin slice');
+        picture.setAttribute('clip-path', `url(#${id})`);
+        group.append(picture);
       }
-      const value = document.createElement('b');
-      value.className = 'vision-value';
-      value.textContent = `${Math.round(row.value * 10) / 10}%`;
-      face.append(value);
-      const name = document.createElement('figcaption');
-      name.className = 'vision-name';
-      name.textContent = row.name;
-      cell.append(face, name);
-      cell.title = `${row.name} · ${row.value.toFixed(2)}%`;
-      grid.append(cell);
-    }
-    funBody.append(grid);
+      const ring = document.createElementNS(NS, 'circle');
+      ring.setAttribute('class', 'vision-ring');
+      ring.setAttribute('cx', String(circle.x));
+      ring.setAttribute('cy', String(circle.y));
+      ring.setAttribute('r', String(circle.r));
+      group.append(ring);
+
+      // 수치는 토글로 켠다. 작은 동그라미에는 글자가 안 들어가므로 그때도 접는다.
+      if (visionNumbers && circle.r >= 22) {
+        const label = document.createElementNS(NS, 'text');
+        label.setAttribute('class', 'vision-bubble-value');
+        label.setAttribute('x', String(circle.x));
+        label.setAttribute('y', String(circle.y + circle.r - 7));
+        label.setAttribute('text-anchor', 'middle');
+        label.textContent = `${Math.round(circle.value * 10) / 10}%`;
+        group.append(label);
+      }
+      const hover = document.createElementNS(NS, 'title');
+      hover.textContent = `${circle.name} · ${circle.value.toFixed(2)}%`;
+      group.append(hover);
+      svg.append(group);
+    });
+    funBody.append(svg);
   };
 
   const renderFun = () => {
