@@ -428,6 +428,37 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     }
   };
   let roster = loadRoster();
+  /**
+   * 로스터를 **어디서 불러왔나**. 「수치 설정」의 되돌리기 단추가 이 이름을 쓴다 —
+   * 「불러온 값」이라고만 적으면 블라블라링크인지 CSV인지 몰라 누르기가 망설여진다.
+   * 옛 저장본에는 없으므로 그때는 출처 없이 적는다.
+   */
+  const ROSTER_SOURCE_KEY = 'nikke-roster-source-v1';
+  type RosterSource = 'blabla' | 'csv';
+  let rosterSource: RosterSource | null = (() => {
+    try {
+      const raw = resolveStorage()?.getItem(ROSTER_SOURCE_KEY);
+      return raw === 'blabla' || raw === 'csv' ? raw : null;
+    } catch {
+      return null;
+    }
+  })();
+  const setRosterSource = (source: RosterSource) => {
+    rosterSource = source;
+    try {
+      resolveStorage()?.setItem(ROSTER_SOURCE_KEY, source);
+    } catch {
+      /* 저장 실패는 무시 — 이번 화면에는 그대로 쓴다 */
+    }
+  };
+  /** 되돌리기 단추에 적을 말. 불러온 값이 없으면 단추 자체를 안 낸다. */
+  const restoreFor = (name: string): { label: string; value: CharacterOverrides } | null => {
+    const loaded = roster[name];
+    if (!loaded) return null;
+    const where = rosterSource === 'blabla' ? '블라블라링크'
+      : rosterSource === 'csv' ? '렛츠도로 CSV' : '불러온 값';
+    return { label: `${where}(으)로 되돌리기`, value: loaded };
+  };
 
   // 임의 니케(커스텀). localStorage에만 저장되고 요청마다 엔진에 주입된다.
   const customChars = loadCustom((key) => resolveStorage()?.getItem(key) ?? null);
@@ -2103,7 +2134,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             placeCharPanel(panel, cname, label);
           },
           // 조합 조건부 컨트롤(아인 + 에이다 = 홀드)을 카드가 스스로 판정하게 한다.
-          deck.squad.filter((slot): slot is string => Boolean(slot)));
+          deck.squad.filter((slot): slot is string => Boolean(slot)),
+          // 불러온 프로필이 있으면 「수치 설정」 안에 되돌리기 단추를 낸다.
+          restoreFor(cname));
           syncOpenPanel();
         };
 
@@ -4310,6 +4343,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         return;
       }
       roster = overrides;
+      setRosterSource('csv');
       saveRoster();
       void loadCombatPower();
       applyRosterToDecks();
@@ -4371,6 +4405,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         }
 
         roster = overrides;
+        setRosterSource('blabla');
         saveRoster();
         void loadCombatPower();
         applyRosterToDecks();

@@ -330,6 +330,14 @@ export function renderCharacterSettings(
    * 안 주면 조건 없는 추천만 적고 예전처럼 «조합에 따라 추가됩니다»로 알린다.
    */
   squad?: string[],
+  /**
+   * 불러온 육성 프로필의 이 캐릭터 값. 있으면 「수치 설정」 안에 되돌리기 단추를 낸다 —
+   * 손으로 만지다 원래대로 되돌리고 싶을 때 하나씩 다시 적을 수는 없다.
+   *
+   * `label`을 밖에서 받는 이유는 **출처를 아는 쪽이 밖이기 때문**이다(블라블라링크 ·
+   * 렛츠도로 CSV). 이 모듈은 「어디서 왔는지」를 모른 채 그리기만 한다.
+   */
+  restore?: { label: string; value: CharacterOverrides } | null,
 ): void {
   // 지난번 화면을 찾는다. 카드 안이 먼저고, 없으면 창으로 옮겨 간 뭉치까지 뒤진다.
   const previous = <T extends Element>(selector: string): T | null => {
@@ -398,7 +406,7 @@ export function renderCharacterSettings(
   const commit = (next: CharacterOverrides | undefined) => {
     onChange(next);
     renderCharacterSettings(
-      container, name, catalog, next, onChange, buffTargets, onShowOrder, onOpenPanel, squad);
+      container, name, catalog, next, onChange, buffTargets, onShowOrder, onOpenPanel, squad, restore);
   };
 
   // 카드가 좁아졌다 — 요약(«1돌 · 호감도 20 · 스킬 10…»)과 버프 수령자는 접어 두고
@@ -1364,6 +1372,35 @@ export function renderCharacterSettings(
   });
   body.append(advanced);
   const bodyFold = panelOpener('돌파 · 스킬 · 오버로드 · 큐브', 'settings', '수치 설정');
+  if (restore) {
+    // 손으로 만진 값을 불러온 프로필로 되돌린다. **두 번 눌러야 적용된다** —
+    // 한 번에 나가면 잘못 눌러 만져 둔 값을 통째로 잃고, 되돌릴 길이 없다
+    // (덱 비우기와 같은 방식).
+    const bar = document.createElement('div');
+    bar.className = 'restore-bar';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'restore-loaded';
+    button.dataset.restoreLoaded = '';
+    button.textContent = restore.label;
+    // **흐리게 두지 않는다.** 「지금 값과 같으면 끄기」를 해 봤는데, 수치 입력은
+    // `emitNumericChange`가 일부러 다시 그리지 않으므로(입력 중 포커스를 잃지 않으려고)
+    // 손을 대도 단추가 꺼진 채로 남는다. 늘 누를 수 있게 두는 편이 낫다 — 같은 값을
+    // 다시 넣는 것은 아무 해가 없다.
+    button.title = '손으로 만진 값을 불러온 그대로 되돌립니다. 한 번 더 누르면 적용됩니다';
+    let armed = false;
+    button.addEventListener('click', () => {
+      if (!armed) {
+        armed = true;
+        button.textContent = '정말 되돌립니다';
+        button.classList.add('is-armed');
+        return;
+      }
+      commit(cloneOverrides(restore.value));
+    });
+    bar.append(button);
+    bodyFold.panel.append(bar);
+  }
   bodyFold.panel.append(body);
   container.append(bodyFold.head, bodyFold.panel, controlEditor);
   lastPanels.set(container, [bodyFold.panel]);

@@ -1557,3 +1557,15 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
   .burst-slot-stage { font-size: 9px; }
   .burst-slot-face { width: 24px; height: 24px; }
 }
+
+/* 「수치 설정」 안의 되돌리기 줄. 손으로 만진 값을 불러온 프로필로 되돌린다.
+   덱 비우기와 같이 **두 번 눌러야** 나간다 — 한 번에 나가면 잘못 눌러 잃는다. */
+.restore-bar { display: flex; justify-content: flex-end; margin: 0 0 10px; }
+.restore-loaded { padding: 6px 11px; border: 1px solid var(--line); border-radius: 7px;
+  background: rgba(4,12,21,.72); color: var(--muted);
+  font: 700 11px inherit; cursor: pointer; }
+.restore-loaded:hover:not(:disabled) { border-color: rgba(69,214,208,.45); color: var(--ink); }
+.restore-loaded:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.restore-loaded:disabled { opacity: .45; cursor: default; }
+.restore-loaded.is-armed { border-color: var(--danger); background: rgba(255,119,135,.12);
+  color: #ffd7de; }

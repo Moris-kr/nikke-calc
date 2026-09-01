@@ -259,6 +259,87 @@ describe('calculator UI', () => {
     root.remove();
   });
 
+  /** 불러온 프로필과 그 출처를 심어 둔다. */
+  const seedLoadedRoster = (source: 'blabla' | 'csv') => {
+    localStorage.setItem('nikke-roster-v1', JSON.stringify({
+      리타: { growthStage: 7, overload: { atk_pct: 20 } },
+    }));
+    localStorage.setItem('nikke-roster-source-v1', source);
+  };
+
+  const openSettings = () => {
+    const card = root.querySelector<HTMLElement>('[data-slot-card="0"]')!;
+    // 불러온 프로필이 있으면 개별 설정이 이미 켜져 있다 — 그때 누르면 도로 꺼진다.
+    const toggle = card.querySelector<HTMLInputElement>('[data-custom-toggle]')!;
+    if (!toggle.checked) toggle.click();
+    return root.querySelector<HTMLElement>('[data-slot-card="0"]')!;
+  };
+
+  it('수치 설정 안에 불러온 값으로 되돌리는 단추가 출처 이름으로 선다', () => {
+    seedLoadedRoster('blabla');
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    root.querySelector<HTMLButtonElement>('[data-notice-dismiss]')?.click();
+    openSettings();
+
+    // 진단: 판이 어디 있고 무엇이 들었나
+    // eslint-disable-next-line no-console
+    const button = root.querySelector<HTMLButtonElement>('[data-restore-loaded]')!;
+    expect(button).not.toBeNull();
+    expect(button.textContent).toContain('블라블라링크');
+    // 흐리게 두지 않는다 — 수치 입력은 판을 다시 그리지 않아 꺼진 채로 남는다.
+    expect(button.disabled).toBe(false);
+  });
+
+  it('CSV로 불러왔으면 그 이름으로 적는다', () => {
+    seedLoadedRoster('csv');
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    root.querySelector<HTMLButtonElement>('[data-notice-dismiss]')?.click();
+    openSettings();
+    expect(root.querySelector('[data-restore-loaded]')!.textContent).toContain('렛츠도로 CSV');
+  });
+
+  it('두 번 눌러야 되돌아간다 — 한 번은 되묻기다', () => {
+    seedLoadedRoster('blabla');
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    root.querySelector<HTMLButtonElement>('[data-notice-dismiss]')?.click();
+    openSettings();
+
+    // 손으로 값을 만진다.
+    const state = () => JSON.parse(localStorage.getItem('nikke-state-v1')!).decks[0].characters['리타'];
+    const skill = root.querySelector<HTMLSelectElement>('[data-slot-card="0"] [data-skill-level="1"]')!;
+    skill.value = '3';
+    skill.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(state().skillLevels['1']).toBe(3);
+
+    const button = () => root.querySelector<HTMLButtonElement>('[data-restore-loaded]')!;
+
+    // 첫 번째는 되묻기 — 아직 안 바뀐다.
+    button().click();
+    expect(button().textContent).toBe('정말 되돌립니다');
+    expect(state().skillLevels['1']).toBe(3);
+
+    // 두 번째에 되돌아간다 — 불러온 값 그대로다.
+    button().click();
+    expect(state().growthStage).toBe(7);
+    expect(state().overload.atk_pct).toBe(20);
+    expect(state().skillLevels).toBeUndefined();
+  });
+
+  it('불러온 프로필이 없으면 단추를 아예 내지 않는다', () => {
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    root.querySelector<HTMLButtonElement>('[data-notice-dismiss]')?.click();
+    openSettings();
+    expect(root.querySelector('[data-restore-loaded]')).toBeNull();
+  });
+
   it('베껴오기가 오버로드 줄까지 가져온다 — 합계만 옮기면 드롭다운이 안 따라온다', () => {
     // 크라운에게 부위별 줄과 합계를 함께 잡아 둔다.
     localStorage.setItem('nikke-roster-v1', JSON.stringify({
