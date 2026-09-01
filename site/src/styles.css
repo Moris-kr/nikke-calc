@@ -1362,6 +1362,39 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
   background: rgba(255,191,60,.07); color: #f0dcae; font-size: 12px; line-height: 1.65; }
 .links-warn b { color: var(--amber); }
 
+/* ── 재미용 기능 ─────────────────────────────────────────────────────────
+   계산에 관여하지 않는 판이라, 결과 화면과 색을 갈라 둔다(청록 대신 보랏빛 회색). */
+.fun-lede { margin: 0 0 12px; color: var(--muted); font-size: 13px; }
+.fun-lede b { color: var(--ink); }
+.fun-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.fun-tab { padding: 8px 14px; border: 1px solid var(--line); border-radius: 8px;
+  background: transparent; color: var(--muted); font: 800 12px inherit; cursor: pointer; }
+.fun-tab:hover { color: var(--ink); border-color: rgba(146,176,201,.4); }
+.fun-tab.is-on { border-color: rgba(255,191,60,.4); background: rgba(255,191,60,.1); color: var(--amber); }
+
+.vision-metrics { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 10px; }
+.vision-metric { padding: 7px 12px; border: 1px solid var(--line); border-radius: 7px;
+  background: transparent; color: var(--muted); font: 700 11.5px inherit; cursor: pointer; }
+.vision-metric:hover { color: var(--ink); }
+.vision-metric.is-on { border-color: rgba(69,214,208,.4); background: rgba(69,214,208,.1); color: #cfeceb; }
+.vision-summary { margin: 0 0 12px; color: var(--muted);
+  font: 700 11px ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.vision-empty { margin: 0; padding: 18px; border: 1px dashed var(--line); border-radius: 10px;
+  color: var(--muted); font-size: 12.5px; line-height: 1.7; }
+
+/* 크기가 정보다 — 한 변이 값에 비례한다. 아래를 맞춰 세워야 크기 차이가 눈에 든다. */
+.vision-grid { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+.vision-cell { margin: 0; display: grid; gap: 3px; }
+.vision-face { position: relative; overflow: hidden; border-radius: 8px;
+  border: 1px solid var(--line); background: linear-gradient(135deg, #18293a, #09131e); }
+.vision-face img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 18%; display: block; }
+.vision-value { position: absolute; left: 0; right: 0; bottom: 0; padding: 2px 4px;
+  background: linear-gradient(180deg, rgba(5,11,19,0), rgba(5,11,19,.92) 45%);
+  color: var(--amber); font: 800 9px ui-monospace, monospace;
+  font-variant-numeric: tabular-nums; text-align: right; }
+.vision-name { color: var(--muted); font-size: 9px; text-align: center;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 .links-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
 
 .link-card { display: flex; flex-direction: column; gap: 8px; padding: 14px;

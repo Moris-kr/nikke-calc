@@ -12,6 +12,9 @@ import {
 } from './blablalink';
 import { parseRosterCsv } from './csv-import';
 import {
+  VISION_METRICS, visionRows, visionSize, visionSummary, type VisionMetric,
+} from './fun-vision';
+import {
   formatEok,
   loadEnikkComps,
   WEAKNESS_KO,
@@ -508,8 +511,19 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         <button type="button" class="view-tab is-on" data-view-tab="calc" aria-pressed="true">계산기</button>
         ${blablaProxy ? '<button type="button" class="view-tab" data-view-tab="union" aria-pressed="false">유니온 레이드<b class="tab-beta">BETA</b></button>' : ''}
         <button type="button" class="view-tab" data-view-tab="enikk" aria-pressed="false">ENIKK 조합 가져오기</button>
+        <button type="button" class="view-tab" data-view-tab="fun" aria-pressed="false">재미용 기능</button>
         <button type="button" class="view-tab" data-view-tab="links" aria-pressed="false">외부고리</button>
       </nav>
+
+      <!-- 재미용. 계산에는 관여하지 않는 것들만 둔다 — 안쪽 단추로 다시 갈린다. -->
+      <section class="panel fun-panel" data-view="fun" aria-labelledby="fun-heading" hidden>
+        <div class="section-heading">
+          <div><p class="step">FOR FUN</p><h2 id="fun-heading">재미용 기능</h2></div>
+        </div>
+        <p class="fun-lede">계산과 상관없이 <b>구경하는 것들</b>입니다. 여기 값은 딜 계산에 쓰이지 않습니다.</p>
+        <div class="fun-tabs" data-fun-tabs role="tablist" aria-label="재미용 기능 고르기"></div>
+        <div class="fun-body" data-fun-body></div>
+      </section>
 
       <section class="panel links-panel" data-view="links" aria-labelledby="links-heading" hidden>
         <div class="section-heading">
@@ -4394,7 +4408,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   // 300명을 한 줄로 늘어놓으면 스크롤이 끝없다 — 열 명씩 끊어 쪽으로 넘긴다.
   const ENIKK_PER_PAGE = 10;
   let enikkPage = 0;
-  let currentView: 'calc' | 'union' | 'enikk' | 'links' = 'calc';
+  let currentView: 'calc' | 'union' | 'enikk' | 'fun' | 'links' = 'calc';
 
   const readEnikkCache = (): EnikkImport | null => {
     try {
@@ -4884,13 +4898,15 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   // ── 화면 전환 ───────────────────────────────────────────────────────────
   // 유니온 탭이 없는 배포(프록시 미설정)에서는 손잡이도 없다.
   /** 위쪽 탭이 고를 수 있는 화면. 「외부고리」는 우리 것이 아닌 곳으로 나가는 판이다. */
-  type ViewName = 'calc' | 'union' | 'enikk' | 'links';
+  type ViewName = 'calc' | 'union' | 'enikk' | 'fun' | 'links';
 
   function switchView(view: ViewName) {
     currentView = view;
     // 개인용은 계산기에 잡아 둔 내 스펙으로 돈다 — 탭에 들어올 때 다시 읽는다.
     // 모드를 켤 때 한 번만 읽으면, 그 뒤 전투 조건에서 싱크로를 바꿔도 옛 값으로 돈다.
     if (view === 'union') unionHandle?.refreshMe();
+    // 그 사이 프로필을 새로 불러왔을 수 있다 — 들어올 때마다 다시 그린다.
+    if (view === 'fun') renderFun();
     for (const section of root.querySelectorAll<HTMLElement>('[data-view]')) {
       const mine = section.dataset.view === view;
       // 타임라인은 계산 결과가 있을 때만 보이므로 여기서 켜지 않는다.
@@ -4915,6 +4931,101 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   for (const tab of root.querySelectorAll<HTMLButtonElement>('[data-view-tab]')) {
     tab.addEventListener('click', () => switchView(tab.dataset.viewTab as ViewName));
   }
+
+  // ── 재미용 기능 ─────────────────────────────────────────────────────────
+  // 안쪽 단추로 다시 갈리는 판이다. 지금은 「니케 시각화」 하나지만, 새 놀이는
+  // `FUN_VIEWS`에 한 줄 더하고 그리는 함수만 붙이면 된다.
+  const funTabs = element<HTMLElement>(root, '[data-fun-tabs]');
+  const funBody = element<HTMLElement>(root, '[data-fun-body]');
+  const FUN_VIEWS = [
+    { key: 'vision', label: '니케 시각화', note: '불러온 프로필을 초상화 크기로 봅니다' },
+  ] as const;
+  type FunView = (typeof FUN_VIEWS)[number]['key'];
+  let funView: FunView = 'vision';
+  let visionMetric: VisionMetric = 'element';
+
+  /**
+   * 니케 시각화. **계산기에 세팅한 값이 아니라 불러온 프로필을 쓴다** — 덱마다 만져 둔
+   * 값은 «이 조합에서 이랬으면»이라는 가정이고, 여기서 보고 싶은 것은 계정의 실제 육성이다.
+   */
+  const renderVision = () => {
+    funBody.replaceChildren();
+
+    const picks = document.createElement('div');
+    picks.className = 'vision-metrics';
+    for (const metric of VISION_METRICS) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `vision-metric${metric.key === visionMetric ? ' is-on' : ''}`;
+      button.dataset.visionMetric = metric.key;
+      button.setAttribute('aria-pressed', String(metric.key === visionMetric));
+      button.title = metric.hint;
+      button.textContent = metric.label;
+      button.addEventListener('click', () => { visionMetric = metric.key; renderVision(); });
+      picks.append(button);
+    }
+    funBody.append(picks);
+
+    const rows = visionRows(roster, visionMetric, (name) => catalogByName.has(name));
+    if (rows.length === 0) {
+      funBody.append(createText('p', Object.keys(roster).length === 0
+        ? '불러온 프로필이 없습니다. 「블라블라링크 연동」이나 「렛츠도로 CSV 불러오기」로 내 육성을 먼저 가져와 주세요.'
+        : '불러온 프로필에 오버로드 옵션이 잡힌 니케가 없습니다.', 'vision-empty'));
+      return;
+    }
+
+    funBody.append(createText('p', visionSummary(rows, visionMetric), 'vision-summary'));
+
+    const grid = document.createElement('div');
+    grid.className = 'vision-grid';
+    grid.dataset.visionGrid = '';
+    for (const row of rows) {
+      const size = visionSize(row.share);
+      const cell = document.createElement('figure');
+      cell.className = 'vision-cell';
+      cell.dataset.visionCell = row.name;
+      cell.style.width = `${size}px`;
+      const face = document.createElement('div');
+      face.className = 'vision-face';
+      face.style.height = `${size}px`;
+      const image = catalogByName.get(row.name)?.image;
+      if (image) {
+        const img = document.createElement('img');
+        img.src = `${import.meta.env.BASE_URL}${image}`;
+        img.alt = '';
+        img.loading = 'lazy';
+        face.append(img);
+      }
+      const value = document.createElement('b');
+      value.className = 'vision-value';
+      value.textContent = `${Math.round(row.value * 10) / 10}%`;
+      face.append(value);
+      const name = document.createElement('figcaption');
+      name.className = 'vision-name';
+      name.textContent = row.name;
+      cell.append(face, name);
+      cell.title = `${row.name} · ${row.value.toFixed(2)}%`;
+      grid.append(cell);
+    }
+    funBody.append(grid);
+  };
+
+  const renderFun = () => {
+    funTabs.replaceChildren();
+    for (const view of FUN_VIEWS) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `fun-tab${view.key === funView ? ' is-on' : ''}`;
+      button.dataset.funTab = view.key;
+      button.setAttribute('role', 'tab');
+      button.setAttribute('aria-selected', String(view.key === funView));
+      button.title = view.note;
+      button.textContent = view.label;
+      button.addEventListener('click', () => { funView = view.key; renderFun(); });
+      funTabs.append(button);
+    }
+    if (funView === 'vision') renderVision();
+  };
 
   // ── 외부고리 ────────────────────────────────────────────────────────────
   // 표(`external-links.ts`)를 그대로 편다. 주소를 HTML에 박지 않는 이유는 고칠 곳을
