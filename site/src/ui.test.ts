@@ -259,6 +259,67 @@ describe('calculator UI', () => {
     root.remove();
   });
 
+  it('베껴오기가 오버로드 줄까지 가져온다 — 합계만 옮기면 드롭다운이 안 따라온다', () => {
+    // 크라운에게 부위별 줄과 합계를 함께 잡아 둔다.
+    localStorage.setItem('nikke-roster-v1', JSON.stringify({
+      크라운: {
+        overload: { atk_pct: 12.5, element_bonus: 8.4 },
+        overloadLines: { 머리: [{ option: 'atk_pct', level: 5 }] },
+      },
+    }));
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    root.querySelector<HTMLButtonElement>('[data-notice-dismiss]')?.click();
+
+    const card = root.querySelector<HTMLElement>('[data-slot-card="0"]')!;
+    card.querySelector<HTMLInputElement>('[data-custom-toggle]')!.click();
+    const pick = card.querySelector<HTMLSelectElement>('[data-copy-from-pick]')!;
+    pick.value = '크라운';
+    card.querySelector<HTMLButtonElement>('[data-copy-from-apply]')!.click();
+
+    const target = JSON.parse(localStorage.getItem('nikke-state-v1')!)
+      .decks[0].characters[card.dataset.slotCard === '0' ? '리타' : ''] ?? {};
+    // 합계는 예전에도 옮겨졌다.
+    expect(target.overload?.atk_pct).toBe(12.5);
+    // 줄이 함께 오지 않으면 드롭다운은 빈 채로 남고, 한 줄만 고쳐도 합계가 날아간다.
+    expect(target.overloadLines?.머리?.[0]).toEqual({ option: 'atk_pct', level: 5 });
+  });
+
+  it('줄이 없는 원본에서 베끼면 받는 쪽의 낡은 줄을 지운다', () => {
+    localStorage.setItem('nikke-roster-v1', JSON.stringify({
+      크라운: {
+        overload: { atk_pct: 12.5 },
+        overloadLines: { 머리: [{ option: 'atk_pct', level: 5 }] },
+      },
+      // 합계만 있고 줄은 없는 원본(옛 저장본·손으로 적은 값).
+      앨리스: { overload: { atk_pct: 30 } },
+    }));
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    root.querySelector<HTMLButtonElement>('[data-notice-dismiss]')?.click();
+
+    const card = () => root.querySelector<HTMLElement>('[data-slot-card="0"]')!;
+    card().querySelector<HTMLInputElement>('[data-custom-toggle]')!.click();
+    const copyFrom = (who: string) => {
+      card().querySelector<HTMLSelectElement>('[data-copy-from-pick]')!.value = who;
+      card().querySelector<HTMLButtonElement>('[data-copy-from-apply]')!.click();
+    };
+    const target = () =>
+      JSON.parse(localStorage.getItem('nikke-state-v1')!).decks[0].characters['리타'];
+
+    // 먼저 줄이 있는 원본에서 베껴 받는 쪽에 줄을 심는다.
+    copyFrom('크라운');
+    expect(target().overloadLines?.머리?.[0]).toEqual({ option: 'atk_pct', level: 5 });
+
+    // 줄이 없는 원본에서 다시 베끼면 낡은 줄이 남으면 안 된다 — 남으면 드롭다운이
+    // 원본과 다른 것을 보이고, 한 줄만 고쳐도 합계가 그 줄에서 다시 세어져 뒤집힌다.
+    copyFrom('앨리스');
+    expect(target().overload.atk_pct).toBe(30);
+    expect(target().overloadLines).toBeUndefined();
+  });
+
   it('덱 이름 연필은 덱 단추 칸 안에 들어간다 — 줄을 넘기지 않는다', () => {
     mountCalculator(root, {
       catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,

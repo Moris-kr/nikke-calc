@@ -1785,7 +1785,25 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         next.skillLevels = { ...from.skillLevels };
         carried.push('스킬');
       }
-      if (from.overload) { next.overload = { ...from.overload }; carried.push('오버로드'); }
+      if (from.overload || from.overloadLines) {
+        // 오버로드는 **두 모습으로 산다** — 엔진이 쓰는 옵션별 합계(`overload`)와
+        // 화면이 고르는 부위별 줄(`overloadLines`). 합계만 옮기면 계산은 맞는데
+        // 드롭다운이 빈 채로 남고, 거기서 한 줄만 고치는 순간 줄에서 합계를 다시
+        // 세느라 방금 베껴 온 값이 통째로 날아간다.
+        next.overload = { ...(from.overload ?? {}) };
+        if (from.overloadLines) {
+          next.overloadLines = Object.fromEntries(
+            Object.entries(from.overloadLines).map(([part, rows]) => [
+              part, (rows ?? []).map((line) => ({ ...line })),
+            ]),
+          ) as NonNullable<CharacterOverrides['overloadLines']>;
+        } else {
+          // 원본이 합계만 가진 옛 저장본이면 받는 쪽의 낡은 줄을 지운다. 남겨 두면
+          // 드롭다운이 원본과 다른 것을 보이고, 위와 같은 사고가 그대로 난다.
+          delete next.overloadLines;
+        }
+        carried.push('오버로드');
+      }
       if (from.equipLevels) { next.equipLevels = { ...from.equipLevels }; carried.push('장비 강화'); }
       if (from.collection) {
         // 애장품이 없는 캐릭터에 애장품 단계를 옮기면 없는 물건을 낀 셈이 된다.
