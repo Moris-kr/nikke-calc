@@ -3,7 +3,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
-  controlRuleNotes, recommendedControlText, renderCharacterSettings, suggestsTapFire, withParticle,
+  controlRuleNotes, hasOverloadLines, overloadLinesOf, overloadTotals, recommendedControlText,
+  renderCharacterSettings, suggestsTapFire, withParticle,
 } from './character-settings';
 import type { BuffTargetRow, CharacterOverrides, SettingsCatalog } from './types';
 
@@ -409,6 +410,54 @@ describe('character settings editor', () => {
     expect(recommendedControlText(
       { recommendedControl: {}, hasConditionalControl: true }, ['아인'],
     )).toBe('현재 기본 추천: 자동 사격 · 스쿼드 조합에 따라 추천 컨트롤이 추가됩니다.');
+  });
+
+  it('부위마다 세 줄을 늘 연다 — 강화 단계와 묶지 않는다', () => {
+    // 「강화는 아직인데 목표 옵션을 미리 재 보고 싶다」를 막지 않으려는 선택이다.
+    const lines = overloadLinesOf(undefined);
+    expect(Object.keys(lines)).toEqual(['머리', '몸통', '팔', '다리']);
+    for (const part of Object.values(lines)) {
+      expect(part).toHaveLength(3);
+      expect(part.every((line) => line.option === '')).toBe(true);
+    }
+    // 저장된 줄이 모자라도 자리는 셋으로 채운다.
+    const partial = overloadLinesOf({ 머리: [{ option: 'atk_pct', level: 7 }] });
+    expect(partial.머리).toEqual([
+      { option: 'atk_pct', level: 7 }, { option: '', level: 10 }, { option: '', level: 10 },
+    ]);
+  });
+
+  it('줄을 더해 옵션별 합계를 낸다 — 기본 스펙이 그대로 나온다', () => {
+    // 기본 스펙(우코 88.6 · 공증 22.22 · 장탄 129.64)은 정확히 Lv10 4줄·2줄·2줄이다.
+    const steps = {
+      element_bonus: [9.54, 10.94, 12.34, 13.75, 15.15, 16.55, 17.95, 19.35, 20.75, 22.15],
+      atk_pct: [4.77, 5.47, 6.18, 6.88, 7.59, 8.29, 9, 9.7, 10.4, 11.11],
+      max_ammo_pct: [27.84, 31.95, 36.06, 40.17, 44.28, 48.39, 52.5, 56.6, 60.71, 64.82],
+    };
+    const lines = overloadLinesOf({
+      머리: [{ option: 'element_bonus', level: 10 }, { option: 'atk_pct', level: 10 }, { option: 'max_ammo_pct', level: 10 }],
+      몸통: [{ option: 'element_bonus', level: 10 }, { option: 'atk_pct', level: 10 }, { option: 'max_ammo_pct', level: 10 }],
+      팔: [{ option: 'element_bonus', level: 10 }],
+      다리: [{ option: 'element_bonus', level: 10 }],
+    });
+    expect(overloadTotals(lines, steps)).toEqual({
+      element_bonus: 88.6, atk_pct: 22.22, max_ammo_pct: 129.64,
+    });
+  });
+
+  it('같은 부위에 같은 옵션을 두 줄 놓아도 그대로 더한다', () => {
+    // 규칙을 확신하지 못해 막지 않는다 — 막아야 한다면 그때 고른 옵션을 빼면 된다.
+    const steps = { atk_pct: [4.77, 5.47] };
+    const lines = overloadLinesOf({
+      머리: [{ option: 'atk_pct', level: 1 }, { option: 'atk_pct', level: 2 }],
+    });
+    expect(overloadTotals(lines, steps)).toEqual({ atk_pct: 10.24 });
+  });
+
+  it('줄이 하나도 없으면 손으로 적은 합계를 그대로 둔다', () => {
+    expect(hasOverloadLines(undefined)).toBe(false);
+    expect(hasOverloadLines({ 머리: [{ option: '', level: 10 }] })).toBe(false);
+    expect(hasOverloadLines({ 팔: [{ option: 'crit_dmg', level: 3 }] })).toBe(true);
   });
 
   it('차지형인데 톡톡이가 꺼져 있으면 이득이라고 알린다', () => {

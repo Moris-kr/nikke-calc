@@ -5,6 +5,8 @@ import type {
   CubeName,
   EquipPart,
   EquipSetting,
+  OverloadLine,
+  OverloadLines,
   SettingsCatalog,
   SkillLevels,
 } from './types';
@@ -33,6 +35,14 @@ const skillLabels: Array<[keyof SkillLevels, string]> = [
 
 const numberText = (value: number, digits = 2): string => value.toFixed(digits);
 
+/** 글자 한 조각. 같은 모양을 열 번 넘게 쓰므로 한 줄로 묶는다. */
+const textSpan = (text: string, className?: string): HTMLSpanElement => {
+  const node = document.createElement('span');
+  node.textContent = text;
+  if (className) node.className = className;
+  return node;
+};
+
 const cloneOverrides = (value: CharacterOverrides): CharacterOverrides => ({
   ...(value.growthStage !== undefined ? { growthStage: value.growthStage } : {}),
   ...(value.skillLevels ? { skillLevels: { ...value.skillLevels } } : {}),
@@ -47,6 +57,15 @@ const cloneOverrides = (value: CharacterOverrides): CharacterOverrides => ({
   ...(value.manualStats ? { manualStats: { ...value.manualStats } } : {}),
   ...(value.burst ? { burst: value.burst } : {}),
   ...(value.equipLevels ? { equipLevels: { ...value.equipLevels } } : {}),
+  // 부위별 오버로드 줄. 여기 빠지면 값을 하나 고칠 때마다 나머지가 조용히 지워진다 —
+  // 이 함수를 지나지 않는 경로가 없기 때문이다.
+  ...(value.overloadLines ? {
+    overloadLines: Object.fromEntries(
+      Object.entries(value.overloadLines).map(([part, rows]) => [
+        part, (rows ?? []).map((line) => ({ ...line })),
+      ]),
+    ) as OverloadLines,
+  } : {}),
   ...(value.weaponModeSwapAt !== undefined ? { weaponModeSwapAt: value.weaponModeSwapAt } : {}),
 });
 
@@ -214,6 +233,52 @@ export function suggestsTapFire(
   if (weaponType !== 'SR' && weaponType !== 'RL') return false;
   return displayedControl.tap_fire === undefined;
 }
+
+/** 오버로드는 부위마다 세 줄이다 — 강화 단계와 묶지 않고 늘 세 줄을 연다. */
+export const OVERLOAD_LINES_PER_PART = 3;
+
+/** 빈 줄 하나. 옵션이 비어 있으면 레벨은 세지 않는다. */
+const emptyLine = (): OverloadLine => ({ option: '', level: 10 });
+
+/** 부위마다 세 줄씩, 모자란 자리는 빈 줄로 채운 판. */
+export function overloadLinesOf(value?: OverloadLines): Record<EquipPart, OverloadLine[]> {
+  const out = {} as Record<EquipPart, OverloadLine[]>;
+  for (const part of EQUIP_PARTS) {
+    const rows = value?.[part] ?? [];
+    out[part] = Array.from({ length: OVERLOAD_LINES_PER_PART }, (_, index) => {
+      const row = rows[index];
+      return row ? { option: row.option, level: row.level } : emptyLine();
+    });
+  }
+  return out;
+}
+
+/**
+ * 줄들 → 옵션별 합계. **엔진이 받는 값은 예전 그대로 합계다** — 사람이 고르는 단위만
+ * 줄로 바뀌고, 계산·저장·공유 코드는 하나도 달라지지 않는다.
+ *
+ * 소수 셋째 자리에서 끊는다: 표 값이 소수 둘째 자리라 그냥 더하면 부동소수 찌꺼기가
+ * 붙어(88.60000000000001) 저장값이 지저분해진다.
+ */
+export function overloadTotals(
+  lines: Record<EquipPart, OverloadLine[]>,
+  steps: Record<string, number[]>,
+): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const part of EQUIP_PARTS) {
+    for (const line of lines[part]) {
+      const table = steps[line.option];
+      if (!line.option || !table) continue;
+      const value = table[Math.min(Math.max(1, line.level), table.length) - 1] ?? 0;
+      totals[line.option] = Math.round(((totals[line.option] ?? 0) + value) * 1000) / 1000;
+    }
+  }
+  return totals;
+}
+
+/** 줄이 하나라도 채워져 있는가. 비어 있으면 직접 입력한 값을 그대로 둔다. */
+export const hasOverloadLines = (value?: OverloadLines): boolean =>
+  EQUIP_PARTS.some((part) => (value?.[part] ?? []).some((line) => line.option));
 
 /** 큐브를 끼지 않은 상태. 데이터가 아니라 화면이 만드는 선택지다. */
 export const NO_CUBE = '없음';
@@ -727,6 +792,101 @@ export function renderCharacterSettings(
   collectionEditor.append(collectionHeading, collectionSelect, collectionNote);
   body.append(collectionEditor);
 
+  // ── 오버로드 옵션 ─────────────────────────────────────────────────────
+  // 인게임과 같은 단위로 고른다 — **부위 4개 × 3줄**, 줄마다 옵션과 레벨.
+  // 엔진이 받는 값은 예전 그대로 «옵션별 합계»라, 계산·저장·공유 코드는 그대로다.
+  const steps = catalog.overloadSteps;
+  if (steps) {
+    const lines = overloadLinesOf(current.overloadLines);
+    const editor = document.createElement('section');
+    editor.className = 'overload-lines';
+    const heading = document.createElement('h4');
+    heading.textContent = '오버로드 옵션';
+    editor.append(heading);
+
+    /** 줄 하나를 바꾸면 합계를 다시 세어 함께 저장한다. */
+    const commitLines = () => {
+      const next = cloneOverrides(current);
+      next.overloadLines = Object.fromEntries(
+        EQUIP_PARTS.map((part) => [part, lines[part].map((line) => ({ ...line }))]),
+      ) as OverloadLines;
+      // 합계는 줄에서 나온다. 고르지 않은 옵션은 0으로 남겨 둔다 — 키를 빼면
+      // 「이 옵션은 안 쓴다」와 「모르겠다」가 구분되지 않는다.
+      const totals = overloadTotals(lines, steps);
+      next.overload = Object.fromEntries(
+        Object.keys(catalog.overloadFields).map((key) => [key, totals[key] ?? 0]),
+      );
+      commit(next);
+    };
+
+    for (const part of EQUIP_PARTS) {
+      const card = document.createElement('div');
+      card.className = 'ol-part';
+      card.dataset.overloadPart = part;
+      const head = document.createElement('div');
+      head.className = 'ol-part-head';
+      head.append(textSpan(EQUIP_PART_LABELS[part], 'ol-part-name'));
+      const sum = textSpan('', 'ol-part-sum');
+      head.append(sum);
+      card.append(head);
+
+      let partTotal = 0;
+      lines[part].forEach((line, index) => {
+        const row = document.createElement('div');
+        row.className = 'ol-line';
+
+        const optionPick = document.createElement('select');
+        optionPick.dataset.overloadOption = `${part}:${index}`;
+        optionPick.setAttribute('aria-label', `${EQUIP_PART_LABELS[part]} ${index + 1}번째 옵션`);
+        const none = document.createElement('option');
+        none.value = '';
+        none.textContent = '— 비어 있음';
+        optionPick.append(none);
+        for (const [key, meta] of Object.entries(catalog.overloadFields)) {
+          if (!steps[key]) continue;
+          const option = document.createElement('option');
+          option.value = key;
+          option.textContent = meta.label;
+          optionPick.append(option);
+        }
+        optionPick.value = line.option;
+        optionPick.addEventListener('change', () => {
+          line.option = optionPick.value;
+          commitLines();
+        });
+
+        const levelPick = document.createElement('select');
+        levelPick.className = 'ol-level';
+        levelPick.dataset.overloadLevel = `${part}:${index}`;
+        levelPick.setAttribute('aria-label', `${EQUIP_PART_LABELS[part]} ${index + 1}번째 레벨`);
+        const table = steps[line.option] ?? [];
+        for (let level = 1; level <= (table.length || 15); level += 1) {
+          const option = document.createElement('option');
+          option.value = String(level);
+          option.textContent = `Lv${level}`;
+          levelPick.append(option);
+        }
+        levelPick.value = String(line.level);
+        levelPick.disabled = !line.option;
+        levelPick.addEventListener('change', () => {
+          line.level = Number(levelPick.value) || 1;
+          commitLines();
+        });
+
+        const value = line.option ? (table[line.level - 1] ?? 0) : 0;
+        partTotal += value;
+        const shown = textSpan(line.option ? `+${numberText(value)}` : '—',
+          line.option ? 'ol-value' : 'ol-value is-empty');
+
+        row.append(optionPick, levelPick, shown);
+        card.append(row);
+      });
+      sum.textContent = partTotal > 0 ? `합 ${numberText(partTotal)}` : '빈 부위';
+      editor.append(card);
+    }
+    body.append(editor);
+  }
+
   const overloadGrid = document.createElement('div');
   overloadGrid.className = 'overload-grid';
   for (const [key, meta] of Object.entries(catalog.overloadFields)) {
@@ -748,11 +908,29 @@ export function renderCharacterSettings(
     label.append(text, makeInputUnit(input, meta.unit));
     overloadGrid.append(label);
   }
-  body.append(overloadGrid);
   const chargeOptionNote = document.createElement('p');
   chargeOptionNote.className = 'field-note';
   chargeOptionNote.textContent = '차지형 무기가 아니면 차지 옵션은 효과가 없습니다.';
-  body.append(chargeOptionNote);
+
+  if (steps) {
+    // 직접 입력은 남긴다 — 남의 스펙을 그대로 받아 적거나, 줄로 만들 수 없는 값을
+    // 넣을 때 필요하다. 다만 **전투력은 나오지 않는다**: 인게임 전투력은 옵션 «단계»를
+    // 세는데, 손으로 적은 합계는 단계 조합으로 떨어지지 않을 수 있다.
+    const manual = document.createElement('details');
+    manual.className = 'overload-manual';
+    manual.dataset.overloadManual = '';
+    manual.open = previous<HTMLDetailsElement>('[data-overload-manual]')?.open ?? false;
+    const head = document.createElement('summary');
+    head.textContent = '합계를 직접 입력';
+    const warn = document.createElement('p');
+    warn.className = 'field-note warning';
+    warn.textContent = '직접 적은 값은 위 3줄과 어긋날 수 있고, 그때는 전투력이 나오지 않습니다 '
+      + '— 인게임 전투력은 옵션 단계를 세는데 손으로 적은 합계는 단계로 떨어지지 않을 수 있습니다.';
+    manual.append(head, warn, overloadGrid, chargeOptionNote);
+    body.append(manual);
+  } else {
+    body.append(overloadGrid, chargeOptionNote);
+  }
 
   const cubeBox = document.createElement('section');
   cubeBox.className = 'cube-editor';

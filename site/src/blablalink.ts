@@ -3,6 +3,8 @@ import type {
   CharacterOverrides,
   EquipPart,
   EquipSetting,
+  OverloadLine,
+  OverloadLines,
   SettingsCatalog,
 } from './types';
 
@@ -140,6 +142,39 @@ function overloadOf(
   return total;
 }
 
+/**
+ * 오버로드 12슬롯 → **부위별 3줄**. 합계만이 아니라 「어느 부위 몇 번째 줄에 무엇이
+ * 몇 레벨로」까지 그대로 옮긴다 — 계정에서 오는 값이라 이쪽이 정확하다.
+ *
+ * 레벨은 표에서 되찾는다. 옵션마다 레벨별 값이 겹치지 않아 값 하나로 단계가 하나 나온다.
+ * 표에 없는 값이면(반올림 차이 등) 가장 가까운 단계를 쓴다 — 줄을 통째로 버리는 것보다 낫다.
+ */
+function overloadLinesOf(
+  detail: Record<string, number>,
+  options: Map<number, [string, number]>,
+  steps: Record<string, number[]>,
+): OverloadLines {
+  const lines: OverloadLines = {};
+  for (const [prefix, part] of PARTS) {
+    const rows: OverloadLine[] = [];
+    for (const slot of [1, 2, 3]) {
+      const id = Number(detail[`${prefix}_equip_option${slot}_id`] ?? 0);
+      const hit = id ? options.get(id) : undefined;
+      if (!hit) { rows.push({ option: '', level: 10 }); continue; }
+      const [key, value] = hit;
+      const table = steps[key];
+      if (!table) { rows.push({ option: '', level: 10 }); continue; }
+      let best = 0;
+      for (let index = 1; index < table.length; index += 1) {
+        if (Math.abs(table[index]! - value) < Math.abs(table[best]! - value)) best = index;
+      }
+      rows.push({ option: key, level: best + 1 });
+    }
+    lines[part] = rows;
+  }
+  return lines;
+}
+
 function equipLevelsOf(detail: Record<string, number>): Partial<Record<EquipPart, EquipSetting>> {
   const levels: Partial<Record<EquipPart, EquipSetting>> = {};
   for (const [prefix, part] of PARTS) {
@@ -221,6 +256,10 @@ export function areaToOverrides(
 
     const override: CharacterOverrides = {};
     override.overload = overloadOf(detail, options, overloadFields);
+    // 3줄 입력이 있는 판이면 부위·줄까지 옮긴다. 합계는 위에서 이미 넣었고 값도 같다.
+    if (settings.overloadSteps) {
+      override.overloadLines = overloadLinesOf(detail, options, settings.overloadSteps);
+    }
 
     const roster = rosterByCode.get(code);
     const breakthrough = Number(roster?.grade ?? 0);

@@ -14,6 +14,8 @@ from calculator.customization import (  # noqa: E402
     OPTIMAL_RANGE_WEAPONS, WEAPON_TYPES,
     MANUAL_STATS, OVERLOAD_FIELDS,
 )
+# 오버로드 옵션의 레벨별 값. 화면이 «부위 3줄»로 고르려면 이 표가 있어야 한다.
+from calculator.combat_power import _EQUIP_SKILLS as EQUIP_SKILL_TABLE  # noqa: E402
 from context.growth import growth_options, growth_profile  # noqa: E402
 from context.spec import CHAR_DEFAULTS, build_squad  # noqa: E402
 
@@ -122,6 +124,14 @@ def main() -> None:
         "collectionStages": list(COLLECTION_STAGES),
         # 콘솔 소속. 엔진이 빠진 소속을 에러로 끊으므로 목록의 정본을 넘긴다.
         "weaponTypes": list(WEAPON_TYPES),
+        # 오버로드 옵션의 레벨별 값(9종 × 1~15). 화면이 «부위 3줄»로 고르게 하려면
+        # 레벨을 퍼센트로 옮길 표가 필요하다 — 정본은 엔진과 같은
+        # `data/base_stat_tables/equipment_skills.json`이다.
+        "overloadSteps": {
+            option: [round(v * 100, 4) for v in spec["values"]]
+            for option, spec in EQUIP_SKILL_TABLE.items()
+            if not option.startswith("_")
+        },
         # 적정거리를 가진 무기군. 런처는 인게임에 적정 사거리가 없어 빠진다 —
         # 화면이 체크박스를 그리지 않게 목록을 그대로 내려보낸다
         # (정본: `data/weapon_mechanics.json`의 `optimal_range`).

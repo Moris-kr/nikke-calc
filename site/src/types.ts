@@ -51,6 +51,21 @@ export interface CollectionSelection {
   favorite: number;
 }
 
+/**
+ * 오버로드 옵션 한 줄 — 인게임과 같은 단위다. 옵션 키와 레벨(1~15) 둘로 끝난다.
+ * 빈 줄은 `option: ''`로 둔다(줄 자리는 남기고 값만 비운 상태).
+ */
+export interface OverloadLine {
+  option: string;
+  level: number;
+}
+
+/**
+ * 부위별 오버로드 옵션. **이 값이 있으면 `overload` 합계는 여기서 나온다** —
+ * 사람이 고르는 것은 줄이고, 엔진이 받는 것은 옛날처럼 옵션별 합계다.
+ */
+export type OverloadLines = Partial<Record<EquipPart, OverloadLine[]>>;
+
 export interface CharacterOverrides {
   growthStage?: number;
   skillLevels?: SkillLevels;
@@ -62,6 +77,11 @@ export interface CharacterOverrides {
   burst?: BurstAssignment;
   /** 부위별 장비. 숫자 0~5 = 기업·오버로드 강화 단계, 문자열 = 등급('없음' · 'T1'~'T9'). */
   equipLevels?: Partial<Record<EquipPart, EquipSetting>>;
+  /**
+   * 부위별 오버로드 옵션 줄. 있으면 `overload` 합계를 이 줄들에서 다시 세운다 —
+   * 엔진이 받는 값은 그대로 합계라, 계산·저장·공유 코드는 하나도 바뀌지 않는다.
+   */
+  overloadLines?: OverloadLines;
   /** 전투 시작 후 이 시각부터 수동 재장전 기반 무기 모드 전환을 시도한다. */
   weaponModeSwapAt?: number;
 }
@@ -369,6 +389,12 @@ export interface SettingsCatalog {
   consoleClasses: string[];
   consoleCompanies: string[];
   overloadFields: Record<string, NumericFieldMeta>;
+  /**
+   * 오버로드 옵션의 레벨별 값(9종 × 1~15, 퍼센트). 정본은 엔진과 같은
+   * `data/base_stat_tables/equipment_skills.json`이다. 옛 설정에는 없을 수 있어,
+   * 없으면 부위 3줄 입력을 아예 그리지 않고 직접 입력만 남긴다.
+   */
+  overloadSteps?: Record<string, number[]>;
   manualStats: Record<string, NumericFieldMeta>;
   // 소장품 id → 등급('R'|'SR'|'SSR'). SSR이면 애장품이라 레벨을 단계로 읽는다.
   favoriteItems: Record<string, string>;

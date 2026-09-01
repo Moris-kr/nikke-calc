@@ -529,6 +529,29 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .skill-level-controls select { min-width: 0; min-height: 36px; padding-inline: 7px; font-size: 11px; }
 .skill-level-editor.is-locked strong { display: block; color: #ffd180; font-size: 11px; }
 .skill-level-editor.is-locked p { margin: 5px 0 0; color: var(--muted); font-size: 9px; line-height: 1.5; }
+/* 오버로드 옵션 — 인게임과 같은 단위(부위 4개 × 3줄). */
+.overload-lines { display: grid; gap: 8px; }
+.overload-lines h4 { margin: 0 0 2px; font-size: 11px; }
+.ol-part { display: grid; gap: 5px; padding: 8px; border: 1px solid rgba(255,191,60,.24);
+  border-radius: 8px; background: rgba(255,191,60,.05); }
+.ol-part-head { display: flex; align-items: baseline; gap: 6px; }
+.ol-part-name { font: 800 10.5px ui-monospace, monospace; color: #e5d3a6; }
+.ol-part-sum { margin-left: auto; color: var(--amber);
+  font: 700 9.5px ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.ol-line { display: grid; grid-template-columns: 1fr 58px 52px; gap: 4px; align-items: center; }
+.ol-line select { min-height: 30px; padding-inline: 5px; font-size: 10px; }
+.ol-value { text-align: right; color: var(--cyan);
+  font: 700 10px ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.ol-value.is-empty { color: rgba(131,148,166,.5); }
+/* 직접 입력은 접어 둔다 — 3줄이 정본이고 이쪽은 빠져나갈 구멍이다. */
+.overload-manual > summary { padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px;
+  color: var(--muted); font: 700 10px ui-monospace, monospace; cursor: pointer; list-style: none; }
+.overload-manual > summary::-webkit-details-marker { display: none; }
+.overload-manual > summary::before { content: "▸ "; }
+.overload-manual[open] > summary::before { content: "▾ "; }
+.overload-manual > summary:hover { color: var(--ink); }
+.overload-manual .warning { color: var(--amber); }
+
 .overload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .overload-grid label, .manual-row { display: grid; gap: 5px; color: var(--muted); font-size: 9px; font-weight: 700; }
 .overload-grid input, .manual-row input { min-height: 36px; padding-inline: 9px 30px; font-size: 11px; }

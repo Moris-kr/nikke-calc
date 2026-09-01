@@ -28,6 +28,21 @@ export const SYNCHRO_MEASURED_MAX = 1161;
 /** 버스트 반응속도 기본값(초). 엔진 `DEFAULT_CONFIG`와 같은 값이다. */
 export const DEFAULT_BURST_REACTION = 0.05;
 
+/**
+ * 엔진에 보낼 수 있는 모양으로 추린다 — **화면 전용 값은 뺀다.**
+ *
+ * 부위별 오버로드 줄은 사람이 고르는 단위일 뿐이고, 엔진이 받는 것은 그 줄들을 더한
+ * `overload` 합계다. 엔진은 모르는 키를 오류로 끊으므로(«지원하지 않는 캐릭터 설정»),
+ * 그대로 보내면 계산이 통째로 막힌다.
+ *
+ * 딜 계산은 `normalizeCharacters`가 흰 목록으로 이미 걸러 낸다 — 이 함수는 그 목록을
+ * 지나지 않는 곳(전투력)이 쓴다.
+ */
+export function overridesForEngine(value: CharacterOverrides): CharacterOverrides {
+  const { overloadLines: _screenOnly, ...rest } = value;
+  return rest;
+}
+
 export function normalizeRequest(request: SimulationRequest): SimulationRequest {
   const squad = request.squad.map((name) => name.trim()).filter(Boolean);
   const characters = normalizeCharacters(request.characters, squad);

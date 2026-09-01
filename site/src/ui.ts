@@ -65,6 +65,7 @@ import {
   formatDps,
   formatExactDamage,
   formatExactDps,
+  overridesForEngine,
   requestForDeck,
   resetEnemy,
   validateDecks,
@@ -895,6 +896,19 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
       <!-- 업데이트 공지. 새 내용이 있을 때 처음 들어오면 한 번 뜨고, 닫으면 그 판을
            본 것으로 적어 다시 뜨지 않는다. 「업데이트 내역」으로 언제든 다시 연다. -->
+      <!-- 오버로드 입력 방식이 바뀌었음을 한 번 알린다. 옛 값은 합계만 저장돼 있어
+           «어느 부위 몇 줄인지»를 되살릴 수 없다 — 그러니 다시 받아 오라고 말한다. -->
+      <div class="custom-modal" data-overload-move-modal hidden>
+        <div class="custom-card reset-card" role="dialog" aria-label="오버로드 입력 방식 변경">
+          <div class="custom-head"><h2>오버로드 옵션 입력이 바뀌었습니다</h2><button type="button" class="custom-close" data-overload-move-close aria-label="닫기">✕</button></div>
+          <p class="custom-desc">이제 인게임과 같이 <b>장비 4부위 × 3줄</b>로 고릅니다. 다만 지금까지 저장된 값은 <b>옵션별 합계뿐</b>이라, 어느 부위에 몇 줄이 붙어 있었는지는 되살릴 수 없습니다 — <b>기존 값은 3줄로 옮겨지지 않습니다.</b></p>
+          <p class="custom-desc"><b>블라블라링크 연동을 다시 한 번</b> 해 주세요 — 계정에서 부위·줄·레벨까지 그대로 받아 채웁니다. (렛츠도로 CSV는 합계만 담고 있어 3줄을 채우지 못합니다.) 그때까지는 예전 합계 그대로 계산하며, 「합계를 직접 입력」을 펴면 그 값이 남아 있습니다.</p>
+          <div class="deck-copy-actions">
+            <button type="button" class="deck-copy-apply" data-overload-move-dismiss>알겠습니다</button>
+          </div>
+        </div>
+      </div>
+
       <div class="custom-modal" data-notice-modal hidden>
         <div class="custom-card notice-card" role="dialog" aria-label="업데이트 내역">
           <div class="custom-head"><h2>업데이트 내역</h2><button type="button" class="custom-close" data-notice-close aria-label="닫기">✕</button></div>
@@ -1516,6 +1530,32 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   // ── 업데이트 공지 ───────────────────────────────────────────────────────
   // 본 적 있는 공지 id를 적어 둔다. 새 공지가 올라오면 id가 달라져 다시 뜬다.
   const NOTICE_KEY = 'nikke-notice-seen';
+  // 오버로드 입력 방식 안내 — 옛 값을 들고 있는 사람에게 한 번만 띄운다.
+  const OVERLOAD_MOVE_KEY = 'nikke-overload-lines-notice-v1';
+  const overloadMoveModal = element<HTMLElement>(root, '[data-overload-move-modal]');
+  const closeOverloadMove = (remember: boolean) => {
+    overloadMoveModal.hidden = true;
+    if (!remember) return;
+    try { resolveStorage()?.setItem(OVERLOAD_MOVE_KEY, '1'); } catch { /* 저장 실패는 무시 */ }
+  };
+  element<HTMLButtonElement>(root, '[data-overload-move-close]')
+    .addEventListener('click', () => closeOverloadMove(true));
+  element<HTMLButtonElement>(root, '[data-overload-move-dismiss]')
+    .addEventListener('click', () => closeOverloadMove(true));
+  const maybeShowOverloadMove = () => {
+    if (!settings.overloadSteps) return;
+    try { if (resolveStorage()?.getItem(OVERLOAD_MOVE_KEY)) return; } catch { return; }
+    // 「옛 값」 = 줄은 없는데 합계는 0이 아닌 설정. 새로 시작하는 사람에게는 띄우지 않는다.
+    const stale = [...decks, ...Object.entries(roster).map(([, v]) => ({ characters: { x: v } }))]
+      .some((deck) => Object.values(deck.characters).some((over) => {
+        const value = over as CharacterOverrides;
+        if (value.overloadLines) return false;
+        return Object.values(value.overload ?? {}).some((amount) => Number(amount) > 0);
+      }));
+    if (!stale) return;
+    overloadMoveModal.hidden = false;
+  };
+
   const noticeModal = element<HTMLElement>(root, '[data-notice-modal]');
   const noticeBody = element<HTMLElement>(root, '[data-notice-body]');
 
@@ -1572,6 +1612,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     }
     if (noticeToShow(seen)) openNotice();
   }
+  // 저장된 편성을 되살린 **뒤에** 판단해야 한다 — 그전에는 옛 값이 아직 메모리에 없다.
+  queueMicrotask(maybeShowOverloadMove);
 
   // ── 캐릭터 설정 창 ──────────────────────────────────────────────────────
   // 어떤 캐릭터의 어느 뭉치를 보고 있는지 기억한다. 값을 바꾸면 카드가 다시 그려지고
@@ -1799,7 +1841,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       const custom = customPayload();
       const got = await client.combatPower({
         names,
-        characters: Object.fromEntries(names.map((name) => [name, deck.characters[name] ?? {}])),
+        characters: Object.fromEntries(
+          names.map((name) => [name, overridesForEngine(deck.characters[name] ?? {})]),
+        ),
         synchroLevel: battle.synchroLevel,
         console: battle.console,
         ...(Object.keys(custom).length > 0 ? { customCharacters: custom } : {}),
@@ -3851,7 +3895,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       const custom = customPayload();
       const got = await client.combatPower({
         names: catalog.map((meta) => meta.name),
-        characters: roster,
+        characters: Object.fromEntries(
+          Object.entries(roster).map(([name, value]) => [name, overridesForEngine(value)]),
+        ),
         ...(Object.keys(custom).length > 0 ? { customCharacters: custom } : {}),
       });
       combatPower = got;
