@@ -9,7 +9,7 @@ const over = (element: number, atk = 0): CharacterOverrides =>
   ({ overload: { element_bonus: element, atk_pct: atk } });
 const all = () => true;
 
-describe('니케 시각화', () => {
+describe('오버옵 시각화', () => {
   it('두 기준이 서로 다른 값을 본다', () => {
     const value = over(88.6, 22.22);
     expect(metricValue(value, 'element')).toBe(88.6);

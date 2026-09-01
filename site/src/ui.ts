@@ -4941,7 +4941,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const funTabs = element<HTMLElement>(root, '[data-fun-tabs]');
   const funBody = element<HTMLElement>(root, '[data-fun-body]');
   const FUN_VIEWS = [
-    { key: 'vision', label: '니케 시각화', note: '불러온 프로필을 초상화 크기로 봅니다' },
+    { key: 'vision', label: '오버옵 시각화', note: '불러온 프로필의 오버로드 옵션을 초상화 크기로 봅니다' },
   ] as const;
   type FunView = (typeof FUN_VIEWS)[number]['key'];
   let funView: FunView = 'vision';
@@ -4950,9 +4950,14 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   let visionNumbers = true;
   /** 보고 싶은 속성. 비어 있으면 전부 본다. */
   const visionCodes = new Set<string>();
+  /**
+   * 초상화를 얼마나 끌어올려 자를지(반지름 배수). 0이면 그림 위끝이 원 위끝에 붙어
+   * 머리 위 여백이 들어오고 얼굴이 아래로 처진다. 눈이 원 가운데 오는 값이다.
+   */
+  const FACE_TOP = 0.34;
 
   /**
-   * 니케 시각화. **계산기에 세팅한 값이 아니라 불러온 프로필을 쓴다** — 덱마다 만져 둔
+   * 오버옵 시각화. **계산기에 세팅한 값이 아니라 불러온 프로필을 쓴다** — 덱마다 만져 둔
    * 값은 «이 조합에서 이랬으면»이라는 가정이고, 여기서 보고 싶은 것은 계정의 실제 육성이다.
    *
    * 격자 대신 원형 팩으로 그린다 — 크기 차이가 자리 배치로도 드러난다(큰 것이 가운데).
@@ -5068,12 +5073,15 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       if (image) {
         const picture = document.createElementNS(NS, 'image');
         picture.setAttribute('href', `${import.meta.env.BASE_URL}${image}`);
+        // 초상화는 세로 두 배(256×512)다. 폭을 지름에 맞추면 높이가 지름의 두 배가 되고,
+        // 그중 어디를 보여 줄지는 우리가 정한다 — 위끝을 맞추면 머리 위 여백이 들어와
+        // 얼굴이 아래로 처진다. `FACE_TOP`만큼 끌어올려 얼굴을 원 가운데에 둔다.
+        const height = circle.r * 4;
         picture.setAttribute('x', String(circle.x - circle.r));
-        picture.setAttribute('y', String(circle.y - circle.r));
+        picture.setAttribute('y', String(circle.y - circle.r - circle.r * FACE_TOP));
         picture.setAttribute('width', String(circle.r * 2));
-        picture.setAttribute('height', String(circle.r * 2));
-        // 얼굴이 위쪽에 있다 — 위를 맞춰 잘라야 눈이 잘리지 않는다.
-        picture.setAttribute('preserveAspectRatio', 'xMidYMin slice');
+        picture.setAttribute('height', String(height));
+        picture.setAttribute('preserveAspectRatio', 'none');
         picture.setAttribute('clip-path', `url(#${id})`);
         group.append(picture);
       }
