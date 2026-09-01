@@ -4946,8 +4946,11 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   type FunView = (typeof FUN_VIEWS)[number]['key'];
   let funView: FunView = 'vision';
   let visionMetric: VisionMetric = 'element';
-  /** 수치를 동그라미에 적을지. 그림만 보고 싶을 때가 있어 켜고 끈다. */
-  let visionNumbers = true;
+  /**
+   * 수치를 동그라미에 적을지. **기본은 끔** — 이 화면의 값은 크기 그 자체이고,
+   * 숫자는 궁금할 때만 켜서 본다(마우스를 올리면 꺼진 채로도 나온다).
+   */
+  let visionNumbers = false;
   /** 보고 싶은 속성. 비어 있으면 전부 본다. */
   const visionCodes = new Set<string>();
   /**
