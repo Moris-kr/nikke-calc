@@ -1230,6 +1230,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         if (Number.isFinite(from) && from !== deck.id) moveDeckTo(from, deck.id);
       });
       button.addEventListener('click', () => {
+        // 보고 있던 덱을 다시 누르면 아무것도 하지 않는다. 여기서 탭을 다시 그리면
+        // 방금 누른 단추가 사라져, 두 번 누르기(이름 고치기)가 성립하지 않는다.
+        if (activeDeckId === deck.id) return;
         activeDeckId = deck.id;
         // 덱을 옮기면 판이 겨냥하는 칸도 그 덱 기준으로 다시 잡는다.
         const empty = deck.squad.findIndex((member) => !member);
@@ -1241,6 +1244,20 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         renderSquad();
       });
       deckTabs.append(button);
+      // 보고 있는 덱에만 연필을 붙인다. 다섯 개에 다 붙이면 줄이 두 배로 길어지고,
+      // 이름은 «지금 보고 있는 덱»에 붙이는 것이라 그 자리에 있는 게 맞다.
+      // (두 번 누르기로도 되지만, 그 방법만 두면 있는 줄을 모른다.)
+      if (deck.id === activeDeckId) {
+        const rename = document.createElement('button');
+        rename.type = 'button';
+        rename.className = 'deck-rename';
+        rename.dataset.deckRename = String(deck.id);
+        rename.textContent = '✎';
+        rename.title = `${deckLabelFull(deck)}의 이름 붙이기`;
+        rename.ariaLabel = `${deckLabelFull(deck)}의 이름 붙이기`;
+        rename.addEventListener('click', () => renameDeck(deck, button));
+        deckTabs.append(rename);
+      }
     }
 
     // 여러 덱에 겹쳐 편성된 니케를 알린다. 막지는 않는다 — 딜러 하나만 바꿔 견주려고

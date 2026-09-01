@@ -1180,6 +1180,34 @@ describe('calculator UI', () => {
     expect(aimed()).toBe(2);
   });
 
+  it('덱 이름을 연필 단추로 붙이고, 같은 탭을 다시 눌러도 탭이 살아 있다', () => {
+    // 탭을 누를 때마다 탭 줄을 다시 그리면 방금 누른 단추가 사라져, 두 번 누르기가
+    // 성립하지 않는다 — 이름 고치기가 «작동 안 한다»고 보이던 이유다.
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const mode = root.querySelector<HTMLInputElement>('#squad-mode')!;
+    mode.checked = true;
+    mode.dispatchEvent(new Event('change'));
+
+    const tab = () => root.querySelector<HTMLButtonElement>('[data-deck-tab="1"]')!;
+    const before = tab();
+    before.click();
+    expect(tab()).toBe(before);   // 보고 있던 덱을 다시 눌러도 그 단추 그대로다
+
+    // 연필은 보고 있는 덱에만 붙는다.
+    const pencils = root.querySelectorAll('[data-deck-rename]');
+    expect(pencils).toHaveLength(1);
+    expect((pencils[0] as HTMLElement).dataset.deckRename).toBe('1');
+
+    (pencils[0] as HTMLButtonElement).click();
+    const input = root.querySelector<HTMLInputElement>('[data-deck-name]')!;
+    input.value = '0장';
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+    expect(tab().textContent).toContain('1. 0장');
+    // 이름은 저장돼 새로고침에도 남는다.
+    expect(JSON.parse(localStorage.getItem('nikke-state-v1')!).decks[0].name).toBe('0장');
+  });
+
   it('니케 고르기 판은 접힌 채로 시작하고, 칸을 눌러야 펴진다', () => {
     // 고를 상황이 아니면 볼 일이 없는 판이다. 늘 펴 두면 화면을 차지하고, 마우스를
     // 가운데 두고 굴리다 목록만 스크롤되는 일이 생긴다.

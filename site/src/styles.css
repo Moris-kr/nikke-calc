@@ -269,6 +269,8 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .deck-name-input { width: 100%; min-width: 70px; min-height: 0; padding: 1px 4px;
   border: 1px solid var(--cyan); border-radius: 4px; background: #04121d; color: var(--ink);
   font: inherit; font-size: 11px; }
+.deck-rename { flex: 0 0 auto; width: 28px; padding: 0; color: var(--muted); }
+.deck-rename:hover { color: var(--cyan); border-color: rgba(69,214,208,.4); }
 .deck-tabs button.is-dragging { opacity: .45; }
 .deck-tabs button.is-drop { outline: 2px dashed var(--cyan); outline-offset: 1px; }
 /* 다섯을 한 번에 지우는 단추는 «한 번 더» 눌러야 듣는다. */
