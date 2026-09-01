@@ -5046,7 +5046,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     // 남에게 보이려고 만드는 그림이 아니다 — 올리기 전에 한 번 생각하라고 적어 둔다.
     funBody.append(createText(
       'p',
-      '갤에 올리면 비틱성으로 여겨질 가능성이 있으니 주의하세요.',
+      '갤에 올리면 비틱성으로 여겨질 가능성이 있으니 올리지 마세요.',
       'vision-warn',
     ));
 
