@@ -1382,7 +1382,7 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
 .vision-empty { margin: 0; padding: 18px; border: 1px dashed var(--line); border-radius: 10px;
   color: var(--muted); font-size: 12.5px; line-height: 1.7; }
 
-/* 크기가 정보다 — 원형 팩. 큰 것이 가운데, 작은 것이 바깥으로 밀린다. */
+/* 크기가 정보다 — 한 변이 값에 비례한다. 아래를 맞춰 세워야 크기 차이가 눈에 든다. */
 .vision-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 10px; }
 .vision-codes { display: flex; flex-wrap: wrap; gap: 5px; }
 .vision-code { display: inline-flex; align-items: center; justify-content: center;
@@ -1395,14 +1395,19 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
 .vision-code-icon { width: 17px; height: 20px; }
 .vision-numbers { margin-left: auto; color: var(--muted); font-size: 11.5px; font-weight: 700; }
 
-.vision-bubbles { display: block; width: 100%; height: auto; max-height: 72vh; overflow: visible; }
-.vision-bubble { cursor: default; }
-.vision-ring { fill: none; stroke: rgba(146,176,201,.35); stroke-width: 1; }
-.vision-bubble:hover .vision-ring { stroke: var(--cyan); stroke-width: 2; }
-.vision-bubble-value {
-  fill: var(--amber); font: 800 11px ui-monospace, monospace;
-  paint-order: stroke; stroke: rgba(5,11,19,.85); stroke-width: 3px; stroke-linejoin: round;
-}
+.vision-grid { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+.vision-cell { margin: 0; display: grid; gap: 3px; }
+.vision-face { position: relative; overflow: hidden; border-radius: 8px;
+  border: 1px solid var(--line); background: linear-gradient(135deg, #18293a, #09131e); }
+/* 얼굴이 위쪽에 있다 — 위를 조금 남기고 잘라야 눈이 칸 가운데 온다. */
+.vision-face img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 14%; display: block; }
+.vision-value { position: absolute; left: 0; right: 0; bottom: 0; padding: 2px 4px;
+  background: linear-gradient(180deg, rgba(5,11,19,0), rgba(5,11,19,.92) 45%);
+  color: var(--amber); font: 800 9px ui-monospace, monospace;
+  font-variant-numeric: tabular-nums; text-align: right; }
+.vision-name { color: var(--muted); font-size: 9px; text-align: center;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 
 
 .links-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
