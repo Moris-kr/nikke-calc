@@ -259,6 +259,75 @@ describe('calculator UI', () => {
     root.remove();
   });
 
+  /** 오버로드 옵션이 잡힌 로스터를 심는다 — 시각화는 이 값이 있어야 그린다. */
+  const seedVisionRoster = () => {
+    localStorage.setItem('nikke-roster-v1', JSON.stringify({
+      리타: { overload: { element_bonus: 12.5 } },
+      크라운: { overload: { element_bonus: 8.4 } },
+      앨리스: { overload: { element_bonus: 3.1 } },
+    }));
+  };
+
+  const openVision = () => {
+    root.querySelector<HTMLButtonElement>('[data-view-tab="fun"]')!.click();
+  };
+
+  it('오버옵 시각화는 동그라미를 모아 붙이지 않은 채로 열린다', () => {
+    seedVisionRoster();
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    openVision();
+
+    const toggle = root.querySelector<HTMLInputElement>('[data-vision-pack]')!;
+    expect(toggle).not.toBeNull();
+    // 환공포증 이야기가 있던 배치다 — 첫 화면부터 맞을 이유가 없다.
+    expect(toggle.checked).toBe(false);
+    expect(root.querySelector('[data-vision-grid]')).not.toBeNull();
+    expect(root.querySelector('[data-vision-bubbles]')).toBeNull();
+  });
+
+  it('토글을 켜면 원형 팩으로 그리고, 그 선택이 브라우저에 남는다', () => {
+    seedVisionRoster();
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    openVision();
+    root.querySelector<HTMLInputElement>('[data-vision-pack]')!.click();
+
+    expect(root.querySelector('[data-vision-bubbles]')).not.toBeNull();
+    expect(root.querySelector('[data-vision-grid]')).toBeNull();
+    expect(localStorage.getItem('nikke-vision-pack')).toBe('1');
+
+    // 다시 열어도 켜 둔 채로 온다.
+    root.remove();
+    root = document.createElement('main');
+    document.body.append(root);
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    openVision();
+    expect(root.querySelector<HTMLInputElement>('[data-vision-pack]')!.checked).toBe(true);
+    expect(root.querySelector('[data-vision-bubbles]')).not.toBeNull();
+  });
+
+  it('두 모습 다 같은 사람을 같은 순서로 보인다 — 모양만 다르다', () => {
+    seedVisionRoster();
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    openVision();
+    const gridNames = [...root.querySelectorAll<HTMLElement>('[data-vision-grid] [data-vision-cell]')]
+      .map((cell) => cell.dataset.visionCell);
+
+    root.querySelector<HTMLInputElement>('[data-vision-pack]')!.click();
+    const packNames = [...root.querySelectorAll<SVGElement>('[data-vision-bubbles] [data-vision-cell]')]
+      .map((cell) => (cell as unknown as HTMLElement).dataset.visionCell);
+
+    expect(gridNames).toEqual(['리타', '크라운', '앨리스']);
+    expect(packNames).toEqual(gridNames);
+  });
+
   it('버스트 순서를 단축키로 걸어 덱에 남긴다', () => {
     mountCalculator(root, {
       catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,

@@ -12,7 +12,8 @@ import {
 } from './blablalink';
 import { parseRosterCsv } from './csv-import';
 import {
-  VISION_METRICS, packBounds, packCircles, visionRows, visionSummary, type VisionMetric,
+  VISION_METRICS, packBounds, packCircles, visionRows, visionSize, visionSummary,
+  type VisionMetric,
 } from './fun-vision';
 import {
   formatEok,
@@ -4954,6 +4955,21 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   /** 보고 싶은 속성. 비어 있으면 전부 본다. */
   const visionCodes = new Set<string>();
   /**
+   * 크기가 다른 동그라미를 빈틈없이 모아 붙일지.
+   *
+   * **기본은 끔.** 그 배치가 환공포증을 건드린다는 이야기가 있었다 — 재미로 보는
+   * 화면에서 첫 화면부터 그것을 맞을 이유가 없다. 켜면 예전 그대로 원형 팩으로
+   * 그리고, 그 선택은 이 브라우저에 남는다.
+   */
+  const VISION_PACK_KEY = 'nikke-vision-pack';
+  let visionPack = (() => {
+    try {
+      return resolveStorage()?.getItem(VISION_PACK_KEY) === '1';
+    } catch {
+      return false;
+    }
+  })();
+  /**
    * 초상화를 얼마나 끌어올려 자를지(반지름 배수). 0이면 그림 위끝이 원 위끝에 붙어
    * 머리 위 여백이 들어오고 얼굴이 아래로 처진다. 눈이 원 가운데 오는 값이다.
    */
@@ -5026,6 +5042,26 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     box.addEventListener('change', () => { visionNumbers = box.checked; renderVision(); });
     numbers.append(box, createText('span', '수치 보기'));
     bar.append(numbers);
+
+    const packLabel = document.createElement('label');
+    packLabel.className = 'inline-check vision-pack';
+    packLabel.title = '크기가 다른 동그라미를 빈틈없이 모아 붙입니다. '
+      + '끄면 네모 칸을 줄로 세워 보여 줍니다';
+    const packBox = document.createElement('input');
+    packBox.type = 'checkbox';
+    packBox.dataset.visionPack = '';
+    packBox.checked = visionPack;
+    packBox.addEventListener('change', () => {
+      visionPack = packBox.checked;
+      try {
+        resolveStorage()?.setItem(VISION_PACK_KEY, visionPack ? '1' : '0');
+      } catch {
+        /* 저장 실패는 무시 — 이번 화면에는 그대로 적용된다 */
+      }
+      renderVision();
+    });
+    packLabel.append(packBox, createText('span', '동그라미로 모아 보기'));
+    bar.append(packLabel);
     funBody.append(bar);
 
     const rows = visionRows(roster, visionMetric, (name) => {
@@ -5049,6 +5085,46 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       '갤에 올리면 비틱성으로 여겨질 가능성이 있으니 올리지 마세요.',
       'vision-warn',
     ));
+
+    if (!visionPack) {
+      // 네모 칸을 줄로 세운다. 크기는 그대로 값을 나타내되 **모서리가 있고 줄이
+      // 맞아서** 동그라미를 빽빽이 모아 붙인 그림과 인상이 다르다.
+      const grid = document.createElement('div');
+      grid.className = 'vision-grid';
+      grid.dataset.visionGrid = '';
+      for (const row of rows) {
+        const size = visionSize(row.share);
+        const cell = document.createElement('figure');
+        cell.className = 'vision-cell';
+        cell.dataset.visionCell = row.name;
+        cell.style.width = `${size}px`;
+        const face = document.createElement('div');
+        face.className = 'vision-face';
+        face.style.height = `${size}px`;
+        const image = catalogByName.get(row.name)?.image;
+        if (image) {
+          const img = document.createElement('img');
+          img.src = `${import.meta.env.BASE_URL}${image}`;
+          img.alt = '';
+          img.loading = 'lazy';
+          face.append(img);
+        }
+        if (visionNumbers) {
+          const value = document.createElement('b');
+          value.className = 'vision-value';
+          value.textContent = `${Math.round(row.value * 10) / 10}%`;
+          face.append(value);
+        }
+        const name = document.createElement('figcaption');
+        name.className = 'vision-name';
+        name.textContent = row.name;
+        cell.append(face, name);
+        cell.title = `${row.name} · ${row.value.toFixed(2)}%`;
+        grid.append(cell);
+      }
+      funBody.append(grid);
+      return;
+    }
 
     // SVG로 그린다 — viewBox가 화면 폭에 맞춰 알아서 줄여 주므로 좌표를 그대로 쓴다.
     const circles = packCircles(rows);
