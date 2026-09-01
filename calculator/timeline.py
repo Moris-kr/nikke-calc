@@ -1961,6 +1961,19 @@ class BurstController:
             if self._burst_pattern:
                 cycle = self._burst_count + 1   # 1-based — 유저가 세는 "N번째 버스트"
                 candidates = sorted(candidates, key=lambda n: self._pattern_rank(n, cycle, t))
+                # 이번 사이클이 «차례»인 사람이 있으면 그 사람만 후보다. 패턴은 뒤로
+                # 미는 것이었지만, 그러면 차례인 사람이 0.2초 늦게 준비될 때 동료가
+                # 새치기해 버린다 — 미란다 「전담」이 걸린 조합에서 다른 1버가 딱 한 번
+                # 끼어드는 게 그 모습이었다. 사람은 그 0.2초를 기다린다.
+                #
+                # 기절한 사람은 못 누르므로 빼고, 차례인 사람이 아무도 남지 않으면
+                # 평소 순서로 돌아간다(단계가 통째로 막히는 편이 늘 더 나쁘다).
+                due = [
+                    name for name in candidates
+                    if self._pattern_rank(name, cycle, t) == 0 and not bm.is_stunned(name)
+                ]
+                if due:
+                    candidates = due
         # 쿨 대기 플래그는 매번 새로 판정한다 (아래 대기 분기에서만 다시 세운다)
         self._cd_wait_candidates = None
 
