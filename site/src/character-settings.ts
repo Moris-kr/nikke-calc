@@ -196,6 +196,25 @@ export function controlRuleNotes(
   });
 }
 
+/**
+ * 「톡톡이가 이득」 안내를 띄울 자리인가.
+ *
+ * 차지형(SR·RL)은 톡톡이로 사격 후 딜레이를 줄이는 만큼 딜이 오른다 — 실측으로
+ * 에이다 +4.7%, 앵커 +53.6%였다. 그런데도 **기본값은 자동 사격**이다: 손은 하나뿐이라
+ * 여럿에게 동시에 톡톡이를 켜면 실제로 조작할 수 있는 것보다 높은 값이 나온다
+ * (판 안의 「동시 컨트롤 주의」와 같은 이야기다).
+ *
+ * 그래서 수치를 바꾸지 않고 **알리기만 한다** — 켤지 말지는 재는 사람이 정한다.
+ * 이미 켜져 있으면(추천이든 직접이든) 할 말이 없으므로 띄우지 않는다.
+ */
+export function suggestsTapFire(
+  weaponType: string | undefined,
+  displayedControl: CharacterControl,
+): boolean {
+  if (weaponType !== 'SR' && weaponType !== 'RL') return false;
+  return displayedControl.tap_fire === undefined;
+}
+
 /** 큐브를 끼지 않은 상태. 데이터가 아니라 화면이 만드는 선택지다. */
 export const NO_CUBE = '없음';
 
@@ -869,6 +888,22 @@ export function renderCharacterSettings(
   const controlGrid = document.createElement('div');
   controlGrid.className = 'control-grid';
   const displayedControl = isAutomatic ? defaults.recommendedControl : current.control!;
+
+  // 톡톡이가 이득이라는 안내. **수치는 건드리지 않는다** — 켤지는 재는 사람이 정한다.
+  if (suggestsTapFire(defaults.weaponType, displayedControl)) {
+    const hint = document.createElement('p');
+    hint.className = 'control-rule is-hint';
+    hint.dataset.controlHint = 'tap_fire';
+    const hintHead = document.createElement('b');
+    hintHead.textContent = '이 니케는 톡톡이가 이득입니다.';
+    const hintBody = document.createElement('span');
+    hintBody.textContent =
+      '차지형(SR·RL)은 톡톡이로 사격 후 딜레이를 줄이는 만큼 딜이 오릅니다. 기본이 자동 사격인 것은 '
+      + '손이 하나뿐이기 때문입니다 — 여러 명에게 한꺼번에 켜면 실제로 조작할 수 있는 것보다 높은 값이 나옵니다. '
+      + '실제로 이 니케를 잡고 칠 생각이라면 아래 「톡톡이」를 켜 주세요.';
+    hint.append(hintHead, hintBody);
+    ruleNotes.append(hint);
+  }
   const updateControl = (key: keyof CharacterControl, entry: CharacterControl[typeof key] | undefined) => {
     const next = cloneOverrides(current);
     const nextControl: CharacterControl = { ...(next.control ?? {}) };

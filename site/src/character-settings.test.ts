@@ -3,7 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
-  controlRuleNotes, recommendedControlText, renderCharacterSettings, withParticle,
+  controlRuleNotes, recommendedControlText, renderCharacterSettings, suggestsTapFire, withParticle,
 } from './character-settings';
 import type { BuffTargetRow, CharacterOverrides, SettingsCatalog } from './types';
 
@@ -409,6 +409,19 @@ describe('character settings editor', () => {
     expect(recommendedControlText(
       { recommendedControl: {}, hasConditionalControl: true }, ['아인'],
     )).toBe('현재 기본 추천: 자동 사격 · 스쿼드 조합에 따라 추천 컨트롤이 추가됩니다.');
+  });
+
+  it('차지형인데 톡톡이가 꺼져 있으면 이득이라고 알린다', () => {
+    // 수치는 그대로 둔다 — 손이 하나뿐이라 여럿에게 켜면 실제보다 높게 나오므로,
+    // 켤지는 재는 사람이 정한다.
+    expect(suggestsTapFire('SR', {})).toBe(true);
+    expect(suggestsTapFire('RL', {})).toBe(true);
+    // 이미 켜져 있으면(추천이든 직접이든) 할 말이 없다.
+    expect(suggestsTapFire('SR', { tap_fire: { rate: 3.6, release: 0.03 } })).toBe(false);
+    // 차지형이 아니면 톡톡이 자체가 없다.
+    for (const weapon of ['AR', 'SMG', 'SG', 'MG']) {
+      expect(suggestsTapFire(weapon, {})).toBe(false);
+    }
   });
 
   it('조합으로 붙는 컨트롤은 왜 붙는지까지 적는다', () => {
