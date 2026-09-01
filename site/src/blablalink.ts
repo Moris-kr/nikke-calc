@@ -40,7 +40,11 @@ export interface RawArea {
     function_details?: Array<{ function_type?: string; function_value?: number }>;
   }>;
   // 재활용 연구실 레벨 필드는 `lv`다(`level`이 아니다 — 실측 2026-08-23).
-  outpost: { recycle_room_researches?: Array<{ tid: number; lv: number }> } | null;
+  // 싱크로 디바이스 레벨도 같은 전초기지 응답에 실려 온다.
+  outpost: {
+    recycle_room_researches?: Array<{ tid: number; lv: number }>;
+    synchro_level?: number;
+  } | null;
 }
 
 export interface RawProfile {
@@ -312,6 +316,18 @@ export function emptyConsole(): ConsoleImport {
  * «클래스 콘솔에 빠진 소속이 있다»로 거절한다(빠진 소속이 조용히 0이 되는 걸
  * 막는 장치다). 여기서 0으로 채워 «안 올렸다»는 뜻을 분명히 적어 보낸다.
  */
+/**
+ * 계정의 실제 싱크로 디바이스 레벨. 전초기지를 공개하지 않았으면 안 온다(그때는 `null`).
+ *
+ * 계산기 기본값(400)은 «솔로레이드 기준»의 자리채움이라, 내 계정으로 재려면 이 값이
+ * 있어야 한다 — 소대에 넣은 니케는 전원이 이 레벨이 되므로 딜이 통째로 달라진다.
+ */
+export function synchroFrom(area: RawArea): number | null {
+  const level = area.outpost?.synchro_level;
+  if (typeof level !== 'number' || !Number.isFinite(level) || level < 1) return null;
+  return Math.round(level);
+}
+
 export function consoleFrom(area: RawArea): ConsoleImport | null {
   const researches = area.outpost?.recycle_room_researches;
   if (!researches || researches.length === 0) return null;

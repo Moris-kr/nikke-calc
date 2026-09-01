@@ -7,6 +7,7 @@ import {
   consoleFrom,
   looksLikeProfileUrl,
   pickArea,
+  synchroFrom,
   type RawProfile,
 } from './blablalink';
 import { parseRosterCsv } from './csv-import';
@@ -43,7 +44,7 @@ import {
 import { LATEST_NOTICE_ID, NOTICES, noticeFragment, noticeToShow } from './notices';
 import { mountSharePanel, squadPreview, type SharePanel } from './share-panel';
 import { startPresence } from './presence';
-import { mountUnionRaid } from './union-raid';
+import { mountUnionRaid, type UnionHandle } from './union-raid';
 import { EXTERNAL_LINKS, hostOf } from './external-links';
 import {
   BURST_STAGES,
@@ -353,6 +354,8 @@ const SHARE_API = (import.meta.env.VITE_SHARE_API ?? '').trim().replace(/\/+$/, 
 export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies): () => void {
   const { catalog, settings, version, client, storage, reload } = deps;
   const blablaProxy = (deps.blablaProxy ?? BLABLA_PROXY).trim().replace(/\/+$/, '');
+  /** 유니온 탭 손잡이. 프록시가 없어 탭을 안 만든 배포에서는 끝까지 비어 있다. */
+  let unionHandle: UnionHandle | null = null;
   const cache = new ResultCache(storage, version, 30);
   const catalogByName = new Map(catalog.map((char) => [char.name, char]));
   const decks = Array.from({ length: 5 }, (_, index) => emptyDeck(index + 1));
@@ -526,7 +529,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           <button type="button" class="union-mode" data-union-mode="personal" aria-pressed="false">개인용</button>
         </div>
         <p class="union-lede" data-union-lede-union>유니온원 <b>각자의 실제 스펙과 싱크로 레벨</b>로 같은 보스·같은 덱을 돌려, 누가 얼마나 기여할 수 있는지 견줍니다. 니케 목록을 공개한 사람만 계산할 수 있습니다.</p>
-        <p class="union-lede" data-union-lede-personal hidden><b>내 스펙만</b> 씁니다. 명단을 가져올 필요 없이, 보스마다 다른 전투 조건을 걸고 덱을 세 개까지 돌려 한눈에 견줍니다 — 계산기에 잡아 둔 싱크로·콘솔·니케 육성을 그대로 씁니다.</p>
+        <p class="union-lede" data-union-lede-personal hidden><b>내 스펙만</b> 씁니다. 명단을 가져올 필요 없이, 보스마다 다른 전투 조건을 걸고 덱을 세 개까지 돌려 한눈에 견줍니다 — 계산기에 잡아 둔 싱크로·콘솔·니케 육성을 그대로 씁니다. <b>싱크로는 이 표에서 바로 고칠 수 있습니다</b>(블라블라링크를 연동했다면 계정 값이 들어옵니다).</p>
 
         <div class="union-step" data-union-step="1">
           <h3>유니온 명단 가져오기</h3>
@@ -4167,7 +4170,16 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         // 콘솔은 계정 단위라 전투 설정 쪽에 있다. 전초기지가 비공개면 안 오고, 그때는
         // 손대지 않는 게 맞다 — 0으로 덮으면 멀쩡하던 값이 사라진다.
         const consoleLevels = consoleFrom(area);
-        if (consoleLevels) writeBattle({ ...readBattle(), console: consoleLevels });
+        // 싱크로도 계정 값으로 맞춘다. 기본값 400은 «솔로레이드 기준» 자리채움이라,
+        // 내 계정으로 재려면 실제 레벨이어야 한다 — 소대에 든 니케는 전원이 이 레벨이다.
+        const accountSynchro = synchroFrom(area);
+        if (consoleLevels || accountSynchro !== null) {
+          writeBattle({
+            ...readBattle(),
+            ...(consoleLevels ? { console: consoleLevels } : {}),
+            ...(accountSynchro !== null ? { synchroLevel: accountSynchro } : {}),
+          });
+        }
 
         saveState();
         renderDeckTabs();
@@ -4176,6 +4188,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         const parts = [`블라블라링크 ${serverLabel} ${matched.length}명 적용`];
         if (unmatched.length > 0) parts.push(`미지원 ${unmatched.length}명 제외`);
         if (consoleLevels) parts.push('콘솔 레벨 함께 적용');
+        if (accountSynchro !== null) parts.push(`싱크로 ${accountSynchro} 적용`);
         updateRosterNote(parts.join(' · '));
         setStatus([`${serverLabel} 서버에서 ${matched.length}명을 불러왔습니다.`, ...notes].join(' '));
       } catch (error) {
@@ -4673,7 +4686,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   // 프록시가 있어야 유니온원 스펙을 받아 올 수 있다 — 없으면 탭 자체를 안 그렸다.
   const unionPanel = root.querySelector<HTMLElement>('[data-view="union"]');
   if (unionPanel && blablaProxy) {
-    mountUnionRaid({ panel: unionPanel }, {
+    unionHandle = mountUnionRaid({ panel: unionPanel }, {
       proxy: blablaProxy,
       shareServer,
       settings,
@@ -4706,11 +4719,15 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   }
 
   // ── 화면 전환 ───────────────────────────────────────────────────────────
+  // 유니온 탭이 없는 배포(프록시 미설정)에서는 손잡이도 없다.
   /** 위쪽 탭이 고를 수 있는 화면. 「외부고리」는 우리 것이 아닌 곳으로 나가는 판이다. */
   type ViewName = 'calc' | 'union' | 'enikk' | 'links';
 
   function switchView(view: ViewName) {
     currentView = view;
+    // 개인용은 계산기에 잡아 둔 내 스펙으로 돈다 — 탭에 들어올 때 다시 읽는다.
+    // 모드를 켤 때 한 번만 읽으면, 그 뒤 전투 조건에서 싱크로를 바꿔도 옛 값으로 돈다.
+    if (view === 'union') unionHandle?.refreshMe();
     for (const section of root.querySelectorAll<HTMLElement>('[data-view]')) {
       const mine = section.dataset.view === view;
       // 타임라인은 계산 결과가 있을 때만 보이므로 여기서 켜지 않는다.

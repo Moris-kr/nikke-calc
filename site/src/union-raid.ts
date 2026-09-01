@@ -20,7 +20,7 @@ import {
   decodeBattleCode, decodeShareCode, decodeUnionCode, encodeUnionCode,
   type UnionShare,
 } from './share-code';
-import { DEFAULT_SYNCHRO_LEVEL, SYNCHRO_MEASURED_MAX } from './model';
+import { DEFAULT_SYNCHRO_LEVEL, SYNCHRO_MAX, SYNCHRO_MEASURED_MAX } from './model';
 import type { BattleSettings, DeckState, SimulationResult } from './types';
 
 /** 유니온원 한 명. `GetGuildMembers`가 주는 것만 담는다. */
@@ -653,7 +653,17 @@ const REQUEST_GAP_MS = 700;
 const BACKOFF_MS = [1500, 4000, 9000];
 
 /** 유니온 탭 전체를 배선한다. 상태는 이 안에만 산다 — 탭을 떠나도 남는다. */
-export function mountUnionRaid(hosts: UnionHosts, deps: UnionDeps): void {
+/** 탭 밖에서 부를 수 있는 손잡이. 지금은 «내 스펙 다시 읽기» 하나뿐이다. */
+export interface UnionHandle {
+  /**
+   * 개인용이면 계산기에 잡아 둔 내 스펙(싱크로·콘솔·로스터)을 다시 읽는다.
+   * 탭을 옮겨 다니며 싱크로를 고치는 흐름이 흔한데, 모드를 켤 때 한 번만 읽으면
+   * 그 뒤에 바꾼 값이 반영되지 않는다.
+   */
+  refreshMe(): void;
+}
+
+export function mountUnionRaid(hosts: UnionHosts, deps: UnionDeps): UnionHandle {
   const { panel } = hosts;
   let members: MemberRow[] = [];
   let rosters = new Map<string, Record<string, CharacterOverrides>>();
@@ -674,8 +684,11 @@ export function mountUnionRaid(hosts: UnionHosts, deps: UnionDeps): void {
   const hasMyRoster = () => (rosters.get('me') ? Object.keys(rosters.get('me')!).length > 0 : false);
 
   /** 계산기에 잡아 둔 내 스펙을 «유니온원 한 명»처럼 세운다 — 뒤 단계가 그대로 돈다. */
+  /** 계산기에서 마지막으로 읽어 온 싱크로. 손으로 고친 값과 가려내는 데 쓴다. */
+  let lastLoadedSynchro = 0;
   const loadMe = () => {
     const me = deps.me();
+    lastLoadedSynchro = me.synchro;
     members = [{
       name: me.name, openid: 'me', synchro: me.synchro, level: 0, area: 0,
       state: 'public', picked: true, owned: me.owned,
@@ -781,6 +794,42 @@ export function mountUnionRaid(hosts: UnionHosts, deps: UnionDeps): void {
   };
 
   /**
+   * 개인용의 싱크로 칸 — **여기서 바로 고친다.** 값은 계산기 전투 조건에서 가져오지만,
+   * 「싱크로만 올리면 얼마나 오르나」를 보려고 오는 자리라 전투 조건 창까지 다녀오게
+   * 하면 번거롭다. 고친 값은 이 표를 도는 데만 쓰고 계산기 쪽은 건드리지 않는다.
+   */
+  const syncInput = (row: MemberRow): HTMLElement => {
+    const wrap = el('label', 'union-sync-edit');
+    wrap.append(el('span', undefined, '싱크로'));
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.min = '1';
+    input.max = String(SYNCHRO_MAX);
+    input.step = '1';
+    input.value = String(row.synchro > 0 ? row.synchro : DEFAULT_SYNCHRO_LEVEL);
+    input.dataset.unionSynchro = '';
+    input.title = '블라블라링크 연동으로 받아 온 계정 싱크로입니다(연동 전이면 전투 조건 값).'
+      + ' 여기서 바꾸면 이 표만 그 값으로 돕니다.'
+      + ` 실측은 ${SYNCHRO_MEASURED_MAX}레벨까지이고 그 위는 이어 붙인 추정치입니다.`;
+    input.addEventListener('change', () => {
+      const next = Math.round(Number(input.value));
+      if (!Number.isFinite(next) || next < 1 || next > SYNCHRO_MAX) {
+        input.value = String(row.synchro);
+        return;
+      }
+      row.synchro = next;
+      renderMembers();
+    });
+    wrap.append(input);
+    if (row.synchro > SYNCHRO_MEASURED_MAX) {
+      const mark = el('b', 'union-est', '추정');
+      mark.title = `실측이 닿는 곳이 ${SYNCHRO_MEASURED_MAX}레벨까지입니다.`;
+      wrap.append(mark);
+    }
+    return wrap;
+  };
+
+  /**
    * 유니온원 줄 오른쪽의 보스 칩. **아래 보스 체크와 연동한다** — 꺼 둔 보스는 칩 자체가
    * 안 나온다. 여기서 끄면 그 사람만 그 보스를 건너뛴다(풍압은 되는데 전격은 아닌 사람).
    */
@@ -834,7 +883,7 @@ export function mountUnionRaid(hosts: UnionHosts, deps: UnionDeps): void {
       const note = el('span', 'union-note', [owned, row.note ?? ''].filter(Boolean).join(' · '));
       if (personal) {
         line.classList.add('is-personal');
-        line.append(el('span', 'union-name', row.name), syncCell(row), note, bossChips(row));
+        line.append(el('span', 'union-name', row.name), syncInput(row), note, bossChips(row));
       } else {
         line.append(box, el('span', 'union-name', row.name), syncCell(row), state, note, bossChips(row));
       }
@@ -1453,4 +1502,20 @@ export function mountUnionRaid(hosts: UnionHosts, deps: UnionDeps): void {
 
   renderBosses();
   setMode(false);
+
+  return {
+    refreshMe() {
+      if (!personal) return;
+      // 여기서 손으로 고쳐 둔 싱크로가 있으면 그것을 존중한다 — 계산기 값으로
+      // 되돌리면 방금 적어 넣은 숫자가 탭을 옮길 때마다 지워진다.
+      const edited = members[0]?.synchro;
+      loadMe();
+      const fresh = members[0];
+      if (fresh && edited !== undefined && edited > 0 && edited !== lastLoadedSynchro) {
+        fresh.synchro = edited;
+      }
+      lastLoadedSynchro = fresh?.synchro ?? lastLoadedSynchro;
+      renderMembers();
+    },
+  };
 }

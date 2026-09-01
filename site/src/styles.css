@@ -1159,6 +1159,13 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
 .union-row + .union-row { border-top: 1px solid rgba(146,176,201,.07); }
 .union-row:hover { background: rgba(69,214,208,.05); }
 .union-name { font-size: 12px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 개인용 싱크로 — 읽기만 하는 칸이 아니라 그 자리에서 고치는 칸이다. */
+.union-sync-edit { display: inline-flex; align-items: center; gap: 6px; color: var(--muted);
+  font-size: 10px; font-weight: 700; }
+.union-sync-edit input { width: 74px; min-height: 28px; padding: 0 6px; font-size: 11px;
+  text-align: right; }
+.union-sync-edit .union-est { padding: 1px 4px; border-radius: 3px; background: rgba(255,191,60,.16);
+  color: var(--amber); font-size: 8px; }
 .union-sync { color: var(--muted); font: 700 10.5px ui-monospace, monospace; }
 .union-note { color: var(--muted); font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .union-state { font: 800 10px ui-monospace, monospace; text-align: center; }

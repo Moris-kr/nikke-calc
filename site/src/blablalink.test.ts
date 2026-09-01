@@ -4,6 +4,7 @@ import {
   consoleFrom,
   looksLikeProfileUrl,
   pickArea,
+  synchroFrom,
   type RawArea,
 } from './blablalink';
 import type { CharacterMeta, SettingsCatalog } from './types';
@@ -235,5 +236,25 @@ describe('consoleFrom', () => {
   it('전초기지가 비공개면 null — 콘솔은 기본값으로 둔다', () => {
     expect(consoleFrom(area({ outpost: null }))).toBeNull();
     expect(consoleFrom(area({ outpost: { recycle_room_researches: [] } }))).toBeNull();
+  });
+});
+
+describe('계정 싱크로', () => {
+  const area = (outpost: RawArea['outpost']): RawArea => ({
+    area: 1, characters: [], details: [], stateEffects: [], outpost,
+  });
+
+  it('전초기지에 실려 온 싱크로를 읽는다', () => {
+    // 계산기 기본값 400은 «솔로레이드 기준» 자리채움이다 — 내 계정으로 재려면
+    // 실제 레벨이어야 한다.
+    expect(synchroFrom(area({ synchro_level: 873 }))).toBe(873);
+    expect(synchroFrom(area({ recycle_room_researches: [], synchro_level: 312 }))).toBe(312);
+  });
+
+  it('전초기지를 공개하지 않았으면 없다고 말한다', () => {
+    // 없는 값을 400으로 채우면 «내 값»인 척하게 된다.
+    expect(synchroFrom(area(null))).toBeNull();
+    expect(synchroFrom(area({ recycle_room_researches: [] }))).toBeNull();
+    expect(synchroFrom(area({ synchro_level: 0 }))).toBeNull();
   });
 });
