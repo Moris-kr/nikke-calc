@@ -972,15 +972,23 @@ describe('calculator UI', () => {
 
   it('opens on combat power, standing by name until the engine answers', async () => {
     // 전투력은 엔진이 계산해 온다. 그 사이에도 목록은 쓸 수 있어야 한다.
-    let answer!: (power: Record<string, number>) => void;
+    // 전투력은 **두 곳에서** 묻는다 — 목록 정렬용(카탈로그 전체)과 편성 카드용(덱 5명).
+    // 마지막 요청만 기억하면 어느 쪽이 늦게 오느냐에 따라 시험이 흔들린다.
+    // 요청을 전부 모아 두고, 정렬용(카탈로그 전체)만 골라 답한다.
+    const asked: Array<{ names: string[]; resolve: (p: Record<string, number>) => void }> = [];
     class PowerClient extends FakeClient {
-      names: string[] = [];
       async combatPower(request: CombatPowerRequest): Promise<Record<string, number>> {
-        this.names = request.names;
-        return new Promise((resolve) => { answer = resolve; });
+        return new Promise((resolve) => { asked.push({ names: request.names, resolve }); });
       }
     }
     const client = new PowerClient();
+    const catalogNames = catalog.map((meta) => meta.name);
+    const answer = (power: Record<string, number>) => {
+      const forSort = asked.find(
+        (call) => JSON.stringify(call.names) === JSON.stringify(catalogNames));
+      if (!forSort) throw new Error(`정렬용 요청이 없다: ${JSON.stringify(asked.map((c) => c.names))}`);
+      forSort.resolve(power);
+    };
     mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });
     const summary = () => root.querySelector<HTMLElement>('[data-filter-summary]')!.textContent;
 
@@ -990,7 +998,8 @@ describe('calculator UI', () => {
     expect(rosterNames(root)).toEqual([...rosterNames(root)].sort((a, b) => a.localeCompare(b, 'ko')));
 
     await flush();
-    expect(client.names).toEqual(catalog.map((meta) => meta.name));
+    // 목록 정렬은 카탈로그 전체를 묻는다. 편성 카드용 요청(덱 5명)과 섞지 않는다.
+    expect(asked.map((call) => call.names)).toContainEqual(catalogNames);
     answer({ 나가: 30, 리타: 10, 앨리스: 50 });
     await flush();
 
