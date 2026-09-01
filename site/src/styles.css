@@ -269,14 +269,26 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .deck-name-input { width: 100%; min-width: 70px; min-height: 0; padding: 1px 4px;
   border: 1px solid var(--cyan); border-radius: 4px; background: #04121d; color: var(--ink);
   font: inherit; font-size: 11px; }
-.deck-rename { flex: 0 0 auto; width: 28px; padding: 0; color: var(--muted); }
-.deck-rename:hover { color: var(--cyan); border-color: rgba(69,214,208,.4); }
+/* 연필은 덱 단추 **안쪽** 오른쪽에 얹는다. 바깥에 두면 여섯 번째 격자 칸이 되어
+   줄이 넘어갔다. 테두리 없이 겹쳐 두어 보기에는 한 칸이다. */
+.deck-rename { position: absolute; top: 50%; right: 4px; transform: translateY(-50%);
+  width: 26px; min-height: 26px; padding: 0; border: 0; border-radius: 6px;
+  background: none; color: var(--muted); font-size: 11px; line-height: 1; }
+.deck-rename:hover { background: rgba(255,191,60,.16); color: var(--amber); }
+.deck-rename:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
 .deck-tabs button.is-dragging { opacity: .45; }
 .deck-tabs button.is-drop { outline: 2px dashed var(--cyan); outline-offset: 1px; }
 /* 다섯을 한 번에 지우는 단추는 «한 번 더» 눌러야 듣는다. */
 .deck-clear.is-armed { border-color: var(--danger); background: rgba(255,77,109,.16); color: #ffd7de; }
 .deck-tabs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; margin: -4px 0 10px; }
+/* 칸 하나 = 덱 단추 하나. 연필은 이 안에 겹쳐 놓는다.
+   `min-width: 0`은 격자 칸의 기본값(auto)이 «안쪽 내용보다 좁아지지 않는다»라
+   이름이 길면 1fr을 넘겨 탭줄이 가로로 삐져나가기 때문이다. */
+.deck-tab { position: relative; display: flex; min-width: 0; }
 .deck-tabs button { min-height: 40px; border: 1px solid var(--line); background: rgba(4,12,21,.72); color: var(--muted); font-size: 12px; font-weight: 800; cursor: pointer; }
+.deck-tabs [data-deck-tab] { flex: 1; min-width: 0; }
+/* 연필이 앉을 자리를 비워 둔다 — 이름이 길어도 글자가 연필 밑으로 들어가지 않는다. */
+.deck-tabs [data-deck-tab].has-rename { padding-right: 28px; }
 .deck-tabs button:hover { border-color: rgba(69,214,208,.45); color: var(--ink); }
 .deck-tabs button.is-active { border-color: var(--amber); background: rgba(255,191,60,.1); color: var(--amber); }
 .deck-note { margin: 0 0 16px; color: var(--muted); font-size: 11px; }

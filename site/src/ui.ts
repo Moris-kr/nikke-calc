@@ -1231,6 +1231,11 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const renderDeckTabs = () => {
     deckTabs.replaceChildren();
     for (const deck of decks) {
+      // 칸 하나를 감싼다. 연필을 단추 **바깥에** 두면 그것이 여섯 번째 격자 칸이 되어
+      // 줄이 넘어간다(`grid-template-columns: repeat(5, 1fr)`). 감싼 뒤 연필을 그
+      // 안쪽 오른쪽에 얹으면 칸은 다섯 개 그대로다.
+      const cell = document.createElement('div');
+      cell.className = 'deck-tab';
       const button = document.createElement('button');
       button.type = 'button';
       button.dataset.deckTab = String(deck.id);
@@ -1278,11 +1283,14 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         renderDeckTabs();
         renderSquad();
       });
-      deckTabs.append(button);
+      cell.append(button);
       // 보고 있는 덱에만 연필을 붙인다. 다섯 개에 다 붙이면 줄이 두 배로 길어지고,
       // 이름은 «지금 보고 있는 덱»에 붙이는 것이라 그 자리에 있는 게 맞다.
       // (두 번 누르기로도 되지만, 그 방법만 두면 있는 줄을 모른다.)
       if (deck.id === activeDeckId) {
+        // 단추 **안쪽** 오른쪽에 얹는다. 단추 안에 단추를 넣을 수는 없으므로 형제로
+        // 두고 자리만 겹친다 — 보기에는 한 칸이고, 누르는 자리는 둘로 갈린다.
+        button.classList.add('has-rename');
         const rename = document.createElement('button');
         rename.type = 'button';
         rename.className = 'deck-rename';
@@ -1291,8 +1299,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         rename.title = `${deckLabelFull(deck)}의 이름 붙이기`;
         rename.ariaLabel = `${deckLabelFull(deck)}의 이름 붙이기`;
         rename.addEventListener('click', () => renameDeck(deck, button));
-        deckTabs.append(rename);
+        cell.append(rename);
       }
+      deckTabs.append(cell);
     }
 
     // 여러 덱에 겹쳐 편성된 니케를 알린다. 막지는 않는다 — 딜러 하나만 바꿔 견주려고

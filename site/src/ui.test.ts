@@ -259,6 +259,44 @@ describe('calculator UI', () => {
     root.remove();
   });
 
+  it('덱 이름 연필은 덱 단추 칸 안에 들어간다 — 줄을 넘기지 않는다', () => {
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    root.querySelector<HTMLInputElement>('#squad-mode')!.click();
+
+    const tabs = root.querySelector<HTMLElement>('[data-deck-tabs]')!;
+    // 격자가 5칸이므로 최상위 자식도 정확히 다섯이어야 한다. 연필이 형제로 붙어
+    // 여섯 번째 칸이 되면 줄이 넘어갔다 — 그것이 실제 결함이었다.
+    expect(tabs.children).toHaveLength(5);
+
+    const rename = root.querySelector<HTMLButtonElement>('[data-deck-rename]')!;
+    expect(rename).not.toBeNull();
+    // 연필은 보고 있는 덱 단추와 **같은 칸** 안에 있다.
+    const cell = rename.parentElement!;
+    expect(cell.classList.contains('deck-tab')).toBe(true);
+    expect(cell.querySelector('[data-deck-tab]')?.getAttribute('data-deck-tab'))
+      .toBe(rename.dataset.deckRename);
+    // 글자가 연필 밑으로 들어가지 않게 자리를 비워 둔다.
+    expect(cell.querySelector('[data-deck-tab]')!.classList.contains('has-rename')).toBe(true);
+  });
+
+  it('연필은 보고 있는 덱에만 하나 붙는다', () => {
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    root.querySelector<HTMLInputElement>('#squad-mode')!.click();
+    expect(root.querySelectorAll('[data-deck-rename]')).toHaveLength(1);
+
+    // 다른 덱으로 옮기면 연필도 따라간다.
+    const tabs = [...root.querySelectorAll<HTMLButtonElement>('[data-deck-tab]')];
+    tabs[2]!.click();
+    const rename = root.querySelectorAll<HTMLButtonElement>('[data-deck-rename]');
+    expect(rename).toHaveLength(1);
+    expect(rename[0]!.dataset.deckRename).toBe('3');
+    expect(root.querySelector('[data-deck-tabs]')!.children).toHaveLength(5);
+  });
+
   /** 오버로드 옵션이 잡힌 로스터를 심는다 — 시각화는 이 값이 있어야 그린다. */
   const seedVisionRoster = () => {
     localStorage.setItem('nikke-roster-v1', JSON.stringify({
