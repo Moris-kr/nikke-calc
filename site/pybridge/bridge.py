@@ -339,6 +339,17 @@ def run_combat_power(raw: str) -> str:
         for name in names
         if name in raw_characters
     }
+    # 싱크로와 콘솔은 계정 육성 상태다 — 전투력은 그 둘에 따라 통째로 달라지므로,
+    # 딜 계산과 **같은 값**을 받아야 화면의 두 숫자가 서로 어긋나지 않는다.
+    # 안 주면 예전처럼 기본 스펙(레벨 400·콘솔 기본)으로 잰다.
+    console = normalize_console(payload.get("console"))
+    synchro = normalize_synchro_level(payload.get("synchroLevel"))
+    for name in names:
+        if console:
+            over = overrides.setdefault(name, {})
+            over["console"] = {**char_spec.DEFAULT_CHAR["console"], **console}
+        if synchro is not None:
+            overrides.setdefault(name, {})["level"] = synchro
     out: dict[str, float] = {}
     for name in names:
         try:

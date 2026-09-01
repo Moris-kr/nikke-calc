@@ -312,6 +312,16 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .squad-slot > label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
 /* 초상화를 세로로 조금 늘린다 — 돌파 스테퍼가 얼굴(입 언저리)을 가리던 자리를
    비우려는 것이다. 잘라내는 위치도 함께 올려 얼굴이 위쪽에 앉게 한다. */
+/* 전투력 — 초상화 아래 띠. 딜과 다른 값이므로 색도 갈라 둔다(딜은 청록). */
+.slot-power {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; margin: 0;
+  padding: 3px 6px; background: linear-gradient(180deg, rgba(5,11,19,0), rgba(5,11,19,.92) 45%);
+  color: var(--amber); font: 800 9.5px ui-monospace, monospace;
+  font-variant-numeric: tabular-nums; text-align: right; letter-spacing: .01em;
+}
+.slot-power.is-pending { color: var(--muted); font-weight: 700; }
+.slot-power.is-unknown { color: var(--danger); }
+
 .portrait-wrap { position: relative; aspect-ratio: 1 / 1.02; overflow: hidden; background: linear-gradient(135deg, #18293a, #09131e); margin-bottom: 8px; }
 .portrait-wrap::after { content: ""; position: absolute; inset: auto 0 0; height: 42%; background: linear-gradient(transparent, rgba(3,10,17,.86)); pointer-events: none; }
 .portrait-wrap img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 20%; display: block; }

@@ -390,6 +390,12 @@ export interface CombatPowerRequest {
   names: string[];
   characters?: Record<string, CharacterOverrides>;
   customCharacters?: SimulationRequest['customCharacters'];
+  /**
+   * 싱크로와 콘솔. 계정 육성 상태라 전투력이 통째로 달라진다 — 딜 계산과 같은 값을
+   * 넘겨야 화면의 두 숫자가 서로 어긋나지 않는다. 안 주면 엔진 기본 스펙으로 잰다.
+   */
+  synchroLevel?: number;
+  console?: ConsoleLevels;
 }
 
 export interface WorkerRequest {

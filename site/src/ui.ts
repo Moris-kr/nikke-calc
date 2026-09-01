@@ -1741,6 +1741,104 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     return box;
   };
 
+  // ── 편성 전투력 ─────────────────────────────────────────────────────────
+  // 인게임 전투력을 초상화 아래에 적는다. 딜과 달리 시뮬을 돌리지 않고 스탯만 세므로
+  // 가볍다 — 육성을 만질 때마다 다시 잰다.
+  //
+  // 값은 **서명이 바뀔 때만** 다시 받는다. 편성은 결과가 도착할 때도 다시 그려지는데,
+  // 그때마다 워커를 부르면 계산 중에 전투력 요청이 끼어든다.
+  const squadPower = new Map<string, number | null>();
+  let squadPowerSig = '';
+  let squadPowerBusy = false;
+
+  /** 전투력이 달라지는 것 전부 — 육성값·싱크로·콘솔. 하나라도 바뀌면 다시 잰다. */
+  const squadPowerSignature = (): string => {
+    const deck = activeDeck();
+    const battle = readBattle();
+    return JSON.stringify({
+      squad: deck.squad,
+      chars: deck.squad.filter(Boolean).map((name) => deck.characters[name] ?? null),
+      synchro: battle.synchroLevel,
+      console: battle.console,
+    });
+  };
+
+  /** 한 칸의 전투력 자리를 채운다. 아직 못 받았으면 «재는 중»으로 둔다. */
+  const renderPowerInto = (host: HTMLElement, name: string) => {
+    const value = squadPower.get(name);
+    if (value === undefined) {
+      host.textContent = '전투력 재는 중…';
+      host.classList.add('is-pending');
+      host.classList.remove('is-unknown');
+      return;
+    }
+    host.classList.remove('is-pending');
+    if (value === null) {
+      // 오버로드 옵션을 손으로 적어 단계로 풀 수 없으면 전투력이 나오지 않는다.
+      host.textContent = '전투력 계산 불가';
+      host.classList.add('is-unknown');
+      host.title = '오버로드 옵션이 단계 조합으로 떨어지지 않아 인게임 전투력을 낼 수 없습니다.';
+      return;
+    }
+    host.classList.remove('is-unknown');
+    host.textContent = `전투력 ${Math.round(value).toLocaleString('ko-KR')}`;
+    host.title = '인게임 전투력입니다. 딜 계산과는 별개로, 스탯만 세어 냅니다.';
+  };
+
+  const refreshSquadPower = async () => {
+    if (!client.combatPower) return;
+    const sig = squadPowerSignature();
+    if (squadPowerBusy || sig === squadPowerSig) return;
+    squadPowerBusy = true;
+    try {
+      await prepared;
+      const deck = activeDeck();
+      const names = deck.squad.filter((name): name is string => Boolean(name));
+      if (names.length === 0) { squadPowerSig = sig; return; }
+      const battle = readBattle();
+      const custom = customPayload();
+      const got = await client.combatPower({
+        names,
+        characters: Object.fromEntries(names.map((name) => [name, deck.characters[name] ?? {}])),
+        synchroLevel: battle.synchroLevel,
+        console: battle.console,
+        ...(Object.keys(custom).length > 0 ? { customCharacters: custom } : {}),
+      });
+      // 편성이 그 사이 바뀌었으면 버리고 새 편성으로 다시 잰다. **다음 차례로 미룬다** —
+      // 여기서 곧바로 다시 부르면 스택이 그대로 쌓여 «Maximum call stack size exceeded»가 난다.
+      if (squadPowerSignature() !== sig) {
+        scheduleSquadPower();
+        return;
+      }
+      for (const name of names) {
+        const value = got[name];
+        // 엔진은 «못 냄»을 0으로 준다(단계로 풀리지 않는 오버로드) — null로 갈라 둔다.
+        squadPower.set(name, typeof value === 'number' && value > 0 ? value : null);
+      }
+      squadPowerSig = sig;
+      for (const host of root.querySelectorAll<HTMLElement>('[data-slot-power]')) {
+        renderPowerInto(host, host.dataset.slotPower!);
+      }
+    } catch {
+      // 전투력은 곁들이는 값이다 — 못 받아도 편성 화면은 그대로 쓴다.
+      // 여기서 다시 부르지 않는다: 실패한 요청은 대개 다시 해도 실패하고,
+      // 서명이 그대로라 곧바로 되부르면 무한히 돈다. 다음 렌더가 다시 시도한다.
+    } finally {
+      squadPowerBusy = false;
+    }
+  };
+
+  /**
+   * 다음 차례에 잰다. 편성은 글자를 한 자 칠 때마다도 다시 그려지므로 몰아서 한 번만
+   * 부르고, **첫 렌더에서 곧바로 부르지 않는다** — 그때는 워커 준비(`prepared`)가 아직
+   * 만들어지기 전이라 그 이름에 손을 대는 순간 터진다(TDZ).
+   */
+  let squadPowerTimer: ReturnType<typeof setTimeout> | undefined;
+  const scheduleSquadPower = () => {
+    clearTimeout(squadPowerTimer);
+    squadPowerTimer = setTimeout(() => { void refreshSquadPower(); }, 60);
+  };
+
   const renderSquad = () => {
     const deck = activeDeck();
     // 버스트 순서는 편성에 매여 있다 — 편성이 바뀌면 배지도 따라간다.
@@ -1868,6 +1966,15 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       });
 
       identity.append(choose, clear);
+      // 전투력 — 초상화 바로 아래. 육성을 만질 때마다 얼마나 올랐는지가 그 자리에서
+      // 읽혀야 «이 옵션이 값어치가 있나»를 판단할 수 있다.
+      if (char) {
+        const power = document.createElement('p');
+        power.className = 'slot-power';
+        power.dataset.slotPower = char.name;
+        renderPowerInto(power, char.name);
+        portrait.append(power);
+      }
       top.append(portrait, identity);
       card.append(top);
       if (char) {
@@ -1896,6 +2003,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             saveState();
             // 개별 설정 안 드롭다운으로 돌파를 바꿔도 초상화의 별이 따라가게 한다.
             renderGrowthStepper();
+            // 개별 설정은 편성 카드를 다시 그리지 않는다(설정 판이 스스로 다시 그린다) —
+            // 전투력은 여기서 따로 예약해야 육성값을 만질 때마다 따라온다.
+            scheduleSquadPower();
             // 이 콜백은 카드가 다시 그려지기 **직전**에 불린다 — 다 그린 뒤에 창을 맞춘다.
             queueMicrotask(syncOpenPanel);
           }, buffTargetRowsFor(deck.id, cname), (row) => showBuffOrder(cname, row),
@@ -1970,6 +2080,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           saveState();
           renderGrowthStepper();
           renderEditor();
+          scheduleSquadPower();
         };
         minus.addEventListener('click', () => setStage(stageOf() - 1));
         plus.addEventListener('click', () => setStage(stageOf() + 1));
@@ -1988,6 +2099,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     pullActiveSlot = false;
     // 편성·개별 설정·덱 전환이 모두 이 함수를 지난다 — 미리 계산 예약은 여기 한 곳.
     prefetchBuffTargets();
+    scheduleSquadPower();
   };
 
   // ── 콘솔 ────────────────────────────────────────────────────────────────
@@ -3571,7 +3683,12 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   // 전투 조건 입력이 바뀌면 저장한다.
   form.addEventListener('change', (event) => {
     const target = event.target as HTMLElement | null;
-    if (target?.closest('.settings-panel')) { saveState(); refreshBattleSummary(); }
+    if (target?.closest('.settings-panel')) {
+      saveState();
+      refreshBattleSummary();
+      // 싱크로·콘솔은 전투력을 통째로 바꾼다 — 편성 카드의 숫자도 따라가야 한다.
+      scheduleSquadPower();
+    }
   });
   // ── 전투 조건 공유 ──────────────────────────────────────────────────────
   const battleShareModal = element<HTMLElement>(root, '[data-battle-share-modal]');

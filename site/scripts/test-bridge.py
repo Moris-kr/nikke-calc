@@ -8,7 +8,7 @@ REPO_ROOT = SITE_DIR.parent
 sys.path.insert(0, str(SITE_DIR))
 sys.path.insert(0, str(REPO_ROOT))
 
-from pybridge.bridge import run_request
+from pybridge.bridge import run_combat_power, run_request
 from context.spec import is_preview
 from context.spec import _nikke as parsed_nikke
 
@@ -676,6 +676,28 @@ class BrowserBridgeTest(unittest.TestCase):
         # 대상이 늘 같은 줄에는 구간에 붙이지 않는다 — 그쪽까지 실으면 결과가 무거워진다.
         steady = [t for t in tracks if all(len(s) == 3 for s in t["spans"])]
         self.assertTrue(steady, "대상이 고정인 줄이 하나도 없다")
+
+    def test_combat_power_follows_synchro_and_console(self):
+        """전투력은 계정 육성 상태(싱크로·콘솔)에 따라 통째로 달라진다.
+
+        딜 계산과 **같은 값**을 받아야 화면의 두 숫자가 서로 어긋나지 않는다.
+        안 주면 예전처럼 엔진 기본 스펙(레벨 400)으로 잰다.
+        """
+        base = {"names": ["리타"]}
+        default = json.loads(run_combat_power(json.dumps(base, ensure_ascii=False)))
+        low = json.loads(run_combat_power(json.dumps(
+            {**base, "synchroLevel": 200}, ensure_ascii=False)))
+        high = json.loads(run_combat_power(json.dumps(
+            {**base, "synchroLevel": 800}, ensure_ascii=False)))
+        self.assertLess(low["리타"], default["리타"])
+        self.assertGreater(high["리타"], default["리타"])
+
+        # 콘솔도 기본 스탯을 올리므로 전투력이 따라 오른다.
+        boosted = json.loads(run_combat_power(json.dumps({
+            **base, "synchroLevel": 200,
+            "console": {"common_level": 300, "class_level": 200, "company_level": 200},
+        }, ensure_ascii=False)))
+        self.assertGreater(boosted["리타"], low["리타"])
 
     def test_rejects_character_settings_outside_the_squad(self):
         payload = {
