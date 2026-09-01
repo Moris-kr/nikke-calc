@@ -12,7 +12,7 @@ import {
 } from './blablalink';
 import { parseRosterCsv } from './csv-import';
 import {
-  VISION_METRICS, visionRows, visionSize, visionSummary, type VisionMetric,
+  VISION_METRICS, packBounds, packCircles, visionRows, visionSummary, type VisionMetric,
 } from './fun-vision';
 import {
   formatEok,
@@ -4953,10 +4953,17 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   let visionNumbers = false;
   /** 보고 싶은 속성. 비어 있으면 전부 본다. */
   const visionCodes = new Set<string>();
+  /**
+   * 초상화를 얼마나 끌어올려 자를지(반지름 배수). 0이면 그림 위끝이 원 위끝에 붙어
+   * 머리 위 여백이 들어오고 얼굴이 아래로 처진다. 눈이 원 가운데 오는 값이다.
+   */
+  const FACE_TOP = 0.34;
 
   /**
    * 오버옵 시각화. **계산기에 세팅한 값이 아니라 불러온 프로필을 쓴다** — 덱마다 만져 둔
    * 값은 «이 조합에서 이랬으면»이라는 가정이고, 여기서 보고 싶은 것은 계정의 실제 육성이다.
+   *
+   * 격자 대신 원형 팩으로 그린다 — 크기 차이가 자리 배치로도 드러난다(큰 것이 가운데).
    */
   const renderVision = () => {
     funBody.replaceChildren();
@@ -5043,42 +5050,73 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       'vision-warn',
     ));
 
-    // 크기가 정보다 — 한 변이 값에 비례하고, 아래를 맞춰 세워야 차이가 눈에 든다.
-    const grid = document.createElement('div');
-    grid.className = 'vision-grid';
-    grid.dataset.visionGrid = '';
-    for (const row of rows) {
-      const size = visionSize(row.share);
-      const cell = document.createElement('figure');
-      cell.className = 'vision-cell';
-      cell.dataset.visionCell = row.name;
-      cell.style.width = `${size}px`;
-      const face = document.createElement('div');
-      face.className = 'vision-face';
-      face.style.height = `${size}px`;
-      const image = catalogByName.get(row.name)?.image;
+    // SVG로 그린다 — viewBox가 화면 폭에 맞춰 알아서 줄여 주므로 좌표를 그대로 쓴다.
+    const circles = packCircles(rows);
+    const bounds = packBounds(circles);
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('class', 'vision-bubbles');
+    svg.dataset.visionBubbles = '';
+    svg.setAttribute('viewBox', `-4 -4 ${bounds.width + 8} ${bounds.height + 8}`);
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', `${rows.length}명을 크기로 견준 그림`);
+    const defs = document.createElementNS(NS, 'defs');
+    svg.append(defs);
+
+    circles.forEach((circle, index) => {
+      const id = `vision-clip-${index}`;
+      const clip = document.createElementNS(NS, 'clipPath');
+      clip.setAttribute('id', id);
+      const shape = document.createElementNS(NS, 'circle');
+      shape.setAttribute('cx', String(circle.x));
+      shape.setAttribute('cy', String(circle.y));
+      shape.setAttribute('r', String(circle.r));
+      clip.append(shape);
+      defs.append(clip);
+
+      const group = document.createElementNS(NS, 'g');
+      group.setAttribute('class', 'vision-bubble');
+      group.dataset.visionCell = circle.name;
+
+      const image = catalogByName.get(circle.name)?.image;
       if (image) {
-        const img = document.createElement('img');
-        img.src = `${import.meta.env.BASE_URL}${image}`;
-        img.alt = '';
-        img.loading = 'lazy';
-        face.append(img);
+        const picture = document.createElementNS(NS, 'image');
+        picture.setAttribute('href', `${import.meta.env.BASE_URL}${image}`);
+        // 초상화는 세로 두 배(256×512)다. 폭을 지름에 맞추면 높이가 지름의 두 배가 되고,
+        // 그중 어디를 보여 줄지는 우리가 정한다 — 위끝을 맞추면 머리 위 여백이 들어와
+        // 얼굴이 아래로 처진다. `FACE_TOP`만큼 끌어올려 얼굴을 원 가운데에 둔다.
+        const height = circle.r * 4;
+        picture.setAttribute('x', String(circle.x - circle.r));
+        picture.setAttribute('y', String(circle.y - circle.r - circle.r * FACE_TOP));
+        picture.setAttribute('width', String(circle.r * 2));
+        picture.setAttribute('height', String(height));
+        picture.setAttribute('preserveAspectRatio', 'none');
+        picture.setAttribute('clip-path', `url(#${id})`);
+        group.append(picture);
       }
-      // 수치는 토글로 켠다. 꺼 두어도 마우스를 올리면 이름과 함께 나온다.
-      if (visionNumbers) {
-        const value = document.createElement('b');
-        value.className = 'vision-value';
-        value.textContent = `${Math.round(row.value * 10) / 10}%`;
-        face.append(value);
+      const ring = document.createElementNS(NS, 'circle');
+      ring.setAttribute('class', 'vision-ring');
+      ring.setAttribute('cx', String(circle.x));
+      ring.setAttribute('cy', String(circle.y));
+      ring.setAttribute('r', String(circle.r));
+      group.append(ring);
+
+      // 수치는 토글로 켠다. 작은 동그라미에는 글자가 안 들어가므로 그때도 접는다.
+      if (visionNumbers && circle.r >= 22) {
+        const label = document.createElementNS(NS, 'text');
+        label.setAttribute('class', 'vision-bubble-value');
+        label.setAttribute('x', String(circle.x));
+        label.setAttribute('y', String(circle.y + circle.r - 7));
+        label.setAttribute('text-anchor', 'middle');
+        label.textContent = `${Math.round(circle.value * 10) / 10}%`;
+        group.append(label);
       }
-      const name = document.createElement('figcaption');
-      name.className = 'vision-name';
-      name.textContent = row.name;
-      cell.append(face, name);
-      cell.title = `${row.name} · ${row.value.toFixed(2)}%`;
-      grid.append(cell);
-    }
-    funBody.append(grid);
+      const hover = document.createElementNS(NS, 'title');
+      hover.textContent = `${circle.name} · ${circle.value.toFixed(2)}%`;
+      group.append(hover);
+      svg.append(group);
+    });
+    funBody.append(svg);
   };
 
   const renderFun = () => {

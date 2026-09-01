@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { metricValue, visionRows, visionSize, visionSummary } from './fun-vision';
+import {
+  metricValue, packBounds, packCircles, visionRows, visionSize, visionSummary,
+} from './fun-vision';
 import type { CharacterOverrides } from './types';
 
 const over = (element: number, atk = 0): CharacterOverrides =>
@@ -65,4 +67,57 @@ describe('오버옵 시각화', () => {
     expect(visionSummary([], 'element')).toBe('');
   });
 
+  it('큰 것이 가운데, 나머지가 그 둘레에 붙는다', () => {
+    const rows = visionRows({
+      리타: over(100), 크라운: over(80), 앨리스: over(60), 나가: over(40), 네온: over(20),
+    }, 'element', all);
+    const circles = packCircles(rows);
+    expect(circles).toHaveLength(5);
+    // 값 순서 그대로 크기가 줄어든다.
+    expect(circles.map((c) => c.name)).toEqual(['리타', '크라운', '앨리스', '나가', '네온']);
+    for (let i = 1; i < circles.length; i += 1) {
+      expect(circles[i]!.r).toBeLessThan(circles[i - 1]!.r);
+    }
+  });
+
+  it('어느 둘도 겹치지 않는다', () => {
+    const roster: Record<string, ReturnType<typeof over>> = {};
+    for (let i = 0; i < 24; i += 1) roster[`니케${i}`] = over(100 - i * 3);
+    const circles = packCircles(visionRows(roster, 'element', all));
+    for (let i = 0; i < circles.length; i += 1) {
+      for (let j = i + 1; j < circles.length; j += 1) {
+        const a = circles[i]!;
+        const b = circles[j]!;
+        // 맞닿는 것은 겹침이 아니다 — 부동소수 여유만 준다.
+        expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThan(a.r + b.r - 0.01);
+      }
+    }
+  });
+
+  it('좌표가 상자 안에 들어온다', () => {
+    const circles = packCircles(visionRows({
+      리타: over(90), 크라운: over(50), 앨리스: over(30),
+    }, 'element', all));
+    const box = packBounds(circles);
+    for (const c of circles) {
+      expect(c.x - c.r).toBeGreaterThanOrEqual(-0.01);
+      expect(c.y - c.r).toBeGreaterThanOrEqual(-0.01);
+      expect(c.x + c.r).toBeLessThanOrEqual(box.width + 0.01);
+      expect(c.y + c.r).toBeLessThanOrEqual(box.height + 0.01);
+    }
+  });
+
+  it('한 명이나 빈 목록에서도 답을 낸다', () => {
+    expect(packCircles([])).toEqual([]);
+    expect(packBounds([])).toEqual({ width: 1, height: 1 });
+    const one = packCircles(visionRows({ 리타: over(10) }, 'element', all));
+    expect(one).toHaveLength(1);
+    expect(one[0]!.x).toBe(one[0]!.r);
+  });
+
+  it('같은 입력이면 같은 배치가 나온다', () => {
+    const rows = visionRows({ 리타: over(70), 크라운: over(50), 앨리스: over(30), 나가: over(10) },
+      'element', all);
+    expect(packCircles(rows)).toEqual(packCircles(rows));
+  });
 });
