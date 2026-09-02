@@ -253,6 +253,8 @@ export interface CharacterMeta {
 export interface BurstCast {
   t: number;
   stage: string;
+  /** 버스트 스킬 이름(스킬3). 옛 결과에는 없다 — 없으면 단계 숫자만 보여 준다. */
+  skill?: string;
 }
 
 export interface BattleTimeline {

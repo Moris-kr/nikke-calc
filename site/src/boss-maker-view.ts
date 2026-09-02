@@ -20,7 +20,8 @@ import {
 } from './boss-maker';
 import {
   spanTargets,
-  type BattleSettings, type CharacterMeta, type CharacterOverrides, type ElementCode,
+  type BattleSettings, type BurstCast, type CharacterMeta, type CharacterOverrides,
+  type ElementCode,
   type SettingsCatalog, type ShotTrack, type SimulationRequest, type SimulationResult,
 } from './types';
 import type { StorageLike } from './cache';
@@ -275,6 +276,8 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
             <div class="bm-buffs" data-bm-buffs hidden></div>
             <!-- 지금까지 넣은 딜. 커서가 선 자리까지의 누적이다. -->
             <div class="bm-hud" data-bm-hud hidden></div>
+            <!-- 버스트를 쓰는 순간의 작은 연출. 무대 아래 가운데라 그림을 가리지 않는다. -->
+            <div class="bm-burst-flash" data-bm-flash aria-live="polite"></div>
           </div>
         </div>
 
@@ -310,6 +313,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   const pileHits = q<HTMLInputElement>('[data-bm-pile]');
   const buffBar = q<HTMLElement>('[data-bm-buffs]');
   const hud = q<HTMLElement>('[data-bm-hud]');
+  const flash = q<HTMLElement>('[data-bm-flash]');
   const filterBar = q<HTMLElement>('[data-bm-filter]');
   /** 화면에서 감춘 니케. 탄착군·탄착점·사격 줄·버프가 함께 빠진다 */
   const hidden = new Set<string>();
@@ -437,6 +441,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     updateStageMeta(hits);
     renderBuffs();
     renderHud();
+    renderFlash();
   }
 
   /**
@@ -1576,6 +1581,55 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       line.append(face, el('span', 'bm-hud-dmg', formatDamage(row.damage)));
       line.title = `${row.name} · ${Math.round(row.damage).toLocaleString('ko-KR')}`;
       hud.append(line);
+    }
+  }
+
+  /** 버스트 연출이 머무는 시간(초). 짧게 스치고 사라진다. */
+  const FLASH_SECONDS = 1.5;
+
+  /**
+   * 버스트를 쓰는 순간의 작은 연출 — [초상화] 3버 · 화무십일홍 · 만개.
+   *
+   * **애니메이션을 이벤트로 쏘지 않고 커서에서 되짚는다.** 지나간 시각과의 차이로
+   * 밝기·자리를 정하므로, 재생하다 멈춰도 방금 쓴 버스트가 그대로 떠 있고 뒤로 끌면
+   * 되감긴 것처럼 보인다. 이벤트로 쏘면 스크럽할 때 안 뜨거나 한꺼번에 터진다.
+   *
+   * 1버→2버→3버는 0.6초 안에 잇따르므로 여럿이 동시에 뜬다 — 아래에서 위로 쌓는다.
+   */
+  function renderFlash() {
+    flash.replaceChildren();
+    const casts = lastResult?.timeline?.bursts;
+    if (shots === null || !casts) return;
+
+    const live: Array<{ name: string; cast: BurstCast; age: number }> = [];
+    for (const [name, list] of Object.entries(casts)) {
+      if (hidden.has(name)) continue;
+      for (const cast of list) {
+        const age = cursor - cast.t;
+        if (age < 0 || age > FLASH_SECONDS) continue;
+        live.push({ name, cast, age });
+      }
+    }
+    // 갓 쓴 것이 아래(눈에 가까운 자리)에 오도록 오래된 것부터 붙인다.
+    live.sort((left, right) => right.age - left.age);
+
+    for (const { name, cast, age } of live.slice(-4)) {
+      const chip = el('div', 'bm-flash-chip');
+      // 들어올 때 0.18초 동안 떠오르고, 마지막 0.45초 동안 위로 빠지며 사라진다.
+      const rise = Math.min(1, age / 0.18);
+      const leave = Math.max(0, (age - (FLASH_SECONDS - 0.45)) / 0.45);
+      const lift = (1 - rise) * 10 + leave * 14;
+      chip.style.opacity = (Math.min(rise, 1 - leave)).toFixed(2);
+      chip.style.transform = `translateY(${lift.toFixed(1)}px) scale(${(0.94 + rise * 0.06).toFixed(3)})`;
+
+      const face = el('i', 'bm-buff-face');
+      const image = deps.imageOf(name);
+      if (image) face.style.backgroundImage = `url(${image})`;
+      else face.textContent = name.slice(0, 1);
+      chip.append(face);
+      if (cast.stage) chip.append(el('b', 'bm-flash-stage', `${cast.stage}버`));
+      chip.append(el('span', 'bm-flash-name', cast.skill || `${name} 버스트`));
+      flash.append(chip);
     }
   }
 

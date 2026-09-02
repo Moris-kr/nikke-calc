@@ -1949,3 +1949,16 @@ body.bm-open { overflow: hidden; }
 .bm-hud-dmg { flex: 1; text-align: right; color: var(--muted);
   font: 700 10px ui-monospace, monospace; }
 .bm-hud-row.is-top .bm-hud-dmg { color: var(--amber); }
+
+/* 버스트 연출 — 무대 아래 가운데에서 스치듯 떠오른다. 밝기·자리는 커서와의 시간차로
+   정해지므로(`renderFlash`) 여기서는 모양만 잡는다. 그림을 가리지 않게 작게 둔다. */
+.bm-burst-flash { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
+  z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  pointer-events: none; }
+.bm-flash-chip { display: flex; align-items: center; gap: 6px; padding: 4px 12px 4px 4px;
+  border: 1px solid rgba(255,191,60,.45); border-radius: 999px;
+  background: linear-gradient(90deg, rgba(255,191,60,.22), rgba(4,12,21,.86) 60%);
+  box-shadow: 0 6px 22px -8px rgba(255,157,31,.7); white-space: nowrap; }
+.bm-flash-stage { padding: 1px 6px; border-radius: 999px; background: rgba(255,191,60,.25);
+  color: var(--amber); font: 800 9px inherit; }
+.bm-flash-name { color: #ffe1a8; font: 800 12px inherit; letter-spacing: -.01em; }

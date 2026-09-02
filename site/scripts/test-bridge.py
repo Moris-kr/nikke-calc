@@ -672,6 +672,24 @@ class BrowserBridgeTest(unittest.TestCase):
             self.assertLessEqual(sum(row["core"]), sum(row["normal"]) + sum(row["skill"]))
         self.assertEqual(counted, got["hitCount"])
 
+    def test_burst_casts_carry_the_burst_skill_name(self):
+        """버스트를 쓸 때 띄울 이름 — 스킬3의 이름이다.
+
+        한 스킬이 효과 여럿으로 쪼개져 들어오고 뒤엣것에는 「템페스트 2」처럼 일련번호가
+        붙는다. 맨 앞 효과의 이름이 곧 스킬 이름이다.
+        """
+        payload = {
+            "squad": ["홍련 : 흑영", "크라운", "리타"], "duration": 40, "enemyDef": 31_784,
+            "enemyCode": "", "corePx": 0, "hasParts": False, "seed": 42, "rngMode": "expected",
+        }
+        got = json.loads(run_request(json.dumps(payload, ensure_ascii=False)))
+        casts = got["timeline"]["bursts"]
+        self.assertEqual(casts["홍련 : 흑영"][0]["skill"], "화무십일홍 · 만개")
+        self.assertEqual(casts["크라운"][0]["skill"], "라스트 킹덤")
+        self.assertEqual(casts["리타"][0]["skill"], "더블 부스트")
+        # 단계도 그대로 실린다 — 이름이 없는 옛 결과는 이것만으로 보여 준다.
+        self.assertEqual(casts["홍련 : 흑영"][0]["stage"], "3")
+
     def test_shot_track_is_left_out_unless_asked(self):
         payload = {
             "squad": ["리타"], "duration": 10, "enemyDef": 31_784, "enemyCode": "",

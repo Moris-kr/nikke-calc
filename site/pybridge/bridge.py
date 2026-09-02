@@ -71,6 +71,27 @@ def _build_shots(result, names: list[str], bucket: float = SHOT_BUCKET) -> dict:
     return {"bucket": bucket, "buckets": buckets, "chars": chars}
 
 
+def _burst_skill_name(name: str) -> str:
+    """그 캐릭터의 버스트 이름(스킬3의 이름).
+
+    한 스킬이 효과 여럿으로 쪼개져 들어오고 뒤엣것에는 `템페스트 2`처럼 일련번호가
+    붙는다 — **맨 앞 효과의 이름**이 곧 스킬 이름이라 그것만 쓴다. 화면이 버스트를
+    쓸 때 띄우는 이름이며, 없으면 단계 숫자만으로 보여 준다.
+
+    캐시하지 않는다 — 커스텀 니케는 요청마다 스킬 표에 얹혔다 빠지므로, 한 번 담아
+    두면 다음 요청에서 남의 이름이 나온다.
+    """
+    from calculator import timeline as _tl
+
+    for effect in _tl._PARSED_SKILLS.get(name, []):
+        if effect.get("source") != "스킬3":
+            continue
+        label = str(effect.get("name") or "").rstrip("0123456789 ").strip()
+        if label:
+            return label
+    return ""
+
+
 def _build_timeline(result, names: list[str], bucket: float = TIMELINE_BUCKET) -> dict:
     """캐릭터별 대미지 · 버스트 시각 · 풀버스트 구간을 `TIMELINE_BUCKET` 단위로 요약한다.
 
@@ -103,7 +124,11 @@ def _build_timeline(result, names: list[str], bucket: float = TIMELINE_BUCKET) -
                 stage = ""
                 if ":" in event.event:
                     stage = event.event.split(":", 1)[1].split(" ", 1)[0]
-                bursts[event.caster].append({"t": round(event.t, 2), "stage": stage})
+                entry = {"t": round(event.t, 2), "stage": stage}
+                skill = _burst_skill_name(event.caster)
+                if skill:
+                    entry["skill"] = skill
+                bursts[event.caster].append(entry)
             elif event.event == "full_burst 시작":
                 pending_start = event.t
             elif event.event == "full_burst 종료" and pending_start is not None:
