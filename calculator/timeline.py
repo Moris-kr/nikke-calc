@@ -1173,9 +1173,14 @@ class CharState:
             wc_ammo_full = wc_max_ammo
 
         if wc_fire_mode == "charge":
-            if was_ready:
+            # 세션에 새로 들어왔으면 **차지 상태와 무관하게** 모드의 탄창을 채운다.
+            # `was_ready`만 보면 두 번째 진입부터 탄창이 안 실린다 — 모드가 duration으로
+            # 끝날 때 `_charge_phase`가 "ready"로 되돌지 않아(그 초기화는 duration_bullets
+            # 종료 경로에만 있다) 이후 진입이 전부 «차지 중»으로 읽히기 때문이다.
+            # 나유타 `기억 연소`(무한 장탄 모드)가 첫 버스트에만 무한이던 원인이다.
+            if was_ready or self._wc_new_session:
                 self.ammo = wc_ammo_full
-            elif self._wc_new_session:
+            if self._wc_new_session and not was_ready:
                 # 이전 무기의 차지가 진행 중인 채로 모드에 진입했다면 차지를 새로 시작한다.
                 # 무기가 통째로 바뀌므로 앞 무기에 쌓인 차지 진행분을 물려받을 근거가 없다.
                 #
