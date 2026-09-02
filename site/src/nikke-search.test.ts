@@ -29,6 +29,8 @@ const CHARS = [
   meta('라플라스'),
   meta('라피'),
   meta('목단', { weaponType: 'SR' }),
+  meta('리타'),
+  meta('리버렐리오'),
 ];
 
 const pick = (query: string): string[] =>
@@ -51,6 +53,14 @@ describe('squash', () => {
   it('공백과 구분자를 지운다', () => {
     expect(squash('라피 : 레드 후드')).toBe('라피레드후드');
     expect(squash('2B')).toBe('2b');
+  });
+
+  it('자판이 붙여 버린 겹자음을 두 글자로 되돌린다', () => {
+    // ㄹ·ㅌ을 이어 치면 자판은 겹받침 ㄾ 한 글자를 내놓는다.
+    expect(squash('ㄾ')).toBe('ㄹㅌ');
+    expect(squash('ㄿ')).toBe('ㄹㅍ');
+    expect(squash('ㄼㄹㄹㅇ')).toBe('ㄹㅂㄹㄹㅇ');
+    expect(squash('ㅄ')).toBe('ㅂㅅ');
   });
 });
 
@@ -98,6 +108,15 @@ describe('filterByQuery', () => {
 
   it('걸리는 게 없으면 빈 목록', () => {
     expect(pick('없는이름')).toEqual([]);
+  });
+
+  it('겹받침으로 붙어 버린 초성도 친 대로 찾는다', () => {
+    // 「리타」를 찾으려 ㄹ·ㅌ을 치면 입력창에는 ㄾ 한 글자가 들어온다.
+    expect(pick('ㄾ')[0]).toBe('리타');
+    expect(pick('ㄿ')[0]).toBe('라피');
+    expect(pick('ㄼㄹㄹㅇ')).toEqual(['리버렐리오']);
+    // 뒤에 한 자 더 치면 자판은 겹받침을 놓고 새 글자를 잡는다.
+    expect(pick('ㄾ')).toEqual(pick('ㄹㅌ'));
   });
 });
 

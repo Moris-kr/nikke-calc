@@ -25,11 +25,28 @@ export function initials(text: string): string {
 }
 
 /**
+ * 자판이 붙여 버린 겹자음을 두 글자로 되돌린다.
+ *
+ * 「리타」를 초성으로 찾으려고 ㄹ·ㅌ을 이어 치면 한글 자판은 그것을 겹받침으로
+ * 읽어 **ㄾ 한 글자**를 내놓는다(ㄹㅍ→ㄿ, ㄹㅂ→ㄼ …). 화면에 뜬 글씨는
+ * 분명 초성 둘인데 검색은 한 글자를 받으니 아무것도 안 걸린다. 받침이 될 수
+ * 있는 자음은 이렇게 열한 벌뿐이라 표로 되돌린다.
+ */
+const CLUSTERS: Record<string, string> = {
+  'ㄳ': 'ㄱㅅ', 'ㄵ': 'ㄴㅈ', 'ㄶ': 'ㄴㅎ',
+  'ㄺ': 'ㄹㄱ', 'ㄻ': 'ㄹㅁ', 'ㄼ': 'ㄹㅂ', 'ㄽ': 'ㄹㅅ',
+  'ㄾ': 'ㄹㅌ', 'ㄿ': 'ㄹㅍ', 'ㅀ': 'ㄹㅎ', 'ㅄ': 'ㅂㅅ',
+};
+
+/**
  * 공백과 구분자를 지운다. 「라피레드」로 «라피 : 레드 후드»를 잡기 위한 것으로,
- * 지금은 콜론과 공백까지 정확히 맞춰야 걸린다.
+ * 지금은 콜론과 공백까지 정확히 맞춰야 걸린다. 겹자음도 여기서 풀어 둔다 —
+ * 검색어와 색인이 같은 문을 지나야 둘이 만난다.
  */
 export const squash = (text: string): string =>
-  text.toLocaleLowerCase('ko').replace(/[\s:·・]/g, '');
+  text.toLocaleLowerCase('ko')
+    .replace(/[\s:·・]/g, '')
+    .replace(/[ㄳㄵㄶㄺㄻㄼㄽㄾㄿㅀㅄ]/g, (ch) => CLUSTERS[ch] ?? ch);
 
 export interface SearchIndex {
   name: string;
