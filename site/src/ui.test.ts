@@ -921,6 +921,22 @@ describe('calculator UI', () => {
       .toContain('블라블라링크 글로벌 1명 적용');
   });
 
+  it('보스 메이커에서 잡은 전투 조건이 새로고침에도 남는다', () => {
+    // 폼은 사람이 만질 때(change) 저장된다 — 프로그램이 써넣은 값에는 그 이벤트가
+    // 없어서, 보스 메이커에서 잡은 족자·속저가 새로고침에 날아갔다.
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    root.querySelector<HTMLButtonElement>('[data-boss-maker-open]')!.click();
+
+    const [immune, element] = [...root.querySelectorAll<HTMLButtonElement>('.bm-phase-head .bm-chip')];
+    immune!.click();
+    element!.click();
+
+    const saved = JSON.parse(localStorage.getItem('nikke-state-v1')!) as
+      { battle: { immuneWindows: unknown[]; elementWindows: unknown[] } };
+    expect(saved.battle.immuneWindows).toHaveLength(1);
+    expect(saved.battle.elementWindows).toHaveLength(1);
+  });
+
   it('검색칸에서 끌어 바깥에서 놓아도 고르기 판이 닫히지 않는다', () => {
     // 끌어 놓기의 click은 누른 곳과 뗀 곳의 공통 조상에서 난다 — 그것을 «바깥 누르기»로
     // 읽으면 글자를 넉넉히 끌었을 뿐인데 판이 닫힌다.

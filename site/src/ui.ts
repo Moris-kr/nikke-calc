@@ -5469,7 +5469,13 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           .map(([name, value]) => [name, overridesForEngine(value)]),
       ),
       currentBattle: readBattle,
-      applyBattle: writeBattle,
+      // 값을 폼에 써넣는 것만으로는 남지 않는다 — 폼은 사람이 만질 때(change) 저장되는데
+      // 프로그램이 넣은 값에는 그 이벤트가 없다. 보스 메이커에서 잡은 족자·속저가
+      // 새로고침에 날아가던 이유라, 쓰는 자리에서 저장까지 함께 한다.
+      applyBattle: (battle) => {
+        writeBattle(battle);
+        saveState();
+      },
       imageOf: (name) => {
         const image = catalogByName.get(name)?.image;
         return image ? `${import.meta.env.BASE_URL}${image}` : undefined;

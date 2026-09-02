@@ -1707,6 +1707,8 @@ body.bm-open { overflow: hidden; }
    최소값이 되어 격자 칸을 뚫고 타임라인 위로 넘친다. */
 .bm-stage-wrap { display: flex; flex-direction: column; gap: 8px; min-width: 0; min-height: 0;
   overflow: hidden; }
+/* 버프 기둥과 딜 판은 무대 **위에 겹친다** — 옆에 두면 그리는 자리가 그만큼 좁아진다. */
+.bm-stage-box { position: relative; flex: 1; min-height: 0; display: flex; }
 .bm-stage-head { display: flex; align-items: center; justify-content: space-between; gap: 10px;
   min-height: 20px; }
 .bm-stage-note { color: #ffe1a8; font-size: 11px; }
@@ -1892,15 +1894,21 @@ body.bm-open { overflow: hidden; }
 /* 탄착점 — 탄이 박힌 자리. 색은 니케마다 요소에서 받는다. */
 .bm-impact { stroke: rgba(3,8,14,.55); stroke-width: .5; }
 
-/* 지금 걸려 있는 버프 — [시전자] 이름 [받는 사람]. 무대 바로 위에 한 줄로 흐른다. */
-.bm-buffs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; min-height: 26px; }
-.bm-buff { display: inline-flex; align-items: center; gap: 4px; flex: none;
+/* 지금 걸려 있는 버프 — [시전자] 이름 [받는 사람]. 무대 **왼쪽 기둥**에 위아래로 쌓는다.
+   가로로 늘어놓으면 스무 개가 넘어 한 줄에 안 들어오고, 끝까지 밀어 봐야 읽히지 않는다. */
+.bm-buffs { position: absolute; left: 8px; top: 8px; bottom: 8px; width: 172px; z-index: 2;
+  display: flex; flex-direction: column; gap: 3px; overflow-y: auto; padding-right: 4px;
+  /* 기둥 자체는 눌리지 않는다 — 알약 사이 빈틈으로 그 아래 도형을 그대로 집을 수 있다.
+     휠은 알약 위에서 굴려도 이 기둥까지 올라와 스크롤된다. */
+  pointer-events: none; }
+.bm-buff { display: flex; align-items: center; gap: 4px; flex: none; pointer-events: auto;
   padding: 3px 7px 3px 3px; border: 1px solid var(--line); border-radius: 999px;
-  background: rgba(4,12,21,.7); }
+  background: rgba(4,12,21,.82); backdrop-filter: blur(4px); }
 .bm-buff-face { width: 18px; height: 18px; flex: none; border-radius: 50%;
   background-size: 150%; background-position: 50% 22%; background-color: rgba(146,176,201,.2);
   font: 800 9px inherit; display: grid; place-items: center; color: var(--muted); }
-.bm-buff-name { color: var(--ink); font: 700 10px inherit; white-space: nowrap; }
+.bm-buff-name { flex: 1; min-width: 0; color: var(--ink); font: 700 10px inherit;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bm-buff-stack { color: var(--amber); font-style: normal; font-size: 9px; margin-left: 2px; }
 .bm-buff-targets { display: inline-flex; gap: 2px; }
 .bm-buff-targets .bm-buff-face { width: 16px; height: 16px; }
@@ -1927,3 +1935,17 @@ body.bm-open { overflow: hidden; }
 /* 적정거리 칩은 켜면 그 무기군 색으로 물든다 */
 .bm-chip.range.is-on { border-color: var(--range); background: color-mix(in srgb, var(--range) 20%, transparent);
   color: var(--range); }
+
+/* 지금까지 넣은 딜 — 무대 오른쪽 위. 타임라인 끝의 숫자가 «판 전체»라면 이쪽은 «여기까지»다. */
+.bm-hud { position: absolute; right: 8px; top: 8px; z-index: 2; width: 132px;
+  display: flex; flex-direction: column; gap: 3px; padding: 8px 9px;
+  border: 1px solid var(--line); border-radius: 10px; background: rgba(4,12,21,.82);
+  backdrop-filter: blur(4px); pointer-events: none; }
+.bm-hud-total { display: flex; flex-direction: column; gap: 1px; padding-bottom: 6px;
+  margin-bottom: 3px; border-bottom: 1px solid var(--line); }
+.bm-hud-total b { color: var(--amber); font: 800 15px ui-monospace, monospace; }
+.bm-hud-total span { color: var(--muted); font-size: 9px; }
+.bm-hud-row { display: flex; align-items: center; gap: 6px; }
+.bm-hud-dmg { flex: 1; text-align: right; color: var(--muted);
+  font: 700 10px ui-monospace, monospace; }
+.bm-hud-row.is-top .bm-hud-dmg { color: var(--amber); }

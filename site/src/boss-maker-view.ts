@@ -59,6 +59,15 @@ const MIN_WIDTH = 1024;
 /** 니케 다섯을 가르는 색. 탄착군 원이 한 점에 포개지므로 색으로만 갈린다. */
 const AIM_COLORS = ['#45d6d0', '#ffbf3c', '#8ab6ff', '#ff8f6b', '#c79bff'];
 
+/**
+ * 적정거리 색을 칠하는 진하기.
+ *
+ * 꽉 채우면 밑그림도, 겹쳐 놓은 도형도, 그 위의 탄착점도 다 가린다 — 도형 기본색이
+ * 처음부터 반투명인 것과 같은 이유다. 반투명이면 겹친 자리에서 색이 실제로 섞여 보여,
+ * 「여럿이면 섞인 색」이 화면에서도 그대로 성립한다.
+ */
+const RANGE_FILL = 0.32;
+
 /** 속저에 고를 수 있는 속성. 전투 조건 창의 목록과 같다. */
 const ELEMENT_CODES: ElementCode[] = ['풍압', '수냉', '작열', '전격', '철갑'];
 
@@ -133,6 +142,12 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   let lastResult: SimulationResult | null = null;
   let cursor = 0;
   let running = false;
+  /**
+   * 캐릭터별 «여기까지의 누적 딜». 칸마다 앞자리를 다 더해 둔 표라, 커서가 움직일
+   * 때마다 1,800칸을 다시 더하지 않고 한 번만 읽는다.
+   */
+  let cumulative: Record<string, number[]> = {};
+  let cumulativeBucket = 1;
   /** 재생 중인가. 재생하면 커서가 실제 시간대로 흘러간다 */
   let playing = false;
   /** 재생 속도 배수. 180초를 실시간으로 보고 있을 수는 없다 */
@@ -243,8 +258,6 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
         </aside>
 
         <div class="bm-stage-wrap">
-          <!-- 지금 이 순간 걸려 있는 버프. 시전자 → 버프 이름 → 받는 사람 차례로 읽는다. -->
-          <div class="bm-buffs" data-bm-buffs hidden></div>
           <div class="bm-squad-filter" data-bm-filter hidden></div>
           <div class="bm-stage-head">
             <span class="bm-stage-note" data-bm-center-warn hidden>
@@ -255,7 +268,14 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
             <label class="bm-stage-toggle"><input type="checkbox" data-bm-pile /><span>누적</span></label>
             <span class="bm-stage-meta" data-bm-stage-meta></span>
           </div>
-          <svg class="bm-stage" data-bm-stage xmlns="${SVG_NS}"></svg>
+          <div class="bm-stage-box">
+            <svg class="bm-stage" data-bm-stage xmlns="${SVG_NS}"></svg>
+            <!-- 지금 걸려 있는 버프. 왼쪽 기둥에 위아래로 쌓는다 — 가로로 늘어놓으면
+                 스무 개가 넘어 한 줄에 안 들어온다. -->
+            <div class="bm-buffs" data-bm-buffs hidden></div>
+            <!-- 지금까지 넣은 딜. 커서가 선 자리까지의 누적이다. -->
+            <div class="bm-hud" data-bm-hud hidden></div>
+          </div>
         </div>
 
         <aside class="bm-side">
@@ -289,6 +309,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   const showHits = q<HTMLInputElement>('[data-bm-show-hits]');
   const pileHits = q<HTMLInputElement>('[data-bm-pile]');
   const buffBar = q<HTMLElement>('[data-bm-buffs]');
+  const hud = q<HTMLElement>('[data-bm-hud]');
   const filterBar = q<HTMLElement>('[data-bm-filter]');
   /** 화면에서 감춘 니케. 탄착군·탄착점·사격 줄·버프가 함께 빠진다 */
   const hidden = new Set<string>();
@@ -347,7 +368,10 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       // 적정거리가 걸린 도형은 그 무기군 색으로 칠한다. 여럿이면 섞인 색이다.
       const tint = mixRangeColor(shape.range);
       node.setAttribute('fill', tint ?? shape.color);
-      if (tint) node.setAttribute('stroke', tint);
+      if (tint) {
+        node.setAttribute('fill-opacity', String(RANGE_FILL));
+        node.setAttribute('stroke', tint);
+      }
       node.dataset.bmItem = shape.id;
       body.append(node);
     }
@@ -357,6 +381,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       const partTint = mixRangeColor(part.range);
       if (partTint) {
         node.setAttribute('fill', partTint);
+        node.setAttribute('fill-opacity', String(RANGE_FILL));
         node.setAttribute('stroke', partTint);
       }
       node.dataset.bmItem = part.id;
@@ -411,6 +436,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     drawHandles();
     updateStageMeta(hits);
     renderBuffs();
+    renderHud();
   }
 
   /**
@@ -1116,11 +1142,14 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
         ...(derived.partBreakInterval > 0
           ? { partBreakInterval: derived.partBreakInterval } : {}),
         shotTrack: true,
+        // 누적 딜을 사격 트랙과 같은 0.1초 칸으로 읽으려면 잘게 나눈 표가 필요하다.
+        fineTimeline: true,
       };
       const result = await deps.simulate(request);
       lastResult = result;
       shots = result.shots ?? null;
       impactCache = null;      // 새로 잰 판이다 — 지난 자국을 이어 쓰면 안 된다
+      buildCumulative(result);
       cursor = 0;
       setPlaying(false);
       // **여기서 나온 딜이 이 보스로 잰 딜이다.** 코어 직경·파츠 유무·파츠 파괴 시각이
@@ -1492,6 +1521,64 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
 
   // ── 묶기 ──────────────────────────────────────────────────────────────────
 
+  /** 잘게 나눈 딜 표(없으면 1초 표)로 앞자리 합을 만든다. 계산이 끝날 때 한 번만 돈다. */
+  function buildCumulative(result: SimulationResult) {
+    const table = result.fineTimeline ?? result.timeline;
+    cumulative = {};
+    cumulativeBucket = table?.bucket ?? 1;
+    for (const [name, row] of Object.entries(table?.damage ?? {})) {
+      const sums = new Array<number>(row.length);
+      let running2 = 0;
+      for (let at = 0; at < row.length; at += 1) {
+        running2 += row[at] ?? 0;
+        sums[at] = running2;
+      }
+      cumulative[name] = sums;
+    }
+  }
+
+  /** 커서가 선 자리까지 그 니케가 넣은 딜. 지나간 칸까지만 센다. */
+  function damageUntil(name: string): number {
+    const sums = cumulative[name];
+    if (!sums || sums.length === 0) return 0;
+    const at = Math.min(sums.length - 1, Math.floor(cursor / cumulativeBucket) - 1);
+    return at < 0 ? 0 : sums[at]!;
+  }
+
+  /**
+   * 무대 오른쪽 위 — 지금까지 넣은 딜.
+   *
+   * 타임라인 오른쪽 끝의 숫자가 «판 전체»라면 이쪽은 «여기까지»다. 재생하면서 누가
+   * 언제부터 벌기 시작하는지가 이 판에서 읽힌다.
+   */
+  function renderHud() {
+    const squad = shownSquad();
+    if (shots === null || squad.length === 0) { hud.hidden = true; return; }
+    hud.hidden = false;
+    hud.replaceChildren();
+
+    const rows = squad.map((name) => ({ name, damage: damageUntil(name) }));
+    const total = rows.reduce((sum, row) => sum + row.damage, 0);
+    const best = Math.max(1, ...rows.map((row) => row.damage));
+
+    const head = el('div', 'bm-hud-total');
+    head.append(el('b', '', formatDamage(total)));
+    head.append(el('span', '', `${round(cursor)}초까지`));
+    head.title = `${Math.round(total).toLocaleString('ko-KR')}`;
+    hud.append(head);
+
+    for (const row of rows) {
+      const line = el('div', row.damage >= best ? 'bm-hud-row is-top' : 'bm-hud-row');
+      const face = el('i', 'bm-buff-face');
+      const image = deps.imageOf(row.name);
+      if (image) face.style.backgroundImage = `url(${image})`;
+      else face.textContent = row.name.slice(0, 1);
+      line.append(face, el('span', 'bm-hud-dmg', formatDamage(row.damage)));
+      line.title = `${row.name} · ${Math.round(row.damage).toLocaleString('ko-KR')}`;
+      hud.append(line);
+    }
+  }
+
   /** 니케 걸러 보기. 초상화를 눌러 끄면 무대·타임라인·버프에서 함께 빠진다. */
   function renderFilter() {
     const squad = deps.currentSquad().filter(Boolean);
@@ -1556,10 +1643,13 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       if (hidden.has(track.caster) && targets.length === 0) continue;
       if (targets.length === 0) continue;
       shown += 1;
+      const stack = span[2];
       const row = el('span', 'bm-buff');
+      // 기둥이 좁아 긴 이름은 잘린다 — 올려 두면 누가 누구에게 건 무엇인지 다 나온다.
+      row.title = `${track.caster} → ${track.name}${stack > 1 ? ` ×${stack}` : ''}`
+        + ` · 받는 사람 ${targets.join(', ')}`;
       row.append(face(track.caster));
       const label = el('b', 'bm-buff-name', track.name);
-      const stack = span[2];
       if (stack > 1) label.append(el('em', 'bm-buff-stack', `×${stack}`));
       row.append(label);
       const to = el('span', 'bm-buff-targets');
