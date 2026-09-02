@@ -57,6 +57,15 @@ import {
   type BurstStage, type BurstStep,
 } from './burst-order';
 import { ShareServer, summarizeBattle, summarizeSquad } from './share-server';
+import type { FeedbackItem, FeedbackKind, FeedbackStatus } from './share-server';
+import {
+  countByStatus, doingPrompt, feedbackDate, feedbackFileName, FEEDBACK_KIND_LABEL,
+  FEEDBACK_STATUS_LABEL, FEEDBACK_STATUSES, sortFeedback, textBlob,
+} from './feedback';
+import {
+  buildCandidates, mergeRules, normalizeAbbrev, parseAbbrev, SEED_RULES,
+  type AbbrevParse, type AbbrevRule,
+} from './squad-abbrev';
 import { createTimelineBlock } from './timeline';
 import {
   aggregateDeckResults,
@@ -537,7 +546,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           <p class="eyebrow">BROWSER SIM <span>·</span> 60 FPS TIMELINE</p>
           <h1><span>NIKKE</span> 스쿼드 계산기</h1>
           <p class="hero-lede">캐릭터별 오버로드와 큐브, 전투 조건을 반영해 프레임 단위 예상 대미지를 계산합니다.</p>
-          <div class="trust-row" aria-label="서비스 특징"><span>${catalog.length}명 지원</span><span class="online-now" data-online hidden title="최근 1~2분 사이에 이 계산기를 연 사람 수입니다. 탭을 숨기면 세지 않습니다"><b class="online-dot" aria-hidden="true"></b><span data-online-text></span></span><button type="button" class="notice-open" data-notice-open title="지금까지 무엇이 바뀌었는지 봅니다">업데이트 내역</button><a class="credit-link" href="https://github.com/Jgaram/nikke-calc" target="_blank" rel="noreferrer noopener" title="이 계산기의 원본 저장소">원본 알고리즘 개발자에게 무한한 감사를</a></div>
+          <div class="trust-row" aria-label="서비스 특징"><span>${catalog.length}명 지원</span><span class="online-now" data-online hidden title="최근 1~2분 사이에 이 계산기를 연 사람 수입니다. 탭을 숨기면 세지 않습니다"><b class="online-dot" aria-hidden="true"></b><span data-online-text></span></span><button type="button" class="notice-open" data-notice-open title="지금까지 무엇이 바뀌었는지 봅니다">업데이트 내역</button>${SHARE_API ? '<button type="button" class="notice-open" data-feedback-open title="불편한 점·바라는 점을 남깁니다. 올린 글은 모두에게 보입니다">피드백</button>' : ''}<a class="credit-link" href="https://github.com/Jgaram/nikke-calc" target="_blank" rel="noreferrer noopener" title="이 계산기의 원본 저장소">원본 알고리즘 개발자에게 무한한 감사를</a></div>
         </div>
         <div class="hero-orbit" aria-hidden="true"><span>01</span><strong>LOCAL<br />SIM</strong></div>
       </header>
@@ -715,7 +724,11 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
                 </label>
                 <button type="button" class="roster-info" data-doro-open aria-label="렛츠도로 CSV 받는 법" title="렛츠도로에서 CSV 받는 법">i</button>
               </span>
-              ${blablaProxy ? '<button type="button" class="roster-import" data-blabla-open title="블라블라링크 프로필 URL로 보유 니케의 육성을 한 번에 불러옵니다">블라블라링크 연동</button>' : ''}
+              ${blablaProxy ? `
+              <span class="roster-import-group">
+                <button type="button" class="roster-import" data-blabla-open title="블라블라링크 프로필 URL로 보유 니케의 육성을 한 번에 불러옵니다">블라블라링크 연동</button>
+                <button type="button" class="roster-info" data-blabla-refresh hidden aria-label="블라블라링크 다시 불러오기" title="지난번 주소로 다시 받아 옵니다">⟳</button>
+              </span>` : ''}
               <button type="button" class="roster-import" data-add-nikke title="미출시·미등록 니케를 직접 추가">새 니케 추가</button>
               <button type="button" class="roster-import" data-share-open title="편성을 이 브라우저에 이름 붙여 저장하거나, 코드·링크로 주고받습니다. 개인 스펙과 전투 조건은 담기지 않습니다">프리셋 / 조합 공유</button>
               <button type="button" class="roster-import danger" data-reset-all title="편성·설정·CSV 로스터·추가한 니케·저장된 결과를 모두 지우고 처음 상태로 되돌립니다">완전 초기화</button>
@@ -727,6 +740,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           <div class="deck-tabs" data-deck-tabs hidden></div>
           <div class="deck-controls">
             <button type="button" class="burst-order-open" data-burst-order-open title="사이클마다 1버·2버·3버를 누가 쓸지 직접 정합니다. 정한 만큼만 따르고 그 뒤는 평소 순서로 돌아갑니다"><span class="burst-order-mark" aria-hidden="true">1·2·3</span><span>버스트 순서</span><b class="burst-order-badge" data-burst-order-badge hidden></b></button>
+            <button type="button" class="burst-order-open" data-abbrev-open title="각 니케의 앞글자를 이어 적어 한 번에 편성합니다 (예: 리센홍모라)"><span class="burst-order-mark" aria-hidden="true">가나다</span><span>이름으로 편성입력</span></button>
             <span class="deck-moves" data-deck-moves hidden></span>
             <button type="button" class="deck-clear" data-deck-clear title="지금 보고 있는 덱의 편성과 개별 설정을 비웁니다">덱 비우기</button>
             <button type="button" class="deck-clear" data-deck-clear-all hidden title="다섯 덱의 편성·개별 설정·이름을 한 번에 비웁니다">5덱 비우기</button>
@@ -958,6 +972,28 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         </div>
       </div>
 
+      <!-- 이름으로 편성 입력. 커뮤니티는 조합을 「리센홍모라」처럼 앞글자를 이어
+           부르므로, 그 글자를 그대로 받아 편성으로 옮긴다. -->
+      <div class="custom-modal" data-abbrev-modal hidden>
+        <div class="custom-card abbrev-card" role="dialog" aria-label="이름으로 편성 입력">
+          <div class="custom-head"><h2>이름으로 편성 입력</h2><button type="button" class="custom-close" data-abbrev-close aria-label="닫기">✕</button></div>
+          <p class="custom-desc">각 니케의 <b>앞글자를 이어서</b> 적고 확인을 누르면 그대로 편성됩니다 — <code>리센홍모라</code> → 리타 · 센티 · 홍련 · 모더니아 · 라푼젤. <code>클</code>·<code>풍풍</code>처럼 이름에 없는 약어는 <b>사람들이 등록해 둔 뜻</b>으로 풉니다.</p>
+          <div class="abbrev-row">
+            <input type="text" class="abbrev-input" data-abbrev-input placeholder="리센홍모라" maxlength="24" autocomplete="off" spellcheck="false" aria-label="편성 약어" />
+            <button type="button" class="deck-copy-apply" data-abbrev-apply>확인</button>
+          </div>
+          <p class="share-msg" data-abbrev-msg hidden></p>
+          <div class="abbrev-fix" data-abbrev-fix hidden>
+            <p class="abbrev-fix-head"><b>원하는 대로 나오지 않나요?</b> 글자마다 니케를 골라 등록하면 다음부터 그렇게 풀립니다.</p>
+            <div class="abbrev-picks" data-abbrev-picks></div>
+            <div class="deck-copy-actions">
+              <button type="button" class="deck-copy-apply" data-abbrev-save>이 뜻으로 등록</button>
+            </div>
+            <p class="custom-desc abbrev-collect">등록한 뜻은 <b>모두가 함께 쓰는 사전</b>으로 서버에 모입니다 — 보내는 것은 <b>친 글자와 고른 니케 이름뿐</b>이고, 편성·스펙·계정 정보는 보내지 않습니다. 같은 약어에 답이 갈리면 표가 많은 쪽이 사전이 됩니다.</p>
+          </div>
+        </div>
+      </div>
+
       <div class="custom-modal" data-notice-modal hidden>
         <div class="custom-card notice-card" role="dialog" aria-label="업데이트 내역">
           <div class="custom-head"><h2>업데이트 내역</h2><button type="button" class="custom-close" data-notice-close aria-label="닫기">✕</button></div>
@@ -967,6 +1003,37 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           </div>
         </div>
       </div>
+
+      <!-- 피드백. 올린 글은 **모두에게 보인다**. 상태를 옮기는 것은 관리자뿐이고,
+           그 확인은 서버가 쥔 비밀번호로 한다. -->
+      ${SHARE_API ? `
+      <div class="custom-modal" data-feedback-modal hidden>
+        <div class="custom-card feedback-card" role="dialog" aria-label="피드백">
+          <div class="custom-head"><h2>피드백</h2><button type="button" class="custom-close" data-feedback-close aria-label="닫기">✕</button></div>
+          <p class="custom-desc">불편한 점·틀린 계산·바라는 기능을 남겨 주세요. <b>올린 글과 닉네임은 모두에게 보입니다</b> — 개인 정보는 적지 마세요. 처리 상태(접수 · 진행중 · 완료 · 불가능)는 관리자가 옮깁니다.</p>
+          <div class="feedback-form">
+            <div class="feedback-row">
+              <select class="feedback-kind" data-feedback-kind aria-label="피드백 종류">
+                <option value="bug">버그</option>
+                <option value="idea">건의</option>
+                <option value="etc">기타</option>
+              </select>
+              <input type="text" class="feedback-by" data-feedback-by maxlength="16" placeholder="닉네임 (선택)" aria-label="닉네임" />
+            </div>
+            <textarea class="feedback-text" data-feedback-text rows="3" maxlength="1000" placeholder="무엇이 어떻게 되면 좋을지 적어 주세요. 버그라면 어떤 편성·어떤 설정에서 그랬는지 함께 적어 주시면 훨씬 빨리 고칩니다."></textarea>
+            <div class="feedback-actions">
+              <button type="button" class="notice-open feedback-admin" data-feedback-admin title="관리자만 상태를 옮길 수 있습니다">관리자</button>
+              <button type="button" class="deck-copy-apply" data-feedback-send>올리기</button>
+            </div>
+          </div>
+          <p class="share-msg" data-feedback-msg hidden></p>
+          <div class="feedback-admin-bar" data-feedback-admin-bar hidden>
+            <button type="button" class="notice-open" data-feedback-download>진행중 목록 내려받기</button>
+            <button type="button" class="notice-open" data-feedback-logout>관리자 해제</button>
+          </div>
+          <div class="feedback-list" data-feedback-list></div>
+        </div>
+      </div>` : ''}
 
       <!-- 캐릭터 설정 뭉치를 띄우는 창. 카드가 좁아 그 자리에서 펼치면 다섯 장이
            서로를 밀어낸다 — 필터 판과 같은 방식으로 창을 띄운다. -->
@@ -1272,7 +1339,12 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       button.dataset.deckTab = String(deck.id);
       button.className = deck.id === activeDeckId ? 'is-active' : '';
       const count = deck.squad.filter(Boolean).length;
-      button.textContent = `${deckLabelFull(deck)}${count ? ` · ${count}` : ''}`;
+      // 탭에는 **붙인 이름만** 적는다. 번호와 인원수까지 함께 적으면 「1. 세맥비루라 · 5」가
+      // 되어, 정작 알아보려고 붙인 이름이 숫자 사이에 끼인다. 이름이 없을 때만 번호가
+      // 이름 노릇을 하므로 그때는 인원수도 함께 적는다.
+      button.textContent = deck.name?.trim()
+        ? deck.name.trim()
+        : `덱 ${deck.id}${count ? ` · ${count}` : ''}`;
       button.title = '두 번 누르면 이름을 붙일 수 있습니다. 끌어다 놓으면 순서가 바뀝니다';
       // 이름 붙이기 — 두 번 누르면 그 자리에서 고친다. 창을 띄우면 다섯 개를
       // 연달아 이름 붙일 때 창을 다섯 번 여닫아야 한다.
@@ -3911,8 +3983,18 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   // 거품 단계까지 오면 눌린 요소가 이미 DOM에서 떨어져 나가 조상이 없다 — 그러면
   // 편성 안을 눌러도 «바깥»으로 읽혀 판이 곧바로 닫힌다.
   const KEEP_OPEN = '[data-picker], .squad-grid, .deck-tabs, .deck-controls, .custom-modal';
+  // **누르기 시작한 자리**도 함께 본다. 검색칸의 글자를 끌어 고르다 판 바깥에서 손을
+  // 떼면, 그 click의 대상은 누른 곳과 뗀 곳의 공통 조상(대개 `body`)이라 «바깥»으로
+  // 읽힌다 — 글자를 넉넉히 끌었을 뿐인데 판이 닫히던 이유다. 안에서 시작한 끌기는
+  // 어디서 끝나든 바깥 누르기가 아니다.
+  let pressedInside = false;
+  root.addEventListener('pointerdown', (event) => {
+    pressedInside = !!(event.target as HTMLElement | null)?.closest(KEEP_OPEN);
+  }, true);
   root.addEventListener('click', (event) => {
-    if (!pickerOpen) return;
+    const startedInside = pressedInside;
+    pressedInside = false;   // 이 click 한 번에만 쓴다
+    if (!pickerOpen || startedInside) return;
     const hit = event.target as HTMLElement | null;
     if (!hit || hit.closest(KEEP_OPEN)) return;
     setPickerOpen(false);
@@ -4367,21 +4449,57 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     const blablaUrl = element<HTMLInputElement>(root, '[data-blabla-url]');
     const blablaSync = element<HTMLButtonElement>(root, '[data-blabla-sync]');
     const blablaStatus = element<HTMLElement>(root, '[data-blabla-status]');
+    const blablaRefresh = element<HTMLButtonElement>(root, '[data-blabla-refresh]');
 
     const setStatus = (message: string) => {
       blablaStatus.textContent = message;
       blablaStatus.hidden = message === '';
     };
 
-    const runSync = async () => {
-      const url = blablaUrl.value.trim();
+    /**
+     * 한 번 이어 둔 주소. 주소를 다시 붙여넣게 하지 않으려고 남긴다 — 육성은 계속
+     * 바뀌므로 다시 받는 일이 잦은데, 그때마다 블라블라링크를 열어 주소를 복사해 오는
+     * 것이 실제로 가장 귀찮은 대목이었다.
+     *
+     * **주소만 남긴다.** 받아 온 육성 값은 이미 로스터에 들어가 있고, 여기 남는 것은
+     * 「어느 계정을 다시 볼지」뿐이다.
+     */
+    const BLABLA_PROFILE_KEY = 'nikke-blabla-profile-v1';
+    type SavedProfile = { url: string; area?: number };
+    const readProfile = (): SavedProfile | null => {
+      try {
+        const raw = resolveStorage()?.getItem(BLABLA_PROFILE_KEY);
+        const saved = raw ? JSON.parse(raw) as SavedProfile : null;
+        return saved && looksLikeProfileUrl(saved.url) ? saved : null;
+      } catch {
+        return null;
+      }
+    };
+    const saveProfile = (saved: SavedProfile) => {
+      try {
+        resolveStorage()?.setItem(BLABLA_PROFILE_KEY, JSON.stringify(saved));
+      } catch {
+        /* 저장 실패는 무시 — 이번 화면에서는 그대로 쓴다 */
+      }
+    };
+    /** 이어 둔 주소가 있을 때만 새로고침 단추를 낸다. 없으면 누를 것이 없다. */
+    const showRefresh = () => { blablaRefresh.hidden = readProfile() === null; };
+
+    const runSync = async (from?: SavedProfile) => {
+      const url = (from?.url ?? blablaUrl.value).trim();
       if (!looksLikeProfileUrl(url)) {
         setStatus('블라블라링크 프로필 주소를 붙여넣어 주세요.');
         return;
       }
-      const selectedArea = blablaServer.value === '' ? undefined : Number(blablaServer.value);
+      const selectedArea = from
+        ? from.area
+        : (blablaServer.value === '' ? undefined : Number(blablaServer.value));
       blablaSync.disabled = true;
       blablaServer.disabled = true;
+      blablaRefresh.disabled = true;
+      // 창을 열지 않고 새로고침만 누른 사람은 창 안의 문구를 볼 수 없다 — 그때는
+      // 편성창 위 로스터 줄에 적는다.
+      if (from) updateRosterNote('블라블라링크에서 다시 받는 중…');
       setStatus('블라블라링크에서 받는 중… 니케가 많으면 몇 초 걸립니다.');
       try {
         const response = await fetch(`${blablaProxy}/sync`, {
@@ -4406,6 +4524,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
         roster = overrides;
         setRosterSource('blabla');
+        // 주소는 통했을 때만 남긴다 — 틀린 주소를 새로고침 단추에 물려 두면 누를 때마다 실패한다.
+        saveProfile({ url, ...(area.area === undefined ? {} : { area: area.area }) });
+        showRefresh();
         saveRoster();
         void loadCombatPower();
         applyRosterToDecks();
@@ -4435,17 +4556,32 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         updateRosterNote(parts.join(' · '));
         setStatus([`${serverLabel} 서버에서 ${matched.length}명을 불러왔습니다.`, ...notes].join(' '));
       } catch (error) {
-        setStatus(error instanceof Error ? error.message : String(error));
+        const message = error instanceof Error ? error.message : String(error);
+        setStatus(message);
+        if (from) updateRosterNote(`블라블라링크 다시 받기 실패: ${message}`);
       } finally {
         blablaSync.disabled = false;
         blablaServer.disabled = false;
+        blablaRefresh.disabled = false;
       }
     };
 
     element<HTMLButtonElement>(root, '[data-blabla-open]').addEventListener('click', () => {
       blablaModal.hidden = false;
+      // 지난번 주소를 채워 둔다 — 같은 계정을 다시 볼 때 붙여넣을 것이 없게.
+      const saved = readProfile();
+      if (saved && blablaUrl.value.trim() === '') {
+        blablaUrl.value = saved.url;
+        if (saved.area !== undefined) blablaServer.value = String(saved.area);
+      }
       blablaUrl.focus();
     });
+    blablaRefresh.addEventListener('click', () => {
+      const saved = readProfile();
+      if (!saved) return;
+      void runSync(saved);
+    });
+    showRefresh();
     element<HTMLButtonElement>(root, '[data-blabla-close]').addEventListener('click', () => {
       blablaModal.hidden = true;
     });
@@ -4457,6 +4593,393 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       if (event.key === 'Enter') { event.preventDefault(); void runSync(); }
     });
   }
+
+  // ── 피드백 ───────────────────────────────────────────────────────────────
+  // 올린 글은 모두에게 보인다. 상태를 옮기고 지우는 것은 관리자뿐이며, 그 확인은
+  // **서버가 쥔 비밀번호**로 한다 — 소스가 공개 저장소에 있으므로 여기에 적을 수 없다.
+  // 비밀번호는 이 창에서만 들고 있고(`sessionStorage`), 탭을 닫으면 사라진다.
+  if (shareServer) {
+    const server = shareServer;
+    const feedbackModal = element<HTMLElement>(root, '[data-feedback-modal]');
+    const feedbackList = element<HTMLElement>(root, '[data-feedback-list]');
+    const feedbackMsg = element<HTMLElement>(root, '[data-feedback-msg]');
+    const feedbackText = element<HTMLTextAreaElement>(root, '[data-feedback-text]');
+    const feedbackBy = element<HTMLInputElement>(root, '[data-feedback-by]');
+    const feedbackKind = element<HTMLSelectElement>(root, '[data-feedback-kind]');
+    const feedbackSend = element<HTMLButtonElement>(root, '[data-feedback-send]');
+    const feedbackAdminBar = element<HTMLElement>(root, '[data-feedback-admin-bar]');
+    const ADMIN_KEY = 'nikke-feedback-admin';
+
+    let feedbackItems: FeedbackItem[] = [];
+    let adminPass = '';
+    try {
+      adminPass = sessionStorage.getItem(ADMIN_KEY) ?? '';
+    } catch {
+      /* 저장소를 못 쓰는 브라우저면 이번 창에서만 관리자다 */
+    }
+
+    const setFeedbackMsg = (message: string, ok = false) => {
+      feedbackMsg.textContent = message;
+      feedbackMsg.hidden = message === '';
+      feedbackMsg.classList.toggle('is-ok', ok);
+    };
+
+    const renderFeedback = () => {
+      feedbackAdminBar.hidden = adminPass === '';
+      feedbackList.replaceChildren();
+      if (feedbackItems.length === 0) {
+        feedbackList.append(createText('p', '아직 올라온 피드백이 없습니다.', 'field-note'));
+        return;
+      }
+      const counts = countByStatus(feedbackItems);
+      feedbackList.append(createText('p', FEEDBACK_STATUSES
+        .map((status) => `${FEEDBACK_STATUS_LABEL[status]} ${counts[status]}`).join(' · '),
+      'feedback-counts'));
+
+      for (const item of sortFeedback(feedbackItems)) {
+        const row = document.createElement('article');
+        row.className = `feedback-item is-${item.status}`;
+        row.dataset.feedbackItem = item.id;
+
+        const head = document.createElement('div');
+        head.className = 'feedback-head';
+        head.append(createText('b', FEEDBACK_STATUS_LABEL[item.status], 'feedback-status'));
+        head.append(createText('span', FEEDBACK_KIND_LABEL[item.kind] ?? '기타', 'feedback-kind-tag'));
+        head.append(createText('span', `${feedbackDate(item.at)}${item.by ? ` · ${item.by}` : ''}`, 'feedback-when'));
+        row.append(head);
+        // 여러 줄로 쓴 글은 줄 그대로 보인다 — 줄바꿈은 CSS가 살린다.
+        row.append(createText('p', item.text, 'feedback-text-line'));
+
+        if (adminPass) {
+          const tools = document.createElement('div');
+          tools.className = 'feedback-tools';
+          for (const status of FEEDBACK_STATUSES) {
+            const move = document.createElement('button');
+            move.type = 'button';
+            move.className = item.status === status ? 'feedback-move is-on' : 'feedback-move';
+            move.dataset.feedbackMove = status;
+            move.textContent = FEEDBACK_STATUS_LABEL[status];
+            move.addEventListener('click', () => { void moveFeedback(item, status); });
+            tools.append(move);
+          }
+          const remove = document.createElement('button');
+          remove.type = 'button';
+          remove.className = 'feedback-move is-danger';
+          remove.dataset.feedbackRemove = item.id;
+          remove.textContent = '지우기';
+          remove.addEventListener('click', () => { void removeFeedback(item); });
+          tools.append(remove);
+          row.append(tools);
+        }
+        feedbackList.append(row);
+      }
+    };
+
+    const loadFeedback = async () => {
+      try {
+        feedbackItems = await server.feedbackList();
+        renderFeedback();
+      } catch (error) {
+        setFeedbackMsg(error instanceof Error ? error.message : String(error));
+      }
+    };
+
+    const moveFeedback = async (item: FeedbackItem, status: FeedbackStatus) => {
+      if (item.status === status) return;
+      try {
+        const moved = await server.moveFeedback(item.id, status, adminPass);
+        feedbackItems = feedbackItems.map((entry) => (entry.id === moved.id ? moved : entry));
+        renderFeedback();
+        setFeedbackMsg(`「${FEEDBACK_STATUS_LABEL[status]}」으로 옮겼습니다.`, true);
+      } catch (error) {
+        setFeedbackMsg(error instanceof Error ? error.message : String(error));
+      }
+    };
+
+    const removeFeedback = async (item: FeedbackItem) => {
+      try {
+        await server.removeFeedback(item.id, adminPass);
+        feedbackItems = feedbackItems.filter((entry) => entry.id !== item.id);
+        renderFeedback();
+        setFeedbackMsg('지웠습니다.', true);
+      } catch (error) {
+        setFeedbackMsg(error instanceof Error ? error.message : String(error));
+      }
+    };
+
+    const sendFeedback = async () => {
+      const body = feedbackText.value.trim();
+      if (body === '') {
+        setFeedbackMsg('내용을 적어 주세요.');
+        return;
+      }
+      feedbackSend.disabled = true;
+      try {
+        const item = await server.addFeedback({
+          kind: feedbackKind.value as FeedbackKind,
+          text: body,
+          by: feedbackBy.value.trim(),
+        });
+        feedbackItems = [item, ...feedbackItems.filter((entry) => entry.id !== item.id)];
+        feedbackText.value = '';
+        renderFeedback();
+        setFeedbackMsg('올렸습니다. 고맙습니다 — 확인하고 상태를 옮기겠습니다.', true);
+      } catch (error) {
+        setFeedbackMsg(error instanceof Error ? error.message : String(error));
+      } finally {
+        feedbackSend.disabled = false;
+      }
+    };
+
+    element<HTMLButtonElement>(root, '[data-feedback-open]').addEventListener('click', () => {
+      feedbackModal.hidden = false;
+      setFeedbackMsg('');
+      renderFeedback();
+      void loadFeedback();
+    });
+    element<HTMLButtonElement>(root, '[data-feedback-close]').addEventListener('click', () => {
+      feedbackModal.hidden = true;
+    });
+    feedbackModal.addEventListener('click', (event) => {
+      if (event.target === feedbackModal) feedbackModal.hidden = true;
+    });
+    feedbackSend.addEventListener('click', () => { void sendFeedback(); });
+
+    element<HTMLButtonElement>(root, '[data-feedback-admin]').addEventListener('click', () => {
+      const typed = window.prompt('관리자 비밀번호');
+      if (!typed) return;
+      void (async () => {
+        try {
+          await server.adminCheck(typed);
+          adminPass = typed;
+          try {
+            sessionStorage.setItem(ADMIN_KEY, typed);
+          } catch {
+            /* 저장 못 해도 이번 창에서는 관리자다 */
+          }
+          renderFeedback();
+          setFeedbackMsg('관리자로 확인됐습니다.', true);
+        } catch (error) {
+          setFeedbackMsg(error instanceof Error ? error.message : String(error));
+        }
+      })();
+    });
+    element<HTMLButtonElement>(root, '[data-feedback-logout]').addEventListener('click', () => {
+      adminPass = '';
+      try {
+        sessionStorage.removeItem(ADMIN_KEY);
+      } catch {
+        /* 무시 */
+      }
+      renderFeedback();
+      setFeedbackMsg('관리자를 해제했습니다.', true);
+    });
+    // 「진행중」만 모아 AI에게 그대로 넘길 수 있는 글로 내려받는다.
+    element<HTMLButtonElement>(root, '[data-feedback-download]').addEventListener('click', () => {
+      downloadImage(textBlob(doingPrompt(feedbackItems)), feedbackFileName());
+    });
+  }
+
+  // ── 이름으로 편성 입력 ───────────────────────────────────────────────────
+  // 「리센홍모라」처럼 앞글자를 이어 친 글자를 편성으로 푼다. 푸는 일은
+  // `squad-abbrev.ts`가 하고, 여기서는 사전을 모아 넘기고 결과를 편성에 넣는다.
+  //
+  // 사전은 세 겹이다 — **씨앗**(코드에 박힌 실제 용례) < **모두의 등록**(서버) <
+  // **내 등록**(이 브라우저). 뒤엣것이 앞엣것을 이긴다.
+  const ABBREV_MINE_KEY = 'nikke-abbrev-mine-v1';
+  const ABBREV_BOOK_KEY = 'nikke-abbrev-book-v1';
+  /** 모두의 사전을 다시 받아 오는 주기. 자주 바뀌는 자료가 아니다. */
+  const ABBREV_FRESH_MS = 60 * 60 * 1000;
+
+  const abbrevModal = element<HTMLElement>(root, '[data-abbrev-modal]');
+  const abbrevInput = element<HTMLInputElement>(root, '[data-abbrev-input]');
+  const abbrevMsg = element<HTMLElement>(root, '[data-abbrev-msg]');
+  const abbrevFix = element<HTMLElement>(root, '[data-abbrev-fix]');
+  const abbrevPicks = element<HTMLElement>(root, '[data-abbrev-picks]');
+  const abbrevSave = element<HTMLButtonElement>(root, '[data-abbrev-save]');
+
+  const readAbbrev = (key: string): AbbrevRule[] => {
+    try {
+      const raw = resolveStorage()?.getItem(key);
+      const parsed = raw ? JSON.parse(raw) as { rules?: AbbrevRule[] } : null;
+      return (parsed?.rules ?? []).filter((rule) => rule?.key && Array.isArray(rule.names));
+    } catch {
+      return [];
+    }
+  };
+  const writeAbbrev = (key: string, rules: AbbrevRule[], at = 0) => {
+    try {
+      resolveStorage()?.setItem(key, JSON.stringify({ at, rules }));
+    } catch {
+      /* 저장 실패는 무시 — 이번 화면에서는 그대로 쓴다 */
+    }
+  };
+  const abbrevFetchedAt = (): number => {
+    try {
+      const raw = resolveStorage()?.getItem(ABBREV_BOOK_KEY);
+      return raw ? Number((JSON.parse(raw) as { at?: number }).at ?? 0) : 0;
+    } catch {
+      return 0;
+    }
+  };
+
+  let myAbbrev = readAbbrev(ABBREV_MINE_KEY);
+  let bookAbbrev = readAbbrev(ABBREV_BOOK_KEY);
+  let lastAbbrev: AbbrevParse | null = null;
+
+  const abbrevDict = () => mergeRules(SEED_RULES, bookAbbrev, myAbbrev);
+  /** 매칭 대상. 불러온 프로필에 있는 니케를 앞에 세운다. */
+  const abbrevCandidates = () => buildCandidates(catalog, (name) => roster[name] !== undefined);
+
+  const refreshAbbrevBook = async () => {
+    if (!shareServer) return;
+    if (Date.now() - abbrevFetchedAt() < ABBREV_FRESH_MS) return;
+    try {
+      const rules = await shareServer.abbrevRules();
+      bookAbbrev = rules.map((rule) => ({ key: rule.key, names: rule.names }));
+      writeAbbrev(ABBREV_BOOK_KEY, bookAbbrev, Date.now());
+    } catch {
+      /* 사전을 못 받아도 씨앗과 내 등록으로 푼다 — 막을 일이 아니다 */
+    }
+  };
+
+  const setAbbrevMsg = (message: string, ok = false) => {
+    abbrevMsg.textContent = message;
+    abbrevMsg.hidden = message === '';
+    abbrevMsg.classList.toggle('is-ok', ok);
+  };
+
+  /** 니케를 고르는 드롭다운 하나. 카탈로그 전체를 담는다. */
+  const abbrevSelect = (value: string): HTMLSelectElement => {
+    const select = document.createElement('select');
+    select.className = 'abbrev-select';
+    const blank = document.createElement('option');
+    blank.value = '';
+    blank.textContent = '(고르지 않음)';
+    select.append(blank);
+    for (const char of catalog) {
+      const option = document.createElement('option');
+      option.value = char.name;
+      option.textContent = char.name;
+      select.append(option);
+    }
+    select.value = value;
+    return select;
+  };
+
+  /** 「원하는 대로 나오지 않나요?」 — 글자마다 무엇으로 읽었는지 보이고 고치게 한다. */
+  const renderAbbrevPicks = (parse: AbbrevParse) => {
+    abbrevPicks.replaceChildren();
+    for (const segment of parse.segments) {
+      const cell = document.createElement('div');
+      cell.className = 'abbrev-pick';
+      cell.dataset.abbrevPick = segment.key;
+      const head = document.createElement('b');
+      head.textContent = segment.key;
+      cell.append(head);
+      // 한 덩어리가 여러 명을 뜻하기도 한다(「풍풍」) — 그만큼 드롭다운을 낸다.
+      const slots = Math.max(1, segment.names.length);
+      for (let at = 0; at < slots; at += 1) {
+        cell.append(abbrevSelect(segment.names[at] ?? ''));
+      }
+      abbrevPicks.append(cell);
+    }
+    abbrevFix.hidden = parse.segments.length === 0;
+  };
+
+  /** 푼 결과를 지금 보고 있는 덱에 넣는다. 다섯 칸을 통째로 갈아 끼운다. */
+  const applyAbbrev = (names: string[]): string => {
+    const unique: string[] = [];
+    for (const name of names) if (!unique.includes(name)) unique.push(name);
+    for (let slot = 0; slot < 5; slot += 1) pickCharacter(unique[slot] ?? '', slot);
+    const dropped = names.length - unique.length;
+    return dropped > 0 ? ` (같은 니케 ${dropped}명은 한 번만 넣었습니다)` : '';
+  };
+
+  const runAbbrev = () => {
+    const parse = parseAbbrev(abbrevInput.value, abbrevDict(), abbrevCandidates());
+    lastAbbrev = parse;
+    if (parse.segments.length === 0) {
+      setAbbrevMsg('앞글자를 이어서 적어 주세요.');
+      abbrevFix.hidden = true;
+      return;
+    }
+    const extra = applyAbbrev(parse.names);
+    const over = parse.names.length > 5 ? ` (여섯 명째부터는 자리가 없어 뺐습니다)` : '';
+    const unknown = parse.unknown.length > 0
+      ? ` · 「${parse.unknown.join('·')}」는 알아보지 못했습니다`
+      : '';
+    setAbbrevMsg(
+      `${parse.names.slice(0, 5).join(' · ') || '아무도'} 편성했습니다${extra}${over}${unknown}`,
+      parse.unknown.length === 0,
+    );
+    renderAbbrevPicks(parse);
+  };
+
+  /** 드롭다운에서 고른 것을 글자별로 모은다. */
+  const abbrevPicked = (): AbbrevRule[] => [...abbrevPicks.children].map((cell) => ({
+    key: (cell as HTMLElement).dataset.abbrevPick ?? '',
+    names: [...cell.querySelectorAll<HTMLSelectElement>('.abbrev-select')]
+      .map((select) => select.value).filter(Boolean),
+  }));
+
+  const saveAbbrev = async () => {
+    const parse = lastAbbrev;
+    if (!parse) return;
+    const picked = abbrevPicked();
+    const rules: AbbrevRule[] = [];
+    // 글자마다의 뜻 — 그 글자가 이번에 한 번만 나왔을 때만 등록한다. 「풍풍」처럼 같은
+    // 글자가 둘이면 글자 하나로는 둘을 가릴 수 없어, 아래 «통째로»가 그 일을 맡는다.
+    for (const [at, rule] of picked.entries()) {
+      const before = parse.segments[at]?.names.join('\u001f') ?? '';
+      const same = picked.filter((other) => other.key === rule.key).length > 1;
+      if (rule.names.length > 0 && rule.names.join('\u001f') !== before && !same) rules.push(rule);
+    }
+    // 통째로 — 「리크헬클일 = 이 다섯」. 한 글자씩 끊긴 입력에서만 뜻이 서므로,
+    // 글자 수와 니케 수가 맞을 때만 등록한다(`squad-abbrev.ts` §한데 묶이는 글자).
+    const whole = normalizeAbbrev(abbrevInput.value);
+    const all = picked.flatMap((rule) => rule.names);
+    if (picked.length >= 2 && all.length === whole.length) rules.push({ key: whole, names: all });
+    if (rules.length === 0) {
+      setAbbrevMsg('바뀐 것이 없습니다 — 드롭다운에서 니케를 고친 뒤 눌러 주세요.');
+      return;
+    }
+
+    myAbbrev = mergeRules(myAbbrev, rules);
+    writeAbbrev(ABBREV_MINE_KEY, myAbbrev);
+    runAbbrev();
+    if (!shareServer) return;
+    abbrevSave.disabled = true;
+    try {
+      for (const rule of rules) await shareServer.addAbbrev(rule.key, rule.names);
+      setAbbrevMsg(`${abbrevMsg.textContent} · 사전에 등록했습니다`, true);
+    } catch (error) {
+      // 서버에 못 보내도 이 브라우저에서는 이미 그렇게 풀린다 — 그 사실을 적어 준다.
+      setAbbrevMsg(`${abbrevMsg.textContent} · 사전 등록은 실패했습니다(${error instanceof Error ? error.message : String(error)}). 이 브라우저에서는 등록한 대로 풀립니다.`);
+    } finally {
+      abbrevSave.disabled = false;
+    }
+  };
+
+  element<HTMLButtonElement>(root, '[data-abbrev-open]').addEventListener('click', () => {
+    abbrevModal.hidden = false;
+    abbrevFix.hidden = true;
+    setAbbrevMsg('');
+    abbrevInput.focus();
+    abbrevInput.select();
+    void refreshAbbrevBook();
+  });
+  element<HTMLButtonElement>(root, '[data-abbrev-close]').addEventListener('click', () => {
+    abbrevModal.hidden = true;
+  });
+  abbrevModal.addEventListener('click', (event) => {
+    if (event.target === abbrevModal) abbrevModal.hidden = true;
+  });
+  element<HTMLButtonElement>(root, '[data-abbrev-apply]').addEventListener('click', runAbbrev);
+  abbrevInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') { event.preventDefault(); runAbbrev(); }
+  });
+  abbrevSave.addEventListener('click', () => { void saveAbbrev(); });
 
   // ── ENIKK 조합 가져오기 ─────────────────────────────────────────────────
   // enikk.app 솔로레이드 랭킹 상위 300명(서버당 50명 × 6서버)의 1~5덱을 받아

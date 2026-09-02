@@ -59,6 +59,35 @@ export interface ShareVoteResult {
   mine: VoteValue;
 }
 
+/** 서버가 돌려주는 약어 한 줄. `count`는 같은 답을 등록한 사람 수다. */
+export interface AbbrevShare {
+  key: string;
+  names: string[];
+  count: number;
+}
+
+/** 접수 → 진행중 → 완료 / 불가능. */
+export type FeedbackStatus = 'new' | 'doing' | 'done' | 'wont';
+export type FeedbackKind = 'bug' | 'idea' | 'etc';
+
+export interface FeedbackItem {
+  id: string;
+  kind: FeedbackKind;
+  text: string;
+  /** 빈 문자열이면 익명. */
+  by: string;
+  at: string;
+  status: FeedbackStatus;
+  /** 관리자가 상태를 옮긴 시각. 한 번도 안 옮겼으면 빈 문자열. */
+  movedAt: string;
+}
+
+export interface FeedbackInput {
+  kind: FeedbackKind;
+  text: string;
+  by: string;
+}
+
 type Fetcher = typeof fetch;
 
 /** 서버가 준 에러 문구를 그대로 살려 던진다 — 사용자에게 보여 줄 말이 거기 있다. */
@@ -113,6 +142,72 @@ export class ShareServer {
       body: JSON.stringify({ kind, id }),
     });
     return unwrap<ShareApplyResult>(response);
+  }
+
+  /**
+   * 모두가 모아 준 약어 사전. 약어는 비문학이라 규칙으로 풀 수 없고, 쓰는 사람들이
+   * 등록해 주는 수밖에 없다 — 서버가 아는 것은 **친 글자와 니케 이름뿐**이다.
+   */
+  async abbrevRules(): Promise<AbbrevShare[]> {
+    const response = await this.fetcher(`${this.base}/abbrev`);
+    const result = await unwrap<{ rules?: AbbrevShare[] }>(response);
+    return (result.rules ?? []).filter((rule) => rule.key && rule.names?.length > 0);
+  }
+
+  /** 예외 하나를 등록한다. 같은 약어에 답이 갈리면 표가 많은 쪽이 사전이 된다. */
+  async addAbbrev(key: string, names: string[]): Promise<void> {
+    const response = await this.fetcher(`${this.base}/abbrev`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key, names }),
+    });
+    await unwrap<unknown>(response);
+  }
+
+  async feedbackList(): Promise<FeedbackItem[]> {
+    const response = await this.fetcher(`${this.base}/feedback`);
+    const result = await unwrap<{ items?: FeedbackItem[] }>(response);
+    return result.items ?? [];
+  }
+
+  async addFeedback(input: FeedbackInput): Promise<FeedbackItem> {
+    const response = await this.fetcher(`${this.base}/feedback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    const result = await unwrap<{ item: FeedbackItem }>(response);
+    return result.item;
+  }
+
+  /** 상태 옮기기·지우기는 관리자만 한다. 비밀번호는 서버가 쥐고 있다. */
+  async moveFeedback(id: string, status: FeedbackStatus, password: string): Promise<FeedbackItem> {
+    const response = await this.fetcher(`${this.base}/feedback/move`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status, password }),
+    });
+    const result = await unwrap<{ item: FeedbackItem }>(response);
+    return result.item;
+  }
+
+  async removeFeedback(id: string, password: string): Promise<void> {
+    const response = await this.fetcher(`${this.base}/feedback/remove`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, password }),
+    });
+    await unwrap<unknown>(response);
+  }
+
+  async adminCheck(password: string): Promise<boolean> {
+    const response = await this.fetcher(`${this.base}/admin/check`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+    await unwrap<unknown>(response);
+    return true;
   }
 
   async vote(kind: ShareKind, id: string, value: VoteValue): Promise<ShareVoteResult> {

@@ -15,6 +15,14 @@ const LIMITS = {
   code: 2000,        // 5덱 조합 코드도 이 안에 들어온다
   items: 400,        // 종류당 보관 수 — 넘으면 새 업로드를 막는다
   uploadsPerDay: 20, // IP당
+  abbrevKey: 12,     // 약어 한 덩어리 — 「리센홍모라」가 다섯 자다
+  abbrevName: 40,    // 니케 정식 명칭
+  abbrevNames: 5,    // 한 약어가 뜻하는 니케 수(한 편성)
+  abbrevKeys: 4000,  // 사전에 담는 약어 수
+  abbrevPerDay: 60,  // IP당 등록 횟수
+  feedbackText: 1000, // 피드백 본문
+  feedbackItems: 1000,
+  feedbackPerDay: 10,
 };
 
 class Fail extends Error {
@@ -203,6 +211,186 @@ async function handleApply(request, env, body) {
 }
 
 
+// ── 약어 사전 ────────────────────────────────────────────────────────────
+// 「리센홍모라」처럼 앞글자를 이어 친 약어를 편성으로 풀 때 쓰는 뜻풀이다. 약어는
+// 비문학이라(「클」이 루드밀라 : 윈터 오너다) 규칙으로 풀 수 없고, **쓰는 사람들이
+// 모아 주는 수밖에 없다.** 그래서 사이트에서 「예외 등록」을 누르면 여기로 온다.
+//
+// 저장되는 것은 **친 글자와 니케 이름뿐**이다 — 누가 보냈는지, 무슨 편성을 짰는지는
+// 남기지 않는다(하루 등록 수를 세는 데 쓰는 IP 해시만 다른 기능과 함께 쓴다).
+// 같은 약어에 서로 다른 답이 오면 **표가 많은 쪽**을 사전으로 내보낸다.
+
+const ABBREV_KEY = 'abbrev:v1';
+const abbrevRateKey = (voter) => `arate:${voter}`;
+
+/** 사전에 넣을 수 있는 모양인가. 글자는 한글·영숫자만 받는다. */
+const abbrevEntry = (body) => {
+  const key = String(body.key ?? '').replace(/\s+/g, '');
+  if (!/^[0-9A-Za-z가-힣]{1,12}$/.test(key)) throw new Fail(400, '등록할 수 있는 약어가 아닙니다.');
+  const names = (Array.isArray(body.names) ? body.names : [])
+    .map((name) => text(name, LIMITS.abbrevName, '니케 이름', false))
+    .filter(Boolean);
+  if (names.length === 0) throw new Fail(400, '니케를 골라 주세요.');
+  if (names.length > LIMITS.abbrevNames) throw new Fail(400, '한 약어에 너무 많은 니케를 담았습니다.');
+  return { key, names };
+};
+
+/** 표가 가장 많은 답을 약어마다 하나씩. 사이트는 이것을 그대로 사전으로 쓴다. */
+async function handleAbbrevList(env) {
+  const book = await readJson(env, ABBREV_KEY, { keys: {} });
+  const rules = [];
+  for (const [key, variants] of Object.entries(book.keys ?? {})) {
+    let best = null;
+    for (const [joined, count] of Object.entries(variants)) {
+      // 표가 같으면 글자 순서로 갈라 매번 같은 답이 나오게 한다.
+      if (!best || count > best.count || (count === best.count && joined < best.joined)) {
+        best = { joined, count };
+      }
+    }
+    if (best) rules.push({ key, names: best.joined.split('\u001f'), count: best.count });
+  }
+  return { rules };
+}
+
+async function handleAbbrevAdd(request, env, body) {
+  const { key, names } = abbrevEntry(body);
+  const voter = await voterId(request, env);
+  const today = new Date().toISOString().slice(0, 10);
+  const rate = await readJson(env, abbrevRateKey(voter), { day: today, count: 0 });
+  const count = rate.day === today ? rate.count : 0;
+  if (count >= LIMITS.abbrevPerDay) {
+    throw new Fail(429, '오늘 등록할 수 있는 개수를 넘었습니다.');
+  }
+
+  const book = await readJson(env, ABBREV_KEY, { keys: {} });
+  book.keys = book.keys ?? {};
+  if (!book.keys[key] && Object.keys(book.keys).length >= LIMITS.abbrevKeys) {
+    throw new Fail(507, '사전이 가득 찼습니다.');
+  }
+  const variants = book.keys[key] ?? {};
+  const joined = names.join('\u001f');
+  variants[joined] = (variants[joined] ?? 0) + 1;
+  // 한 약어에 답이 스무 가지를 넘으면 표가 적은 것부터 버린다 — 오타와 장난이 쌓이는 자리다.
+  const trimmed = Object.entries(variants).sort((a, b) => b[1] - a[1]).slice(0, 20);
+  book.keys[key] = Object.fromEntries(trimmed);
+  await env.SHARE.put(ABBREV_KEY, JSON.stringify(book));
+  await env.SHARE.put(abbrevRateKey(voter), JSON.stringify({ day: today, count: count + 1 }));
+  return { key, names, count: variants[joined] };
+}
+
+// ── 피드백 ───────────────────────────────────────────────────────────────
+// 올린 글은 **모두에게 보인다**. 관리자만 상태를 옮길 수 있고, 그 확인은 비밀번호로
+// 한다 — 비밀번호는 코드에 적지 않고 `wrangler secret put ADMIN_PASSWORD`로 넣는다.
+// (소스가 공개 저장소에 있으므로 여기 적으면 아무나 관리자가 된다.)
+
+const FEEDBACK_KEY = 'feedback:v1';
+const feedbackRateKey = (voter) => `frate:${voter}`;
+/** 접수 → 진행중 → 완료 / 불가능. 늘어놓는 차례이기도 하다. */
+const FEEDBACK_STATUS = ['new', 'doing', 'done', 'wont'];
+const FEEDBACK_KINDS = ['bug', 'idea', 'etc'];
+
+/**
+ * 관리자인가. 길이가 달라도 같은 시간이 걸리게 비교한다 — 다른 곳에서 새는 정보가
+ * 없더라도, 비밀번호 비교에서 «몇 글자까지 맞았나»가 새면 그것만으로 뚫린다.
+ */
+const isAdmin = (env, value) => {
+  const want = String(env.ADMIN_PASSWORD ?? '');
+  const got = String(value ?? '');
+  if (want === '' || got.length !== want.length) return false;
+  let diff = 0;
+  for (let i = 0; i < want.length; i += 1) diff |= want.charCodeAt(i) ^ got.charCodeAt(i);
+  return diff === 0;
+};
+
+const requireAdmin = (env, value) => {
+  if (!isAdmin(env, value)) throw new Fail(403, '관리자 비밀번호가 맞지 않습니다.');
+};
+
+const publicFeedback = (item) => ({
+  id: item.id,
+  kind: item.kind,
+  text: item.text,
+  by: item.by,
+  at: item.at,
+  status: item.status,
+  /** 관리자가 옮긴 시각. 목록에서 «언제 진행중이 됐나»를 읽는다. */
+  movedAt: item.movedAt ?? '',
+});
+
+async function handleFeedbackList(env) {
+  const board = await readJson(env, FEEDBACK_KEY, { items: [] });
+  return { items: (board.items ?? []).map(publicFeedback) };
+}
+
+async function handleFeedbackAdd(request, env, body) {
+  const kind = FEEDBACK_KINDS.includes(String(body.kind)) ? String(body.kind) : 'etc';
+  const content = text(body.text, LIMITS.feedbackText, '내용', true);
+  const by = text(body.by, LIMITS.by, '닉네임', false);
+
+  const voter = await voterId(request, env);
+  const today = new Date().toISOString().slice(0, 10);
+  const rate = await readJson(env, feedbackRateKey(voter), { day: today, count: 0 });
+  const count = rate.day === today ? rate.count : 0;
+  if (count >= LIMITS.feedbackPerDay) {
+    throw new Fail(429, '오늘 올릴 수 있는 개수를 넘었습니다. 내일 다시 시도해 주세요.');
+  }
+
+  const board = await readJson(env, FEEDBACK_KEY, { items: [] });
+  board.items = board.items ?? [];
+  if (board.items.length >= LIMITS.feedbackItems) throw new Fail(507, '피드백함이 가득 찼습니다.');
+  // 같은 글을 두 번 올리는 것은 대개 «눌렸나?» 싶어 다시 누른 것이다.
+  const twin = board.items.find((item) => item.text === content && item.owner === voter);
+  if (twin) return { item: publicFeedback(twin), existed: true };
+
+  const item = {
+    id: crypto.randomUUID().slice(0, 8),
+    kind,
+    text: content,
+    by,
+    at: new Date().toISOString(),
+    status: 'new',
+    movedAt: '',
+    owner: voter,
+  };
+  board.items.unshift(item);
+  await env.SHARE.put(FEEDBACK_KEY, JSON.stringify(board));
+  await env.SHARE.put(feedbackRateKey(voter), JSON.stringify({ day: today, count: count + 1 }));
+  return { item: publicFeedback(item), existed: false };
+}
+
+async function handleFeedbackMove(env, body) {
+  requireAdmin(env, body.password);
+  const id = text(body.id, 40, '항목', true);
+  const status = String(body.status ?? '');
+  if (!FEEDBACK_STATUS.includes(status)) throw new Fail(400, '알 수 없는 상태입니다.');
+
+  const board = await readJson(env, FEEDBACK_KEY, { items: [] });
+  const item = (board.items ?? []).find((entry) => entry.id === id);
+  if (!item) throw new Fail(404, '이미 사라진 항목입니다.');
+  item.status = status;
+  item.movedAt = new Date().toISOString();
+  await env.SHARE.put(FEEDBACK_KEY, JSON.stringify(board));
+  return { item: publicFeedback(item) };
+}
+
+async function handleFeedbackRemove(env, body) {
+  requireAdmin(env, body.password);
+  const id = text(body.id, 40, '항목', true);
+  const board = await readJson(env, FEEDBACK_KEY, { items: [] });
+  const before = (board.items ?? []).length;
+  board.items = (board.items ?? []).filter((entry) => entry.id !== id);
+  if (board.items.length === before) throw new Fail(404, '이미 사라진 항목입니다.');
+  await env.SHARE.put(FEEDBACK_KEY, JSON.stringify(board));
+  return { id };
+}
+
+/** 관리자 확인만. 사이트가 «관리자 화면을 열어도 되는지» 물을 때 쓴다. */
+const handleAdminCheck = (env, body) => {
+  requireAdmin(env, body.password);
+  return { ok: true };
+};
+
+
 /**
  * 지금 보고 있는 사람 수.
  *
@@ -271,6 +459,27 @@ export default {
       }
       if (request.method === 'POST' && url.pathname === '/apply') {
         return json(await handleApply(request, env, await request.json()));
+      }
+      if (request.method === 'GET' && url.pathname === '/abbrev') {
+        return json(await handleAbbrevList(env));
+      }
+      if (request.method === 'POST' && url.pathname === '/abbrev') {
+        return json(await handleAbbrevAdd(request, env, await request.json()));
+      }
+      if (request.method === 'GET' && url.pathname === '/feedback') {
+        return json(await handleFeedbackList(env));
+      }
+      if (request.method === 'POST' && url.pathname === '/feedback') {
+        return json(await handleFeedbackAdd(request, env, await request.json()));
+      }
+      if (request.method === 'POST' && url.pathname === '/feedback/move') {
+        return json(await handleFeedbackMove(env, await request.json()));
+      }
+      if (request.method === 'POST' && url.pathname === '/feedback/remove') {
+        return json(await handleFeedbackRemove(env, await request.json()));
+      }
+      if (request.method === 'POST' && url.pathname === '/admin/check') {
+        return json(handleAdminCheck(env, await request.json()));
       }
       if (request.method === 'POST' && url.pathname === '/presence') {
         if (!env.PRESENCE) return json({ online: 0 });

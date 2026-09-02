@@ -866,6 +866,115 @@ describe('calculator UI', () => {
       .toContain('글로벌 서버에서 1명을 불러왔습니다.');
   });
 
+  it('한 번 이어 둔 블라블라링크 주소는 새로고침 단추로 다시 받는다', async () => {
+    // 육성은 계속 바뀌므로 다시 받는 일이 잦다. 그때마다 주소를 복사해 오는 것이
+    // 가장 귀찮은 대목이었다 — 통한 주소만 남겨 두고 단추 하나로 다시 받는다.
+    vi.stubGlobal('fetch', async () => Response.json({
+      openid: '15361668407129878426',
+      areas: [{
+        area: 84,
+        characters: [{ name_code: 5001, grade: 0, core: 0 }],
+        details: [{ name_code: 5001 }],
+        stateEffects: [],
+        outpost: null,
+      }],
+    }));
+    const blablaCatalog = catalog.map((entry) => ({
+      ...entry,
+      nameCode: entry.name === '리타' ? 5001 : null,
+    }));
+    const deps = {
+      catalog: blablaCatalog,
+      settings,
+      version: 'v1',
+      client: new FakeClient(),
+      storage: localStorage,
+      blablaProxy: 'https://proxy.example',
+    };
+    const unmount = mountCalculator(root, deps);
+
+    // 아직 이어 둔 적이 없으면 누를 것이 없다.
+    const refresh = () => root.querySelector<HTMLButtonElement>('[data-blabla-refresh]')!;
+    expect(refresh().hidden).toBe(true);
+
+    root.querySelector<HTMLButtonElement>('[data-blabla-open]')!.click();
+    root.querySelector<HTMLInputElement>('[data-blabla-url]')!.value =
+      'https://www.blablalink.com/user?openid=15361668407129878426';
+    root.querySelector<HTMLButtonElement>('[data-blabla-sync]')!.click();
+    await flush();
+    await flush();
+
+    // 통한 주소만 남는다 — 서버까지 함께 적어 다음에도 같은 곳을 본다.
+    expect(refresh().hidden).toBe(false);
+    expect(JSON.parse(localStorage.getItem('nikke-blabla-profile-v1')!))
+      .toEqual({ url: 'https://www.blablalink.com/user?openid=15361668407129878426', area: 84 });
+
+    // 새로 띄워도 단추가 남아 있고, 창을 열지 않고 눌러도 받아 온다.
+    unmount();
+    root.replaceChildren();
+    mountCalculator(root, deps);
+    expect(refresh().hidden).toBe(false);
+    refresh().click();
+    await flush();
+    await flush();
+    expect(root.querySelector<HTMLElement>('[data-roster-note]')!.textContent)
+      .toContain('블라블라링크 글로벌 1명 적용');
+  });
+
+  it('검색칸에서 끌어 바깥에서 놓아도 고르기 판이 닫히지 않는다', () => {
+    // 끌어 놓기의 click은 누른 곳과 뗀 곳의 공통 조상에서 난다 — 그것을 «바깥 누르기»로
+    // 읽으면 글자를 넉넉히 끌었을 뿐인데 판이 닫힌다.
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const picker = () => root.querySelector<HTMLElement>('[data-picker]')!;
+    focusSlot(root, 1);
+    expect(picker().hidden).toBe(false);
+
+    const search = root.querySelector<HTMLInputElement>('[data-roster-search]')!;
+    search.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    root.querySelector('h1')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(picker().hidden).toBe(false);
+
+    // 바깥에서 시작한 진짜 누르기는 여전히 닫는다.
+    const outside = root.querySelector('h1')!;
+    outside.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    outside.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(picker().hidden).toBe(true);
+  });
+
+  it('앞글자를 이어 치면 다섯 칸이 한 번에 채워진다', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    root.querySelector<HTMLButtonElement>('[data-abbrev-open]')!.click();
+    const input = root.querySelector<HTMLInputElement>('[data-abbrev-input]')!;
+    input.value = '리센홍모라';
+    root.querySelector<HTMLButtonElement>('[data-abbrev-apply]')!.click();
+
+    expect(JSON.parse(localStorage.getItem('nikke-state-v1')!).decks[0].squad)
+      .toEqual(['리타', '센티', '홍련', '모더니아', '라푼젤']);
+    // 글자마다 무엇으로 읽었는지 보이고, 그 자리에서 고칠 수 있다.
+    const picks = [...root.querySelectorAll<HTMLElement>('[data-abbrev-pick]')];
+    expect(picks.map((cell) => cell.dataset.abbrevPick)).toEqual(['리', '센', '홍', '모', '라']);
+  });
+
+  it('약어 예외를 등록하면 이 브라우저에서 그 뜻으로 풀린다', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    root.querySelector<HTMLButtonElement>('[data-abbrev-open]')!.click();
+    root.querySelector<HTMLInputElement>('[data-abbrev-input]')!.value = '리크앨나프';
+    root.querySelector<HTMLButtonElement>('[data-abbrev-apply]')!.click();
+
+    const first = root.querySelector<HTMLSelectElement>('[data-abbrev-pick="리"] .abbrev-select')!;
+    first.value = '라피 : 레드 후드';
+    root.querySelector<HTMLButtonElement>('[data-abbrev-save]')!.click();
+
+    // 등록하면 곧바로 다시 풀어 편성까지 바꾼다.
+    expect(JSON.parse(localStorage.getItem('nikke-state-v1')!).decks[0].squad[0]).toBe('라피 : 레드 후드');
+    const mine = JSON.parse(localStorage.getItem('nikke-abbrev-mine-v1')!) as
+      { rules: Array<{ key: string; names: string[] }> };
+    expect(mine.rules).toContainEqual({ key: '리', names: ['라피 : 레드 후드'] });
+    // 통째로도 남긴다 — 「이 다섯 글자는 이 편성」이 가장 쓸모 있는 기록이다.
+    expect(mine.rules.find((rule) => rule.key === '리크앨나프')?.names)
+      .toEqual(['라피 : 레드 후드', '크라운', '앨리스', '나가', '프리바티']);
+  });
+
   it('sets breakthrough from the portrait star stepper and keeps the dropdown in sync', () => {
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
     const stepper = root.querySelector<HTMLElement>('[data-slot-card="0"] [data-growth-stepper]')!;
@@ -1461,7 +1570,8 @@ describe('calculator UI', () => {
     input.value = '0장';
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
 
-    expect(tab().textContent).toContain('1. 0장');
+    // 탭에는 붙인 이름만 적는다 — 번호와 인원수가 양옆에 붙으면 이름이 묻힌다.
+    expect(tab().textContent).toBe('0장');
     // 이름은 저장돼 새로고침에도 남는다.
     expect(JSON.parse(localStorage.getItem('nikke-state-v1')!).decks[0].name).toBe('0장');
   });

@@ -586,8 +586,6 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .control-rule.is-on { border-color: rgba(255,191,60,.4); background: rgba(255,191,60,.08); }
 .control-rule.is-on b { color: var(--amber); }
 /* 권함 — 걸린 것이 아니라 «켜면 이득»이라는 말이라 색을 달리한다. */
-.control-rule.is-hint { border-color: rgba(69,214,208,.3); background: rgba(69,214,208,.07); }
-.control-rule.is-hint b { color: var(--cyan); }
 
 .control-mode { display: grid; gap: 4px; margin: 0 0 8px; }
 .control-mode label { display: flex; align-items: center; gap: 6px; min-width: 0;
@@ -1569,3 +1567,65 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
 .restore-loaded:disabled { opacity: .45; cursor: default; }
 .restore-loaded.is-armed { border-color: var(--danger); background: rgba(255,119,135,.12);
   color: #ffd7de; }
+
+/* 「이름으로 편성 입력」 — 앞글자를 이어 친 약어를 편성으로 푼다. */
+.abbrev-card { max-width: 640px; }
+.abbrev-row { display: flex; gap: 8px; margin: 4px 0 0; }
+.abbrev-input { flex: 1; min-width: 0; padding: 9px 11px; border: 1px solid var(--line);
+  border-radius: 7px; background: rgba(4,12,21,.72); color: var(--ink);
+  font: 800 15px inherit; letter-spacing: .06em; }
+.abbrev-input:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
+.abbrev-fix { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.abbrev-fix-head { margin: 0 0 8px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.abbrev-fix-head b { color: var(--ink); }
+/* 글자 하나가 한 칸이다. 위에 친 글자, 아래에 그 뜻. */
+.abbrev-picks { display: flex; flex-wrap: wrap; gap: 8px; }
+.abbrev-pick { display: flex; flex-direction: column; gap: 5px; align-items: center;
+  padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: rgba(4,12,21,.5); }
+.abbrev-pick > b { color: var(--cyan); font: 800 16px inherit; letter-spacing: .04em; }
+.abbrev-select { max-width: 148px; padding: 5px 7px; border: 1px solid var(--line);
+  border-radius: 6px; background: rgba(4,12,21,.8); color: var(--ink); font: 700 11px inherit; }
+.abbrev-select:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
+.abbrev-collect { margin-top: 6px; font-size: 11px; }
+
+/* 피드백 게시판. 올린 글은 모두에게 보이고, 상태는 관리자만 옮긴다. */
+.feedback-card { max-width: 720px; }
+.feedback-form { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 0; }
+.feedback-row { display: flex; gap: 8px; }
+.feedback-kind, .feedback-by, .feedback-text { padding: 8px 10px; border: 1px solid var(--line);
+  border-radius: 7px; background: rgba(4,12,21,.72); color: var(--ink); font: 700 12px inherit; }
+/* 기본 select·input은 판을 꽉 채우게 돼 있다 — 한 줄에 둘을 세우려면 되돌려야 한다. */
+.feedback-kind { flex: 0 0 auto; width: auto; min-height: 0; }
+.feedback-by { flex: 1; min-width: 0; width: auto; min-height: 0; }
+.feedback-text { min-height: 0; }
+.abbrev-input { min-height: 0; }
+.abbrev-select { width: auto; min-height: 0; }
+.feedback-text { resize: vertical; line-height: 1.6; }
+.feedback-kind:focus-visible, .feedback-by:focus-visible, .feedback-text:focus-visible {
+  outline: 2px solid var(--cyan); outline-offset: 1px; }
+.feedback-actions { display: flex; justify-content: space-between; gap: 8px; }
+.feedback-admin-bar { display: flex; gap: 8px; margin-top: 10px; }
+.feedback-counts { margin: 14px 0 8px; color: var(--muted); font-size: 11px; font-weight: 800; }
+.feedback-list { margin-top: 4px; max-height: 46vh; overflow-y: auto; }
+.feedback-item { padding: 10px 12px; margin-bottom: 8px; border: 1px solid var(--line);
+  border-left-width: 3px; border-radius: 8px; background: rgba(4,12,21,.5); }
+/* 상태는 왼쪽 띠로도 읽힌다 — 목록을 훑을 때 글자보다 이쪽이 먼저 보인다. */
+.feedback-item.is-new { border-left-color: var(--line); }
+.feedback-item.is-doing { border-left-color: var(--amber); }
+.feedback-item.is-done { border-left-color: var(--cyan); }
+.feedback-item.is-wont { border-left-color: rgba(233,110,110,.6); }
+.feedback-head { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-bottom: 6px; }
+.feedback-status { padding: 1px 7px; border-radius: 999px; background: rgba(255,255,255,.08);
+  font-size: 10px; font-weight: 800; }
+.feedback-item.is-doing .feedback-status { background: rgba(255,191,60,.2); color: var(--amber); }
+.feedback-item.is-done .feedback-status { background: rgba(69,214,208,.18); color: var(--cyan); }
+.feedback-item.is-wont .feedback-status { background: rgba(233,110,110,.18); color: #f6dada; }
+.feedback-kind-tag { color: var(--muted); font-size: 10px; font-weight: 800; }
+.feedback-when { color: var(--muted); font-size: 10px; margin-left: auto; }
+.feedback-text-line { margin: 0; white-space: pre-wrap; font-size: 12px; line-height: 1.65; }
+.feedback-tools { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.feedback-move { padding: 3px 9px; border: 1px solid var(--line); border-radius: 6px;
+  background: rgba(4,12,21,.6); color: var(--muted); font: 800 10px inherit; cursor: pointer; }
+.feedback-move:hover { border-color: rgba(69,214,208,.45); color: var(--ink); }
+.feedback-move.is-on { border-color: var(--cyan); background: rgba(69,214,208,.16); color: var(--cyan); }
+.feedback-move.is-danger:hover { border-color: var(--danger); color: #ffd7de; }
