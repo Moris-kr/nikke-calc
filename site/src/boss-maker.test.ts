@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   activeDesign, aimPoint, BOSS_PREFIX, breakTime, copyDesign, coreHitChance, decodeBossCode,
   derivedEnemy, derivedPartBreakInterval, distance, dropDesign, emptyDesign, emptyLibrary,
-  aimAt, aimForNikke, derivedOptimalRange, encodeBossCode, hitTest, impactOffsets, inFullBurst,
+  aimAt, aimedPartBreaks, aimForNikke, derivedOptimalRange, encodeBossCode, hitTest,
+  impactOffsets, inFullBurst, partHitFraction,
   mixRangeColor, outerRadius, parseDesign, parseLibrary, partBreaks, partsInBlast, pierceTargets,
   PLAYER_SLOT,
   phaseAt, putDesign, scoreUntil, spreadRadius, tidyWindows, visibleAt,
@@ -224,6 +225,55 @@ describe('보스 메이커', () => {
     expect(scoreUntil(breaks, 6)).toBe(12_000_000);
     // 전투 안에 못 깨는 파츠의 점수는 영영 안 붙는다.
     expect(scoreUntil(breaks, 999)).toBe(12_000_000);
+  });
+
+  it('겨냥하지 않은 파츠에는 탄이 들지 않는다', () => {
+    const target = part({ id: 'p', x: 100, y: 100, w: 60, h: 60 });
+    // 조준점이 파츠 한가운데면 탄착군이 작을수록 거의 다 든다.
+    expect(partHitFraction(target, { x: 100, y: 100 }, 10)).toBe(1);
+    // 멀찍이 겨냥하면 한 발도 안 든다 — 탄착군이 닿지도 않는다.
+    expect(partHitFraction(target, { x: 400, y: 100 }, 55)).toBe(0);
+    // 걸치면 그 사이 값이다.
+    const edge = partHitFraction(target, { x: 130, y: 100 }, 55);
+    expect(edge).toBeGreaterThan(0);
+    expect(edge).toBeLessThan(1);
+  });
+
+  it('파괴 시각은 겨냥한 자리로 정해진다', () => {
+    // 「스쿼드 총딜 ÷ 체력」으로만 세면 어디를 겨냥하든 시작하자마자 터진다.
+    const near = part({ id: 'near', x: 100, y: 100, w: 60, h: 60, hp: 1000 });
+    const far = part({ id: 'far', x: 900, y: 100, w: 60, h: 60, hp: 1000 });
+    const damage = { 리타: new Array(100).fill(200) };
+
+    const breaks = aimedPartBreaks({
+      parts: [near, far],
+      bucket: 0.1,
+      buckets: 100,
+      normalDamage: damage,
+      aimOf: () => ({ x: 100, y: 100 }),
+      spreadOf: () => 10,
+    });
+    const at = (id: string) => breaks.find((entry) => entry.id === id)!.at;
+    // 겨냥한 파츠는 깨지고,
+    expect(at('near')).not.toBeNull();
+    expect(at('near')).toBeLessThan(1);
+    // 멀리 있는 파츠는 영영 안 깨진다.
+    expect(at('far')).toBeNull();
+  });
+
+  it('사라진 구간에는 파츠가 맞지 않는다', () => {
+    const blink = part({ id: 'blink', x: 100, y: 100, w: 60, h: 60, hp: 1000,
+      windows: [[5, 10]] });
+    const breaks = aimedPartBreaks({
+      parts: [blink],
+      bucket: 0.1,
+      buckets: 100,
+      normalDamage: { 리타: new Array(100).fill(200) },
+      aimOf: () => ({ x: 100, y: 100 }),
+      spreadOf: () => 10,
+    });
+    // 5초 전에는 없는 파츠라 맞지 않는다 — 나타난 뒤에야 깎인다.
+    expect(breaks[0]!.at).toBeGreaterThanOrEqual(5);
   });
 
   it('그림에서 엔진이 아는 숫자만 뽑는다', () => {

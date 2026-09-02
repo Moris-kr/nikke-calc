@@ -11,11 +11,13 @@
 
 import {
   activeDesign, aimAt, aimForNikke, aimPoint, coreHitChance, copyDesign, decodeBossCode,
-  DEFAULT_CORE_PX, derivedEnemy, derivedOptimalRange, derivedPartBreakInterval, distance,
+  DEFAULT_CORE_PX, derivedEnemy, derivedOptimalRange, distance,
   dropDesign, ELEMENT_COLOR, emptyDesign, emptyLibrary, encodeBossCode, hitTest, impactOffsets,
   inFullBurst, mixRangeColor, newId, parseLibrary, partBreaks, partsInBlast, phaseAt,
-  pierceTargets, putDesign, RANGE_COLOR, scoreUntil, spreadRadius, tidyWindows, visibleAt,
-  type BossDesign, type BossLibrary, type BossPart, type BossShape, type ShapeKind,
+  aimedPartBreaks, pierceTargets, putDesign, RANGE_COLOR, scoreUntil, spreadRadius, tidyWindows,
+  visibleAt,
+  type BossDesign, type BossLibrary, type BossPart, type BossShape, type PartBreak,
+  type ShapeKind,
 } from './boss-maker';
 import {
   spanTargets,
@@ -176,6 +178,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   }
   /** 지금 판을 저장함에 밀어 넣고 통째로 적는다. 모든 손질이 이 한 곳을 지난다. */
   function save() {
+    breakCache = null;      // 그림이 바뀌면 파괴 시각도 다시 내야 한다
     library = putDesign(library, design);
     try {
       deps.storage()?.setItem(LIBRARY_KEY, JSON.stringify(library));
@@ -492,7 +495,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     }
     // 깨진 파츠는 회색이다. 「이 시각엔 이미 부서져 있다」가 한눈에 보여야 파괴 시각을
     // 옮겨 가며 맞출 수 있다.
-    const breaks = partBreaks(design.parts, squadDps(), deps.currentBattle().duration);
+    const breaks = currentBreaks();
     const brokenAt = new Map(breaks.map((entry) => [entry.id, entry.at]));
     for (const part of visibleAt(design.parts, at)) {
       const node = shapeNode(part);
@@ -1011,11 +1014,27 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       inspector.append(numberRow('파괴 점수', part.score ?? 0, 0, 999_999_999_999, (value) => {
         if (value > 0) part.score = value; else delete part.score;
       }, ''));
-      const breaks = partBreaks([part], squadDps(), deps.currentBattle().duration);
-      const at = breaks[0]?.at ?? null;
-      inspector.append(el('p', 'bm-note', at === null
-        ? '지금 덱의 딜로는 이 전투 안에 깨지지 않습니다.'
-        : `지금 덱의 딜(${Math.round(squadDps()).toLocaleString('ko-KR')}/초)이면 약 ${round(at)}초에 깨집니다.`));
+      const entry = currentBreaks().find((row) => row.id === part.id);
+      const at = entry?.at ?? null;
+      const taken = entry?.taken ?? 0;
+      const aimed = shots !== null && lastResult?.fineTimeline !== undefined;
+      // 「스치기는 하는데 모자란다」와 「한 발도 안 든다」는 다른 이야기다.
+      const short = part.hp > 0 ? Math.round((taken / part.hp) * 100) : 0;
+      inspector.append(el('p', 'bm-note', at !== null
+        ? (aimed
+          ? `이 조준대로면 약 ${round(at)}초에 깨집니다.`
+          : `한 판 돌리기 전 어림값으로 약 ${round(at)}초입니다(조준을 안 본 값).`)
+        : (!aimed
+          ? '지금 덱의 딜로는 이 전투 안에 깨지지 않습니다.'
+          : taken <= 0
+            ? '이 조준으로는 탄이 한 발도 들지 않습니다 — 겨냥해야 깎입니다.'
+            // 여기서는 깎지 않은 숫자가 낫다 — 「0.02억」으로 접으면 얼마나 모자란지가 안 읽힌다.
+            : `이 조준으로 받는 피해는 ${Math.round(taken).toLocaleString('ko-KR')}(체력의 ${short}%)이라 깨지지 않습니다.`)));
+      if (!aimed) {
+        inspector.append(el('p', 'bm-note',
+          '한 번 돌리면 **조준을 셈에 넣어** 다시 냅니다 — 겨냥하지 않은 파츠는 탄이 들지 '
+          + '않아 깨지지 않습니다.'.replace(/\*\*/g, '')));
+      }
       if ((part.score ?? 0) > 0) {
         inspector.append(el('p', 'bm-note',
           '깨면 이 점수가 총딜에 더해집니다 — 시뮬이 때려서 낸 값이 아니라 «깨면 준다»는 '
@@ -1183,6 +1202,63 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   function squadDps(): number {
     if (!lastResult || !lastResult.duration) return 0;
     return lastResult.squadTotal / lastResult.duration;
+  }
+
+  /**
+   * 니케별 «그 칸의 평타 딜».
+   *
+   * 칸의 총딜은 잘게 나눈 표가 들고 있고, 그 안에서 평타 몫을 갈라야 한다. 발수만으로
+   * 나누면 한 발 무게가 다른 스킬 딜이 뒤섞이므로, **발수 × 한 발 평균**으로 무게를
+   * 매겨 그 비로 칸의 총딜을 가른다 — 칸마다 다른 버프가 실린 총딜은 그대로 살아 있다.
+   */
+  function normalDamageByBucket(): Record<string, number[]> {
+    const table = lastResult?.fineTimeline;
+    const out: Record<string, number[]> = {};
+    if (!table || !shots) return out;
+    for (const name of deps.currentSquad().filter(Boolean)) {
+      const total = table.damage[name] ?? [];
+      const row = shots.chars[name];
+      const breakdown = lastResult?.charBreakdown?.[name];
+      if (!row || total.length === 0) continue;
+      const avgNormal = breakdown && breakdown.normalHits > 0
+        ? breakdown.normal / breakdown.normalHits : 0;
+      const avgSkill = breakdown && breakdown.skillHits > 0
+        ? breakdown.skill / breakdown.skillHits : 0;
+      out[name] = total.map((damage, index) => {
+        const weightNormal = (row.normal[index] ?? 0) * avgNormal;
+        const weightSkill = (row.skill[index] ?? 0) * avgSkill;
+        const sum = weightNormal + weightSkill;
+        return sum > 0 ? damage * (weightNormal / sum) : 0;
+      });
+    }
+    return out;
+  }
+
+  /** 지난 계산으로 낸 파괴 시각. 셈이 무거워 한 번 내고 들고 있는다. */
+  let breakCache: PartBreak[] | null = null;
+
+  /**
+   * 파츠 파괴 시각. 한 판 돌린 뒤에는 **조준을 셈에 넣어** 낸다 —
+   * 겨냥하지 않은 파츠는 탄이 들지 않으므로 깨지지 않는다.
+   *
+   * 돌리기 전에는 조준별 딜을 알 수 없어 스쿼드 총딜을 그대로 나눈 어림값을 쓴다.
+   */
+  function currentBreaks(): PartBreak[] {
+    if (breakCache) return breakCache;
+    const duration = deps.currentBattle().duration;
+    if (!shots || !lastResult?.fineTimeline) {
+      return partBreaks(design.parts, squadDps(), duration);
+    }
+    breakCache = aimedPartBreaks({
+      parts: design.parts,
+      bucket: shots.bucket,
+      buckets: shots.buckets,
+      normalDamage: normalDamageByBucket(),
+      aimOf,
+      spreadOf,
+      modelN: accuracy?.modelN ?? 2.55,
+    });
+    return breakCache;
   }
 
   // ── 전투 조건 판 ──────────────────────────────────────────────────────────
@@ -1383,7 +1459,11 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     try {
       const battle = deps.currentBattle();
       // 그림에서 뽑은 값이 전투 조건보다 앞선다 — 지금 보고 있는 보스로 재는 것이다.
-      const derived = derivedEnemy(design, squadDps(), battle.duration);
+      const derived = {
+        ...derivedEnemy(design, squadDps(), battle.duration),
+        // 파괴 주기도 조준을 본 값이다 — 겨냥하지 않은 파츠는 깨지지 않으므로 주기도 없다.
+        partBreakInterval: currentBreaks().find((entry) => entry.at !== null)?.at ?? 0,
+      };
       const aimRange = derivedOptimalRange(design);
       // 관통이 꿰뚫는 수는 **지금 겨냥한 자리** 기준이다. 조준이 시각마다 달라지므로
       // 어느 자리로 쟀는지를 결과 줄에 함께 적는다.
@@ -1422,7 +1502,8 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       lastResult = result;
       shots = result.shots ?? null;
       states = result.states ?? null;
-      impactCache = null;      // 새로 잰 판이다 — 지난 자국을 이어 쓰면 안 된다
+      impactCache = null;
+      breakCache = null;      // 새로 잰 판이다 — 지난 자국을 이어 쓰면 안 된다
       buildCumulative(result);
       cursor = 0;
       setPlaying(false);
@@ -1450,9 +1531,13 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       }
       // 파츠 파괴 시각은 «이 덱의 딜»에서 나오므로 **한 번 돌린 뒤에야** 알 수 있다.
       // 처음 돌릴 때는 넘길 값이 없었다는 사실을 숨기지 않고 적는다.
-      const nextBreak = derivedPartBreakInterval(design.parts, dps, battle.duration);
-      if (derived.partBreakInterval === 0 && nextBreak > 0) {
-        parts.push(`파츠는 약 ${round(nextBreak)}초에 깨집니다 — 다시 돌리면 그 시각이 계산에 들어갑니다`);
+      // 파괴 시각은 이제 조준을 보고 낸다 — 방금 판으로 다시 내어 알려 준다.
+      breakCache = null;
+      const aimedFirst = currentBreaks().find((entry) => entry.at !== null);
+      if (derived.partBreakInterval === 0 && aimedFirst?.at) {
+        parts.push(`${aimedFirst.name}이(가) 약 ${round(aimedFirst.at)}초에 깨집니다 — 다시 돌리면 그 시각이 계산에 들어갑니다`);
+      } else if (design.parts.length > 0 && !aimedFirst) {
+        parts.push('이 조준으로는 깨지는 파츠가 없습니다');
       }
       runNote.textContent = parts.join(' · ');
       runNote.title = `총딜 ${Math.round(result.squadTotal).toLocaleString('ko-KR')}`
@@ -1532,7 +1617,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
 
     // 파츠마다 한 줄. 띠는 «보이는 구간»이라 끌면 사라짐·재생성 시각이 바뀌고,
     // 그 위의 표식은 «이쯤 깨진다»는 예상 시각이다.
-    const breaks = partBreaks(design.parts, squadDps(), duration);
+    const breaks = currentBreaks();
     if (design.parts.length > 0) tracks.append(groupHead('parts', '파츠', design.parts.length));
     for (const [index, part] of (folded.has('parts') ? [] : design.parts).entries()) {
       const row = el('div', 'bm-track');
@@ -1995,9 +2080,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     const dealt = rows.reduce((sum, row) => sum + row.damage, 0);
     const best = Math.max(1, ...rows.map((row) => row.damage));
     // 파츠를 깨서 얹힌 점수. 시뮬이 때려서 낸 값이 아니라 출처가 달라 따로 적는다.
-    const score = scoreUntil(
-      partBreaks(design.parts, squadDps(), deps.currentBattle().duration), cursor,
-    );
+    const score = scoreUntil(currentBreaks(), cursor);
     const total = dealt + score;
 
     const head = el('div', 'bm-hud-total');

@@ -378,13 +378,118 @@ export interface PartBreak {
   at: number | null;
   /** 깨면 얹히는 점수 */
   score: number;
+  /**
+   * 이 판에서 그 파츠가 실제로 받은 피해. 「겨냥이 스치기는 하는데 모자란다」와
+   * 「한 발도 안 든다」는 다른 이야기라, 화면이 그것을 갈라 말할 수 있게 함께 낸다.
+   * 조준을 안 보는 어림값에서는 0이다.
+   */
+  taken?: number;
 }
 
 /**
- * 파츠마다 깨지는 시각. 빠른 순서로 세운다.
+ * 이 파츠에 탄이 드는 비율. 조준점 둘레에 **탄착점과 같은 분포로** 뿌려 세어 본다.
  *
- * DPS는 «스쿼드 전체가 이 파츠만 때린다»는 가정이라 실제보다 이르다 — 화면에 그렇게
- * 적고, 값이 마음에 안 들면 주기를 손으로 덮을 수 있게 둔다.
+ * 계산기가 코어 명중률을 내는 그 분포(`impactOffsets`)를 그대로 쓰므로, 화면에 찍히는
+ * 점 가운데 그 파츠 안에 든 것의 비율이 곧 이 값이다 — 눈으로 세어도 같은 답이 나온다.
+ *
+ * 탄착군이 파츠에 닿지도 않으면 세어 볼 것도 없이 0이다. 조준이 멀리 있는 대부분의
+ * 시각이 이 한 줄에서 끝난다.
+ */
+export function partHitFraction(
+  part: BossPart,
+  aim: { x: number; y: number },
+  radius: number,
+  modelN = 2.55,
+  samples = 160,
+): number {
+  if (!(radius > 0) || samples <= 0) return 0;
+  if (distance(aim, part) > radius + outerRadius(part)) return 0;
+  const offsets = impactOffsets(`frac:${part.id}:${Math.round(radius)}`, samples, radius, modelN);
+  let inside = 0;
+  for (const offset of offsets) {
+    if (hitTest(part, aim.x + offset.x, aim.y + offset.y)) inside += 1;
+  }
+  return inside / samples;
+}
+
+/** 조준을 셈에 넣어 파괴 시각을 낼 때 필요한 것들. */
+export interface AimedBreakInput {
+  parts: BossPart[];
+  /** 칸 크기(초)와 칸 수 */
+  bucket: number;
+  buckets: number;
+  /** 니케별 그 칸의 **평타** 대미지 */
+  normalDamage: Record<string, number[]>;
+  /** 그 니케가 그 시각에 겨냥하는 자리 */
+  aimOf: (name: string, t: number) => { x: number; y: number } | null;
+  /** 그 니케의 탄착군 반지름 */
+  spreadOf: (name: string) => number;
+  modelN?: number;
+}
+
+/**
+ * 조준을 셈에 넣은 파괴 시각.
+ *
+ * 파츠가 받는 피해는 «그 칸에 그 니케가 낸 평타 딜 × 그 파츠에 탄이 드는 비율»의 합이다.
+ * 겨냥하지 않은 파츠는 비율이 0이라 영영 깨지지 않는다 — 스쿼드 총딜을 그대로 나누던
+ * 옛 셈이 «조준과 상관없이 시작하자마자 터진다»고 답하던 자리다.
+ *
+ * **평타만 센다.** 스킬·버스트 딜은 조준 판정을 거치지 않고 그대로 맞으므로 탄착군과
+ * 무관하고, 어느 파츠에 들어갔는지 말할 근거가 없다.
+ *
+ * 파츠가 안 보이는 구간(`windows`)에는 맞지 않는다 — 사라진 파츠는 때릴 수 없다.
+ */
+export function aimedPartBreaks(input: AimedBreakInput): PartBreak[] {
+  const { parts, bucket, buckets, normalDamage, aimOf, spreadOf } = input;
+  const modelN = input.modelN ?? 2.55;
+  const names = Object.keys(normalDamage);
+  const fractions = new Map<string, number>();
+
+  return parts
+    .map((part) => {
+      let pool = Math.max(0, part.hp);
+      let taken = 0;
+      let at: number | null = null;
+      if (pool > 0) {
+        for (let index = 0; index < buckets; index += 1) {
+          const t = index * bucket;
+          if (!showsAt(part, t)) continue;
+          let hit = 0;
+          for (const name of names) {
+            const damage = normalDamage[name]![index] ?? 0;
+            if (damage <= 0) continue;
+            const aim = aimOf(name, t);
+            if (!aim) continue;
+            const radius = spreadOf(name);
+            // 조준점을 2px 눈금으로 뭉쳐 캐시한다 — 키프레임 사이에서 조준이 매 칸
+            // 조금씩 움직이므로, 그대로 두면 같은 계산을 수천 번 다시 한다.
+            const key = `${part.id}:${Math.round(radius)}:${Math.round(aim.x / 2)}:${Math.round(aim.y / 2)}`;
+            let fraction = fractions.get(key);
+            if (fraction === undefined) {
+              fraction = partHitFraction(part, aim, radius, modelN);
+              fractions.set(key, fraction);
+            }
+            hit += damage * fraction;
+          }
+          taken += hit;
+          pool -= hit;
+          if (pool <= 0 && at === null) at = Math.round(t * 10) / 10;
+        }
+      }
+      return {
+        id: part.id, name: part.name, at, taken,
+        score: Math.max(0, part.score ?? 0),
+      };
+    })
+    .sort((left, right) => (left.at ?? Infinity) - (right.at ?? Infinity));
+}
+
+/**
+ * 파츠마다 깨지는 시각 — **조준을 안 보는 어림값**이다.
+ *
+ * 스쿼드 총딜을 그대로 나누므로 «전원이 이 파츠만 때린다»고 가정한 셈이다. 한 판
+ * 돌리기 전에는 조준별 딜을 알 수 없어 이것으로 보여 주고, 돌린 뒤에는
+ * `aimedPartBreaks`가 자리를 넘겨받는다.
  */
 export function partBreaks(parts: BossPart[], dps: number, duration: number): PartBreak[] {
   return parts
