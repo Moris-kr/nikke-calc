@@ -1629,3 +1629,191 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
 .feedback-move:hover { border-color: rgba(69,214,208,.45); color: var(--ink); }
 .feedback-move.is-on { border-color: var(--cyan); background: rgba(69,214,208,.16); color: var(--cyan); }
 .feedback-move.is-danger:hover { border-color: var(--danger); color: #ffd7de; }
+
+/* ══ 보스 메이커 ═══════════════════════════════════════════════════════════
+   보스를 그려 놓고 그 위에서 전투를 읽는 화면. 무대(SVG) · 조건 판 · 타임라인 띠가
+   한 화면에 서야 해서 전체를 덮는다.
+
+   결이 다른 화면이라 깊이를 한 겹 더 준다 — 판은 배경에서 띄우고(안쪽 하이라이트 +
+   넓게 퍼지는 그림자), 경계선은 1px 회색이 아니라 빛이 스치는 머리카락 선으로 둔다.
+   움직임은 전부 커스텀 이징이다(«linear·ease-in-out 금지»). */
+body.bm-open { overflow: hidden; }
+
+.boss-maker { position: fixed; inset: 0; z-index: 60; display: flex; padding: 18px;
+  background: radial-gradient(120% 90% at 50% 0%, rgba(21,42,66,.72), rgba(3,8,14,.94) 70%);
+  backdrop-filter: blur(18px) saturate(120%); }
+.bm-frame { display: flex; flex-direction: column; flex: 1; min-height: 0;
+  border: 1px solid rgba(146,176,201,.14); border-radius: 18px;
+  background: linear-gradient(180deg, rgba(14,27,42,.96), rgba(7,15,25,.98));
+  box-shadow: 0 40px 120px -30px rgba(0,0,0,.85), inset 0 1px 0 rgba(255,255,255,.06);
+  overflow: hidden; }
+
+.bm-top { display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 14px 18px; border-bottom: 1px solid rgba(146,176,201,.12);
+  background: linear-gradient(180deg, rgba(69,214,208,.06), transparent); }
+.bm-title { display: flex; align-items: center; gap: 12px; }
+.bm-title b { font-size: 15px; letter-spacing: -.01em; }
+.bm-name { width: 190px; padding: 7px 11px; min-height: 0; width: 190px;
+  border: 1px solid var(--line); border-radius: 8px; background: rgba(4,12,21,.7);
+  color: var(--ink); font: 700 12px inherit; }
+.bm-top-actions { display: flex; align-items: center; gap: 8px; }
+
+.bm-btn { padding: 8px 14px; border: 1px solid rgba(69,214,208,.4); border-radius: 9px;
+  background: rgba(69,214,208,.12); color: var(--cyan); font: 800 12px inherit; cursor: pointer;
+  transition: transform .18s cubic-bezier(.2,.8,.2,1), background .18s cubic-bezier(.2,.8,.2,1); }
+.bm-btn:hover { background: rgba(69,214,208,.22); transform: translateY(-1px); }
+.bm-btn:active { transform: translateY(0); }
+.bm-btn.accent { border-color: rgba(255,191,60,.5); background: rgba(255,191,60,.14); color: var(--amber); }
+.bm-btn.accent:hover { background: rgba(255,191,60,.24); }
+.bm-btn.ghost { border-color: var(--line); background: transparent; color: var(--muted); }
+.bm-btn.danger { width: 100%; margin-top: 10px; border-color: rgba(255,119,135,.4);
+  background: rgba(255,119,135,.1); color: #ffd7de; }
+.bm-close { width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 9px;
+  background: rgba(4,12,21,.6); color: var(--muted); font-size: 13px; cursor: pointer; }
+.bm-close:hover { color: var(--ink); border-color: rgba(69,214,208,.45); }
+
+.bm-narrow { margin: 0; padding: 11px 18px; border-bottom: 1px solid rgba(255,191,60,.2);
+  background: rgba(255,191,60,.08); color: #ffe1a8; font-size: 12px; line-height: 1.65;
+  word-break: keep-all; }
+.bm-narrow b { color: var(--amber); }
+
+.bm-body { display: grid; grid-template-columns: 168px minmax(0,1fr) 344px; gap: 14px;
+  padding: 14px 18px; flex: 1; min-height: 260px; }
+
+/* 도구 열 */
+.bm-tools { display: flex; flex-direction: column; gap: 14px; overflow-y: auto; }
+.bm-tool-group { display: flex; flex-direction: column; gap: 6px; }
+.bm-tool-label { color: var(--muted); font: 800 10px inherit; letter-spacing: .08em; }
+.bm-tool { display: flex; align-items: center; gap: 8px; padding: 8px 11px;
+  border: 1px solid var(--line); border-radius: 9px; background: rgba(4,12,21,.55);
+  color: var(--ink); font: 700 12px inherit; cursor: pointer;
+  transition: border-color .18s cubic-bezier(.2,.8,.2,1), background .18s cubic-bezier(.2,.8,.2,1); }
+.bm-tool:hover { border-color: rgba(69,214,208,.45); background: rgba(69,214,208,.08); }
+.bm-tool.is-on { border-color: var(--cyan); background: rgba(69,214,208,.18); color: var(--cyan); }
+.bm-tool.ghost { color: var(--muted); font-weight: 600; }
+.bm-tool.file { justify-content: center; }
+.bm-ico { width: 12px; height: 12px; background: currentColor; opacity: .8; }
+.bm-ico.circle { border-radius: 50%; }
+.bm-ico.rect { border-radius: 2px; }
+.bm-ico.tri { clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.bm-slider { display: flex; flex-direction: column; gap: 3px; color: var(--muted); font-size: 10px; }
+.bm-slider input { width: 100%; }
+.bm-hint { margin: 0; color: var(--cyan); font-size: 11px; line-height: 1.6; }
+
+/* 무대 */
+/* SVG는 viewBox에서 제 높이를 끌어온다 — `min-height: 0`으로 풀어 주지 않으면 그 높이가
+   최소값이 되어 격자 칸을 뚫고 타임라인 위로 넘친다. */
+.bm-stage-wrap { display: flex; flex-direction: column; gap: 8px; min-width: 0; min-height: 0;
+  overflow: hidden; }
+.bm-stage-head { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  min-height: 20px; }
+.bm-stage-note { color: #ffe1a8; font-size: 11px; }
+.bm-stage-note b { color: var(--amber); }
+.bm-stage-meta { margin-left: auto; color: var(--muted); font: 700 11px ui-monospace, monospace; }
+.bm-stage { display: block; flex: 1 1 0; min-height: 0; width: 100%; height: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(146,176,201,.14);
+  background:
+    linear-gradient(rgba(146,176,201,.05) 1px, transparent 1px) 0 0 / 100% 40px,
+    linear-gradient(90deg, rgba(146,176,201,.05) 1px, transparent 1px) 0 0 / 40px 100%,
+    radial-gradient(80% 70% at 50% 40%, rgba(24,48,72,.7), rgba(5,11,19,.95));
+  cursor: crosshair; touch-action: none; }
+/* 족자 구간 — 보스가 사라진다. 아주 지우지 않고 자리만 남겨 둔다. */
+.bm-figure.is-gone { opacity: .12; }
+.bm-shape { stroke: rgba(146,176,201,.4); stroke-width: 1.5; }
+.bm-shape.is-on { stroke: var(--cyan); stroke-width: 2.5; }
+.bm-part { fill: rgba(255,179,71,.28); stroke: rgba(255,191,60,.75); stroke-width: 1.5; }
+.bm-part.is-on { stroke: var(--amber); stroke-width: 2.5; }
+.bm-part-label { fill: var(--amber); font: 700 11px system-ui; }
+.bm-core { fill: rgba(255,119,135,.22); stroke: var(--danger); stroke-width: 2; }
+.bm-core.is-on { stroke-width: 3; }
+.bm-center line { stroke: var(--cyan); stroke-width: 2; }
+.bm-center.is-on line { stroke-width: 3; }
+.bm-shield { opacity: .18; }
+.bm-spread { fill: none; stroke: rgba(69,214,208,.55); stroke-width: 1.5;
+  stroke-dasharray: 5 4; }
+.bm-blast { fill: rgba(255,119,135,.07); stroke: rgba(255,119,135,.5); stroke-width: 1;
+  stroke-dasharray: 2 5; }
+.bm-handle { fill: var(--cyan); cursor: nwse-resize; }
+
+.bm-scrub { display: flex; align-items: center; gap: 10px; }
+.bm-scrub input { flex: 1; min-height: 0; }
+.bm-scrub output { min-width: 54px; color: var(--amber);
+  font: 800 12px ui-monospace, monospace; }
+
+/* 오른쪽 판 */
+.bm-side { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; padding-right: 2px; }
+.bm-card { padding: 13px 14px; border: 1px solid var(--line); border-radius: 12px;
+  background: rgba(4,12,21,.5); box-shadow: inset 0 1px 0 rgba(255,255,255,.04); }
+.bm-card-title { margin: 0 0 10px; font-size: 12px; letter-spacing: .04em; color: var(--cyan); }
+/* 조건 칸은 판이 좁아 이름과 입력칸이 한 줄에 못 선다 — 칸 안에서 위아래로 쌓는다. */
+.bm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.bm-grid .bm-row { position: relative; flex-direction: column; align-items: stretch;
+  gap: 3px; margin: 0; }
+.bm-grid .bm-row > span { flex: none; padding-right: 22px; }
+.bm-grid .bm-field { width: 100%; }
+/* 단위는 이름 줄 오른쪽 끝에 붙인다 — 아래로 내리면 칸마다 높이가 들쭉날쭉해진다. */
+.bm-grid .bm-unit { position: absolute; top: 0; right: 0; }
+.bm-row { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; font-size: 11px;
+  color: var(--muted); }
+.bm-row > span { flex: 1; min-width: 0; word-break: keep-all; }
+.bm-row.bm-toggle { margin-top: 10px; color: var(--ink); }
+.bm-row.bm-toggle input { width: 15px; height: 15px; min-height: 0; flex: none;
+  accent-color: var(--cyan); }
+.bm-row.bm-toggle > span { flex: 1; }
+.bm-field { width: 92px; padding: 5px 8px; min-height: 0; border: 1px solid var(--line);
+  border-radius: 7px; background: rgba(4,12,21,.8); color: var(--ink); font: 700 11px inherit; }
+.bm-unit { color: var(--muted); font-size: 10px; font-style: normal; }
+.bm-note { margin: 8px 0 0; color: var(--muted); font-size: 11px; line-height: 1.65;
+  word-break: keep-all; }
+.bm-note-head { margin: 12px 0 6px; color: var(--ink); font: 800 11px inherit; }
+.bm-dist { display: flex; flex-direction: column; gap: 3px; }
+.bm-dist-row { color: var(--muted); font: 700 11px ui-monospace, monospace; }
+.bm-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.bm-chip { padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px;
+  background: rgba(4,12,21,.6); color: var(--muted); font: 800 10px inherit; cursor: pointer;
+  transition: border-color .18s cubic-bezier(.2,.8,.2,1); }
+.bm-chip:hover { border-color: rgba(69,214,208,.45); color: var(--ink); }
+.bm-chip.is-on { border-color: var(--cyan); background: rgba(69,214,208,.16); color: var(--cyan); }
+.bm-chip.add { margin-top: 6px; }
+.bm-phase-head { display: flex; gap: 6px; }
+.bm-cover { color: var(--muted); font-size: 10px; font-style: normal; }
+.bm-cover.is-on { color: var(--amber); }
+
+/* 타임라인 */
+/* 타임라인은 «남는 만큼»이 아니라 정해진 몫을 갖는다 — 니케가 다섯이면 줄이 여덟이라,
+   높이를 안 정하면 무대를 밀어내고 프레임 밖으로 넘친다. */
+.bm-timeline { display: flex; flex-direction: column; min-height: 0;
+  max-height: 32vh; padding: 12px 18px 14px; border-top: 1px solid rgba(146,176,201,.12);
+  background: linear-gradient(180deg, transparent, rgba(69,214,208,.04)); }
+.bm-timeline-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.bm-timeline-note { color: var(--muted); font-size: 11px; }
+.bm-tracks { display: flex; flex-direction: column; gap: 5px; flex: 1; min-height: 0;
+  overflow-y: auto; padding-right: 4px; }
+.bm-track { display: flex; align-items: center; gap: 10px; }
+.bm-track-name { width: 108px; flex: none; padding-left: 26px; color: var(--muted);
+  font: 700 11px inherit; background-repeat: no-repeat; background-size: 20px 20px;
+  background-position: left center; border-radius: 4px; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; }
+.bm-lane { position: relative; flex: 1; height: 22px; border-radius: 6px;
+  background: rgba(4,12,21,.7); border: 1px solid rgba(146,176,201,.1); overflow: hidden; }
+.bm-shot { width: 100%; height: 100%; display: block; }
+.bm-break { position: absolute; top: 3px; width: 2px; height: 16px; background: var(--amber);
+  box-shadow: 0 0 6px rgba(255,191,60,.8); }
+.bm-bar { position: absolute; top: 2px; height: 18px; border-radius: 5px;
+  background: color-mix(in srgb, var(--bar) 28%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bar) 70%, transparent);
+  cursor: grab; display: flex; align-items: center; }
+.bm-bar:active { cursor: grabbing; }
+.bm-bar-label { padding: 0 8px; color: var(--ink); font: 700 10px inherit; white-space: nowrap;
+  pointer-events: none; }
+.bm-bar-grip { position: absolute; top: 0; width: 7px; height: 100%; cursor: ew-resize; }
+.bm-bar-grip.left { left: 0; }
+.bm-bar-grip.right { right: 0; }
+.bm-blast-rows { display: flex; flex-direction: column; }
+
+@media (max-width: 1023px) {
+  /* 구성은 PC에서만 — 좁은 화면에서는 안내만 남기고 무대를 접는다. */
+  .bm-body { grid-template-columns: 1fr; }
+  .bm-tools, .bm-stage-wrap { display: none; }
+}

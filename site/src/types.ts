@@ -144,6 +144,32 @@ export interface SimulationRequest {
   burstRegenTime?: number;
   /** 버스트 반응속도(초). 안 주면 엔진 기본값(0.05)을 쓴다. */
   burstReaction?: number;
+  /**
+   * 파츠 파괴 주기(초). 보스 메이커가 «파츠 체력 ÷ 예상 DPS»로 낸 값을 넘긴다 —
+   * 엔진에는 적 체력이 없어 파괴는 **시각**으로만 들어간다. 0이나 미지정이면 무발동.
+   */
+  partBreakInterval?: number;
+  /** 사격 밀도 트랙을 함께 받을지. 보스 메이커의 타임라인이 쓴다. */
+  shotTrack?: boolean;
+}
+
+/**
+ * 캐릭터별 사격 밀도. 히트를 낱개로 옮기면 180초 한 판이 수만 건이라(MG 하나가
+ * 1만 발을 넘긴다) 칸마다 «몇 발»로 접어 보낸다. 그림에 필요한 것은 그 밀도뿐이다.
+ *
+ * `core`·`explode`는 그 칸의 평타·스킬 안에서 세는 **부분집합**이다. 기대값 모드에서
+ * 코어는 확률로 태우므로, 여기 세는 것은 «확정 코어»뿐이다 — 조준 적중률은 화면이
+ * 탄착군 공식으로 따로 낸다.
+ */
+export interface ShotTrack {
+  bucket: number;
+  buckets: number;
+  chars: Record<string, {
+    normal: number[];
+    skill: number[];
+    core: number[];
+    explode: number[];
+  }>;
 }
 
 /** 보스 페이즈 구간. `[from, to)` 반개구간이다. */
@@ -293,6 +319,8 @@ export interface SimulationResult {
   previewNote: string;
   deviations: string;
   timeline?: BattleTimeline;
+  /** 보스 메이커의 사격 트랙. `shotTrack`을 켠 요청에만 실린다. */
+  shots?: ShotTrack;
   /** 감시 대상 버프의 실제 수령자 — `{시전자: [...]}`. 구버전 캐시에는 없다. */
   buffTargets?: Record<string, BuffTargetRow[]>;
   /** 0.1초 칸으로 나눈 같은 결과. `fineTimeline`을 켠 요청에만 실려 온다. */
@@ -386,6 +414,14 @@ export interface SettingsCatalog {
   buffTargetWatch: Record<string, Array<{ buff: string; label: string }>>;
   // 무기군별 평타 계수 기본값 (`data/weapon_mechanics.json`).
   normalHitCoeff: Record<string, number>;
+  /**
+   * 탄착군 — 보스 메이커가 사격 원을 그리는 표. 계산기 본체와 **같은 값**이라
+   * 화면의 원과 실제 코어 명중률이 어긋나지 않는다. 옛 설정에는 없을 수 있다.
+   */
+  accuracy?: {
+    modelN: number;
+    weapons: Record<string, { baseDiameter: number; accSlope: number }>;
+  };
   consoleClasses: string[];
   consoleCompanies: string[];
   overloadFields: Record<string, NumericFieldMeta>;

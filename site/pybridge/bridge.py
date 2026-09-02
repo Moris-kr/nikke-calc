@@ -37,6 +37,40 @@ TIMELINE_BUCKET = 1
 FINE_BUCKET = 0.1
 
 
+# 보스 메이커의 사격 트랙이 쓰는 칸 크기(초). 히트를 낱개로 보내면 180초 한 판이
+# 수만 건이라(MG 하나가 1만 발을 넘긴다) 옮기는 것도 그리는 것도 감당이 안 된다 —
+# 칸마다 «몇 발 · 그중 코어 몇 발»로 접어 보낸다. 그림에 필요한 것은 그 밀도뿐이다.
+SHOT_BUCKET = 0.1
+
+
+def _build_shots(result, names: list[str], bucket: float = SHOT_BUCKET) -> dict:
+    """캐릭터별 사격 밀도. 보스 캔버스에 «언제 누가 어디에 쏘는가»를 그리는 재료다.
+
+    한 칸에 네 숫자를 센다 — 평타·스킬 딜·코어 명중·폭발. 코어는 조준이 맞았는지를,
+    폭발은 폭발 반경 원을 언제 그릴지를 정하는 데 쓴다.
+    """
+    buckets = int(math.ceil(result.duration / bucket)) if result.duration > 0 else 0
+    empty = {"normal": [0] * buckets, "skill": [0] * buckets,
+             "core": [0] * buckets, "explode": [0] * buckets}
+    chars = {name: {key: list(row) for key, row in empty.items()} for name in names}
+    for hit in result.hits:
+        row = chars.get(hit.caster)
+        if row is None:
+            continue
+        index = int((hit.t + 1e-9) / bucket)
+        if index == buckets:
+            index = buckets - 1
+        if not (0 <= index < buckets):
+            continue
+        tag = hit.hit_tag or ""
+        row["normal" if _is_normal(hit) else "skill"][index] += 1
+        if "core" in tag:
+            row["core"][index] += 1
+        if "explosion" in tag:
+            row["explode"][index] += 1
+    return {"bucket": bucket, "buckets": buckets, "chars": chars}
+
+
 def _build_timeline(result, names: list[str], bucket: float = TIMELINE_BUCKET) -> dict:
     """캐릭터별 대미지 · 버스트 시각 · 풀버스트 구간을 `TIMELINE_BUCKET` 단위로 요약한다.
 
@@ -440,6 +474,15 @@ def run_request(raw: str) -> str:
     if rng_mode not in ("random", "expected"):
         raise ValueError('난수 모드는 random 또는 expected여야 합니다')
     config_in["rng_mode"] = rng_mode
+    # 파츠 파괴 주기(초). 보스 메이커가 «파츠 체력 ÷ 예상 DPS»로 낸 값을 넘긴다 —
+    # 엔진에는 적 체력 모델이 없어, 파괴는 시각으로만 들어간다(`event:part_destroy`).
+    part_break = payload.get("partBreakInterval")
+    if part_break is not None:
+        interval = float(part_break)
+        if not math.isfinite(interval) or interval < 0:
+            raise ValueError("파츠 파괴 주기는 0 이상이어야 합니다")
+        if interval > 0:
+            config_in["part_break_interval"] = interval
     # 족자 중 버스트 게이지 정지 여부. 안 주면 켠 것으로 본다(인게임 기준).
     blocks = payload.get("immuneBlocksBurst")
     config_in["immune_blocks_burst"] = True if blocks is None else bool(blocks)
@@ -485,4 +528,7 @@ def run_request(raw: str) -> str:
     # 그림은 1초 칸 그대로 쓴다(잘게 떨면 읽기 어렵다) — 이건 내보내기용이다.
     if bool(payload.get("fineTimeline")):
         response["fineTimeline"] = _build_timeline(result, names, FINE_BUCKET)
+    # 보스 메이커 전용 — 사격 밀도. 켤 때만 싣는다(응답이 그만큼 무거워진다).
+    if bool(payload.get("shotTrack")):
+        response["shots"] = _build_shots(result, names)
     return json.dumps(response, ensure_ascii=False, separators=(",", ":"))

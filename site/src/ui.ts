@@ -49,6 +49,7 @@ import { LATEST_NOTICE_ID, NOTICES, noticeFragment, noticeToShow } from './notic
 import { mountSharePanel, squadPreview, type SharePanel } from './share-panel';
 import { startPresence } from './presence';
 import { mountUnionRaid, type UnionHandle } from './union-raid';
+import { mountBossMaker, type BossMakerHandle } from './boss-maker-view';
 import { EXTERNAL_LINKS, hostOf } from './external-links';
 import {
   BURST_STAGES,
@@ -805,6 +806,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           <div class="section-heading compact target-heading">
             <div><h2 id="settings-heading">전투 조건</h2></div>
             <div class="target-actions">
+              <button type="button" class="reset-enemy" data-boss-maker-open title="보스의 모양·코어·파츠를 직접 그려 두고, 그 위에서 덱의 사격을 읽습니다. 구성은 PC에서만 됩니다">보스 메이커</button>
               <button type="button" class="reset-enemy" data-battle-share-open title="전투 조건을 코드로 만들어 공유하거나, 받은 코드를 붙여넣어 적용합니다">전투 조건 공유</button>
               <button type="button" class="reset-enemy" data-reset-enemy>적 수치 초기화</button>
               <button type="button" class="reset-enemy" data-clear-cache title="같은 조건에 저장된 결과를 지우고 다음 실행부터 새로 계산합니다">저장된 결과 지우기</button>
@@ -925,6 +927,10 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         <div data-timeline-body></div>
       </section>
       <footer><p>비공식 팬 제작 도구 · 실제 전투 환경과 차이가 있을 수 있습니다.</p><a href="https://github.com/Moris-kr/nikke-calc" target="_blank" rel="noreferrer">SOURCE / GITHUB ↗</a></footer>
+
+      <!-- 보스 메이커. 전체를 덮는 창이라 폼 바깥에 둔다 — 안에 두면 여기서 누른
+           단추가 폼을 제출한다. -->
+      <div data-boss-maker hidden tabindex="-1"></div>
 
       <div class="custom-modal" data-history-modal hidden>
         <div class="custom-card roster-card" role="dialog" aria-label="계산 기록">
@@ -5447,6 +5453,32 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     applyParallel(true);
   });
   applyParallel(false);
+
+  // ── 보스 메이커 ─────────────────────────────────────────────────────────
+  // 적을 숫자 몇 개가 아니라 **그림**으로 두고, 그 위에서 덱의 사격을 읽는 화면.
+  // 그린 것에서 엔진이 아는 값(코어 직경·파츠 유무·파츠 파괴 주기)만 뽑아 넘긴다.
+  const bossMaker: BossMakerHandle = mountBossMaker(
+    element<HTMLElement>(root, '[data-boss-maker]'),
+    {
+      settings,
+      catalog: [...catalogByName.values()],
+      simulate: (request) => client.simulate(request),
+      currentSquad: () => activeDeck().squad.filter(Boolean),
+      currentCharacters: () => Object.fromEntries(
+        Object.entries(activeDeck().characters)
+          .map(([name, value]) => [name, overridesForEngine(value)]),
+      ),
+      currentBattle: readBattle,
+      applyBattle: writeBattle,
+      imageOf: (name) => {
+        const image = catalogByName.get(name)?.image;
+        return image ? `${import.meta.env.BASE_URL}${image}` : undefined;
+      },
+      storage: resolveStorage,
+    },
+  );
+  element<HTMLButtonElement>(root, '[data-boss-maker-open]')
+    .addEventListener('click', () => bossMaker.open());
 
   // ── 유니온 레이드 (BETA) ────────────────────────────────────────────────
   // 프록시가 있어야 유니온원 스펙을 받아 올 수 있다 — 없으면 탭 자체를 안 그렸다.

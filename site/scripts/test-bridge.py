@@ -648,6 +648,63 @@ class BrowserBridgeTest(unittest.TestCase):
         got = json.loads(run_request(json.dumps(payload, ensure_ascii=False)))
         self.assertNotIn("fineTimeline", got)
 
+    def test_shot_track_counts_every_hit_once(self):
+        """보스 메이커의 사격 트랙 — 낱개 히트를 칸마다 접어 보낸다.
+
+        180초 한 판이 수만 건이라 낱개로는 못 옮긴다. 접는 과정에서 히트를 흘리면
+        화면의 밀도가 실제와 어긋나므로, 평타+스킬 합이 총 히트 수와 같아야 한다.
+        """
+        payload = {
+            "squad": ["리타", "크라운", "레이븐"], "duration": 20, "enemyDef": 31_784,
+            "enemyCode": "", "corePx": 52, "hasParts": True, "seed": 42,
+            "rngMode": "expected", "shotTrack": True,
+        }
+        got = json.loads(run_request(json.dumps(payload, ensure_ascii=False)))
+        shots = got["shots"]
+        self.assertEqual(shots["bucket"], 0.1)
+        self.assertEqual(shots["buckets"], 200)
+        counted = 0
+        for name in ("리타", "크라운", "레이븐"):
+            row = shots["chars"][name]
+            self.assertEqual(len(row["normal"]), 200)
+            counted += sum(row["normal"]) + sum(row["skill"])
+            # 코어·폭발은 그 칸의 평타·스킬 안에서 세는 부분집합이다.
+            self.assertLessEqual(sum(row["core"]), sum(row["normal"]) + sum(row["skill"]))
+        self.assertEqual(counted, got["hitCount"])
+
+    def test_shot_track_is_left_out_unless_asked(self):
+        payload = {
+            "squad": ["리타"], "duration": 10, "enemyDef": 31_784, "enemyCode": "",
+            "corePx": 0, "hasParts": False, "seed": 42,
+        }
+        got = json.loads(run_request(json.dumps(payload, ensure_ascii=False)))
+        self.assertNotIn("shots", got)
+
+    def test_part_break_interval_reaches_the_engine(self):
+        """파츠 파괴 주기 — 보스 메이커가 «파츠 체력 ÷ DPS»로 낸 시각을 넘긴다.
+
+        엔진에는 적 체력이 없어 파괴는 시각으로만 들어간다. 주기를 주면 파괴에
+        반응하는 스킬이 걸리므로 총딜이 달라져야 한다.
+        """
+        base = {
+            "squad": ["레이븐", "크라운", "리타"], "duration": 60, "enemyDef": 31_784,
+            "enemyCode": "", "corePx": 0, "hasParts": True, "seed": 42,
+            "rngMode": "expected",
+        }
+        without = json.loads(run_request(json.dumps(base, ensure_ascii=False)))
+        with_break = json.loads(run_request(
+            json.dumps({**base, "partBreakInterval": 8.0}, ensure_ascii=False)))
+        # 레이븐 「일점 공격」은 파츠 파괴에 반응한다 — 파괴가 없으면 영원히 안 걸린다.
+        self.assertGreater(with_break["charTotals"]["레이븐"], without["charTotals"]["레이븐"])
+
+    def test_rejects_a_negative_part_break_interval(self):
+        payload = {
+            "squad": ["리타"], "duration": 10, "enemyDef": 31_784, "enemyCode": "",
+            "corePx": 0, "hasParts": True, "seed": 42, "partBreakInterval": -1,
+        }
+        with self.assertRaises(ValueError):
+            run_request(json.dumps(payload, ensure_ascii=False))
+
     def test_buff_span_carries_who_actually_got_it_when_the_target_shifts(self):
         """대상이 발동마다 갈리는 버프는 **구간마다** 누가 받았는지 적는다.
 

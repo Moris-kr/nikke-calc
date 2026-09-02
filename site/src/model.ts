@@ -86,6 +86,10 @@ export function normalizeRequest(request: SimulationRequest): SimulationRequest 
     // 기본 레벨(400)은 요청에서 뺀다 — 엔진이 같은 값을 쓰므로 옛 캐시 키와 갈리지 않는다.
     ...(request.synchroLevel !== undefined && request.synchroLevel !== DEFAULT_SYNCHRO_LEVEL
       ? { synchroLevel: Math.trunc(request.synchroLevel) } : {}),
+    // 보스 메이커에서만 쓰는 둘. 안 켠 요청에는 아예 싣지 않는다 — 옛 캐시 키와
+    // 갈리지 않게 하려는 것으로, 다른 필드와 같은 규칙이다.
+    ...(request.partBreakInterval ? { partBreakInterval: request.partBreakInterval } : {}),
+    ...(request.shotTrack ? { shotTrack: true } : {}),
     ...(request.console ? { console: {
       common_level: Math.trunc(request.console.common_level),
       class_level: normalizeBuckets(request.console.class_level),

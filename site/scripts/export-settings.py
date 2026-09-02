@@ -146,6 +146,24 @@ def main() -> None:
             weapon: float(mechanics.get("normal_hit_coeff", {}).get(weapon, 1.0))
             for weapon in WEAPON_TYPES
         },
+        # 탄착군 — 보스 메이커가 사격 원을 그리는 데 쓴다. 지름 D = base − slope × 명중%,
+        # 코어 명중 확률 P = (코어반경 / 탄착군반경)^n. 계산기 본체와 **같은 표**를 봐야
+        # 화면에 그린 원과 실제 계산이 어긋나지 않는다
+        # (정본: `data/weapon_mechanics.json`의 `accuracy`).
+        "accuracy": {
+            "modelN": float(mechanics.get("accuracy", {}).get("_model_n", 2.55)),
+            "weapons": {
+                weapon: {
+                    "baseDiameter": float(
+                        mechanics.get("accuracy", {}).get(weapon, {}).get("base_diameter", 10)
+                    ),
+                    "accSlope": float(
+                        mechanics.get("accuracy", {}).get(weapon, {}).get("acc_slope", 0)
+                    ),
+                }
+                for weapon in WEAPON_TYPES
+            },
+        },
         "consoleClasses": list(CONSOLE_CLASSES),
         "consoleCompanies": list(CONSOLE_COMPANIES),
         "overloadFields": OVERLOAD_FIELDS,
