@@ -11,7 +11,8 @@
 
 import {
   activeDesign, aimPoint, coreHitChance, copyDesign, decodeBossCode, DEFAULT_CORE_PX,
-  derivedEnemy, distance, dropDesign, ELEMENT_COLOR, emptyDesign, emptyLibrary, encodeBossCode,
+  derivedEnemy, derivedPartBreakInterval, distance, dropDesign, ELEMENT_COLOR, emptyDesign,
+  emptyLibrary, encodeBossCode,
   hitTest, newId, parseLibrary, partBreaks, partsInBlast, phaseAt, putDesign, spreadRadius,
   visibleAt,
   type BossDesign, type BossLibrary, type BossPart, type BossShape, type ShapeKind,
@@ -21,6 +22,7 @@ import type {
   SettingsCatalog, SimulationRequest, SimulationResult,
 } from './types';
 import type { StorageLike } from './cache';
+import { formatDamage, formatDps } from './model';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -51,6 +53,9 @@ const LEGACY_KEY = 'nikke-boss-design-v1';
 const DEFAULT_BLAST = 90;
 /** 이 폭보다 좁으면 구성은 못 하게 막는다 — 무대와 판이 함께 서지 못한다. */
 const MIN_WIDTH = 1024;
+
+/** 니케 다섯을 가르는 색. 탄착군 원이 한 점에 포개지므로 색으로만 갈린다. */
+const AIM_COLORS = ['#45d6d0', '#ffbf3c', '#8ab6ff', '#ff8f6b', '#c79bff'];
 
 const el = <K extends keyof HTMLElementTagNameMap>(
   tag: K, className = '', text = '',
@@ -110,6 +115,12 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   let lastResult: SimulationResult | null = null;
   let cursor = 0;
   let running = false;
+  /** 재생 중인가. 재생하면 커서가 실제 시간대로 흘러간다 */
+  let playing = false;
+  /** 재생 속도 배수. 180초를 실시간으로 보고 있을 수는 없다 */
+  let speed = 2;
+  let rafId = 0;
+  let lastFrame = 0;
 
   function readLibrary(): BossLibrary {
     try {
@@ -218,13 +229,10 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
             <span class="bm-stage-note" data-bm-center-warn hidden>
               <b>보스 중앙을 찍어 주세요.</b> 코어가 없는 보스는 이 점을 겨냥합니다.
             </span>
+            <label class="bm-stage-toggle"><input type="checkbox" data-bm-show-aim checked /><span>탄착군</span></label>
             <span class="bm-stage-meta" data-bm-stage-meta></span>
           </div>
           <svg class="bm-stage" data-bm-stage xmlns="${SVG_NS}"></svg>
-          <div class="bm-scrub" data-bm-scrub hidden>
-            <input type="range" min="0" max="100" value="0" step="1" data-bm-cursor />
-            <output data-bm-cursor-label>0.0초</output>
-          </div>
         </div>
 
         <aside class="bm-side">
@@ -253,10 +261,8 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   const centerWarn = q<HTMLElement>('[data-bm-center-warn]');
   const nameInput = q<HTMLInputElement>('[data-bm-name]');
   const narrow = q<HTMLElement>('[data-bm-narrow]');
-  const scrub = q<HTMLElement>('[data-bm-scrub]');
-  const cursorInput = q<HTMLInputElement>('[data-bm-cursor]');
-  const cursorLabel = q<HTMLOutputElement>('[data-bm-cursor-label]');
   const runNote = q<HTMLElement>('[data-bm-run-note]');
+  const showAim = q<HTMLInputElement>('[data-bm-show-aim]');
   const picker = q<HTMLSelectElement>('[data-bm-picker]');
 
   /** 저장본 목록. 이름이 같아도 되도록 값은 id다. */
@@ -365,23 +371,62 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     updateStageMeta();
   }
 
-  /** 니케마다 탄착군 원과 폭발 원을 겹쳐 그린다. 조준점은 코어 → 중앙 차례다. */
+  /**
+   * 니케마다 탄착군 원과 폭발 원을 겹쳐 그린다. 조준점은 코어 → 중앙 차례다.
+   *
+   * **니케마다 색을 달리하고 이름표를 끌어낸다.** 조준점이 하나뿐이라 원들이 정확히
+   * 겹쳐 그려지는데, MG·SR·RL은 탄착군이 10px이라 다섯이 한 점에 포개지면 아무것도
+   * 안 보인다. 원은 실제 크기 그대로 두고(줄이거나 늘리면 거짓말이 된다) 이름표를
+   * 사방으로 뻗어, 작은 원도 «여기 있다»가 읽히게 한다.
+   */
   function drawAim(hidden: boolean) {
     const aim = aimPoint(design);
     centerWarn.hidden = !(aim === null || (design.core === null && design.center === null));
-    if (!aim || hidden) return;
+    if (!aim || hidden || !showAim.checked) return;
 
     const squad = deps.currentSquad().filter(Boolean);
     const group = svgEl('g');
     group.setAttribute('class', 'bm-aim');
+    // 이름표는 조준점 둘레에 고르게 흩는다. 원이 클수록 바깥에 붙는다.
+    const step = squad.length > 0 ? (Math.PI * 2) / squad.length : 0;
     for (const [index, name] of squad.entries()) {
       const weapon = weaponOf(name);
       const radius = spreadRadius(accuracy, weapon, 0);
+      const color = AIM_COLORS[index % AIM_COLORS.length]!;
+
       const ring = svgEl('circle');
       attrs(ring, { cx: aim.x, cy: aim.y, r: radius });
       ring.setAttribute('class', 'bm-spread');
-      ring.setAttribute('style', `--i:${index}`);
+      ring.setAttribute('stroke', color);
       group.append(ring);
+
+      // 이름표까지 이어지는 실. 원이 점만 해도 이 실이 자리를 가리킨다.
+      const angle = -Math.PI / 2 + step * index;
+      const near = { x: aim.x + Math.cos(angle) * radius, y: aim.y + Math.sin(angle) * radius };
+      const far = {
+        x: aim.x + Math.cos(angle) * (radius + 34),
+        y: aim.y + Math.sin(angle) * (radius + 34),
+      };
+      const lead = svgEl('line');
+      attrs(lead, { x1: near.x, y1: near.y, x2: far.x, y2: far.y });
+      lead.setAttribute('class', 'bm-aim-lead');
+      lead.setAttribute('stroke', color);
+      group.append(lead);
+
+      const label = svgEl('text');
+      attrs(label, {
+        x: far.x + (Math.cos(angle) >= 0 ? 4 : -4), y: far.y + 4,
+        'text-anchor': Math.cos(angle) >= 0 ? 'start' : 'end',
+      });
+      label.setAttribute('class', 'bm-aim-label');
+      label.setAttribute('fill', color);
+      // 이름이 길면 이름표끼리 겹친다 — 앞머리만 남긴다(전체 이름은 마우스를 올리면 뜬다).
+      const short = name.length > 9 ? `${name.slice(0, 8)}…` : name;
+      label.textContent = `${short} Ø${Math.round(radius * 2)}`;
+      const tip = svgEl('title');
+      tip.textContent = `${name} · 탄착군 지름 ${Math.round(radius * 2)}px`;
+      label.append(tip);
+      group.append(label);
 
       // 폭발 반경 — 참고선이다. 엔진은 폭발 범위를 계산하지 않는다.
       const blast = design.explosion[name];
@@ -389,6 +434,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
         const circle = svgEl('circle');
         attrs(circle, { cx: aim.x, cy: aim.y, r: blast });
         circle.setAttribute('class', 'bm-blast');
+        circle.setAttribute('stroke', color);
         group.append(circle);
       }
     }
@@ -890,7 +936,26 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       lastResult = result;
       shots = result.shots ?? null;
       cursor = 0;
-      runNote.textContent = `${squad.length}명 · ${result.duration}초 · 총 ${result.hitCount.toLocaleString('ko-KR')}발`;
+      setPlaying(false);
+      // **여기서 나온 딜이 이 보스로 잰 딜이다.** 코어 직경·파츠 유무·파츠 파괴 시각이
+      // 전부 그림에서 나온 값이라, 원래 창의 결과와 다를 수 있다 — 그래서 여기에 적는다.
+      const dps = result.duration > 0 ? result.squadTotal / result.duration : 0;
+      const parts = [
+        `${design.name} · ${squad.length}명 · ${result.duration}초`,
+        `총딜 ${formatDamage(result.squadTotal)} · ${formatDps(dps)}`,
+        `${result.hitCount.toLocaleString('ko-KR')}발`,
+        derived.corePx > 0 ? `코어 ${derived.corePx}px` : '코어 없음',
+      ];
+      if (derived.hasParts) parts.push('파츠');
+      // 파츠 파괴 시각은 «이 덱의 딜»에서 나오므로 **한 번 돌린 뒤에야** 알 수 있다.
+      // 처음 돌릴 때는 넘길 값이 없었다는 사실을 숨기지 않고 적는다.
+      const nextBreak = derivedPartBreakInterval(design.parts, dps, battle.duration);
+      if (derived.partBreakInterval === 0 && nextBreak > 0) {
+        parts.push(`파츠는 약 ${round(nextBreak)}초에 깨집니다 — 다시 돌리면 그 시각이 계산에 들어갑니다`);
+      }
+      runNote.textContent = parts.join(' · ');
+      runNote.title = `총딜 ${Math.round(result.squadTotal).toLocaleString('ko-KR')}`
+        + ` · 초당 ${Math.round(dps).toLocaleString('ko-KR')}`;
       render();
     } catch (error) {
       runNote.textContent = error instanceof Error ? error.message : String(error);
@@ -903,11 +968,9 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     tracks.replaceChildren();
     const battle = deps.currentBattle();
     const duration = battle.duration;
-    scrub.hidden = shots === null;
-    cursorInput.max = String(duration);
-    cursorInput.step = String(shots?.bucket ?? 0.1);
-    cursorInput.value = String(cursor);
-    cursorLabel.textContent = `${round(cursor)}초`;
+
+    // 시간 줄이 맨 위다 — 아래 줄들이 모두 이 시각을 기준으로 읽히기 때문이다.
+    tracks.append(timeTrack(duration));
 
     // 보스 상태 줄 — 족자·속저를 끌어 옮긴다.
     tracks.append(phaseTrack('족자', battle.immuneWindows.map((w, index) => ({
@@ -959,9 +1022,11 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       return;
     }
 
-    // 니케별 사격 밀도.
+    // 니케별 사격 밀도. 오른쪽 끝에 **그 니케가 이 보스에게 넣은 딜**을 적는다.
+    const totals = lastResult?.charTotals ?? {};
+    const best = Math.max(1, ...Object.values(totals).map((value) => Number(value) || 0));
     for (const name of deps.currentSquad().filter(Boolean)) {
-      const row = design.explosion[name] !== undefined ? el('div', 'bm-track has-blast') : el('div', 'bm-track');
+      const row = el('div', 'bm-track');
       const label = el('span', 'bm-track-name', name);
       const face = deps.imageOf(name);
       if (face) label.style.backgroundImage = `url(${face})`;
@@ -969,6 +1034,14 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       const lane = el('div', 'bm-lane');
       lane.append(shotCanvas(name, duration));
       row.append(lane);
+      const damage = Number(totals[name]) || 0;
+      const value = el('span', damage >= best ? 'bm-track-dmg is-top' : 'bm-track-dmg',
+        formatDamage(damage));
+      // 짚어 보는 자리라 여기서는 **깎지 않은 숫자**를 적는다 — 억 단위로 접으면
+      // 초당 100만이 「0.01억」이 되어 아무것도 읽히지 않는다.
+      value.title = `${name} · ${Math.round(damage).toLocaleString('ko-KR')}`
+        + ` · 초당 ${Math.round(damage / Math.max(1, duration)).toLocaleString('ko-KR')}`;
+      row.append(value);
       tracks.append(row);
     }
     tracks.append(el('p', 'bm-note',
@@ -1007,6 +1080,134 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     }
     void duration;
     return canvas;
+  }
+
+  /**
+   * 시간 줄. 재생 단추와 눈금, 그리고 끌 수 있는 재생 헤드가 한 줄에 선다.
+   *
+   * 족자·속저와 **같은 자로 그린다** — 위아래가 같은 자리에서 같은 시각을 가리켜야
+   * «이 구간에 누가 쏘고 있나»가 눈으로 이어진다.
+   */
+  function timeTrack(duration: number): HTMLElement {
+    const row = el('div', 'bm-track time');
+
+    const head = el('span', 'bm-track-name time');
+    const play = el('button', 'bm-play');
+    play.type = 'button';
+    play.dataset.bmPlay = '';
+    play.textContent = playing ? '❚❚' : '▶';
+    play.title = playing ? '멈춤' : '재생';
+    play.ariaLabel = play.title;
+    play.disabled = shots === null;
+    play.addEventListener('click', () => setPlaying(!playing));
+    const rate = el('button', 'bm-rate', `×${speed}`);
+    rate.type = 'button';
+    rate.dataset.bmRate = '';
+    rate.title = '재생 속도';
+    rate.addEventListener('click', () => {
+      speed = speed >= 8 ? 1 : speed * 2;
+      renderTracks();
+    });
+    const clock = el('output', 'bm-clock', `${round(cursor)}초`);
+    clock.dataset.bmClock = '';
+    head.append(play, rate, clock);
+    row.append(head);
+
+    const lane = el('div', 'bm-lane time');
+    lane.dataset.bmTimeLane = '';
+    // 10초마다 눈금, 30초마다 숫자. 180초 판에서 이 정도가 읽힌다.
+    for (let at = 0; at <= duration; at += 10) {
+      const tick = el('i', at % 30 === 0 ? 'bm-tick major' : 'bm-tick');
+      tick.style.left = `${(at / duration) * 100}%`;
+      if (at % 30 === 0 && at > 0) tick.dataset.label = `${at}`;
+      lane.append(tick);
+    }
+    const head2 = el('div', 'bm-playhead');
+    head2.dataset.bmPlayhead = '';
+    head2.style.left = `${(cursor / duration) * 100}%`;
+    head2.tabIndex = 0;
+    head2.setAttribute('role', 'slider');
+    head2.setAttribute('aria-label', '타임라인 시각');
+    head2.setAttribute('aria-valuemin', '0');
+    head2.setAttribute('aria-valuemax', String(duration));
+    head2.setAttribute('aria-valuenow', String(round(cursor)));
+    head2.addEventListener('keydown', (event) => {
+      const bucket = shots?.bucket ?? 0.1;
+      const step = event.shiftKey ? 1 : bucket;
+      if (event.key === 'ArrowLeft') { seek(cursor - step); event.preventDefault(); }
+      if (event.key === 'ArrowRight') { seek(cursor + step); event.preventDefault(); }
+      if (event.key === 'Home') { seek(0); event.preventDefault(); }
+      if (event.key === 'End') { seek(duration); event.preventDefault(); }
+    });
+    lane.append(head2);
+
+    // 줄 아무 데나 누르면 그 시각으로 간다. 누른 채 끌면 따라온다.
+    const scrubTo = (clientX: number) => {
+      const box = lane.getBoundingClientRect();
+      seek(((clientX - box.left) / box.width) * duration);
+    };
+    lane.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      setPlaying(false);
+      scrubTo(event.clientX);
+      const onMove = (moveEvent: PointerEvent) => scrubTo(moveEvent.clientX);
+      const onUp = () => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+      };
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    });
+    row.append(lane);
+    return row;
+  }
+
+  /** 시각을 옮긴다. 무대만 다시 그린다 — 줄 전체를 다시 세우면 끌기가 끊긴다. */
+  function seek(at: number) {
+    const duration = deps.currentBattle().duration;
+    cursor = Math.max(0, Math.min(duration, at));
+    const head = host.querySelector<HTMLElement>('[data-bm-playhead]');
+    if (head) {
+      head.style.left = `${(cursor / duration) * 100}%`;
+      head.setAttribute('aria-valuenow', String(round(cursor)));
+    }
+    const clock = host.querySelector<HTMLElement>('[data-bm-clock]');
+    if (clock) clock.textContent = `${round(cursor)}초`;
+    drawStage();
+  }
+
+  function setPlaying(on: boolean) {
+    if (on && shots === null) return;      // 돌려 본 적이 없으면 흘릴 시간이 없다
+    playing = on;
+    const play = host.querySelector<HTMLButtonElement>('[data-bm-play]');
+    if (play) {
+      play.textContent = playing ? '❚❚' : '▶';
+      play.title = playing ? '멈춤' : '재생';
+      play.ariaLabel = play.title;
+    }
+    if (!playing) {
+      cancelAnimationFrame(rafId);
+      return;
+    }
+    // 끝에서 다시 누르면 처음부터 — 멈춘 자리에서 아무 일도 안 나면 고장으로 읽힌다.
+    if (cursor >= deps.currentBattle().duration) seek(0);
+    lastFrame = performance.now();
+    rafId = requestAnimationFrame(step);
+  }
+
+  /** 한 프레임에 흘릴 수 있는 최대 시간(초). 아래 주석 참고. */
+  const MAX_FRAME = 0.25;
+
+  function step(now: number) {
+    if (!playing) return;
+    const duration = deps.currentBattle().duration;
+    // 다른 탭에 갔다 오면 그 사이 프레임이 아예 안 온다(브라우저가 멈춘다). 그대로
+    // 흘리면 돌아오는 순간 재생 헤드가 몇십 초를 건너뛴다 — 한 프레임 몫으로 자른다.
+    const elapsed = Math.min(MAX_FRAME, (now - lastFrame) / 1000);
+    seek(cursor + elapsed * speed);
+    lastFrame = now;
+    if (cursor >= duration) { setPlaying(false); return; }
+    rafId = requestAnimationFrame(step);
   }
 
   interface PhaseBar {
@@ -1092,11 +1293,8 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     save();
     renderPicker();
   });
-  cursorInput.addEventListener('input', () => {
-    cursor = Number(cursorInput.value);
-    cursorLabel.textContent = `${round(cursor)}초`;
-    drawStage();
-  });
+  showAim.addEventListener('change', drawStage);
+  // 창을 닫으면 재생도 멈춘다 — 안 보이는 화면을 60프레임으로 다시 그릴 이유가 없다.
   q<HTMLButtonElement>('[data-bm-run]').addEventListener('click', () => { void runTimeline(); });
   q<HTMLButtonElement>('[data-bm-close]').addEventListener('click', () => { close(); });
   q<HTMLButtonElement>('[data-bm-new]').addEventListener('click', () => {
@@ -1242,6 +1440,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     host.focus();
   }
   function close() {
+    setPlaying(false);
     host.hidden = true;
     document.body.classList.remove('bm-open');
   }

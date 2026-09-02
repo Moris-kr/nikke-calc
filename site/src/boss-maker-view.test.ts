@@ -235,6 +235,56 @@ describe('보스 메이커 화면', () => {
     expect(host.querySelectorAll('.bm-shape')).toHaveLength(1);
   });
 
+  it('재생 단추가 커서를 실제 시간대로 흘린다', async () => {
+    // 프레임은 시험이 손으로 돌린다 — jsdom에는 화면이 없어 rAF가 오지 않는다.
+    let frame: FrameRequestCallback | null = null;
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => { frame = cb; return 1; });
+    vi.stubGlobal('cancelAnimationFrame', () => { frame = null; });
+    let now = 0;
+    vi.stubGlobal('performance', { now: () => now });
+
+    const handle = mount();
+    handle.open();
+    // 돌려 본 적이 없으면 흘릴 시간이 없다 — 단추가 잠겨 있다.
+    expect(host.querySelector<HTMLButtonElement>('[data-bm-play]')!.disabled).toBe(true);
+
+    host.querySelector<HTMLButtonElement>('[data-bm-run]')!.click();
+    await new Promise((resolve) => { setTimeout(resolve, 0); });
+
+    const play = () => host.querySelector<HTMLButtonElement>('[data-bm-play]')!;
+    const clock = () => host.querySelector('[data-bm-clock]')!.textContent;
+    expect(play().disabled).toBe(false);
+    play().click();
+    expect(play().textContent).toBe('❚❚');
+
+    // 0.2초가 흐르면 ×2 속도로 0.4초를 간다.
+    now = 200;
+    frame!(now);
+    expect(clock()).toBe('0.4초');
+
+    // 탭을 오래 비웠다 돌아와도 한 프레임 몫(0.25초 × 2배 = 0.5초)만 흐른다 —
+    // 안 자르면 돌아오는 순간 재생 헤드가 몇십 초를 건너뛴다.
+    now = 60_000;
+    frame!(now);
+    expect(clock()).toBe('0.9초');
+
+    play().click();
+    expect(play().textContent).toBe('▶');
+    // 멈춘 뒤에는 프레임이 와도 움직이지 않는다.
+    expect(frame).toBeNull();
+  });
+
+  it('시간 줄이 족자보다 위에 선다', () => {
+    const handle = mount();
+    handle.open();
+    const names = [...host.querySelectorAll('.bm-track .bm-track-name')]
+      .map((node) => node.textContent?.trim() ?? '');
+    // 아래 줄들이 모두 이 시각을 기준으로 읽히므로 맨 위여야 한다.
+    expect(names[0]).toContain('초');
+    expect(names[1]).toBe('족자');
+    expect(names[2]).toBe('속저');
+  });
+
   it('그린 것은 저장돼 다시 열어도 남는다', () => {
     const first = mount();
     first.open();

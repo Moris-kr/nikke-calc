@@ -1732,10 +1732,9 @@ body.bm-open { overflow: hidden; }
 .bm-center line { stroke: var(--cyan); stroke-width: 2; }
 .bm-center.is-on line { stroke-width: 3; }
 .bm-shield { opacity: .18; }
-.bm-spread { fill: none; stroke: rgba(69,214,208,.55); stroke-width: 1.5;
-  stroke-dasharray: 5 4; }
-.bm-blast { fill: rgba(255,119,135,.07); stroke: rgba(255,119,135,.5); stroke-width: 1;
-  stroke-dasharray: 2 5; }
+/* 색은 니케마다 요소에서 받는다 — 원이 한 점에 포개지므로 색으로만 갈린다. */
+.bm-spread { fill: none; stroke-width: 1.5; stroke-dasharray: 5 4; opacity: .9; }
+.bm-blast { fill: none; stroke-width: 1; stroke-dasharray: 2 6; opacity: .45; }
 .bm-handle { fill: var(--cyan); cursor: nwse-resize; }
 
 .bm-scrub { display: flex; align-items: center; gap: 10px; }
@@ -1854,3 +1853,38 @@ body.bm-open { overflow: hidden; }
      적으면 뒤에 오는 기본 규칙에 덮인다. */
   .bm-share { grid-template-columns: 1fr; padding: 12px; }
 }
+
+/* 시간 줄 — 족자·속저와 같은 자로 그린다. 위아래가 같은 시각을 가리켜야 눈이 이어진다. */
+.bm-track-name.time { display: flex; align-items: center; gap: 5px; padding-left: 0; }
+.bm-play, .bm-rate { flex: none; padding: 0; border: 1px solid rgba(69,214,208,.4);
+  border-radius: 6px; background: rgba(69,214,208,.12); color: var(--cyan);
+  font: 800 10px inherit; cursor: pointer;
+  transition: background .18s cubic-bezier(.2,.8,.2,1); }
+.bm-play { width: 26px; height: 20px; font-size: 9px; }
+.bm-rate { width: 26px; height: 20px; }
+.bm-play:hover:not(:disabled), .bm-rate:hover { background: rgba(69,214,208,.24); }
+.bm-play:disabled { opacity: .35; cursor: default; }
+.bm-clock { flex: 1; color: var(--amber); font: 800 10px ui-monospace, monospace; text-align: right; }
+.bm-lane.time { background: rgba(4,12,21,.5); cursor: pointer; }
+.bm-tick { position: absolute; top: 60%; bottom: 0; width: 1px;
+  background: rgba(146,176,201,.25); }
+.bm-tick.major { top: 30%; background: rgba(146,176,201,.45); }
+.bm-tick.major[data-label]::after { content: attr(data-label); position: absolute;
+  left: 3px; top: -2px; color: var(--muted); font: 700 9px ui-monospace, monospace; }
+/* 재생 헤드 — 잡기 쉽도록 실제 폭보다 넓은 손잡이를 둔다. */
+.bm-playhead { position: absolute; top: -2px; bottom: -2px; width: 2px; margin-left: -1px;
+  background: var(--amber); box-shadow: 0 0 8px rgba(255,191,60,.7); cursor: ew-resize; }
+.bm-playhead::before { content: ''; position: absolute; inset: 0 -6px; }
+.bm-playhead::after { content: ''; position: absolute; left: -4px; top: -4px;
+  width: 10px; height: 10px; border-radius: 50%; background: var(--amber); }
+.bm-playhead:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+/* 니케 줄 오른쪽 끝의 딜. 이 보스로 잰 값이다. */
+.bm-track-dmg { width: 62px; flex: none; text-align: right; color: var(--muted);
+  font: 800 10px ui-monospace, monospace; }
+.bm-track-dmg.is-top { color: var(--amber); }
+.bm-stage-toggle { display: flex; align-items: center; gap: 5px; color: var(--muted);
+  font: 700 11px inherit; cursor: pointer; }
+.bm-stage-toggle input { width: 13px; height: 13px; min-height: 0; accent-color: var(--cyan); }
+.bm-aim-lead { stroke-width: 1; stroke-dasharray: 2 3; opacity: .8; }
+.bm-aim-label { font: 700 11px ui-monospace, monospace; paint-order: stroke;
+  stroke: rgba(3,8,14,.85); stroke-width: 3px; }
