@@ -70,6 +70,44 @@ describe('접속자 수 인사', () => {
     expect(fetcher.mock.calls.length).toBeLessThanOrEqual(1);   // 시작할 때 한 번뿐
   });
 
+  // 새로고침 한 번이 새 사람 하나가 되면, 혼자 다섯 번 눌러도 다섯 명이 된다.
+  const idOf = async (store: Storage | null): Promise<string> => {
+    const fetcher = okFetch(1);
+    const handle = startPresence('https://share.example', () => undefined,
+      { fetcher: fetcher as unknown as typeof fetch, doc: fakeDoc(), store });
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalled());
+    handle.stop();
+    const [, init] = fetcher.mock.calls[0] as unknown as [string, RequestInit];
+    return (JSON.parse(String(init.body)) as { id: string }).id;
+  };
+
+  const memStore = (): Storage => {
+    const map = new Map<string, string>();
+    return {
+      getItem: (k: string) => map.get(k) ?? null,
+      setItem: (k: string, v: string) => { map.set(k, v); },
+      removeItem: (k: string) => { map.delete(k); },
+    } as unknown as Storage;
+  };
+
+  it('새로고침해도 같은 표식으로 인사한다', async () => {
+    const store = memStore();
+    expect(await idOf(store)).toBe(await idOf(store));
+  });
+
+  it('다른 탭은 다른 표식이다', async () => {
+    expect(await idOf(memStore())).not.toBe(await idOf(memStore()));
+  });
+
+  it('저장이 막혀 있어도 인사는 나간다', async () => {
+    const locked = {
+      getItem: () => { throw new Error('막힘'); },
+      setItem: () => { throw new Error('막힘'); },
+    } as unknown as Storage;
+    expect(await idOf(locked)).toMatch(/^[a-z0-9]{20,32}$/i);
+    expect(await idOf(null)).toMatch(/^[a-z0-9]{20,32}$/i);
+  });
+
   it('주소가 비어 있으면 아무것도 하지 않는다', () => {
     const fetcher = okFetch(1);
     startPresence('  ', () => undefined,
