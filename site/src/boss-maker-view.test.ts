@@ -512,6 +512,44 @@ describe('보스 메이커 화면', () => {
     expect(host.hidden).toBe(true);
   });
 
+  it('안내는 닫으면 다시 뜨지 않는다', () => {
+    // 같은 말을 매번 읽히는 것은 안내가 아니라 소음이다.
+    const first = mount();
+    first.open();
+    expect(host.querySelector<HTMLElement>('.bm-callout')!.hidden).toBe(false);
+    host.querySelector<HTMLButtonElement>('[data-bm-callout-close]')!.click();
+    expect(host.querySelector<HTMLElement>('.bm-callout')!.hidden).toBe(true);
+
+    // 다시 열어도 닫힌 채다.
+    host.replaceChildren();
+    const again = mount();
+    again.open();
+    expect(host.querySelector<HTMLElement>('.bm-callout')!.hidden).toBe(true);
+  });
+
+  it('족자·속저 구간에는 무대에 무슨 구간인지 적는다', () => {
+    // 족자에는 보스가 사라져 무대가 텅 빈다.
+    const handle = mount();
+    applied = { ...battle(), immuneWindows: [{ from: 0, to: 10 }] };
+    handle.open();
+    expect(host.querySelector('.bm-phase-mark')?.textContent).toBe('족자');
+    expect(host.querySelector('.bm-phase-sub')?.textContent).toContain('평타가 빗나갑니다');
+
+    applied = { ...battle(), elementWindows: [{ from: 0, to: 10, code: '철갑' }] };
+    handle.open();
+    expect(host.querySelector('.bm-phase-mark')?.textContent).toBe('속저 · 철갑');
+
+    // 둘이 겹치면 둘 다 적는다 — 족자만 적으면 속저가 걸린 줄 모른다.
+    applied = {
+      ...battle(),
+      immuneWindows: [{ from: 0, to: 10 }],
+      elementWindows: [{ from: 0, to: 10, code: '철갑' }],
+    };
+    handle.open();
+    expect(host.querySelector('.bm-phase-mark')?.textContent).toContain('족자');
+    expect(host.querySelector('.bm-phase-mark')?.textContent).toContain('속저 · 철갑');
+  });
+
   it('피드백 길이 없는 빌드에서는 단추를 안 낸다', () => {
     // 공유 서버 주소가 없으면 피드백 창 자체가 없다 — 누를 수 없는 단추를 남기지 않는다.
     const handle = mount();

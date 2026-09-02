@@ -361,6 +361,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
             <b>한창 개발중이기에 많은 피드백이 필요합니다.</b>
             <span>피드백 기능을 활용해주세요!</span>
             <button type="button" class="bm-callout-go" data-bm-feedback hidden>피드백 남기기</button>
+            <button type="button" class="bm-callout-x" data-bm-callout-close aria-label="안내 닫기" title="닫기">✕</button>
           </p>
           <div class="bm-squad-filter" data-bm-filter hidden></div>
           <div class="bm-stage-head">
@@ -564,6 +565,28 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
         mark.append(line);
       }
       stage.append(mark);
+    }
+
+    // 족자에는 보스가 사라져 무대가 텅 빈다 — 무슨 구간인지 글씨로 적어 준다.
+    if (phase.immune || phase.shield) {
+      const mark = svgEl('text');
+      attrs(mark, { x: design.canvas.w / 2, y: 52, 'text-anchor': 'middle' });
+      mark.setAttribute('class', 'bm-phase-mark');
+      mark.setAttribute('fill', phase.immune ? '#8ea9c4' : (ELEMENT_COLOR[phase.shield!] ?? '#8ab'));
+      // 둘이 겹치면 둘 다 적는다 — 족자만 적으면 속저가 걸린 줄 모른다.
+      mark.textContent = [phase.immune ? '족자' : '', phase.shield ? `속저 · ${phase.shield}` : '']
+        .filter(Boolean).join('   ');
+      stage.append(mark);
+
+      const sub = svgEl('text');
+      attrs(sub, { x: design.canvas.w / 2, y: 74, 'text-anchor': 'middle' });
+      sub.setAttribute('class', 'bm-phase-sub');
+      sub.setAttribute('fill', 'rgba(234,242,248,.75)');
+      sub.textContent = [
+        phase.immune ? '평타가 빗나갑니다' : '',
+        phase.shield ? `${phase.shield}에 우월한 니케의 딜만 통합니다` : '',
+      ].filter(Boolean).join(' · ');
+      stage.append(sub);
     }
 
     const hits = drawImpacts(phase.immune);
@@ -2319,6 +2342,23 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   showHits.addEventListener('change', redrawImpacts);
   pileHits.addEventListener('change', redrawImpacts);
   // 창을 닫으면 재생도 멈춘다 — 안 보이는 화면을 60프레임으로 다시 그릴 이유가 없다.
+  // 안내는 한 번 닫으면 다시 안 띄운다 — 같은 말을 매번 읽히는 것은 안내가 아니라 소음이다.
+  const CALLOUT_KEY = 'nikke-boss-callout-hidden';
+  const callout = q<HTMLElement>('.bm-callout');
+  try {
+    callout.hidden = deps.storage()?.getItem(CALLOUT_KEY) === '1';
+  } catch {
+    /* 저장소를 못 읽으면 그냥 보여 준다 */
+  }
+  q<HTMLButtonElement>('[data-bm-callout-close]').addEventListener('click', () => {
+    callout.hidden = true;
+    try {
+      deps.storage()?.setItem(CALLOUT_KEY, '1');
+    } catch {
+      /* 저장 못 해도 이번 창에서는 닫힌 채로 둔다 */
+    }
+  });
+
   // 피드백 창은 이 화면 바깥에 있다 — 창을 닫고 그쪽을 연다.
   const feedbackButton = q<HTMLButtonElement>('[data-bm-feedback]');
   feedbackButton.hidden = deps.openFeedback === undefined;

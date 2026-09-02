@@ -2034,7 +2034,8 @@ body.bm-open { overflow: hidden; }
 .bm-bar.is-part { top: 3px; height: 16px; }
 .bm-when { display: flex; flex-wrap: wrap; gap: 5px; }
 .bm-hud-row.is-score { padding-top: 3px; margin-top: 2px; border-top: 1px dashed var(--line); }
-.bm-hud-tag { flex: 1; color: var(--muted); font: 700 9px inherit; }
+/* 판이 132px뿐이라 「파괴 점수」가 「파괴 점 / 수」로 접혔다 — 이름은 안 접는다. */
+.bm-hud-tag { flex: 1; color: var(--muted); font: 700 9px inherit; white-space: nowrap; }
 .bm-hud-row.is-score .bm-hud-dmg { color: #ffb347; }
 
 /* 사용설명서 — 창을 또 띄우지 않고 이 화면 안에서 덮는다. */
@@ -2087,7 +2088,17 @@ body.bm-open { overflow: hidden; }
   border: 1px solid rgba(255,191,60,.28); background: rgba(255,191,60,.09);
   color: #ffe1a8; font-size: 11px; line-height: 1.5; word-break: keep-all; }
 .bm-callout b { color: var(--amber); }
+.bm-callout-x { width: 20px; height: 20px; flex: none; padding: 0; border: none;
+  border-radius: 50%; background: transparent; color: #ffe1a8; font: 800 11px inherit;
+  cursor: pointer; opacity: .7; }
+.bm-callout-x:hover { opacity: 1; background: rgba(255,191,60,.18); }
 .bm-callout-go { padding: 3px 10px; border: 1px solid rgba(255,191,60,.5); border-radius: 999px;
   background: rgba(255,191,60,.16); color: var(--amber); font: 800 10px inherit; cursor: pointer;
   transition: background .18s cubic-bezier(.2,.8,.2,1); }
 .bm-callout-go:hover { background: rgba(255,191,60,.3); }
+
+/* 족자·속저를 무대 위에 글씨로 적는다. 족자에는 보스가 사라져 아무 정보가 없다. */
+.bm-phase-mark { font: 800 26px system-ui; letter-spacing: .06em; paint-order: stroke;
+  stroke: rgba(3,8,14,.8); stroke-width: 5px; }
+.bm-phase-sub { font: 700 12px system-ui; paint-order: stroke;
+  stroke: rgba(3,8,14,.8); stroke-width: 4px; }
