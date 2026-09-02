@@ -4,8 +4,8 @@
     "element_code": "풍압",
     "class": "방어형",
     "manufacturer": "미실리스",
-    "squad": "",
-    "squad_name": "",
+    "squad": "Matis",
+    "squad_name": "메티스",
     "burst_stage": "3",
     "burst_cooldown": 40.0,
     "weapon_type": "SG",
@@ -14,10 +14,9 @@
     "fire_rate": 1.5,
     "pellets": 10,
     "muzzles": 1,
-    "damage_coeff": 205.2,
+    "damage_coeff": 201.5,
     "core_dmg_mult": 200.0,
-    "preview": true,
-    "fabricated": true
+    "preview": true
   },
   "라피": {
     "rarity": "SR",

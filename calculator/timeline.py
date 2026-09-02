@@ -930,8 +930,18 @@ class CharState:
         else:
             P_core = 0.0
         expected = cfg.get("rng_mode") == "expected"
-        # P_core가 1이면 판정할 게 없으므로 기대값 모드에서도 코어 히트로 남긴다
-        is_core = (P_core >= 1.0) if expected else (random.random() < P_core)
+
+        # 펠릿 분할. 지금까지 차지 무기는 전부 SR·RL(펠릿 1)이라 나눌 일이 없었지만,
+        # **차지 샷건**이 나왔다 — 드레이크 : 그레이트 빌런의 「오버 오버 드라이브」는
+        # 샷건인 채로 차지하고 펠릿이 15개다. 자동 사격 쪽과 같은 규칙으로 나눈다:
+        # `damage_coeff`를 펠릿 수로 쪼개고 코어 판정을 펠릿마다 따로 한다.
+        # 펠릿 1이면 `split == 1`이라 `coeff=None`으로 떨어져 예전 경로 그대로다.
+        pellet_fixed = buffs.get("pellet_count_fixed", 0.0)
+        if pellet_fixed > 0:
+            split = max(1, int(round(pellet_fixed)))
+        else:
+            split = max(1, self.pellets + int(round(buffs.get("pellet_count", 0.0))))
+        hit_count = split * self.muzzles
 
         debug_char = cfg.get("_debug_char")
         in_debug_window = (
@@ -940,39 +950,44 @@ class CharState:
         )
 
         is_full_burst = bm.state.get("full_burst", False)
-        ht = default_hit_type(
-            is_core=is_core,
-            core_prob=(P_core if expected else None),
-            is_full_burst=is_full_burst,
-            is_optimal_range=is_optimal,
-            is_normal_atk=not self._wc_is_skill_damage(),
-            is_weapon_mode_skill=self._wc_is_skill_damage(),
-            is_full_charge=is_full,
-            is_pierce_damage=bool(buffs.get("pierce_enabled")),
-            is_armor_break_damage=bool(buffs.get("armor_break_enabled")),
-            is_projectile_explosion=(self.base_weapon_type == "RL"),
-            _debug_factors=in_debug_window,
-        )
         if in_debug_window:
             print(f"t={t:.3f}s  base_atk={self.base_atk:,}  enemy_def={enemy.get('def', 31784):,}")
-        res = calc_damage(
-            base_atk=self.base_atk, buffs=buffs, weapon=self.weapon,
-            hit_type=ht, enemy_def=enemy.get("def", 31784),
-            expected=expected,
-        )
+        for _ in range(hit_count):
+            # 코어는 펠릿마다 따로 굴린다 (P_core가 1이면 기대값 모드에서도 코어로 남긴다).
+            is_core = (P_core >= 1.0) if expected else (random.random() < P_core)
+            ht = default_hit_type(
+                is_core=is_core,
+                core_prob=(P_core if expected else None),
+                is_full_burst=is_full_burst,
+                is_optimal_range=is_optimal,
+                is_normal_atk=not self._wc_is_skill_damage(),
+                is_weapon_mode_skill=self._wc_is_skill_damage(),
+                is_full_charge=is_full,
+                is_pierce_damage=bool(buffs.get("pierce_enabled")),
+                is_armor_break_damage=bool(buffs.get("armor_break_enabled")),
+                is_projectile_explosion=(self.base_weapon_type == "RL"),
+                # 표기 대미지는 **한 발** 값이라 펠릿 수로 나눠 태운다(자동 사격과 같다).
+                coeff=(self.weapon["damage_coeff"] / split) if split > 1 else None,
+                _debug_factors=in_debug_window,
+            )
+            res = calc_damage(
+                base_atk=self.base_atk, buffs=buffs, weapon=self.weapon,
+                hit_type=ht, enemy_def=enemy.get("def", 31784),
+                expected=expected,
+            )
+            if is_full:
+                tag = "core+full_charge_hit" if is_core else "full_charge_hit"
+            else:
+                # 논차지 샷은 일반 발사와 같은 취급 (차지 배율 없음)
+                tag = "core" if is_core else "normal"
+            shot_damage = _apply_hit_coeff(res["damage"], cfg, self.weapon_type,
+                                           self._wc_is_skill_damage())
+            events.append(HitEvent(t=t, caster=self.name, damage=shot_damage,
+                                   is_crit=res["is_crit"], hit_tag=tag,
+                                   **({"skill_name": self._wc_name}
+                                      if self._wc_is_skill_damage() else {})))
         if in_debug_window:
             print()
-        if is_full:
-            tag = "core+full_charge_hit" if is_core else "full_charge_hit"
-        else:
-            # 논차지 샷은 일반 발사와 같은 취급 (차지 배율 없음)
-            tag = "core" if is_core else "normal"
-        shot_damage = _apply_hit_coeff(res["damage"], cfg, self.weapon_type,
-                                       self._wc_is_skill_damage())
-        events.append(HitEvent(t=t, caster=self.name, damage=shot_damage,
-                               is_crit=res["is_crit"], hit_tag=tag,
-                               **({"skill_name": self._wc_name}
-                                  if self._wc_is_skill_damage() else {})))
         events.extend(self._pierce_extra(
             ht=ht, base_damage=shot_damage, is_crit=res["is_crit"], buffs=buffs,
             enemy=enemy, cfg=cfg, expected=expected, t=t, tag=tag,
@@ -1106,7 +1121,6 @@ class CharState:
         wc_full_charge_mult = wc_eff.get("full_charge_mult", 100.0)
         wc_reload_time = wc_eff.get("reload_time", self.weapon.get("reload_time", 1.5))
         wc_core_dmg_mult = wc_eff.get("core_dmg_mult", self.weapon.get("core_dmg_mult", 200.0))
-        wc_post_fire_delay = wc_eff.get("post_fire_delay", wc_mech.get("post_fire_delay", 0.0))
 
         # 변경 무기의 발사 메카닉. CDN에 변경 무기 레코드가 없어 캐릭터별 계층이 비므로
         # 수동 실측(weapon_delays `_weapon_change`) → 스킬 텍스트에 명시된 값(wc_eff)
@@ -1118,6 +1132,10 @@ class CharState:
         wc_warmup_bullets = float(_pick("warmup_bullets", wc_over, wc_eff, wc_mech, default=1.0))
         wc_pellets = int(_pick("pellets", wc_over, wc_eff, wc_mech, default=1))
         wc_muzzles = int(_pick("muzzles", wc_over, wc_eff, default=1))
+        # 발사 후 딜레이도 실측 계층(`weapon_delays._weapon_change`)이 먼저다 —
+        # 이 파일이 애초에 딜레이 실측을 모아 두는 곳인데 여기만 안 닿고 있었다.
+        wc_post_fire_delay = _pick("post_fire_delay", wc_over, wc_eff,
+                                   default=wc_mech.get("post_fire_delay", 0.0))
 
         # 임시 무기 dict 구성 (calc_damage가 weapon["full_charge_mult"] 등을 참조)
         wc_weapon_dict = {
