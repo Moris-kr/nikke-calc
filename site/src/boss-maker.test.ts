@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  aimPoint, breakTime, coreHitChance, derivedEnemy, derivedPartBreakInterval, distance,
-  emptyDesign, hitTest, outerRadius, parseDesign, partBreaks, partsInBlast, phaseAt,
-  spreadRadius, visibleAt, type AccuracyTable, type BossPart, type BossShape,
+  activeDesign, aimPoint, BOSS_PREFIX, breakTime, copyDesign, coreHitChance, decodeBossCode,
+  derivedEnemy, derivedPartBreakInterval, distance, dropDesign, emptyDesign, emptyLibrary,
+  encodeBossCode, hitTest, outerRadius, parseDesign, parseLibrary, partBreaks, partsInBlast,
+  phaseAt, putDesign, spreadRadius, visibleAt,
+  type AccuracyTable, type BossPart, type BossShape,
 } from './boss-maker';
 
 // 계산기 본체(`data/weapon_mechanics.json`)와 같은 표. 설정에서 그대로 받아 온다.
@@ -143,12 +145,123 @@ describe('보스 메이커', () => {
     expect(visibleAt(items, 60).map((s) => s.id)).toEqual(['always', '2단계']);
   });
 
+  it('저장본을 여러 벌 두고 오간다', () => {
+    const library = emptyLibrary();
+    expect(library.designs).toHaveLength(1);
+    expect(activeDesign(library).id).toBe(library.activeId);
+
+    const second = emptyDesign('2페이즈');
+    const two = putDesign(library, second);
+    expect(two.designs).toHaveLength(2);
+    // 넣은 것을 곧바로 펴 준다 — 만들자마자 그리려는 것이기 때문이다.
+    expect(activeDesign(two).name).toBe('2페이즈');
+
+    // 같은 id로 다시 넣으면 덮어쓴다(뒤에 또 붙지 않는다).
+    const edited = { ...second, name: '2페이즈 고침' };
+    const still = putDesign(two, edited);
+    expect(still.designs).toHaveLength(2);
+    expect(activeDesign(still).name).toBe('2페이즈 고침');
+  });
+
+  it('베끼면 이름에 사본을 붙이고, 마지막 하나는 지워도 빈 판이 남는다', () => {
+    const first = emptyDesign('1페이즈');
+    first.parts.push(part({ name: '왼팔' }));
+    const library = putDesign(emptyLibrary(), first);
+
+    const copied = copyDesign(library, first.id);
+    expect(copied.designs).toHaveLength(3);
+    expect(activeDesign(copied).name).toBe('1페이즈 사본');
+    // 베낀 것은 원본과 남남이다 — 한쪽을 고쳐도 다른 쪽이 안 따라간다.
+    expect(activeDesign(copied).parts[0]!.name).toBe('왼팔');
+    expect(activeDesign(copied).id).not.toBe(first.id);
+
+    let left = dropDesign(copied, copied.designs[0]!.id);
+    left = dropDesign(left, left.designs[0]!.id);
+    left = dropDesign(left, left.designs[0]!.id);
+    expect(left.designs).toHaveLength(1);
+    expect(left.designs[0]!.shapes).toEqual([]);
+  });
+
+  it('보스 하나만 두던 옛 저장본도 저장함으로 받아 준다', () => {
+    // 그려 둔 것이 사라지면 안 된다 — 한 벌짜리 저장함으로 감싼다.
+    const old = JSON.stringify({ ...emptyDesign('옛 보스'), id: undefined });
+    const library = parseLibrary(old)!;
+    expect(library.designs).toHaveLength(1);
+    expect(library.designs[0]!.name).toBe('옛 보스');
+    expect(library.activeId).toBe(library.designs[0]!.id);
+
+    expect(parseLibrary(null)).toBeNull();
+    expect(parseLibrary('{{')).toBeNull();
+    expect(parseLibrary('{"designs":[]}')).toBeNull();
+  });
+
+  it('보스를 코드 한 줄로 주고받는다', () => {
+    const design = emptyDesign('그레이브디거');
+    design.shapes.push(shape({ kind: 'triangle', x: 300, y: 200, w: 120, h: 90, rotation: 30 }));
+    design.shapes.push(shape({ id: 's2', kind: 'rect', from: 60, to: 120 }));
+    design.parts.push(part({ name: '왼팔', x: 500, y: 300, hp: 1_200_000 }));
+    design.core = { x: 480, y: 260, d: 64 };
+    design.center = { x: 480, y: 320 };
+    design.explosion['리타'] = 90;
+
+    const code = encodeBossCode(design);
+    expect(code.startsWith(BOSS_PREFIX)).toBe(true);
+    const back = decodeBossCode(code, ['리타', '크라운']);
+
+    expect(back.name).toBe('그레이브디거');
+    expect(back.shapes.map((s) => s.kind)).toEqual(['triangle', 'rect']);
+    expect(back.shapes[0]!.rotation).toBe(30);
+    expect(back.shapes[1]!.from).toBe(60);
+    expect(back.shapes[1]!.to).toBe(120);
+    expect(back.parts[0]).toMatchObject({ name: '왼팔', hp: 1_200_000, x: 500, y: 300 });
+    expect(back.core).toEqual({ x: 480, y: 260, d: 64 });
+    expect(back.center).toEqual({ x: 480, y: 320 });
+    // 폭발 반경은 이름 해시로 실어 보내고, 받는 쪽 목록에서 이름을 되찾는다.
+    expect(back.explosion).toEqual({ 리타: 90 });
+    // 받은 것은 남의 저장본이 아니라 내 새 저장본이다.
+    expect(back.id).not.toBe(design.id);
+  });
+
+  it('밑그림은 코드에 담기지 않는다', () => {
+    // 데이터 URL이라 그림 하나로 코드가 수십 KB가 된다 — 붙여넣는 자리에서 잘린다.
+    const design = emptyDesign('밑그림 있음');
+    design.image = { src: `data:image/png;base64,${'A'.repeat(5000)}`, x: 0, y: 0, w: 960, h: 620, opacity: 0.5 };
+    const code = encodeBossCode(design);
+    expect(code.length).toBeLessThan(200);
+    expect(decodeBossCode(code).image).toBeNull();
+  });
+
+  it('남이 만든 코드가 화면을 깨뜨리지 않는다', () => {
+    expect(() => decodeBossCode('')).toThrow('보스 코드를 입력해 주세요');
+    expect(() => decodeBossCode('NK3-abc')).toThrow('«NK5-»로 시작');
+    expect(() => decodeBossCode('NK5-!!!!')).toThrow('읽지 못했습니다');
+
+    // 말이 안 되는 값은 조용히 잘라 낸다.
+    const wild = `${BOSS_PREFIX}${btoa(JSON.stringify({
+      n: 'x'.repeat(200),
+      s: [{ k: 99, x: 1e9, y: -1e9, w: -5, h: 0 }, { k: 0, x: 10, y: 10, w: 40, h: 40, r: 9999 }],
+      p: new Array(100).fill({ k: 1, x: 0, y: 0, w: 10, h: 10, hp: -3 }),
+      k: [0, 0, 99_999],
+    })).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')}`;
+    const back = decodeBossCode(wild);
+    expect(back.name).toHaveLength(24);
+    // 크기가 0인 도형은 버리고, 말도 안 되는 기울기는 -180~180으로 자른다.
+    expect(back.shapes).toHaveLength(1);
+    expect(back.shapes[0]!.rotation).toBe(180);
+    expect(back.parts.length).toBeLessThanOrEqual(24);
+    expect(back.parts[0]!.hp).toBe(0);
+    // 400px를 넘는 코어는 안 받는다.
+    expect(back.core).toBeNull();
+  });
+
   it('저장본이 깨져 있으면 화면을 끌고 가지 않는다', () => {
     expect(parseDesign(null)).toBeNull();
     expect(parseDesign('{{')).toBeNull();
     expect(parseDesign('{"version":2,"shapes":[]}')).toBeNull();
     const saved = parseDesign('{"version":1,"name":"1페이즈","shapes":[]}');
     expect(saved?.name).toBe('1페이즈');
+    // id가 없던 시절의 저장본에는 새로 붙여 준다 — 저장함이 그것으로 판을 가른다.
+    expect(saved?.id).toMatch(/^boss_/);
     // 빠진 칸은 빈 판의 값으로 채운다 — 옛 저장본에도 새 칸이 생긴다.
     expect(saved?.parts).toEqual([]);
     expect(saved?.canvas).toEqual({ w: 960, h: 620 });

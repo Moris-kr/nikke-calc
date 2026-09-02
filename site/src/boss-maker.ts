@@ -29,6 +29,7 @@
  * 곳에 집중»으로 본다 — 실제보다 코어 적중이 후하게 잡히는 쪽이며, 화면에 그렇게 적는다.
  */
 
+import { fromBase64Url, nameHash, toBase64Url } from './share-code';
 import type { ElementCode } from './types';
 
 export type ShapeKind = 'circle' | 'rect' | 'triangle';
@@ -82,6 +83,8 @@ export interface BossImage {
 
 export interface BossDesign {
   version: 1;
+  /** 저장본을 가르는 열쇠. 이름은 겹쳐도 되지만 이것은 겹치지 않는다 */
+  id: string;
   name: string;
   canvas: { w: number; h: number };
   image: BossImage | null;
@@ -100,6 +103,7 @@ export const DEFAULT_CORE_PX = 52;
 export function emptyDesign(name = '새 보스'): BossDesign {
   return {
     version: 1,
+    id: newId('boss'),
     name,
     canvas: { ...DEFAULT_CANVAS },
     image: null,
@@ -299,22 +303,279 @@ export const ELEMENT_COLOR: Record<string, string> = {
 export function parseDesign(raw: string | null): BossDesign | null {
   if (!raw) return null;
   try {
-    const value = JSON.parse(raw) as Partial<BossDesign>;
-    if (!value || value.version !== 1 || !Array.isArray(value.shapes)) return null;
-    const base = emptyDesign(typeof value.name === 'string' ? value.name : '새 보스');
-    return {
-      ...base,
-      ...value,
-      version: 1,
-      canvas: value.canvas ?? base.canvas,
-      shapes: value.shapes ?? [],
-      parts: Array.isArray(value.parts) ? value.parts : [],
-      explosion: value.explosion ?? {},
-      core: value.core ?? null,
-      center: value.center ?? null,
-      image: value.image ?? null,
-    };
+    return reviveDesign(JSON.parse(raw));
   } catch {
     return null;
   }
+}
+
+/** 이미 풀어 놓은 값 하나를 저장본으로. 빠진 칸은 빈 판의 값으로 채운다. */
+function reviveDesign(value: unknown): BossDesign | null {
+  const saved = value as Partial<BossDesign> | null;
+  if (!saved || saved.version !== 1 || !Array.isArray(saved.shapes)) return null;
+  const base = emptyDesign(typeof saved.name === 'string' ? saved.name : '새 보스');
+  return {
+    ...base,
+    ...saved,
+    version: 1,
+    // 옛 저장본에는 id가 없다 — 그때는 새로 붙인다.
+    id: typeof saved.id === 'string' && saved.id ? saved.id : base.id,
+    canvas: saved.canvas ?? base.canvas,
+    shapes: saved.shapes ?? [],
+    parts: Array.isArray(saved.parts) ? saved.parts : [],
+    explosion: saved.explosion ?? {},
+    core: saved.core ?? null,
+    center: saved.center ?? null,
+    image: saved.image ?? null,
+  };
+}
+
+// ── 저장본 여러 벌 ──────────────────────────────────────────────────────────
+// 보스는 하나만 만들지 않는다 — 레이드 보스마다, 페이즈마다 다른 판을 두고 오간다.
+
+export interface BossLibrary {
+  designs: BossDesign[];
+  /** 지금 보고 있는 저장본. 목록이 비면 빈 문자열이다 */
+  activeId: string;
+}
+
+export const emptyLibrary = (): BossLibrary => {
+  const first = emptyDesign();
+  return { designs: [first], activeId: first.id };
+};
+
+/**
+ * 저장함을 읽는다. **옛 단일 저장본도 받아 준다** — 보스 하나만 두던 시절에 그려 둔
+ * 것이 사라지면 안 되므로, 그 모양이면 한 벌짜리 저장함으로 감싼다.
+ */
+export function parseLibrary(raw: string | null): BossLibrary | null {
+  if (!raw) return null;
+  try {
+    const value = JSON.parse(raw) as { designs?: unknown[]; activeId?: unknown } | null;
+    if (!value) return null;
+    if (!Array.isArray(value.designs)) {
+      const single = reviveDesign(value);
+      return single ? { designs: [single], activeId: single.id } : null;
+    }
+    const designs = value.designs
+      .map(reviveDesign)
+      .filter((design): design is BossDesign => design !== null);
+    if (designs.length === 0) return null;
+    const activeId = typeof value.activeId === 'string'
+      && designs.some((design) => design.id === value.activeId)
+      ? value.activeId : designs[0]!.id;
+    return { designs, activeId };
+  } catch {
+    return null;
+  }
+}
+
+/** 고른 저장본. 목록이 비었을 리는 없지만, 비면 빈 판을 준다. */
+export const activeDesign = (library: BossLibrary): BossDesign =>
+  library.designs.find((design) => design.id === library.activeId)
+  ?? library.designs[0] ?? emptyDesign();
+
+/** 저장본 하나를 덮어쓴다. 없으면 뒤에 붙인다. */
+export function putDesign(library: BossLibrary, design: BossDesign): BossLibrary {
+  const at = library.designs.findIndex((entry) => entry.id === design.id);
+  const designs = at < 0
+    ? [...library.designs, design]
+    : library.designs.map((entry, index) => (index === at ? design : entry));
+  return { designs, activeId: design.id };
+}
+
+/** 저장본을 지운다. **마지막 하나는 지우지 않고 비운다** — 빈 저장함은 다룰 데가 없다. */
+export function dropDesign(library: BossLibrary, id: string): BossLibrary {
+  const designs = library.designs.filter((design) => design.id !== id);
+  if (designs.length === 0) return emptyLibrary();
+  const activeId = designs.some((design) => design.id === library.activeId)
+    ? library.activeId : designs[0]!.id;
+  return { designs, activeId };
+}
+
+/** 저장본을 통째로 베낀다. 이름 뒤에 «사본»을 붙이고 그것을 편다. */
+export function copyDesign(library: BossLibrary, id: string): BossLibrary {
+  const source = library.designs.find((design) => design.id === id);
+  if (!source) return library;
+  const copy: BossDesign = {
+    ...structuredClone(source),
+    id: newId('boss'),
+    name: `${source.name} 사본`.slice(0, 24),
+  };
+  return { designs: [...library.designs, copy], activeId: copy.id };
+}
+
+// ── 공유 코드 ───────────────────────────────────────────────────────────────
+
+/** 보스 코드 접두사. 조합(NK2)·전투 조건(NK3)·유니온 판(NK4) 다음 자리다. */
+export const BOSS_PREFIX = 'NK5-';
+
+const KINDS: ShapeKind[] = ['circle', 'rect', 'triangle'];
+/** 코드가 감당하는 최대치. 남이 만든 코드가 화면을 못 세우게 하면 안 된다. */
+const CODE_LIMITS = { shapes: 60, parts: 24, name: 24, partName: 16 };
+
+const int = (value: number): number => Math.round(value);
+const tenth = (value: number): number => Math.round(value * 10);
+
+/** 도형 하나를 코드에 실을 짧은 모양으로. 기본값인 칸은 아예 빼서 코드를 줄인다. */
+function packShape(shape: BossShape): Record<string, unknown> {
+  const out: Record<string, unknown> = {
+    k: Math.max(0, KINDS.indexOf(shape.kind)),
+    x: int(shape.x), y: int(shape.y), w: int(shape.w), h: int(shape.h),
+  };
+  if (shape.rotation) out.r = int(shape.rotation);
+  if (shape.from) out.f = tenth(shape.from);
+  if (shape.to) out.t = tenth(shape.to);
+  return out;
+}
+
+function unpackShape(raw: unknown, color: string): BossShape | null {
+  const item = raw as Record<string, unknown> | null;
+  if (!item || typeof item !== 'object') return null;
+  // 크기는 **양수라야 말이 된다** — 0이나 음수로 온 도형은 고쳐 주지 않고 버린다.
+  // (좌표는 화면 밖이어도 끌어오면 되지만, 크기가 없는 도형은 아무것도 아니다.)
+  const size = (value: unknown) => {
+    const n = Number(value);
+    if (!Number.isFinite(n) || n <= 0) return 0;
+    return Math.min(2000, Math.max(4, Math.round(n)));
+  };
+  const w = size(item.w);
+  const h = size(item.h);
+  if (!w || !h) return null;
+  const coord = (value: unknown) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.min(4000, Math.max(-2000, Math.round(n))) : 0;
+  };
+  const seconds = (value: unknown) => {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? Math.min(6000, Math.round(n)) / 10 : undefined;
+  };
+  const shape: BossShape = {
+    id: newId('shape'),
+    kind: KINDS[Number(item.k)] ?? 'circle',
+    x: coord(item.x), y: coord(item.y), w, h,
+    rotation: Number.isFinite(Number(item.r))
+      ? Math.min(180, Math.max(-180, Math.round(Number(item.r)))) : 0,
+    color,
+  };
+  const from = seconds(item.f);
+  const to = seconds(item.t);
+  if (from !== undefined) shape.from = from;
+  if (to !== undefined) shape.to = to;
+  return shape;
+}
+
+/**
+ * 보스 한 벌을 코드 한 줄로.
+ *
+ * **밑그림은 담지 않는다.** 데이터 URL이라 그림 하나로 코드가 수십 KB가 되어 붙여넣는
+ * 자리에서 잘린다 — 받는 쪽은 도형·파츠·코어만 받고 밑그림은 각자 깐다.
+ *
+ * 폭발 반경은 니케 이름 대신 **이름 해시**로 싣는다(조합 코드와 같은 방식) — 한글
+ * 이름을 그대로 실으면 한 글자가 3바이트라 코드가 금세 길어진다.
+ */
+export function encodeBossCode(design: BossDesign): string {
+  const out: Record<string, unknown> = { n: design.name.slice(0, CODE_LIMITS.name) };
+  if (design.canvas.w !== DEFAULT_CANVAS.w || design.canvas.h !== DEFAULT_CANVAS.h) {
+    out.c = [int(design.canvas.w), int(design.canvas.h)];
+  }
+  if (design.shapes.length > 0) {
+    out.s = design.shapes.slice(0, CODE_LIMITS.shapes).map(packShape);
+  }
+  if (design.parts.length > 0) {
+    out.p = design.parts.slice(0, CODE_LIMITS.parts).map((part) => ({
+      ...packShape(part),
+      n: part.name.slice(0, CODE_LIMITS.partName),
+      hp: Math.max(0, int(part.hp)),
+    }));
+  }
+  if (design.core) out.k = [int(design.core.x), int(design.core.y), int(design.core.d)];
+  if (design.center) out.m = [int(design.center.x), int(design.center.y)];
+  const blast: Record<string, number> = {};
+  for (const [name, radius] of Object.entries(design.explosion)) {
+    if (radius > 0) blast[nameHash(name).toString(36)] = int(radius);
+  }
+  if (Object.keys(blast).length > 0) out.e = blast;
+  return BOSS_PREFIX + toBase64Url(new TextEncoder().encode(JSON.stringify(out)));
+}
+
+/**
+ * 보스 코드를 읽는다. 없는 칸은 빈 값으로 두고, 범위를 벗어난 값은 잘라 낸다 —
+ * 남이 만든 코드가 화면을 깨뜨리면 안 된다.
+ *
+ * `catalogNames`를 주면 폭발 반경의 이름 해시를 실제 이름으로 되돌린다. 안 주면
+ * 그 칸만 비운 채 나머지를 살린다.
+ */
+export function decodeBossCode(code: string, catalogNames: string[] = []): BossDesign {
+  const trimmed = code.trim();
+  if (!trimmed) throw new Error('보스 코드를 입력해 주세요.');
+  if (!trimmed.startsWith(BOSS_PREFIX)) {
+    throw new Error('보스 코드는 «NK5-»로 시작합니다.');
+  }
+  let raw: Record<string, unknown>;
+  try {
+    raw = JSON.parse(new TextDecoder().decode(fromBase64Url(trimmed.slice(BOSS_PREFIX.length))));
+  } catch {
+    throw new Error('보스 코드를 읽지 못했습니다. 중간이 잘리지 않았는지 확인해 주세요.');
+  }
+  if (!raw || typeof raw !== 'object') throw new Error('보스 코드를 읽지 못했습니다.');
+
+  const design = emptyDesign(
+    typeof raw.n === 'string' && raw.n.trim() ? raw.n.trim().slice(0, CODE_LIMITS.name) : '받은 보스',
+  );
+  const numbers = (value: unknown, count: number): number[] | null => {
+    if (!Array.isArray(value) || value.length !== count) return null;
+    const out = value.map((entry) => Number(entry));
+    return out.every((entry) => Number.isFinite(entry)) ? out : null;
+  };
+
+  const canvas = numbers(raw.c, 2);
+  if (canvas) {
+    const [w, h] = canvas as [number, number];
+    if (w >= 200 && h >= 200 && w <= 4000 && h <= 4000) {
+      design.canvas = { w: Math.round(w), h: Math.round(h) };
+    }
+  }
+  if (Array.isArray(raw.s)) {
+    for (const item of raw.s.slice(0, CODE_LIMITS.shapes)) {
+      const shape = unpackShape(item, 'rgba(120,150,190,.35)');
+      if (shape) design.shapes.push(shape);
+    }
+  }
+  if (Array.isArray(raw.p)) {
+    for (const item of raw.p.slice(0, CODE_LIMITS.parts)) {
+      const shape = unpackShape(item, '#ffb347');
+      if (!shape) continue;
+      const entry = item as Record<string, unknown>;
+      const hp = Number(entry.hp);
+      design.parts.push({
+        ...shape,
+        id: newId('part'),
+        name: typeof entry.n === 'string' && entry.n.trim()
+          ? entry.n.trim().slice(0, CODE_LIMITS.partName) : `파츠 ${design.parts.length + 1}`,
+        hp: Number.isFinite(hp) && hp > 0 ? Math.min(1e12, Math.round(hp)) : 0,
+      });
+    }
+  }
+  const core = numbers(raw.k, 3);
+  if (core) {
+    const [x, y, d] = core as [number, number, number];
+    if (d >= 4 && d <= 400) design.core = { x: Math.round(x), y: Math.round(y), d: Math.round(d) };
+  }
+  const center = numbers(raw.m, 2);
+  if (center) {
+    const [x, y] = center as [number, number];
+    design.center = { x: Math.round(x), y: Math.round(y) };
+  }
+  if (raw.e && typeof raw.e === 'object' && catalogNames.length > 0) {
+    const byHash = new Map(catalogNames.map((name) => [nameHash(name).toString(36), name]));
+    for (const [key, value] of Object.entries(raw.e as Record<string, unknown>)) {
+      const name = byHash.get(key);
+      const radius = Number(value);
+      if (name && Number.isFinite(radius) && radius > 0) {
+        design.explosion[name] = Math.min(600, Math.round(radius));
+      }
+    }
+  }
+  return design;
 }

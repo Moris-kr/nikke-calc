@@ -10,9 +10,11 @@
  */
 
 import {
-  aimPoint, coreHitChance, DEFAULT_CORE_PX, derivedEnemy, distance, ELEMENT_COLOR, emptyDesign,
-  hitTest, newId, parseDesign, partBreaks, partsInBlast, phaseAt, spreadRadius, visibleAt,
-  type BossDesign, type BossPart, type BossShape, type ShapeKind,
+  activeDesign, aimPoint, coreHitChance, copyDesign, decodeBossCode, DEFAULT_CORE_PX,
+  derivedEnemy, distance, dropDesign, ELEMENT_COLOR, emptyDesign, emptyLibrary, encodeBossCode,
+  hitTest, newId, parseLibrary, partBreaks, partsInBlast, phaseAt, putDesign, spreadRadius,
+  visibleAt,
+  type BossDesign, type BossLibrary, type BossPart, type BossShape, type ShapeKind,
 } from './boss-maker';
 import type {
   BattleSettings, CharacterMeta, CharacterOverrides, ElementCode, ShotTrack,
@@ -42,7 +44,9 @@ export interface BossMakerHandle {
   close: () => void;
 }
 
-const DESIGN_KEY = 'nikke-boss-design-v1';
+/** 저장함. 옛 단일 저장본(`nikke-boss-design-v1`)도 읽어 한 벌짜리로 감싼다. */
+const LIBRARY_KEY = 'nikke-boss-library-v1';
+const LEGACY_KEY = 'nikke-boss-design-v1';
 /** 폭발 반경 기본값(px). 인게임 값이 아니라 «눈으로 맞춰 보는» 자리라 넉넉히 둔다. */
 const DEFAULT_BLAST = 90;
 /** 이 폭보다 좁으면 구성은 못 하게 막는다 — 무대와 판이 함께 서지 못한다. */
@@ -97,7 +101,8 @@ function shapeNode(shape: BossShape): SVGElement {
 }
 
 export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMakerHandle {
-  let design: BossDesign = parseDesign(readSaved()) ?? emptyDesign();
+  let library: BossLibrary = readLibrary();
+  let design: BossDesign = activeDesign(library);
   let selectedId: string | null = null;
   /** 다음 무대 클릭으로 놓을 것. 없으면 고르기 모드다 */
   let placing: ShapeKind | 'part' | 'core' | 'center' | null = null;
@@ -106,19 +111,35 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   let cursor = 0;
   let running = false;
 
-  function readSaved(): string | null {
+  function readLibrary(): BossLibrary {
     try {
-      return deps.storage()?.getItem(DESIGN_KEY) ?? null;
+      const store = deps.storage();
+      return parseLibrary(store?.getItem(LIBRARY_KEY) ?? null)
+        // 보스를 하나만 두던 시절에 그려 둔 것 — 사라지면 안 되니 감싸서 들인다.
+        ?? parseLibrary(store?.getItem(LEGACY_KEY) ?? null)
+        ?? emptyLibrary();
     } catch {
-      return null;
+      return emptyLibrary();
     }
   }
+  /** 지금 판을 저장함에 밀어 넣고 통째로 적는다. 모든 손질이 이 한 곳을 지난다. */
   function save() {
+    library = putDesign(library, design);
     try {
-      deps.storage()?.setItem(DESIGN_KEY, JSON.stringify(design));
+      deps.storage()?.setItem(LIBRARY_KEY, JSON.stringify(library));
     } catch {
       /* 저장 못 해도 이번 화면에서는 그대로 쓴다 */
     }
+  }
+  /** 다른 저장본을 편다. 지금 것을 먼저 갈무리한다. */
+  function openDesign(id: string) {
+    save();
+    library = { ...library, activeId: id };
+    design = activeDesign(library);
+    selectedId = null;
+    shots = null;
+    save();
+    render();
   }
 
   // ── 뼈대 ──────────────────────────────────────────────────────────────────
@@ -129,14 +150,38 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       <header class="bm-top">
         <div class="bm-title">
           <b>보스 메이커</b>
+          <select class="bm-picker" data-bm-picker aria-label="저장본 고르기"></select>
           <input type="text" class="bm-name" data-bm-name maxlength="24" placeholder="보스 이름" />
         </div>
         <div class="bm-top-actions">
+          <button type="button" class="bm-btn ghost" data-bm-new title="빈 판을 하나 더 만듭니다">새 보스</button>
+          <button type="button" class="bm-btn ghost" data-bm-copy title="지금 보스를 통째로 베낍니다">복제</button>
+          <button type="button" class="bm-btn ghost danger-text" data-bm-drop title="지금 보스를 저장함에서 지웁니다">삭제</button>
+          <button type="button" class="bm-btn" data-bm-share-open title="보스를 코드 한 줄로 주고받습니다">공유</button>
           <button type="button" class="bm-btn" data-bm-apply>전투 조건에 반영</button>
-          <button type="button" class="bm-btn ghost" data-bm-reset>새로 만들기</button>
           <button type="button" class="bm-close" data-bm-close aria-label="닫기">✕</button>
         </div>
       </header>
+
+      <!-- 공유 — 창을 또 띄우지 않고 머리줄 아래에 펼친다. 무대를 가리지 않는다. -->
+      <div class="bm-share" data-bm-share hidden>
+        <div class="bm-share-col">
+          <label class="bm-share-label" for="bm-share-out">이 보스의 코드</label>
+          <textarea id="bm-share-out" class="bm-share-box" data-bm-share-out readonly rows="2"></textarea>
+          <button type="button" class="bm-btn" data-bm-share-copy>코드 복사</button>
+        </div>
+        <div class="bm-share-col">
+          <label class="bm-share-label" for="bm-share-in">받은 코드 넣기</label>
+          <textarea id="bm-share-in" class="bm-share-box" data-bm-share-in rows="2" placeholder="NK5- 로 시작하는 코드를 붙여넣으세요"></textarea>
+          <button type="button" class="bm-btn accent" data-bm-share-apply>새 보스로 받기</button>
+        </div>
+        <p class="bm-note bm-share-note">
+          도형·파츠·코어·중앙·폭발 반경이 담깁니다. <b>밑그림은 담기지 않습니다</b> — 그림
+          한 장이면 코드가 수만 자가 되어 붙여넣는 곳에서 잘립니다. 받으면 <b>새 저장본</b>으로
+          들어오므로 지금 보스는 그대로 남습니다.
+        </p>
+        <p class="share-msg" data-bm-share-msg hidden></p>
+      </div>
 
       <p class="bm-narrow" data-bm-narrow hidden>
         <b>구성은 PC에서만 할 수 있습니다.</b> 무대와 설정 판이 나란히 서야 해서 좁은 화면에서는
@@ -212,6 +257,19 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   const cursorInput = q<HTMLInputElement>('[data-bm-cursor]');
   const cursorLabel = q<HTMLOutputElement>('[data-bm-cursor-label]');
   const runNote = q<HTMLElement>('[data-bm-run-note]');
+  const picker = q<HTMLSelectElement>('[data-bm-picker]');
+
+  /** 저장본 목록. 이름이 같아도 되도록 값은 id다. */
+  function renderPicker() {
+    picker.replaceChildren();
+    for (const entry of library.designs) {
+      const option = el('option', '', entry.name || '이름 없음');
+      option.value = entry.id;
+      picker.append(option);
+    }
+    picker.value = design.id;
+    picker.title = `저장본 ${library.designs.length}개`;
+  }
 
   const accuracy = deps.settings.accuracy;
   const weaponOf = (name: string) => deps.settings.characters[name]?.weaponType ?? 'AR';
@@ -1020,6 +1078,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   // ── 묶기 ──────────────────────────────────────────────────────────────────
 
   function render() {
+    renderPicker();
     nameInput.value = design.name;
     narrow.hidden = window.innerWidth >= MIN_WIDTH;
     drawStage();
@@ -1028,7 +1087,11 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     renderTracks();
   }
 
-  nameInput.addEventListener('input', () => { design.name = nameInput.value; save(); });
+  nameInput.addEventListener('input', () => {
+    design.name = nameInput.value;
+    save();
+    renderPicker();
+  });
   cursorInput.addEventListener('input', () => {
     cursor = Number(cursorInput.value);
     cursorLabel.textContent = `${round(cursor)}초`;
@@ -1036,12 +1099,74 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   });
   q<HTMLButtonElement>('[data-bm-run]').addEventListener('click', () => { void runTimeline(); });
   q<HTMLButtonElement>('[data-bm-close]').addEventListener('click', () => { close(); });
-  q<HTMLButtonElement>('[data-bm-reset]').addEventListener('click', () => {
-    design = emptyDesign();
+  q<HTMLButtonElement>('[data-bm-new]').addEventListener('click', () => {
+    save();
+    const fresh = emptyDesign(`보스 ${library.designs.length + 1}`);
+    library = putDesign(library, fresh);
+    design = fresh;
     selectedId = null;
     shots = null;
     save();
     render();
+  });
+  q<HTMLButtonElement>('[data-bm-copy]').addEventListener('click', () => {
+    save();
+    library = copyDesign(library, design.id);
+    design = activeDesign(library);
+    selectedId = null;
+    save();
+    render();
+  });
+  q<HTMLButtonElement>('[data-bm-drop]').addEventListener('click', () => {
+    // 마지막 하나는 지워도 빈 판이 남는다 — 다룰 것이 없는 화면은 만들지 않는다.
+    library = dropDesign(library, design.id);
+    design = activeDesign(library);
+    selectedId = null;
+    shots = null;
+    save();
+    render();
+  });
+  picker.addEventListener('change', () => openDesign(picker.value));
+
+  // ── 공유 ────────────────────────────────────────────────────────────────
+  const sharePane = q<HTMLElement>('[data-bm-share]');
+  const shareOut = q<HTMLTextAreaElement>('[data-bm-share-out]');
+  const shareIn = q<HTMLTextAreaElement>('[data-bm-share-in]');
+  const shareMsg = q<HTMLElement>('[data-bm-share-msg]');
+  const setShareMsg = (message: string, ok = false) => {
+    shareMsg.textContent = message;
+    shareMsg.hidden = message === '';
+    shareMsg.classList.toggle('is-ok', ok);
+  };
+  q<HTMLButtonElement>('[data-bm-share-open]').addEventListener('click', () => {
+    sharePane.hidden = !sharePane.hidden;
+    if (!sharePane.hidden) {
+      shareOut.value = encodeBossCode(design);
+      setShareMsg('');
+    }
+  });
+  q<HTMLButtonElement>('[data-bm-share-copy]').addEventListener('click', () => {
+    shareOut.select();
+    void navigator.clipboard?.writeText(shareOut.value)
+      .then(() => setShareMsg('코드를 복사했습니다.', true))
+      .catch(() => setShareMsg('복사하지 못했습니다 — 코드를 직접 선택해 복사해 주세요.'));
+  });
+  q<HTMLButtonElement>('[data-bm-share-apply]').addEventListener('click', () => {
+    try {
+      // 받은 것은 **새 저장본**으로 들인다 — 지금 그리던 것을 덮어쓰면 되돌릴 길이 없다.
+      const received = decodeBossCode(shareIn.value, Object.keys(deps.settings.characters));
+      save();
+      library = putDesign(library, received);
+      design = received;
+      selectedId = null;
+      shots = null;
+      save();
+      render();
+      shareIn.value = '';
+      setShareMsg(`「${received.name}」을(를) 새 저장본으로 받았습니다.`, true);
+    } catch (error) {
+      setShareMsg(error instanceof Error ? error.message : String(error));
+    }
   });
   q<HTMLButtonElement>('[data-bm-apply]').addEventListener('click', () => {
     const battle = deps.currentBattle();

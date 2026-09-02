@@ -162,6 +162,79 @@ describe('보스 메이커 화면', () => {
     expect(host.querySelector('[data-bm-narrow]')!.textContent).toContain('계산은 모바일에서도');
   });
 
+  it('저장본을 여러 벌 두고 목록에서 오간다', () => {
+    const handle = mount();
+    handle.open();
+    placeWith('circle');
+
+    const picker = () => host.querySelector<HTMLSelectElement>('[data-bm-picker]')!;
+    expect(picker().options).toHaveLength(1);
+
+    host.querySelector<HTMLButtonElement>('[data-bm-new]')!.click();
+    expect(picker().options).toHaveLength(2);
+    // 새 판은 비어 있다 — 앞 보스의 도형이 따라오지 않는다.
+    expect(host.querySelectorAll('.bm-shape')).toHaveLength(0);
+
+    // 목록에서 첫 보스로 돌아가면 그려 둔 것이 그대로 있다.
+    const first = picker().options[0]!.value;
+    picker().value = first;
+    picker().dispatchEvent(new Event('change', { bubbles: true }));
+    expect(host.querySelectorAll('.bm-shape')).toHaveLength(1);
+  });
+
+  it('복제는 통째로 베끼고, 지우면 목록에서 빠진다', () => {
+    const handle = mount();
+    handle.open();
+    placeWith('part');
+    host.querySelector<HTMLButtonElement>('[data-bm-copy]')!.click();
+
+    const picker = host.querySelector<HTMLSelectElement>('[data-bm-picker]')!;
+    expect(picker.options).toHaveLength(2);
+    expect([...picker.options].map((o) => o.textContent)).toContain('새 보스 사본');
+    expect(host.querySelectorAll('.bm-part')).toHaveLength(1);
+
+    host.querySelector<HTMLButtonElement>('[data-bm-drop]')!.click();
+    expect(host.querySelector<HTMLSelectElement>('[data-bm-picker]')!.options).toHaveLength(1);
+  });
+
+  it('코드로 내보내고, 받은 코드는 새 저장본으로 들어온다', () => {
+    const handle = mount();
+    handle.open();
+    placeWith('core');
+    placeWith('part');
+
+    const share = host.querySelector<HTMLElement>('[data-bm-share]')!;
+    expect(share.hidden).toBe(true);
+    host.querySelector<HTMLButtonElement>('[data-bm-share-open]')!.click();
+    expect(share.hidden).toBe(false);
+
+    const code = host.querySelector<HTMLTextAreaElement>('[data-bm-share-out]')!.value;
+    expect(code.startsWith('NK5-')).toBe(true);
+
+    host.querySelector<HTMLTextAreaElement>('[data-bm-share-in]')!.value = code;
+    host.querySelector<HTMLButtonElement>('[data-bm-share-apply]')!.click();
+
+    // 받은 것은 새 저장본이라 원래 보스가 그대로 남는다.
+    expect(host.querySelector<HTMLSelectElement>('[data-bm-picker]')!.options).toHaveLength(2);
+    expect(host.querySelector('[data-bm-share-msg]')!.textContent).toContain('새 저장본으로 받았습니다');
+    expect(host.querySelectorAll('.bm-part')).toHaveLength(1);
+    expect(host.querySelector('.bm-core')).not.toBeNull();
+  });
+
+  it('잘못된 코드는 그 줄에서 알리고 그리던 것을 건드리지 않는다', () => {
+    const handle = mount();
+    handle.open();
+    placeWith('circle');
+
+    host.querySelector<HTMLButtonElement>('[data-bm-share-open]')!.click();
+    host.querySelector<HTMLTextAreaElement>('[data-bm-share-in]')!.value = 'NK3-abcd';
+    host.querySelector<HTMLButtonElement>('[data-bm-share-apply]')!.click();
+
+    expect(host.querySelector('[data-bm-share-msg]')!.textContent).toContain('«NK5-»로 시작');
+    expect(host.querySelector<HTMLSelectElement>('[data-bm-picker]')!.options).toHaveLength(1);
+    expect(host.querySelectorAll('.bm-shape')).toHaveLength(1);
+  });
+
   it('그린 것은 저장돼 다시 열어도 남는다', () => {
     const first = mount();
     first.open();

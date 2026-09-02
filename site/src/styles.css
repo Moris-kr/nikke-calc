@@ -1648,15 +1648,17 @@ body.bm-open { overflow: hidden; }
   box-shadow: 0 40px 120px -30px rgba(0,0,0,.85), inset 0 1px 0 rgba(255,255,255,.06);
   overflow: hidden; }
 
-.bm-top { display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  padding: 14px 18px; border-bottom: 1px solid rgba(146,176,201,.12);
+.bm-top { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  flex-wrap: wrap; padding: 14px 18px; border-bottom: 1px solid rgba(146,176,201,.12);
   background: linear-gradient(180deg, rgba(69,214,208,.06), transparent); }
-.bm-title { display: flex; align-items: center; gap: 12px; }
-.bm-title b { font-size: 15px; letter-spacing: -.01em; }
-.bm-name { width: 190px; padding: 7px 11px; min-height: 0; width: 190px;
+.bm-title { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+/* 좁아지면 제목 칸이 0까지 눌려 글자가 세로로 쌓인다 — 이름표는 줄이지 않는다. */
+.bm-title b { flex: none; white-space: nowrap; font-size: 15px; letter-spacing: -.01em; }
+.bm-name { flex: 1; min-width: 90px; max-width: 190px; padding: 7px 11px; min-height: 0;
   border: 1px solid var(--line); border-radius: 8px; background: rgba(4,12,21,.7);
   color: var(--ink); font: 700 12px inherit; }
-.bm-top-actions { display: flex; align-items: center; gap: 8px; }
+.bm-top-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+.bm-btn { white-space: nowrap; }
 
 .bm-btn { padding: 8px 14px; border: 1px solid rgba(69,214,208,.4); border-radius: 9px;
   background: rgba(69,214,208,.12); color: var(--cyan); font: 800 12px inherit; cursor: pointer;
@@ -1813,7 +1815,42 @@ body.bm-open { overflow: hidden; }
 .bm-blast-rows { display: flex; flex-direction: column; }
 
 @media (max-width: 1023px) {
-  /* 구성은 PC에서만 — 좁은 화면에서는 안내만 남기고 무대를 접는다. */
-  .bm-body { grid-template-columns: 1fr; }
+  /* 구성은 PC에서만 — 좁은 화면에서는 안내만 남기고 무대를 접는다. 남는 것은
+     «만들어 둔 보스를 조건에 반영하는 것»과 조건 판이라, 그 둘은 그대로 쓴다. */
+  .boss-maker { padding: 0; }
+  .bm-frame { border-radius: 0; border: none; }
+  .bm-body { grid-template-columns: 1fr; min-height: 0; padding: 12px; }
   .bm-tools, .bm-stage-wrap { display: none; }
+  .bm-timeline { max-height: 40vh; padding: 10px 12px 12px; }
+  .bm-track-name { width: 84px; }
+  .bm-top { padding: 12px; }
+  .bm-btn { padding: 7px 11px; font-size: 11px; }
+  /* 단추가 여섯이라 한 줄에 못 선다 — 제목과 단추를 각각 한 줄씩 준다.
+     좁은 화면에서도 «코드를 받아 전투 조건에 반영»은 그대로 쓸 일이라 하나도 안 접는다. */
+  .bm-title { flex: 1 1 100%; }
+  .bm-top-actions { flex: 1 1 100%; flex-wrap: wrap; }
+  .bm-picker, .bm-name { max-width: none; }
+}
+
+/* 저장본 고르기와 공유 줄. 창을 또 띄우지 않고 머리줄에 붙인다. */
+.bm-picker { flex: none; width: auto; min-height: 0; max-width: 170px; padding: 7px 9px;
+  border: 1px solid var(--line); border-radius: 8px; background: rgba(4,12,21,.7);
+  color: var(--ink); font: 700 11px inherit; }
+.bm-btn.danger-text { color: #ffb3bd; border-color: rgba(255,119,135,.3); }
+.bm-btn.danger-text:hover { background: rgba(255,119,135,.14); border-color: rgba(255,119,135,.55); }
+.bm-share { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px;
+  padding: 14px 18px; border-bottom: 1px solid rgba(146,176,201,.12);
+  background: rgba(69,214,208,.05); }
+.bm-share-col { display: flex; flex-direction: column; gap: 6px; }
+.bm-share-label { color: var(--muted); font: 800 10px inherit; letter-spacing: .06em; }
+.bm-share-box { width: 100%; min-height: 0; padding: 8px 10px; border: 1px solid var(--line);
+  border-radius: 8px; background: rgba(4,12,21,.8); color: var(--ink);
+  font: 600 11px ui-monospace, monospace; resize: vertical; word-break: break-all; }
+.bm-share-box:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
+.bm-share-note, .bm-share .share-msg { grid-column: 1 / -1; margin: 0; }
+
+@media (max-width: 1023px) {
+  /* 공유 줄은 파일 뒤쪽에서 정의되므로 좁은 화면 규칙도 여기 둔다 — 앞 미디어 블록에
+     적으면 뒤에 오는 기본 규칙에 덮인다. */
+  .bm-share { grid-template-columns: 1fr; padding: 12px; }
 }

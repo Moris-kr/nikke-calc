@@ -23,13 +23,20 @@ export interface SharePayload {
   fiveDeckMode: boolean;
 }
 
-const toBase64Url = (bytes: Uint8Array): string => {
+/**
+ * 코드 본문을 담는 글자꼴. `+`·`/`는 주소나 채팅에서 잘리므로 URL 안전한 것으로 바꾸고
+ * 꼬리의 `=`는 턴다 — 되읽을 때 길이로 도로 채운다.
+ *
+ * 보스 메이커도 같은 함수를 쓴다(`boss-maker.ts`) — 코드가 여러 벌 생기면 한쪽만
+ * 고쳐져 서로 못 읽는 일이 난다.
+ */
+export const toBase64Url = (bytes: Uint8Array): string => {
   let binary = '';
   for (const byte of bytes) binary += String.fromCharCode(byte);
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 };
 
-const fromBase64Url = (text: string): Uint8Array => {
+export const fromBase64Url = (text: string): Uint8Array => {
   const padded = text.replace(/-/g, '+').replace(/_/g, '/')
     + '='.repeat((4 - (text.length % 4)) % 4);
   const binary = atob(padded);
