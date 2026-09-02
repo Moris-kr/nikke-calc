@@ -45,9 +45,14 @@ export interface BossShape {
   /** 도(°). 0이면 세우지 않은 그대로 */
   rotation: number;
   color: string;
-  /** 이 도형이 보이는 구간(초). 비면 처음부터 끝까지 — 「모양이 바뀌는 보스」가 이걸로 산다. */
-  from?: number;
-  to?: number;
+  /**
+   * 이 도형이 보이는 구간들(초). **비어 있으면 처음부터 끝까지** 보인다.
+   *
+   * 여럿을 둘 수 있다 — 파츠가 깨졌다 되살아나기를 반복하는 보스가 흔하고, 모양이
+   * 단계마다 바뀌는 보스도 같은 도형이 여러 번 나타난다. 옛 저장본의 `from`/`to`
+   * 한 쌍은 읽을 때 이 목록으로 옮긴다.
+   */
+  windows?: Array<[number, number]>;
   /**
    * 이 도형을 겨냥할 때 **적정거리가 되는 무기군**. 보스는 부위마다 거리가 다르다 —
    * 다리는 붙어 있고 머리는 멀리 있는 식이라, 어디를 겨냥하느냐로 적정거리가 갈린다.
@@ -456,8 +461,26 @@ export function phaseAt(
 }
 
 /** 그 시각에 보이는 도형·파츠만. 구간을 안 적은 것은 늘 보인다. */
-export const visibleAt = <T extends { from?: number; to?: number }>(items: T[], t: number): T[] =>
-  items.filter((item) => t >= (item.from ?? 0) && t < (item.to ?? Infinity));
+export const visibleAt = <T extends { windows?: Array<[number, number]> }>(
+  items: T[], t: number,
+): T[] => items.filter((item) => showsAt(item, t));
+
+/** 이 도형이 그 시각에 보이는가. 구간이 하나라도 감싸면 보인다. */
+export const showsAt = (item: { windows?: Array<[number, number]> }, t: number): boolean =>
+  !item.windows?.length || item.windows.some(([from, to]) => t >= from && t < to);
+
+/**
+ * 구간 목록을 다듬는다 — 시작이 끝보다 늦은 것은 버리고, 시각순으로 세운다.
+ *
+ * 겹치는 구간은 **합치지 않는다**. 겹쳐 적어도 보이는 결과는 같고, 사람이 적어 둔
+ * 줄을 말없이 뭉개면 무엇을 지웠는지 알 수 없기 때문이다.
+ */
+export const tidyWindows = (
+  windows: Array<[number, number]>,
+): Array<[number, number]> => windows
+  .filter(([from, to]) => Number.isFinite(from) && Number.isFinite(to) && to > from)
+  .map(([from, to]) => [Math.max(0, from), to] as [number, number])
+  .sort((left, right) => left[0] - right[0] || left[1] - right[1]);
 
 /** 무기군별 적정거리 색. 도형에 여러 개가 걸리면 이 색들을 섞는다. */
 export const RANGE_COLOR: Record<string, string> = {
@@ -536,6 +559,24 @@ export function parseDesign(raw: string | null): BossDesign | null {
   }
 }
 
+/**
+ * 옛 저장본의 `from`/`to` 한 쌍을 구간 목록으로 옮긴다.
+ *
+ * 구간을 여럿 둘 수 있게 되면서 표현이 바뀌었다 — 그려 둔 것이 사라지면 안 되므로
+ * 읽는 자리에서 한 번에 옮기고, 이후 코드는 목록만 다룬다.
+ */
+function liftWindows<T extends BossShape & { from?: number; to?: number }>(shape: T): T {
+  const legacy = shape as T & { from?: number; to?: number };
+  if (!shape.windows?.length && (legacy.from !== undefined || legacy.to !== undefined)) {
+    const from = legacy.from ?? 0;
+    const to = legacy.to ?? 18_000;
+    if (to > from) shape.windows = [[from, to]];
+  }
+  delete legacy.from;
+  delete legacy.to;
+  return shape;
+}
+
 /** 이미 풀어 놓은 값 하나를 저장본으로. 빠진 칸은 빈 판의 값으로 채운다. */
 function reviveDesign(value: unknown): BossDesign | null {
   const saved = value as Partial<BossDesign> | null;
@@ -548,8 +589,8 @@ function reviveDesign(value: unknown): BossDesign | null {
     // 옛 저장본에는 id가 없다 — 그때는 새로 붙인다.
     id: typeof saved.id === 'string' && saved.id ? saved.id : base.id,
     canvas: saved.canvas ?? base.canvas,
-    shapes: saved.shapes ?? [],
-    parts: Array.isArray(saved.parts) ? saved.parts : [],
+    shapes: (saved.shapes ?? []).map(liftWindows),
+    parts: (Array.isArray(saved.parts) ? saved.parts : []).map(liftWindows),
     explosion: saved.explosion ?? {},
     core: saved.core ?? null,
     center: saved.center ?? null,
@@ -651,8 +692,9 @@ function packShape(shape: BossShape): Record<string, unknown> {
     x: int(shape.x), y: int(shape.y), w: int(shape.w), h: int(shape.h),
   };
   if (shape.rotation) out.r = int(shape.rotation);
-  if (shape.from) out.f = tenth(shape.from);
-  if (shape.to) out.t = tenth(shape.to);
+  if ((shape.windows ?? []).length > 0) {
+    out.v = shape.windows!.map(([from, to]) => [tenth(from), tenth(to)]);
+  }
   if ((shape.range ?? []).length > 0) out.g = [...shape.range!].sort();
   return out;
 }
@@ -678,6 +720,17 @@ function unpackShape(raw: unknown, color: string): BossShape | null {
     const n = Number(value);
     return Number.isFinite(n) && n > 0 ? Math.min(6000, Math.round(n)) / 10 : undefined;
   };
+  const window = (value: unknown): [number, number] | null => {
+    if (!Array.isArray(value) || value.length !== 2) return null;
+    const from = Number(value[0]);
+    const to = Number(value[1]);
+    if (!Number.isFinite(from) || !Number.isFinite(to)) return null;
+    const pair: [number, number] = [
+      Math.max(0, Math.min(18_000, Math.round(from))) / 10,
+      Math.max(0, Math.min(18_000, Math.round(to))) / 10,
+    ];
+    return pair[1] > pair[0] ? pair : null;
+  };
   const shape: BossShape = {
     id: newId('shape'),
     kind: KINDS[Number(item.k)] ?? 'circle',
@@ -686,10 +739,21 @@ function unpackShape(raw: unknown, color: string): BossShape | null {
       ? Math.min(180, Math.max(-180, Math.round(Number(item.r)))) : 0,
     color,
   };
-  const from = seconds(item.f);
-  const to = seconds(item.t);
-  if (from !== undefined) shape.from = from;
-  if (to !== undefined) shape.to = to;
+  // 구간 목록. 옛 코드는 `f`/`t` 한 쌍이라 그것도 읽어 목록으로 옮긴다.
+  const windows: Array<[number, number]> = [];
+  if (Array.isArray(item.v)) {
+    for (const entry of item.v.slice(0, 12)) {
+      const pair = window(entry);
+      if (pair) windows.push(pair);
+    }
+  } else {
+    const from = seconds(item.f) ?? 0;
+    const to = seconds(item.t) ?? Infinity;
+    if (from > 0 || Number.isFinite(to)) {
+      windows.push([from, Number.isFinite(to) ? to : 18_000]);
+    }
+  }
+  if (windows.length > 0) shape.windows = tidyWindows(windows);
   if (Array.isArray(item.g)) {
     const range = item.g
       .map((entry) => String(entry))

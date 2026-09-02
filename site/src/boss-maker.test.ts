@@ -6,7 +6,7 @@ import {
   aimAt, aimForNikke, derivedOptimalRange, encodeBossCode, hitTest, impactOffsets, inFullBurst,
   mixRangeColor, outerRadius, parseDesign, parseLibrary, partBreaks, partsInBlast, pierceTargets,
   PLAYER_SLOT,
-  phaseAt, putDesign, scoreUntil, spreadRadius, visibleAt,
+  phaseAt, putDesign, scoreUntil, spreadRadius, tidyWindows, visibleAt,
   type AccuracyTable, type BossPart, type BossShape,
 } from './boss-maker';
 
@@ -151,7 +151,7 @@ describe('보스 메이커', () => {
     // 아무것도 없는 자리는 0이다.
     expect(pierceTargets(design, { x: 900, y: 900 })).toEqual({ shapes: 0, parts: 0, total: 0 });
     // 그 시각에 안 보이는 도형은 세지 않는다.
-    design.parts[1]!.from = 60;
+    design.parts[1]!.windows = [[60, 999]];
     expect(pierceTargets(design, { x: 100, y: 100 }, 0).total).toBe(2);
     expect(pierceTargets(design, { x: 100, y: 100 }, 60).total).toBe(3);
   });
@@ -249,9 +249,11 @@ describe('보스 메이커', () => {
   });
 
   it('구간을 적어 둔 도형은 그때만 보인다', () => {
-    const items = [shape({ id: 'always' }), shape({ id: '2단계', from: 60 })];
+    const items = [shape({ id: 'always' }), shape({ id: '2단계', windows: [[60, 120]] })];
     expect(visibleAt(items, 10).map((s) => s.id)).toEqual(['always']);
     expect(visibleAt(items, 60).map((s) => s.id)).toEqual(['always', '2단계']);
+    // 끝 시각은 구간 밖이다 — 다른 구간과 같은 반개구간이다.
+    expect(visibleAt(items, 120).map((s) => s.id)).toEqual(['always']);
   });
 
   it('저장본을 여러 벌 두고 오간다', () => {
@@ -333,7 +335,7 @@ describe('보스 메이커', () => {
   it('보스를 코드 한 줄로 주고받는다', () => {
     const design = emptyDesign('그레이브디거');
     design.shapes.push(shape({ kind: 'triangle', x: 300, y: 200, w: 120, h: 90, rotation: 30 }));
-    design.shapes.push(shape({ id: 's2', kind: 'rect', from: 60, to: 120, range: ['SG', 'MG'] }));
+    design.shapes.push(shape({ id: 's2', kind: 'rect', windows: [[60, 120]], range: ['SG', 'MG'] }));
     design.parts.push(part({ name: '왼팔', x: 500, y: 300, hp: 1_200_000, score: 9_000_000 }));
     design.core = { x: 480, y: 260, d: 64 };
     design.center = { x: 480, y: 320 };
@@ -348,9 +350,8 @@ describe('보스 메이커', () => {
     expect(back.name).toBe('그레이브디거');
     expect(back.shapes.map((s) => s.kind)).toEqual(['triangle', 'rect']);
     expect(back.shapes[0]!.rotation).toBe(30);
-    expect(back.shapes[1]!.from).toBe(60);
+    expect(back.shapes[1]!.windows).toEqual([[60, 120]]);
     expect(back.shapes[1]!.range).toEqual(['MG', 'SG']);
-    expect(back.shapes[1]!.to).toBe(120);
     expect(back.parts[0]).toMatchObject({
       name: '왼팔', hp: 1_200_000, x: 500, y: 300, score: 9_000_000,
     });
@@ -394,6 +395,45 @@ describe('보스 메이커', () => {
     expect(back.parts[0]!.hp).toBe(0);
     // 400px를 넘는 코어는 안 받는다.
     expect(back.core).toBeNull();
+  });
+
+  it('보이는 구간을 여럿 둔다', () => {
+    // 깨졌다 되살아나기를 반복하는 파츠가 흔하다 — 한 쌍으로는 못 적는다.
+    const twice = shape({ id: 'blink', windows: [[0, 20], [60, 90]] });
+    expect(visibleAt([twice], 10)).toHaveLength(1);
+    expect(visibleAt([twice], 30)).toHaveLength(0);
+    expect(visibleAt([twice], 70)).toHaveLength(1);
+    expect(visibleAt([twice], 95)).toHaveLength(0);
+
+    // 다듬기 — 뒤집힌 구간은 버리고 시각순으로 세운다. 겹치는 것은 말없이 뭉개지 않는다.
+    expect(tidyWindows([[60, 90], [0, 20], [50, 40], [10, 30]]))
+      .toEqual([[0, 20], [10, 30], [60, 90]]);
+  });
+
+  it('코드도 구간을 여럿 싣고, 옛 한 쌍은 목록으로 옮긴다', () => {
+    const design = emptyDesign('깜빡이');
+    design.shapes.push(shape({ windows: [[0, 20], [60, 90]] }));
+    const back = decodeBossCode(encodeBossCode(design));
+    expect(back.shapes[0]!.windows).toEqual([[0, 20], [60, 90]]);
+
+    // 옛 코드(`f`/`t` 한 쌍)도 그대로 읽어 목록으로 만든다.
+    const legacy = `${BOSS_PREFIX}${btoa(unescape(encodeURIComponent(JSON.stringify({
+      n: '옛 보스', s: [{ k: 0, x: 10, y: 10, w: 40, h: 40, f: 600, t: 1200 }],
+    })))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')}`;
+    expect(decodeBossCode(legacy).shapes[0]!.windows).toEqual([[60, 120]]);
+  });
+
+  it('옛 저장본의 나타남·사라짐도 구간 목록으로 옮긴다', () => {
+    const old = JSON.stringify({
+      ...emptyDesign('옛 보스'),
+      shapes: [{ ...shape(), from: 30, to: 90 }],
+    });
+    const library = parseLibrary(old)!;
+    const revived = library.designs[0]!.shapes[0]!;
+    expect(revived.windows).toEqual([[30, 90]]);
+    // 옛 칸은 남기지 않는다 — 두 표현이 함께 있으면 어느 쪽이 진짜인지 알 수 없다.
+    expect('from' in revived).toBe(false);
+    expect('to' in revived).toBe(false);
   });
 
   it('저장본이 깨져 있으면 화면을 끌고 가지 않는다', () => {

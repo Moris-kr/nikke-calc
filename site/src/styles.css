@@ -2061,3 +2061,22 @@ body.bm-open { overflow: hidden; }
   word-break: keep-all; }
 .bm-help-body p:last-child { margin-bottom: 0; }
 .bm-help-body b { color: var(--ink); }
+
+/* 타임라인 묶음 머리 — 줄이 열댓 개가 되면 다 볼 일이 없다. 지금 보는 것만 편다. */
+.bm-group { display: flex; align-items: center; gap: 6px; width: 100%; margin-top: 4px;
+  padding: 3px 6px; border: none; border-radius: 6px; background: transparent;
+  color: var(--muted); font: 800 10px inherit; letter-spacing: .04em; cursor: pointer;
+  text-align: left; }
+.bm-group:hover { background: rgba(146,176,201,.08); color: var(--ink); }
+.bm-group-mark { width: 0; height: 0; flex: none; margin-left: 2px;
+  border-left: 5px solid currentColor; border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform .18s cubic-bezier(.2,.8,.2,1); }
+.bm-group-mark.is-open { transform: rotate(90deg); }
+.bm-group-count { padding: 0 5px; border-radius: 999px; background: rgba(146,176,201,.16);
+  font-style: normal; font-size: 9px; }
+
+/* 보이는 구간 편집기 — 구간을 여럿 둔다. */
+.bm-windows { display: flex; flex-direction: column; gap: 4px; }
+.bm-window { display: flex; align-items: center; gap: 4px; }
+.bm-field.tiny { width: 56px; }

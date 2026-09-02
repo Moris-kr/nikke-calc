@@ -14,7 +14,7 @@ import {
   DEFAULT_CORE_PX, derivedEnemy, derivedOptimalRange, derivedPartBreakInterval, distance,
   dropDesign, ELEMENT_COLOR, emptyDesign, emptyLibrary, encodeBossCode, hitTest, impactOffsets,
   inFullBurst, mixRangeColor, newId, parseLibrary, partBreaks, partsInBlast, phaseAt,
-  pierceTargets, putDesign, RANGE_COLOR, scoreUntil, spreadRadius, visibleAt,
+  pierceTargets, putDesign, RANGE_COLOR, scoreUntil, spreadRadius, tidyWindows, visibleAt,
   type BossDesign, type BossLibrary, type BossPart, type BossShape, type ShapeKind,
 } from './boss-maker';
 import {
@@ -650,6 +650,9 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     }
   }
 
+  /** 접어 둔 타임라인 묶음. 그림이 아니라 «보는 방식»이라 저장본에 넣지 않는다. */
+  const folded = new Set<string>();
+
   /** 지난번에 만든 탄착점 묶음. 같은 칸을 다시 그릴 때 그대로 쓴다. */
   let impactCache: { key: string; group: SVGElement; count: number } | null = null;
 
@@ -1018,19 +1021,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
           '깨면 이 점수가 총딜에 더해집니다 — 시뮬이 때려서 낸 값이 아니라 «깨면 준다»는 '
           + '규칙이라, 화면에서는 총딜 옆에 따로 적습니다.'));
       }
-      // 사라짐·재생성은 시각이라 타임라인에서 찍는 것이 빠르다.
-      const when = el('div', 'bm-when');
-      for (const [label, apply] of [
-        ['지금 사라짐', () => { part.to = round(cursor); }],
-        ['지금 재생성', () => { part.from = round(cursor); }],
-        ['구간 지우기', () => { delete part.from; delete part.to; }],
-      ] as Array<[string, () => void]>) {
-        const button = el('button', 'bm-chip', label);
-        button.type = 'button';
-        button.addEventListener('click', () => { apply(); save(); render(); });
-        when.append(button);
-      }
-      inspector.append(el('p', 'bm-note-head', '사라짐 · 재생성'), when);
+      inspector.append(el('p', 'bm-note-head', '사라짐 · 재생성'), windowEditor(part));
     }
 
     inspector.append(numberRow('가로', item.w, 4, 2000, (value) => { item.w = value; }, 'px'));
@@ -1040,12 +1031,9 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     }, '°'));
     inspector.append(el('p', 'bm-note',
       '무대에서 도형 위쪽의 고리를 끌어도 돌아갑니다 — Shift를 누르면 15°씩 끊깁니다.'));
-    inspector.append(numberRow('나타남', item.from ?? 0, 0, 600, (value) => {
-      if (value > 0) item.from = value; else delete item.from;
-    }, '초'));
-    inspector.append(numberRow('사라짐', item.to ?? 0, 0, 600, (value) => {
-      if (value > 0) item.to = value; else delete item.to;
-    }, '초'));
+    if (!isPart(item.id)) {
+      inspector.append(el('p', 'bm-note-head', '보이는 구간'), windowEditor(item));
+    }
 
     // 도형별 적정거리 — 보스는 부위마다 거리가 다르다. 겨냥한 도형의 것이 걸린다.
     inspector.append(el('p', 'bm-note-head', '이 도형의 적정거리'));
@@ -1091,6 +1079,74 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       design.parts = design.parts.filter((part) => part.id !== item.id);
       selectedId = null;
     }));
+  }
+
+  /**
+   * 보이는 구간 편집기. 구간을 **여럿** 둘 수 있다 — 깨졌다 되살아나기를 반복하는
+   * 파츠와, 단계마다 나타났다 사라지는 도형이 그것으로 산다.
+   *
+   * 「지금 사라짐」은 마지막 구간의 끝을 커서로 당기고, 「지금 재생성」은 커서에서
+   * 시작하는 구간을 새로 연다 — 재생하며 눈으로 맞추는 흐름 그대로다.
+   */
+  function windowEditor(item: BossShape): HTMLElement {
+    const box = el('div', 'bm-windows');
+    const duration = deps.currentBattle().duration;
+    const list = item.windows ?? [];
+
+    const commit = (next: Array<[number, number]>) => {
+      const tidy = tidyWindows(next);
+      if (tidy.length > 0) item.windows = tidy; else delete item.windows;
+      save();
+      render();
+    };
+
+    for (const [index, [from, to]] of list.entries()) {
+      const row = el('div', 'bm-window');
+      const spanFrom = el('input', 'bm-field tiny');
+      spanFrom.type = 'number';
+      spanFrom.value = String(round(from));
+      const spanTo = el('input', 'bm-field tiny');
+      spanTo.type = 'number';
+      spanTo.value = String(round(to));
+      const apply = () => {
+        const next = list.map((pair, at) => (at === index
+          ? [Number(spanFrom.value), Number(spanTo.value)] as [number, number] : pair));
+        commit(next);
+      };
+      spanFrom.addEventListener('change', apply);
+      spanTo.addEventListener('change', apply);
+      const drop = el('button', 'bm-mini', '−');
+      drop.type = 'button';
+      drop.title = '이 구간 지우기';
+      drop.addEventListener('click', () => commit(list.filter((_, at) => at !== index)));
+      row.append(spanFrom, el('em', 'bm-unit', '~'), spanTo, el('em', 'bm-unit', '초'), drop);
+      box.append(row);
+    }
+    if (list.length === 0) {
+      box.append(el('p', 'bm-note', '구간이 없으면 처음부터 끝까지 보입니다.'));
+    }
+
+    const buttons = el('div', 'bm-when');
+    for (const [label, make] of [
+      ['지금 사라짐', (): Array<[number, number]> => {
+        // 마지막 구간의 끝을 커서로 당긴다. 구간이 없으면 처음부터 지금까지로 만든다.
+        if (list.length === 0) return [[0, round(cursor)]];
+        return list.map((pair, at) => (at === list.length - 1
+          ? [pair[0], round(cursor)] as [number, number] : pair));
+      }],
+      ['지금 재생성', (): Array<[number, number]> =>
+        [...list, [round(cursor), duration] as [number, number]]],
+      ['구간 추가', (): Array<[number, number]> =>
+        [...list, [round(cursor), Math.min(duration, round(cursor) + 10)] as [number, number]]],
+      ['전부 지우기', (): Array<[number, number]> => []],
+    ] as Array<[string, () => Array<[number, number]>]>) {
+      const button = el('button', 'bm-chip', label);
+      button.type = 'button';
+      button.addEventListener('click', () => commit(make()));
+      buttons.append(button);
+    }
+    box.append(buttons);
+    return box;
   }
 
   function numberRow(
@@ -1409,6 +1465,27 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     }
   }
 
+  /**
+   * 접었다 펴는 묶음 머리. 줄이 열댓 개가 되면 다 볼 일이 없다 — 지금 보는 것만 편다.
+   *
+   * 접힌 상태는 그림이 아니라 **보는 방식**이라 저장본에 넣지 않는다(브라우저를 새로
+   * 열면 다 펴진 채로 시작한다).
+   */
+  function groupHead(key: string, label: string, count: number): HTMLElement {
+    const head = el('button', 'bm-group');
+    head.type = 'button';
+    const open = !folded.has(key);
+    head.setAttribute('aria-expanded', String(open));
+    head.append(el('i', open ? 'bm-group-mark is-open' : 'bm-group-mark'));
+    head.append(el('span', 'bm-group-name', label));
+    if (count > 0) head.append(el('em', 'bm-group-count', String(count)));
+    head.addEventListener('click', () => {
+      if (folded.has(key)) folded.delete(key); else folded.add(key);
+      renderTracks();
+    });
+    return head;
+  }
+
   function renderTracks() {
     tracks.replaceChildren();
     const battle = deps.currentBattle();
@@ -1420,6 +1497,9 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     tracks.append(aimTrack(duration));
 
     // 보스 상태 줄 — 족자·속저를 끌어 옮긴다.
+    const stateCount = battle.immuneWindows.length + battle.elementWindows.length;
+    tracks.append(groupHead('phase', '보스 상태 (족자 · 속저)', stateCount));
+    if (!folded.has('phase')) {
     tracks.append(phaseTrack('족자', battle.immuneWindows.map((w, index) => ({
       index, from: w.from, to: w.to, color: '#8ea9c4', label: '족자',
     })), duration, (index, from, to) => {
@@ -1448,10 +1528,13 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       });
     }));
 
+    }
+
     // 파츠마다 한 줄. 띠는 «보이는 구간»이라 끌면 사라짐·재생성 시각이 바뀌고,
     // 그 위의 표식은 «이쯤 깨진다»는 예상 시각이다.
     const breaks = partBreaks(design.parts, squadDps(), duration);
-    for (const [index, part] of design.parts.entries()) {
+    if (design.parts.length > 0) tracks.append(groupHead('parts', '파츠', design.parts.length));
+    for (const [index, part] of (folded.has('parts') ? [] : design.parts).entries()) {
       const row = el('div', 'bm-track');
       const name = el('span', 'bm-track-name', part.name);
       name.title = `${part.name} · 체력 ${part.hp.toLocaleString('ko-KR')}`
@@ -1459,52 +1542,59 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       row.append(name);
       const lane = el('div', 'bm-lane');
 
-      const from = part.from ?? 0;
-      const to = part.to ?? duration;
-      const bar = el('div', 'bm-bar is-part');
-      bar.style.left = `${(from / duration) * 100}%`;
-      bar.style.width = `${(Math.max(0, to - from) / duration) * 100}%`;
-      bar.style.setProperty('--bar', '#ffb347');
-      bar.append(el('span', 'bm-bar-label', `${round(from)}–${round(to)}초`));
-      const left = el('i', 'bm-bar-grip left');
-      const right = el('i', 'bm-bar-grip right');
-      bar.append(left, right);
-      const drag = (event: PointerEvent, mode: 'move' | 'left' | 'right') => {
-        event.preventDefault();
-        event.stopPropagation();
-        const box = lane.getBoundingClientRect();
-        const at = (clientX: number) => ((clientX - box.left) / box.width) * duration;
-        const grabbed = at(event.clientX);
-        const startFrom = from;
-        const startTo = to;
-        const onMove = (moveEvent: PointerEvent) => {
-          const delta = at(moveEvent.clientX) - grabbed;
-          let nextFrom = startFrom;
-          let nextTo = startTo;
-          if (mode === 'move') { nextFrom = startFrom + delta; nextTo = startTo + delta; }
-          if (mode === 'left') nextFrom = Math.min(startTo - 0.5, startFrom + delta);
-          if (mode === 'right') nextTo = Math.max(startFrom + 0.5, startTo + delta);
-          nextFrom = Math.max(0, Math.min(duration, nextFrom));
-          nextTo = Math.max(0.5, Math.min(duration, nextTo));
-          bar.style.left = `${(nextFrom / duration) * 100}%`;
-          bar.style.width = `${((nextTo - nextFrom) / duration) * 100}%`;
-          // 처음부터 끝까지면 구간을 아예 지운다 — «늘 있다»가 기본이다.
-          if (nextFrom <= 0.05) delete part.from; else part.from = round(nextFrom);
-          if (nextTo >= duration - 0.05) delete part.to; else part.to = round(nextTo);
+      // 구간마다 띠 하나. 끌면 그 구간의 시각이 바뀐다.
+      const windows = part.windows?.length ? part.windows : [[0, duration] as [number, number]];
+      for (const [index, [from, to]] of windows.entries()) {
+        const bar = el('div', 'bm-bar is-part');
+        bar.style.left = `${(from / duration) * 100}%`;
+        bar.style.width = `${(Math.max(0, to - from) / duration) * 100}%`;
+        bar.style.setProperty('--bar', '#ffb347');
+        bar.append(el('span', 'bm-bar-label', `${round(from)}–${round(to)}초`));
+        const left = el('i', 'bm-bar-grip left');
+        const right = el('i', 'bm-bar-grip right');
+        bar.append(left, right);
+        const drag = (event: PointerEvent, mode: 'move' | 'left' | 'right') => {
+          event.preventDefault();
+          event.stopPropagation();
+          const box = lane.getBoundingClientRect();
+          const at = (clientX: number) => ((clientX - box.left) / box.width) * duration;
+          const grabbed = at(event.clientX);
+          const onMove = (moveEvent: PointerEvent) => {
+            const delta = at(moveEvent.clientX) - grabbed;
+            let nextFrom = from;
+            let nextTo = to;
+            if (mode === 'move') { nextFrom = from + delta; nextTo = to + delta; }
+            if (mode === 'left') nextFrom = Math.min(to - 0.5, from + delta);
+            if (mode === 'right') nextTo = Math.max(from + 0.5, to + delta);
+            nextFrom = Math.max(0, Math.min(duration, nextFrom));
+            nextTo = Math.max(0.5, Math.min(duration, nextTo));
+            bar.style.left = `${(nextFrom / duration) * 100}%`;
+            bar.style.width = `${((nextTo - nextFrom) / duration) * 100}%`;
+            const next = windows.map((pair, at2) => (at2 === index
+              ? [round(nextFrom), round(nextTo)] as [number, number] : pair));
+            part.windows = tidyWindows(next);
+          };
+          const onUp = () => {
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', onUp);
+            save();
+            render();
+          };
+          window.addEventListener('pointermove', onMove);
+          window.addEventListener('pointerup', onUp);
         };
-        const onUp = () => {
-          window.removeEventListener('pointermove', onMove);
-          window.removeEventListener('pointerup', onUp);
+        bar.addEventListener('pointerdown', (event) => drag(event, 'move'));
+        left.addEventListener('pointerdown', (event) => drag(event, 'left'));
+        right.addEventListener('pointerdown', (event) => drag(event, 'right'));
+        // 두 번 누르면 그 구간만 지운다 — 구간이 하나뿐이면 «늘 보임»으로 돌아간다.
+        bar.addEventListener('dblclick', () => {
+          const next = (part.windows ?? []).filter((_, at2) => at2 !== index);
+          if (next.length > 0) part.windows = next; else delete part.windows;
           save();
           render();
-        };
-        window.addEventListener('pointermove', onMove);
-        window.addEventListener('pointerup', onUp);
-      };
-      bar.addEventListener('pointerdown', (event) => drag(event, 'move'));
-      left.addEventListener('pointerdown', (event) => drag(event, 'left'));
-      right.addEventListener('pointerdown', (event) => drag(event, 'right'));
-      lane.append(bar);
+        });
+        lane.append(bar);
+      }
 
       const breakAt = breaks.find((entry) => entry.id === part.id)?.at ?? null;
       if (breakAt !== null) {
@@ -1528,7 +1618,9 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     // 니케별 사격 밀도. 오른쪽 끝에 **그 니케가 이 보스에게 넣은 딜**을 적는다.
     const totals = lastResult?.charTotals ?? {};
     const best = Math.max(1, ...Object.values(totals).map((value) => Number(value) || 0));
-    for (const name of shownSquad()) {
+    const squadRows = shownSquad();
+    if (squadRows.length > 0) tracks.append(groupHead('squad', '니케 사격', squadRows.length));
+    for (const name of (folded.has('squad') ? [] : squadRows)) {
       const row = el('div', 'bm-track');
       const label = el('span', 'bm-track-name', name);
       const face = deps.imageOf(name);

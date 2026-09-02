@@ -434,6 +434,57 @@ describe('보스 메이커 화면', () => {
     expect(host.querySelectorAll('.bm-aim-mark')).toHaveLength(0);
   });
 
+  it('타임라인 묶음을 접었다 편다', async () => {
+    const handle = mount();
+    handle.open();
+    placeWith('part');
+    host.querySelector<HTMLButtonElement>('[data-bm-run]')!.click();
+    await new Promise((resolve) => { setTimeout(resolve, 0); });
+
+    const groups = () => [...host.querySelectorAll<HTMLButtonElement>('.bm-group')]
+      .map((node) => node.textContent ?? '');
+    expect(groups().some((text) => text.includes('보스 상태'))).toBe(true);
+    expect(groups().some((text) => text.includes('파츠'))).toBe(true);
+    expect(host.querySelectorAll('canvas.bm-shot')).toHaveLength(2);
+
+    // 「니케 사격」을 접으면 그 줄들만 사라진다.
+    const squadGroup = [...host.querySelectorAll<HTMLButtonElement>('.bm-group')]
+      .find((node) => node.textContent?.includes('니케 사격'))!;
+    squadGroup.click();
+    expect(host.querySelectorAll('canvas.bm-shot')).toHaveLength(0);
+    // 접어도 머리는 남아 다시 펼 수 있다.
+    const again = [...host.querySelectorAll<HTMLButtonElement>('.bm-group')]
+      .find((node) => node.textContent?.includes('니케 사격'))!;
+    expect(again.getAttribute('aria-expanded')).toBe('false');
+    again.click();
+    expect(host.querySelectorAll('canvas.bm-shot')).toHaveLength(2);
+  });
+
+  it('파츠 구간을 여러 개 둔다', () => {
+    const handle = mount();
+    handle.open();
+    placeWith('part');
+
+    const buttons = () => [...host.querySelectorAll<HTMLButtonElement>('.bm-when .bm-chip')];
+    const savedPart = () => (JSON.parse(localStorage.getItem('nikke-boss-library-v1')!) as
+      { designs: Array<{ parts: Array<{ windows?: Array<[number, number]> }> }> })
+      .designs[0]!.parts[0]!;
+
+    // 구간이 없으면 늘 보인다.
+    expect(savedPart().windows).toBeUndefined();
+
+    buttons().find((b) => b.textContent === '구간 추가')!.click();
+    expect(savedPart().windows).toHaveLength(1);
+    buttons().find((b) => b.textContent === '구간 추가')!.click();
+    // 같은 자리에 또 더해도 줄이 하나 더 선다 — 겹쳐 적는 것을 막지 않는다.
+    expect(savedPart().windows).toHaveLength(2);
+    // 띠도 구간 수만큼 선다.
+    expect(host.querySelectorAll('.bm-bar.is-part')).toHaveLength(2);
+
+    buttons().find((b) => b.textContent === '전부 지우기')!.click();
+    expect(savedPart().windows).toBeUndefined();
+  });
+
   it('사용설명서를 i 단추로 연다', () => {
     const handle = mount();
     handle.open();
