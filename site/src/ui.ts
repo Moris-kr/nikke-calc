@@ -804,9 +804,15 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
         <section class="panel settings-panel" aria-labelledby="settings-heading">
           <div class="section-heading compact target-heading">
-            <div><h2 id="settings-heading">전투 조건</h2></div>
+            <!-- 보스 메이커는 전투 조건을 «대신 여는» 화면이라 단추가 아니라 탭으로 둔다.
+                 무엇을 보고 있는지가 제목 자리에서 바로 읽힌다. -->
+            <div class="settings-tabs" role="tablist" aria-label="전투 조건 보기">
+              <!-- 이 판의 이름이기도 하다(section의 aria-labelledby가 이 id를 가리킨다) —
+                   제목 h2를 탭으로 갈아 끼웠으므로 id를 여기로 옮긴다. -->
+              <button type="button" class="settings-tab is-on" id="settings-heading" data-settings-tab="battle" role="tab" aria-selected="true">전투 조건</button>
+              <button type="button" class="settings-tab" data-settings-tab="maker" role="tab" aria-selected="false" title="보스의 모양·코어·파츠를 직접 그려 두고, 그 위에서 덱의 사격을 읽습니다. 구성은 PC에서만 됩니다">보스 메이커<b class="tab-beta">BETA</b></button>
+            </div>
             <div class="target-actions">
-              <button type="button" class="reset-enemy" data-boss-maker-open title="보스의 모양·코어·파츠를 직접 그려 두고, 그 위에서 덱의 사격을 읽습니다. 구성은 PC에서만 됩니다">보스 메이커</button>
               <button type="button" class="reset-enemy" data-battle-share-open title="전투 조건을 코드로 만들어 공유하거나, 받은 코드를 붙여넣어 적용합니다">전투 조건 공유</button>
               <button type="button" class="reset-enemy" data-reset-enemy>적 수치 초기화</button>
               <button type="button" class="reset-enemy" data-clear-cache title="같은 조건에 저장된 결과를 지우고 다음 실행부터 새로 계산합니다">저장된 결과 지우기</button>
@@ -5481,10 +5487,27 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         return image ? `${import.meta.env.BASE_URL}${image}` : undefined;
       },
       storage: resolveStorage,
+      shareServer,
+      onClose: () => markSettingsTab('battle'),
     },
   );
-  element<HTMLButtonElement>(root, '[data-boss-maker-open]')
-    .addEventListener('click', () => bossMaker.open());
+  // 탭처럼 오간다 — 보스 메이커를 열면 그 탭이 켜지고, 닫으면 전투 조건으로 돌아온다.
+  const settingsTabs = [...root.querySelectorAll<HTMLButtonElement>('[data-settings-tab]')];
+  const markSettingsTab = (which: string) => {
+    for (const tab of settingsTabs) {
+      const on = tab.dataset.settingsTab === which;
+      tab.classList.toggle('is-on', on);
+      tab.setAttribute('aria-selected', String(on));
+    }
+  };
+  for (const tab of settingsTabs) {
+    tab.addEventListener('click', () => {
+      const which = tab.dataset.settingsTab ?? 'battle';
+      markSettingsTab(which);
+      if (which === 'maker') bossMaker.open();
+      else bossMaker.close();
+    });
+  }
 
   // ── 유니온 레이드 (BETA) ────────────────────────────────────────────────
   // 프록시가 있어야 유니온원 스펙을 받아 올 수 있다 — 없으면 탭 자체를 안 그렸다.

@@ -100,6 +100,14 @@ describe('auto summaries', () => {
       .toEqual({ key: '풍풍', names: ['아스카 : WILLE', '레이 (가칭)'] });
   });
 
+  it('서버가 아직 모르는 공유 종류도 알아들을 말로 답한다', async () => {
+    // 종류를 새로 들이면 사이트가 먼저 나가고 Worker는 나중에 배포된다. 그 사이에
+    // 「알 수 없는 공유 종류입니다」가 그대로 뜨면 자기가 뭘 잘못한 줄 안다.
+    const { fetcher } = fakeFetch({ error: '알 수 없는 공유 종류입니다.' }, 400);
+    const server = new ShareServer('https://share.example.com', fetcher);
+    await expect(server.list('maker')).rejects.toThrow('서버가 아직 준비되지 않았습니다');
+  });
+
   it('아직 새 기능을 모르는 서버에는 알아들을 말로 답한다', async () => {
     // 사이트가 먼저 나가고 Worker는 나중에 배포된다 — 그 사이에 「없는 경로입니다」가
     // 그대로 뜨면 무슨 뜻인지 알 수 없다.

@@ -4,7 +4,8 @@ import type { BattleShare } from './share-code';
 // 사람이 붙인 이름뿐이고, 그 코드가 무슨 뜻인지 — 몇 초짜리 전투인지, 누가 편성됐는지 —
 // 는 여기서만 안다. 목록에 함께 적히는 «설명»도 그래서 서버가 아니라 이쪽에서 만든다.
 
-export type ShareKind = 'boss' | 'squad' | 'union';
+/** `maker`는 보스 메이커로 그린 보스(NK5-)다. `boss`는 전투 조건(NK3-)이다. */
+export type ShareKind = 'boss' | 'squad' | 'union' | 'maker';
 export type VoteValue = 1 | -1 | 0;
 
 export interface ShareItem {
@@ -95,6 +96,8 @@ type Fetcher = typeof fetch;
  * 그 사이에 «없는 경로입니다»가 그대로 화면에 뜬다 — 무슨 뜻인지 알 수 없는 말이라 바꿔 준다.
  */
 const NO_ROUTE = '없는 경로입니다.';
+/** 서버가 아직 모르는 공유 종류. 사이트가 먼저 나가고 Worker는 나중에 배포된다. */
+const NO_KIND = '알 수 없는 공유 종류입니다.';
 const notReady = (what: string) => new Error(`${what} 서버가 아직 준비되지 않았습니다. 잠시 뒤에 다시 시도해 주세요.`);
 
 /** 서버가 준 에러 문구를 그대로 살려 던진다 — 사용자에게 보여 줄 말이 거기 있다. */
@@ -122,6 +125,24 @@ export class ShareServer {
     this.fetcher = fetcher ?? ((...args) => fetch(...args));
   }
 
+  /**
+   * `unwrap`에 «서버가 아직 이 종류를 모른다» 안내를 얹은 것.
+   *
+   * 종류를 새로 들이면 사이트가 먼저 나가고 Worker는 나중에 배포된다. 그 사이에
+   * 서버가 주는 말은 «알 수 없는 공유 종류입니다»인데, 읽는 사람에게는 자기가 뭘
+   * 잘못한 것처럼 들린다.
+   */
+  private async unwrapKind<T>(response: Response): Promise<T> {
+    try {
+      return await unwrap<T>(response);
+    } catch (error) {
+      if (error instanceof Error && (error.message === NO_KIND || error.message === NO_ROUTE)) {
+        throw new Error('이 종류의 공유는 서버가 아직 준비되지 않았습니다. 코드로 주고받아 주세요.');
+      }
+      throw error;
+    }
+  }
+
   /** `unwrap`에 «아직 배포 전» 안내를 얹은 것. 새로 만든 경로에만 쓴다. */
   private async unwrapReady<T>(response: Response, what: string): Promise<T> {
     try {
@@ -134,7 +155,7 @@ export class ShareServer {
 
   async list(kind: ShareKind): Promise<ShareListResult> {
     const response = await this.fetcher(`${this.base}/list?kind=${kind}`);
-    const result = await unwrap<ShareListResult>(response);
+    const result = await this.unwrapKind<ShareListResult>(response);
     return {
       items: (result.items ?? []).map((item) => ({ ...item, uses: item.uses ?? 0 })),
       mine: result.mine ?? {},
@@ -148,7 +169,7 @@ export class ShareServer {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(input),
     });
-    return unwrap<ShareUploadResult>(response);
+    return this.unwrapKind<ShareUploadResult>(response);
   }
 
   /** 「가져다 썼다」를 알린다. 세는 것은 서버이고, IP당 한 번만 오른다. */

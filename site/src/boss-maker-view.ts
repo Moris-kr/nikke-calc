@@ -26,6 +26,8 @@ import {
 } from './types';
 import type { StorageLike } from './cache';
 import { formatDamage, formatDps } from './model';
+import { mountSharePanel, type SharePanel } from './share-panel';
+import type { ShareServer } from './share-server';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -42,6 +44,10 @@ export interface BossMakerDeps {
   applyBattle: (battle: BattleSettings) => void;
   imageOf: (name: string) => string | undefined;
   storage: () => StorageLike | null;
+  /** 공유 서버. 없으면(주소가 안 박힌 빌드) 코드 주고받기만 남는다. */
+  shareServer?: ShareServer | null;
+  /** 창이 닫힐 때. 부른 쪽의 탭 표시를 되돌리는 데 쓴다. */
+  onClose?: () => void;
 }
 
 export interface BossMakerHandle {
@@ -211,6 +217,10 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
 
       <!-- 공유 — 창을 또 띄우지 않고 머리줄 아래에 펼친다. 무대를 가리지 않는다. -->
       <div class="bm-share" data-bm-share hidden>
+        <div class="share-tabs bm-share-tabs" data-bm-share-tabs></div>
+        <div class="share-pane bm-share-pane" data-bm-share-pane="upload" hidden></div>
+        <div class="share-pane bm-share-pane" data-bm-share-pane="list" hidden></div>
+        <div class="share-pane bm-share-code" data-bm-share-pane="code">
         <div class="bm-share-col">
           <label class="bm-share-label" for="bm-share-out">이 보스의 코드</label>
           <textarea id="bm-share-out" class="bm-share-box" data-bm-share-out readonly rows="2"></textarea>
@@ -222,11 +232,12 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
           <button type="button" class="bm-btn accent" data-bm-share-apply>새 보스로 받기</button>
         </div>
         <p class="bm-note bm-share-note">
-          도형·파츠·코어·중앙·폭발 반경이 담깁니다. <b>밑그림은 담기지 않습니다</b> — 그림
-          한 장이면 코드가 수만 자가 되어 붙여넣는 곳에서 잘립니다. 받으면 <b>새 저장본</b>으로
-          들어오므로 지금 보스는 그대로 남습니다.
+          도형·파츠·코어·중앙·조준 키프레임·탄착군·폭발 반경이 담깁니다. <b>밑그림은 담기지
+          않습니다</b> — 그림 한 장이면 코드가 수만 자가 되어 붙여넣는 곳에서 잘립니다.
+          받으면 <b>새 저장본</b>으로 들어오므로 지금 보스는 그대로 남습니다.
         </p>
-        <p class="share-msg" data-bm-share-msg hidden></p>
+        </div>
+        <p class="share-msg bm-share-msg" data-bm-share-msg hidden></p>
       </div>
 
       <p class="bm-narrow" data-bm-narrow hidden>
@@ -1979,11 +1990,65 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     shareMsg.hidden = message === '';
     shareMsg.classList.toggle('is-ok', ok);
   };
+  /**
+   * 서버 공유. 조합·전투 조건과 **같은 판**을 쓴다 — 올리기·목록·코드 세 탭이 그대로 선다.
+   * 서버 주소가 없는 빌드에서는 탭을 아예 안 그리고 코드 주고받기만 남는다.
+   */
+  const sharePanel: SharePanel | null = deps.shareServer ? mountSharePanel(
+    {
+      tabs: q<HTMLElement>('[data-bm-share-tabs]'),
+      upload: q<HTMLElement>('[data-bm-share-pane="upload"]'),
+      list: q<HTMLElement>('[data-bm-share-pane="list"]'),
+      code: q<HTMLElement>('[data-bm-share-pane="code"]'),
+    },
+    {
+      kind: 'maker',
+      server: deps.shareServer,
+      current: () => ({
+        code: encodeBossCode(design),
+        auto: bossSummary(),
+      }),
+      apply: (item) => { receiveCode(item.code, item.name); },
+      notify: setShareMsg,
+    },
+  ) : null;
+
+  /** 목록에 한 줄로 적히는 설명. 무엇을 그린 보스인지 숫자로 요약한다. */
+  function bossSummary(): string {
+    const parts = [
+      `도형 ${design.shapes.length}`,
+      `파츠 ${design.parts.length}`,
+      design.core ? `코어 ${Math.round(design.core.d)}px` : '코어 없음',
+    ];
+    if ((design.aimKeys ?? []).length > 0) parts.push(`조준 ${design.aimKeys!.length}`);
+    const ranged = [...design.shapes, ...design.parts]
+      .flatMap((shape) => shape.range ?? []);
+    if (ranged.length > 0) parts.push(`적정 ${[...new Set(ranged)].sort().join('·')}`);
+    return parts.join(' · ');
+  }
+
+  /** 받은 코드를 새 저장본으로 들인다. 코드 칸과 목록이 같은 길을 쓴다. */
+  function receiveCode(code: string, label?: string) {
+    // 받은 것은 **새 저장본**으로 들인다 — 지금 그리던 것을 덮어쓰면 되돌릴 길이 없다.
+    const received = decodeBossCode(code, Object.keys(deps.settings.characters));
+    if (label) received.name = label.slice(0, 24);
+    save();
+    library = putDesign(library, received);
+    design = received;
+    selectedId = null;
+    shots = null;
+    impactCache = null;
+    save();
+    render();
+    setShareMsg(`「${received.name}」을(를) 새 저장본으로 받았습니다.`, true);
+  }
+
   q<HTMLButtonElement>('[data-bm-share-open]').addEventListener('click', () => {
     sharePane.hidden = !sharePane.hidden;
     if (!sharePane.hidden) {
       shareOut.value = encodeBossCode(design);
       setShareMsg('');
+      sharePanel?.open();
     }
   });
   q<HTMLButtonElement>('[data-bm-share-copy]').addEventListener('click', () => {
@@ -1994,17 +2059,8 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   });
   q<HTMLButtonElement>('[data-bm-share-apply]').addEventListener('click', () => {
     try {
-      // 받은 것은 **새 저장본**으로 들인다 — 지금 그리던 것을 덮어쓰면 되돌릴 길이 없다.
-      const received = decodeBossCode(shareIn.value, Object.keys(deps.settings.characters));
-      save();
-      library = putDesign(library, received);
-      design = received;
-      selectedId = null;
-      shots = null;
-      save();
-      render();
+      receiveCode(shareIn.value);
       shareIn.value = '';
-      setShareMsg(`「${received.name}」을(를) 새 저장본으로 받았습니다.`, true);
     } catch (error) {
       setShareMsg(error instanceof Error ? error.message : String(error));
     }
@@ -2086,6 +2142,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     setPlaying(false);
     host.hidden = true;
     document.body.classList.remove('bm-open');
+    deps.onClose?.();
   }
 
   document.addEventListener('keydown', (event) => {

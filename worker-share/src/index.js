@@ -6,7 +6,7 @@
 // 나눠 둔 것도 같은 이유다 — 저쪽은 로그인 세션 비밀이 필요하고 이쪽은 필요 없다.
 
 /** 종류별로 받아 줄 코드 접두사. 사이트의 `share-code.ts`와 같은 값이다. */
-const KINDS = { boss: 'NK3-', squad: 'NK2-', union: 'NK4-' };
+const KINDS = { boss: 'NK3-', squad: 'NK2-', union: 'NK4-', maker: 'NK5-' };
 
 const LIMITS = {
   name: 40,          // 이름 — 목록에서 한 줄로 읽히는 길이

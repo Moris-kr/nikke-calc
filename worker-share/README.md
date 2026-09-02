@@ -40,7 +40,7 @@ VITE_SHARE_API=https://nikke-calc-share.<계정>.workers.dev
 
 | 요청 | 하는 일 |
 |---|---|
-| `GET /list?kind=boss\|squad\|union` | 목록 + **이 IP가 이미 누른 표**(`mine`) |
+| `GET /list?kind=boss\|squad\|union\|maker` | 목록 + **이 IP가 이미 누른 표**(`mine`) |
 | `POST /upload` | `{kind, name, by, auto, code}` → 새 항목(같은 코드가 있으면 그 항목) |
 | `POST /vote` | `{kind, id, value: 1\|-1\|0}` → 바뀐 표 수 |
 | `POST /apply` | `{kind, id}` → 적용 횟수. **IP당 한 번만** 오르고 취소가 없다 |
@@ -53,7 +53,11 @@ VITE_SHARE_API=https://nikke-calc-share.<계정>.workers.dev
 | `POST /admin/check` | `{password}` → 관리자 확인만 (사이트가 화면을 열기 전에 묻는다) |
 
 이름은 필수, 업로더(`by`)는 비우면 빈 문자열로 남고 사이트가 «익명»으로 적는다. 코드는 종류에
-맞는 접두사(`NK3-` 전투 조건 · `NK2-` 조합 · `NK4-` 유니온 레이드 판)여야 받는다.
+맞는 접두사(`NK3-` 전투 조건 · `NK2-` 조합 · `NK4-` 유니온 레이드 판 · `NK5-` 보스 메이커로
+그린 보스)여야 받는다.
+
+`maker`는 보스의 **그림**이다 — 도형·파츠·코어·조준 키프레임이 들어 있고, 밑그림 이미지는
+담기지 않는다(데이터 URL이라 코드가 수만 자가 된다).
 
 `union`은 유니온 레이드 판 하나를 통째로 담은 것이다 — 보스 다섯의 이름·조건과 각 칸의 덱까지
 한 코드에 들어 있다. **유니온원 명단은 담기지 않는다**: 저장되는 것은 다른 종류와 똑같이 코드
