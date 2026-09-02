@@ -715,6 +715,30 @@ class BrowserBridgeTest(unittest.TestCase):
         # 레이븐 「일점 공격」은 파츠 파괴에 반응한다 — 파괴가 없으면 영원히 안 걸린다.
         self.assertGreater(with_break["charTotals"]["레이븐"], without["charTotals"]["레이븐"])
 
+    def test_infinite_ammo_does_not_leak_past_the_burst(self):
+        """무한 장탄은 그 구간만이다.
+
+        엔진은 무한을 센티널(999999)로 두는데, 그것까지 «최대 장탄»으로 잡으면 8초짜리
+        버스트가 끝난 뒤에도 탄창이 무한으로 남는다. 나유타 「기억 연소」가 그랬다.
+        """
+        payload = {
+            "squad": ["나유타", "크라운", "리타"], "duration": 60, "enemyDef": 31_784,
+            "enemyCode": "", "corePx": 0, "hasParts": False, "seed": 42,
+            "rngMode": "expected", "shotTrack": True,
+        }
+        got = json.loads(run_request(json.dumps(payload, ensure_ascii=False)))
+        row = got["states"]["chars"]["나유타"]
+
+        # 최대 장탄은 실제 탄창이다 — 센티널이 아니다.
+        self.assertLess(row["maxAmmo"], 99_999)
+        self.assertGreater(row["maxAmmo"], 0)
+        # 무한인 칸은 있지만 판 전체는 아니다.
+        infinite = [at for at, ammo in enumerate(row["ammo"]) if ammo >= 99_999]
+        self.assertGreater(len(infinite), 0)
+        self.assertLess(len(infinite), len(row["ammo"]) // 2)
+        # 무한 구간은 한 덩어리로 이어진다(버스트 한 번).
+        self.assertEqual(infinite[-1] - infinite[0] + 1, len(infinite))
+
     def test_pierce_passes_through_shapes_and_parts(self):
         """관통은 꿰뚫은 만큼 때린다 — 파츠에 든 히트는 파츠 판정을 받는다.
 

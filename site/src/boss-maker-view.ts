@@ -1813,11 +1813,13 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       else face.textContent = name.slice(0, 1);
       line.append(face);
 
-      const infinite = row.maxAmmo >= AMMO_INFINITE;
+      // 무한인지는 **그때그때의 값**으로 가른다. 「한 번이라도 무한이었나」로 보면
+      // 8초짜리 버스트(나유타 「기억 연소」)가 끝난 뒤에도 ∞로 남는다.
       const ammo = row.ammo[index] ?? 0;
+      const infinite = ammo >= AMMO_INFINITE;
       const clip = el('span', 'bm-state-ammo');
       clip.append(el('b', ammo === 0 ? 'is-empty' : '', infinite ? '∞' : String(ammo)));
-      if (!infinite) clip.append(el('em', '', `/${row.maxAmmo}`));
+      if (!infinite && row.maxAmmo > 0) clip.append(el('em', '', `/${row.maxAmmo}`));
       line.append(clip);
 
       const reloading = row.reload.some(([from, to]) => cursor >= from && cursor < to);
@@ -1827,7 +1829,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
         : burstNow ? ['버스트', 'burst']
         : shooting ? ['사격', 'fire'] : ['대기', 'idle'];
       line.append(el('span', `bm-state-mark is-${mood}`, mark));
-      line.title = `${name} · ${infinite ? '무한 장탄' : `${ammo}/${row.maxAmmo}발`} · ${mark}`;
+      line.title = `${name} · ${infinite ? '무한 장탄' : `${ammo}${row.maxAmmo > 0 ? `/${row.maxAmmo}` : ''}발`} · ${mark}`;
       statePanel.append(line);
     }
   }

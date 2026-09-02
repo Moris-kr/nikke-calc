@@ -56,7 +56,11 @@ const result = (): SimulationResult => ({
     bucket: 0.1, buckets: 1800,
     chars: {
       리타: { ammo: new Array(1800).fill(30), reload: [[5, 7]], maxAmmo: 60 },
-      크라운: { ammo: new Array(1800).fill(999_998), reload: [], maxAmmo: 999_998 },
+      // 나유타처럼 버스트 동안만 무한인 니케 — 그 구간이 지나면 평범한 탄창으로 돌아온다.
+      크라운: {
+        ammo: Array.from({ length: 1800 }, (_, at) => (at < 100 ? 999_998 : 40)),
+        reload: [], maxAmmo: 60,
+      },
     },
   },
   timeline: { bucket: 1, buckets: 180, damage: {}, bursts: {}, fullBurst: [[10, 20]] },
@@ -388,6 +392,26 @@ describe('보스 메이커 화면', () => {
     // 무한 장탄은 숫자 대신 기호로 — 999,998발이라고 적으면 읽는 사람이 멈칫한다.
     expect(rows[1]!.textContent).toContain('∞');
     expect(rows[1]!.textContent).not.toContain('999');
+  });
+
+  it('무한 장탄이 버스트가 끝난 뒤까지 남지 않는다', async () => {
+    // 「한 번이라도 무한이었나」로 보면 8초짜리 버스트(나유타 「기억 연소」)가 끝난
+    // 뒤에도 판 내내 ∞로 남는다 — 그때그때의 값으로 갈라야 한다.
+    const handle = mount();
+    handle.open();
+    host.querySelector<HTMLButtonElement>('[data-bm-run]')!.click();
+    await new Promise((resolve) => { setTimeout(resolve, 0); });
+
+    const ammo = () => host.querySelectorAll('.bm-state-row')[1]!.textContent ?? '';
+    expect(ammo()).toContain('∞');
+
+    // 무한 구간(0~10초) 뒤로 커서를 옮기면 평범한 탄창으로 돌아온다.
+    const lane = host.querySelector<HTMLElement>('[data-bm-time-lane]')!;
+    lane.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, clientX: 999 }));
+    window.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }));
+    expect(ammo()).not.toContain('∞');
+    expect(ammo()).toContain('40');
+    expect(ammo()).toContain('/60');
   });
 
   it('조준 키프레임을 찍고 타임라인에서 옮긴다', () => {

@@ -42,6 +42,10 @@ FINE_BUCKET = 0.1
 # 칸마다 «몇 발 · 그중 코어 몇 발»로 접어 보낸다. 그림에 필요한 것은 그 밀도뿐이다.
 SHOT_BUCKET = 0.1
 
+# 무한 장탄의 센티널. 엔진이 `max_ammo`를 999999로 두므로(`timeline.py`) 그 언저리
+# 값은 «무한»이라는 뜻이지 탄창 크기가 아니다.
+AMMO_SENTINEL = 99_999
+
 
 def _build_shots(result, names: list[str], bucket: float = SHOT_BUCKET) -> dict:
     """캐릭터별 사격 밀도. 보스 캔버스에 «언제 누가 어디에 쏘는가»를 그리는 재료다.
@@ -101,6 +105,10 @@ def _build_states(result, names: list[str], bucket: float = SHOT_BUCKET) -> dict
     최대 장탄은 따로 실려 오지 않아 **본 값 중 가장 큰 것**으로 잡는다 — 재장전이 끝나면
     가득 차므로 실전에서는 그 값이 곧 탄창 크기다(장탄 버프가 도중에 붙으면 그중 가장
     큰 값이 남는다).
+
+    다만 **무한 장탄 구간은 빼고 센다.** 엔진은 무한을 센티널(999999)로 두는데, 그것까지
+    최대치로 잡으면 버스트가 끝난 뒤에도 탄창이 무한으로 남는다(나유타 「기억 연소」는
+    8초짜리인데 판 내내 ∞로 보였다). 무한인지는 **그때그때의 값**으로 가른다.
     """
     if result.log is None:
         return {}
@@ -116,7 +124,9 @@ def _build_states(result, names: list[str], bucket: float = SHOT_BUCKET) -> dict
     for name, log in events.items():
         log.sort(key=lambda item: item[0])
         row = chars[name]
-        row["maxAmmo"] = max((ammo for _, ammo in log), default=0)
+        row["maxAmmo"] = max(
+            (ammo for _, ammo in log if ammo < AMMO_SENTINEL), default=0,
+        )
         at = 0
         current = log[0][1] if log else 0
         for index in range(buckets):
