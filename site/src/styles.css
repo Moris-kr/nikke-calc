@@ -2026,3 +2026,38 @@ body.bm-open { overflow: hidden; }
 .bm-share-code { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr;
   gap: 12px 16px; }
 .bm-share-msg { grid-column: 1 / -1; }
+
+/* 깨진 파츠 — 회색으로 물러난다. 「이 시각엔 이미 부서져 있다」가 한눈에 보여야 한다. */
+.bm-part.is-broken { fill: rgba(146,176,201,.14); stroke: rgba(146,176,201,.45);
+  stroke-dasharray: 4 4; }
+.bm-part-label.is-broken { fill: var(--muted); }
+.bm-bar.is-part { top: 3px; height: 16px; }
+.bm-when { display: flex; flex-wrap: wrap; gap: 5px; }
+.bm-hud-row.is-score { padding-top: 3px; margin-top: 2px; border-top: 1px dashed var(--line); }
+.bm-hud-tag { flex: 1; color: var(--muted); font: 700 9px inherit; }
+.bm-hud-row.is-score .bm-hud-dmg { color: #ffb347; }
+
+/* 사용설명서 — 창을 또 띄우지 않고 이 화면 안에서 덮는다. */
+.bm-help-open { width: 26px; height: 26px; flex: none; border-radius: 50%;
+  border: 1px solid rgba(69,214,208,.45); background: rgba(69,214,208,.12);
+  color: var(--cyan); font: 800 13px "Times New Roman", serif; font-style: italic;
+  cursor: pointer; transition: background .18s cubic-bezier(.2,.8,.2,1); }
+.bm-help-open:hover { background: rgba(69,214,208,.26); }
+.bm-help { position: absolute; inset: 0; z-index: 10; display: flex; padding: 24px;
+  align-items: center; justify-content: center; background: rgba(3,8,14,.72);
+  backdrop-filter: blur(6px); }
+.bm-help-card { display: flex; flex-direction: column; width: min(760px, 100%);
+  max-height: 100%; border: 1px solid rgba(146,176,201,.16); border-radius: 14px;
+  background: linear-gradient(180deg, rgba(16,30,46,.98), rgba(8,17,28,.99));
+  box-shadow: 0 30px 90px -24px rgba(0,0,0,.85); overflow: hidden; }
+.bm-help-head { display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.bm-help-head b { font-size: 14px; }
+.bm-help-body { padding: 6px 18px 18px; overflow-y: auto; }
+.bm-help-body section { padding: 12px 0; border-bottom: 1px solid rgba(146,176,201,.1); }
+.bm-help-body section:last-child { border-bottom: none; }
+.bm-help-body h4 { margin: 0 0 6px; color: var(--cyan); font-size: 12px; letter-spacing: .02em; }
+.bm-help-body p { margin: 0 0 6px; color: var(--muted); font-size: 12px; line-height: 1.75;
+  word-break: keep-all; }
+.bm-help-body p:last-child { margin-bottom: 0; }
+.bm-help-body b { color: var(--ink); }

@@ -61,6 +61,11 @@ export interface BossPart extends BossShape {
   name: string;
   /** 파츠 체력. 0이면 «안 깨지는 파츠»로 본다 */
   hp: number;
+  /**
+   * 파괴하면 얹히는 점수. 레이드는 파츠를 깨면 점수를 얹어 주므로, 총딜에 그대로
+   * 더한다 — 시뮬이 낸 딜과 **다른 출처**라 화면에서도 따로 적는다.
+   */
+  score?: number;
 }
 
 export interface BossCore {
@@ -366,6 +371,8 @@ export interface PartBreak {
   name: string;
   /** 깨지는 시각(초). 전투가 끝나도록 안 깨지면 `null` */
   at: number | null;
+  /** 깨면 얹히는 점수 */
+  score: number;
 }
 
 /**
@@ -382,6 +389,7 @@ export function partBreaks(parts: BossPart[], dps: number, duration: number): Pa
         id: part.id,
         name: part.name,
         at: at !== null && at <= duration ? at : null,
+        score: Math.max(0, part.score ?? 0),
       };
     })
     .sort((a, b) => (a.at ?? Infinity) - (b.at ?? Infinity));
@@ -402,6 +410,15 @@ export function derivedPartBreakInterval(
   const first = partBreaks(parts, dps, duration).find((entry) => entry.at !== null);
   return first?.at ?? 0;
 }
+
+/**
+ * 그 시각까지 쌓인 파츠 파괴 점수.
+ *
+ * 시뮬이 낸 딜과는 **출처가 다르다** — 엔진이 때려서 나온 값이 아니라 «깨면 준다»는
+ * 규칙이라, 화면에서도 총딜 옆에 따로 적는다.
+ */
+export const scoreUntil = (breaks: PartBreak[], t: number): number =>
+  breaks.reduce((sum, entry) => (entry.at !== null && entry.at <= t ? sum + entry.score : sum), 0);
 
 /** 그림에서 뽑아 낸, 엔진이 아는 값들. */
 export interface DerivedEnemy {
@@ -704,6 +721,7 @@ export function encodeBossCode(design: BossDesign): string {
       ...packShape(part),
       n: part.name.slice(0, CODE_LIMITS.partName),
       hp: Math.max(0, int(part.hp)),
+      ...(part.score ? { s: Math.max(0, int(part.score)) } : {}),
     }));
   }
   if ((design.aimKeys ?? []).length > 0) {
@@ -773,12 +791,15 @@ export function decodeBossCode(code: string, catalogNames: string[] = []): BossD
       if (!shape) continue;
       const entry = item as Record<string, unknown>;
       const hp = Number(entry.hp);
+      const score = Number(entry.s);
       design.parts.push({
         ...shape,
         id: newId('part'),
         name: typeof entry.n === 'string' && entry.n.trim()
           ? entry.n.trim().slice(0, CODE_LIMITS.partName) : `파츠 ${design.parts.length + 1}`,
         hp: Number.isFinite(hp) && hp > 0 ? Math.min(1e12, Math.round(hp)) : 0,
+        ...(Number.isFinite(score) && score > 0
+          ? { score: Math.min(1e12, Math.round(score)) } : {}),
       });
     }
   }

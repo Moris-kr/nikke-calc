@@ -434,6 +434,56 @@ describe('보스 메이커 화면', () => {
     expect(host.querySelectorAll('.bm-aim-mark')).toHaveLength(0);
   });
 
+  it('사용설명서를 i 단추로 연다', () => {
+    const handle = mount();
+    handle.open();
+    const help = () => host.querySelector<HTMLElement>('[data-bm-help]')!;
+    expect(help().hidden).toBe(true);
+
+    host.querySelector<HTMLButtonElement>('[data-bm-help-open]')!.click();
+    expect(help().hidden).toBe(false);
+    // 실제로 쓰는 법이 적혀 있어야 한다 — 목차만 있으면 설명서가 아니다.
+    expect(help().textContent).toContain('3번 칸');
+    expect(help().textContent).toContain('Shift');
+    expect(help().textContent).toContain('파괴 점수');
+
+    host.querySelector<HTMLButtonElement>('[data-bm-help-close]')!.click();
+    expect(help().hidden).toBe(true);
+  });
+
+  it('파츠는 깨진 뒤 회색으로 물러나고, 점수가 총합에 더해진다', async () => {
+    const handle = mount();
+    handle.open();
+    placeWith('part');
+
+    // 체력과 점수를 준다.
+    const rows = [...host.querySelectorAll('.bm-row')];
+    const field = (label: string) => rows.find((row) => row.textContent?.startsWith(label))!
+      .querySelector<HTMLInputElement>('.bm-field')!;
+    const setField = (label: string, value: string) => {
+      const input = field(label);
+      input.value = value;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    setField('파츠 체력', '1000000');
+    setField('파괴 점수', '5000000');
+
+    host.querySelector<HTMLButtonElement>('[data-bm-run]')!.click();
+    await new Promise((resolve) => { setTimeout(resolve, 0); });
+
+    // 스쿼드 딜 1.8억/180초 = 100만/초 → 100만 체력은 1초에 깨진다.
+    expect(host.querySelector('[data-bm-run-note]')!.textContent).toContain('파괴 점수');
+    // 커서가 0초면 아직 안 깨졌다.
+    expect(host.querySelector('.bm-part')!.classList.contains('is-broken')).toBe(false);
+
+    const lane = host.querySelector<HTMLElement>('[data-bm-time-lane]')!;
+    lane.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, clientX: 999 }));
+    window.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }));
+    expect(host.querySelector('.bm-part')!.classList.contains('is-broken')).toBe(true);
+    // 깨진 뒤에는 점수가 오른쪽 위 총합에 얹힌다.
+    expect(host.querySelector('.bm-hud-row.is-score')).not.toBeNull();
+  });
+
   it('그린 것은 저장돼 다시 열어도 남는다', () => {
     const first = mount();
     first.open();

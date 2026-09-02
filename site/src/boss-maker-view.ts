@@ -14,7 +14,7 @@ import {
   DEFAULT_CORE_PX, derivedEnemy, derivedOptimalRange, derivedPartBreakInterval, distance,
   dropDesign, ELEMENT_COLOR, emptyDesign, emptyLibrary, encodeBossCode, hitTest, impactOffsets,
   inFullBurst, mixRangeColor, newId, parseLibrary, partBreaks, partsInBlast, phaseAt,
-  pierceTargets, putDesign, RANGE_COLOR, spreadRadius, visibleAt,
+  pierceTargets, putDesign, RANGE_COLOR, scoreUntil, spreadRadius, visibleAt,
   type BossDesign, type BossLibrary, type BossPart, type BossShape, type ShapeKind,
 } from './boss-maker';
 import {
@@ -206,6 +206,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
           <input type="text" class="bm-name" data-bm-name maxlength="24" placeholder="보스 이름" />
         </div>
         <div class="bm-top-actions">
+          <button type="button" class="bm-help-open" data-bm-help-open aria-label="사용설명서" title="사용설명서">i</button>
           <button type="button" class="bm-btn ghost" data-bm-new title="빈 판을 하나 더 만듭니다">새 보스</button>
           <button type="button" class="bm-btn ghost" data-bm-copy title="지금 보스를 통째로 베낍니다">복제</button>
           <button type="button" class="bm-btn ghost danger-text" data-bm-drop title="지금 보스를 저장함에서 지웁니다">삭제</button>
@@ -245,6 +246,84 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
         도형을 놓을 수 없습니다 — <b>계산은 모바일에서도 그대로 됩니다.</b> 만들어 둔 보스를
         전투 조건에 반영해 두면 어느 기기에서든 그 조건으로 계산합니다.
       </p>
+
+      <!-- 사용설명서. 창을 또 띄우지 않고 이 화면 안에서 덮는다. -->
+      <div class="bm-help" data-bm-help hidden>
+        <div class="bm-help-card" role="dialog" aria-label="보스 메이커 사용설명서">
+          <div class="bm-help-head">
+            <b>보스 메이커 사용설명서</b>
+            <button type="button" class="bm-close" data-bm-help-close aria-label="닫기">✕</button>
+          </div>
+          <div class="bm-help-body">
+            <section>
+              <h4>1. 보스를 그린다</h4>
+              <p>왼쪽 <b>모양</b>에서 원·네모·삼각형을 고르고 무대를 눌러 놓습니다. 놓은 도형은
+                끌어 옮기고, <b>오른쪽 아래 네모</b>로 크기를, <b>위쪽 고리</b>로 기울기를 잡습니다
+                (<b>Shift</b>를 누르고 돌리면 15°씩 끊깁니다). Delete로 지웁니다.</p>
+              <p><b>밑그림</b>으로 보스 스크린샷을 깔고 그 위에 도형을 얹으면 모양을 맞추기 쉽습니다.
+                밑그림은 이 브라우저에만 남고 공유 코드에는 담기지 않습니다.</p>
+            </section>
+            <section>
+              <h4>2. 코어와 중앙</h4>
+              <p><b>코어</b>는 겨냥의 첫째 기준이자 코어 대미지가 붙는 자리입니다. 지름이 그대로
+                전투 조건의 «코어 직경»이 됩니다.</p>
+              <p><b>중앙</b>은 코어가 없을 때 겨냥하는 점입니다. 풀버스트가 아닐 때 자동 사격하는
+                니케들이 이 점을 때리므로, <b>코어가 없어도 반드시 찍어 두세요.</b></p>
+            </section>
+            <section>
+              <h4>3. 파츠</h4>
+              <p>파츠에는 <b>체력</b>과 <b>파괴 점수</b>를 줍니다. 체력은 지금 덱의 초당 딜로 나눠
+                «몇 초에 깨지는지»를 내고, 그 시각이 지나면 무대에서 <b>회색</b>으로 바뀝니다.
+                파괴 점수는 총딜에 더해집니다 — 시뮬이 때려서 낸 값이 아니라 출처가 달라 화면에
+                따로 적힙니다.</p>
+              <p>타임라인의 파츠 줄에서 띠를 끌면 <b>사라짐·재생성</b> 시각이 바뀝니다. 속성 판의
+                «지금 사라짐 / 지금 재생성»으로 커서 자리에 바로 찍을 수도 있습니다.</p>
+            </section>
+            <section>
+              <h4>4. 적정거리와 관통</h4>
+              <p>도형을 고르면 <b>이 도형의 적정거리</b>를 무기군별로 켭니다. 켜 둔 무기군은 그
+                도형을 겨냥할 때 일반 공격에 +30%가 붙고, 도형이 그 색으로 물듭니다(여럿이면 섞인 색).</p>
+              <p>겨냥한 자리에 도형과 파츠가 겹쳐 있으면 <b>관통</b>이 그만큼 꿰뚫습니다. 파츠에 든
+                히트는 파츠 판정을 받아 «파츠 대미지 ▲»가 실립니다. 관통이 아닌 보통 사격은
+                겹쳐 있어도 한 번만 맞습니다.</p>
+            </section>
+            <section>
+              <h4>5. 조준</h4>
+              <p><b>풀버스트가 아닐 때</b>는 플레이어가 잡은 <b>3번 칸</b> 니케만 겨냥한 자리를
+                때리고, 나머지 넷은 자동 사격이라 보스 중앙을 때립니다. 풀버스트에 들어가면 다
+                같이 겨냥한 곳으로 몰립니다.</p>
+              <p>무대 위 <b>조준 찍기</b>나 타임라인 조준 줄의 <b>+</b>를 누르고 무대를 누르면 그
+                시각의 조준점이 박힙니다. 점을 끌면 시각이, 두 번 누르면 지워집니다. 키 사이는
+                곧게 이어 따라갑니다.</p>
+            </section>
+            <section>
+              <h4>6. 돌려 보기</h4>
+              <p><b>현재 덱으로 타임라인 구성</b>을 누르면 지금 편성으로 한 판 돌려, 누가 언제
+                어디에 쏘는지가 아래에 펼쳐집니다. <b>▶</b>로 재생하고 <b>×2</b>로 속도를 바꿉니다.
+                시간 줄 아무 데나 눌러도 그 시각으로 갑니다.</p>
+              <p>무대의 점은 <b>탄이 박힌 자리</b>입니다 — 계산기가 코어 명중률을 내는 그 분포로
+                뿌리므로, 코어에 든 점의 비율이 실제 코어 명중률과 같습니다. <b>평타만</b> 뿌립니다.</p>
+              <p>파츠 파괴 시각은 <b>한 번 돌린 뒤에야</b> 나옵니다(덱의 딜을 알아야 «체력 ÷ 딜»을
+                낼 수 있습니다). 그래서 처음 돌린 뒤 한 번 더 돌리면 그 시각이 계산에 들어갑니다.</p>
+            </section>
+            <section>
+              <h4>7. 내보내기</h4>
+              <p><b>전투 조건에 반영</b>은 그림에서 뽑은 값(코어 직경·파츠 유무)을 계산기 본체의
+                전투 조건에 얹습니다. <b>공유</b>는 보스를 코드 한 줄로 만들거나 서버에 올립니다 —
+                밑그림만 빠지고 도형·파츠·코어·조준·탄착군이 담깁니다.</p>
+              <p>보스는 여러 벌 둘 수 있습니다. 머리줄의 목록에서 고르고, <b>새 보스 · 복제 ·
+                삭제</b>로 관리합니다.</p>
+            </section>
+            <section>
+              <h4>알아 둘 것</h4>
+              <p><b>구성은 PC에서만</b> 됩니다(무대와 설정 판이 나란히 서야 합니다). 만들어 둔
+                보스를 전투 조건에 반영해 두면 계산은 어느 기기에서든 됩니다.</p>
+              <p>좌표는 인게임과 같은 자(px)로 잽니다 — 코어 52px, 탄착군은 AR 76 · SMG 110 ·
+                SG 240 · MG/SR/RL 10px입니다.</p>
+            </section>
+          </div>
+        </div>
+      </div>
 
       <div class="bm-body">
         <aside class="bm-tools">
@@ -411,10 +490,18 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       node.dataset.bmItem = shape.id;
       body.append(node);
     }
+    // 깨진 파츠는 회색이다. 「이 시각엔 이미 부서져 있다」가 한눈에 보여야 파괴 시각을
+    // 옮겨 가며 맞출 수 있다.
+    const breaks = partBreaks(design.parts, squadDps(), deps.currentBattle().duration);
+    const brokenAt = new Map(breaks.map((entry) => [entry.id, entry.at]));
     for (const part of visibleAt(design.parts, at)) {
       const node = shapeNode(part);
-      node.setAttribute('class', `bm-part${selectedId === part.id ? ' is-on' : ''}`);
-      const partTint = mixRangeColor(part.range);
+      const breakTime = brokenAt.get(part.id);
+      const broken = shots !== null && breakTime !== null && breakTime !== undefined
+        && at >= breakTime;
+      node.setAttribute('class',
+        `bm-part${broken ? ' is-broken' : ''}${selectedId === part.id ? ' is-on' : ''}`);
+      const partTint = broken ? null : mixRangeColor(part.range);
       if (partTint) {
         node.setAttribute('fill', partTint);
         node.setAttribute('fill-opacity', String(RANGE_FILL));
@@ -424,8 +511,8 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       body.append(node);
       const label = svgEl('text');
       attrs(label, { x: part.x, y: part.y - part.h / 2 - 6, 'text-anchor': 'middle' });
-      label.setAttribute('class', 'bm-part-label');
-      label.textContent = part.name;
+      label.setAttribute('class', broken ? 'bm-part-label is-broken' : 'bm-part-label');
+      label.textContent = broken ? `${part.name} 파괴` : part.name;
       body.append(label);
     }
     stage.append(body);
@@ -677,6 +764,9 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     attrs(spin, { cx: item.x, cy: item.y - item.h / 2 - 22, r: 6 });
     spin.setAttribute('class', 'bm-handle spin');
     spin.dataset.bmSpin = item.id;
+    const spinTip = svgEl('title');
+    spinTip.textContent = '끌어서 돌리기 (Shift: 15°씩)';
+    spin.append(spinTip);
     group.append(spin);
 
     stage.append(group);
@@ -915,11 +1005,32 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       inspector.append(numberRow('파츠 체력', part.hp, 0, 9_999_999_999, (value) => {
         part.hp = value;
       }, ''));
+      inspector.append(numberRow('파괴 점수', part.score ?? 0, 0, 999_999_999_999, (value) => {
+        if (value > 0) part.score = value; else delete part.score;
+      }, ''));
       const breaks = partBreaks([part], squadDps(), deps.currentBattle().duration);
       const at = breaks[0]?.at ?? null;
       inspector.append(el('p', 'bm-note', at === null
         ? '지금 덱의 딜로는 이 전투 안에 깨지지 않습니다.'
         : `지금 덱의 딜(${Math.round(squadDps()).toLocaleString('ko-KR')}/초)이면 약 ${round(at)}초에 깨집니다.`));
+      if ((part.score ?? 0) > 0) {
+        inspector.append(el('p', 'bm-note',
+          '깨면 이 점수가 총딜에 더해집니다 — 시뮬이 때려서 낸 값이 아니라 «깨면 준다»는 '
+          + '규칙이라, 화면에서는 총딜 옆에 따로 적습니다.'));
+      }
+      // 사라짐·재생성은 시각이라 타임라인에서 찍는 것이 빠르다.
+      const when = el('div', 'bm-when');
+      for (const [label, apply] of [
+        ['지금 사라짐', () => { part.to = round(cursor); }],
+        ['지금 재생성', () => { part.from = round(cursor); }],
+        ['구간 지우기', () => { delete part.from; delete part.to; }],
+      ] as Array<[string, () => void]>) {
+        const button = el('button', 'bm-chip', label);
+        button.type = 'button';
+        button.addEventListener('click', () => { apply(); save(); render(); });
+        when.append(button);
+      }
+      inspector.append(el('p', 'bm-note-head', '사라짐 · 재생성'), when);
     }
 
     inspector.append(numberRow('가로', item.w, 4, 2000, (value) => { item.w = value; }, 'px'));
@@ -927,6 +1038,8 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     inspector.append(numberRow('기울기', item.rotation, -180, 180, (value) => {
       item.rotation = value;
     }, '°'));
+    inspector.append(el('p', 'bm-note',
+      '무대에서 도형 위쪽의 고리를 끌어도 돌아갑니다 — Shift를 누르면 15°씩 끊깁니다.'));
     inspector.append(numberRow('나타남', item.from ?? 0, 0, 600, (value) => {
       if (value > 0) item.from = value; else delete item.from;
     }, '초'));
@@ -1260,9 +1373,15 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       // **여기서 나온 딜이 이 보스로 잰 딜이다.** 코어 직경·파츠 유무·파츠 파괴 시각이
       // 전부 그림에서 나온 값이라, 원래 창의 결과와 다를 수 있다 — 그래서 여기에 적는다.
       const dps = result.duration > 0 ? result.squadTotal / result.duration : 0;
+      // 파괴 점수는 시뮬 밖에서 얹히는 값이다 — 총합에 더하되 얼마가 점수인지 함께 적는다.
+      const score = scoreUntil(
+        partBreaks(design.parts, dps, battle.duration), battle.duration,
+      );
       const parts = [
         `${design.name} · ${squad.length}명 · ${result.duration}초`,
-        `총딜 ${formatDamage(result.squadTotal)} · ${formatDps(dps)}`,
+        score > 0
+          ? `총합 ${formatDamage(result.squadTotal + score)}(딜 ${formatDamage(result.squadTotal)} + 파괴 점수 ${formatDamage(score)}) · ${formatDps(dps)}`
+          : `총딜 ${formatDamage(result.squadTotal)} · ${formatDps(dps)}`,
         `${result.hitCount.toLocaleString('ko-KR')}발`,
         derived.corePx > 0 ? `코어 ${derived.corePx}px` : '코어 없음',
       ];
@@ -1329,19 +1448,74 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       });
     }));
 
-    // 파츠 파괴 예상 시각.
-    if (design.parts.length > 0) {
+    // 파츠마다 한 줄. 띠는 «보이는 구간»이라 끌면 사라짐·재생성 시각이 바뀌고,
+    // 그 위의 표식은 «이쯤 깨진다»는 예상 시각이다.
+    const breaks = partBreaks(design.parts, squadDps(), duration);
+    for (const [index, part] of design.parts.entries()) {
       const row = el('div', 'bm-track');
-      row.append(el('span', 'bm-track-name', '파츠 파괴'));
+      const name = el('span', 'bm-track-name', part.name);
+      name.title = `${part.name} · 체력 ${part.hp.toLocaleString('ko-KR')}`
+        + ((part.score ?? 0) > 0 ? ` · 파괴 점수 ${part.score!.toLocaleString('ko-KR')}` : '');
+      row.append(name);
       const lane = el('div', 'bm-lane');
-      for (const entry of partBreaks(design.parts, squadDps(), duration)) {
-        if (entry.at === null) continue;
+
+      const from = part.from ?? 0;
+      const to = part.to ?? duration;
+      const bar = el('div', 'bm-bar is-part');
+      bar.style.left = `${(from / duration) * 100}%`;
+      bar.style.width = `${(Math.max(0, to - from) / duration) * 100}%`;
+      bar.style.setProperty('--bar', '#ffb347');
+      bar.append(el('span', 'bm-bar-label', `${round(from)}–${round(to)}초`));
+      const left = el('i', 'bm-bar-grip left');
+      const right = el('i', 'bm-bar-grip right');
+      bar.append(left, right);
+      const drag = (event: PointerEvent, mode: 'move' | 'left' | 'right') => {
+        event.preventDefault();
+        event.stopPropagation();
+        const box = lane.getBoundingClientRect();
+        const at = (clientX: number) => ((clientX - box.left) / box.width) * duration;
+        const grabbed = at(event.clientX);
+        const startFrom = from;
+        const startTo = to;
+        const onMove = (moveEvent: PointerEvent) => {
+          const delta = at(moveEvent.clientX) - grabbed;
+          let nextFrom = startFrom;
+          let nextTo = startTo;
+          if (mode === 'move') { nextFrom = startFrom + delta; nextTo = startTo + delta; }
+          if (mode === 'left') nextFrom = Math.min(startTo - 0.5, startFrom + delta);
+          if (mode === 'right') nextTo = Math.max(startFrom + 0.5, startTo + delta);
+          nextFrom = Math.max(0, Math.min(duration, nextFrom));
+          nextTo = Math.max(0.5, Math.min(duration, nextTo));
+          bar.style.left = `${(nextFrom / duration) * 100}%`;
+          bar.style.width = `${((nextTo - nextFrom) / duration) * 100}%`;
+          // 처음부터 끝까지면 구간을 아예 지운다 — «늘 있다»가 기본이다.
+          if (nextFrom <= 0.05) delete part.from; else part.from = round(nextFrom);
+          if (nextTo >= duration - 0.05) delete part.to; else part.to = round(nextTo);
+        };
+        const onUp = () => {
+          window.removeEventListener('pointermove', onMove);
+          window.removeEventListener('pointerup', onUp);
+          save();
+          render();
+        };
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+      };
+      bar.addEventListener('pointerdown', (event) => drag(event, 'move'));
+      left.addEventListener('pointerdown', (event) => drag(event, 'left'));
+      right.addEventListener('pointerdown', (event) => drag(event, 'right'));
+      lane.append(bar);
+
+      const breakAt = breaks.find((entry) => entry.id === part.id)?.at ?? null;
+      if (breakAt !== null) {
         const mark = el('i', 'bm-break');
-        mark.style.left = `${(entry.at / duration) * 100}%`;
-        mark.title = `${entry.name} — ${round(entry.at)}초`;
+        mark.style.left = `${(breakAt / duration) * 100}%`;
+        mark.title = `${part.name} 파괴 — ${round(breakAt)}초`
+          + ((part.score ?? 0) > 0 ? ` · +${part.score!.toLocaleString('ko-KR')}` : '');
         lane.append(mark);
       }
       row.append(lane);
+      void index;
       tracks.append(row);
     }
 
@@ -1726,14 +1900,26 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     hud.replaceChildren();
 
     const rows = squad.map((name) => ({ name, damage: damageUntil(name) }));
-    const total = rows.reduce((sum, row) => sum + row.damage, 0);
+    const dealt = rows.reduce((sum, row) => sum + row.damage, 0);
     const best = Math.max(1, ...rows.map((row) => row.damage));
+    // 파츠를 깨서 얹힌 점수. 시뮬이 때려서 낸 값이 아니라 출처가 달라 따로 적는다.
+    const score = scoreUntil(
+      partBreaks(design.parts, squadDps(), deps.currentBattle().duration), cursor,
+    );
+    const total = dealt + score;
 
     const head = el('div', 'bm-hud-total');
     head.append(el('b', '', formatDamage(total)));
     head.append(el('span', '', `${round(cursor)}초까지`));
-    head.title = `${Math.round(total).toLocaleString('ko-KR')}`;
+    head.title = `${Math.round(total).toLocaleString('ko-KR')}`
+      + (score > 0 ? ` (딜 ${Math.round(dealt).toLocaleString('ko-KR')} + 파괴 점수 ${Math.round(score).toLocaleString('ko-KR')})` : '');
     hud.append(head);
+    if (score > 0) {
+      const line = el('div', 'bm-hud-row is-score');
+      line.append(el('span', 'bm-hud-tag', '파괴 점수'), el('span', 'bm-hud-dmg', formatDamage(score)));
+      line.title = `깨진 파츠의 점수 합 ${Math.round(score).toLocaleString('ko-KR')}`;
+      hud.append(line);
+    }
 
     for (const row of rows) {
       const line = el('div', row.damage >= best ? 'bm-hud-row is-top' : 'bm-hud-row');
@@ -1949,6 +2135,16 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   showHits.addEventListener('change', redrawImpacts);
   pileHits.addEventListener('change', redrawImpacts);
   // 창을 닫으면 재생도 멈춘다 — 안 보이는 화면을 60프레임으로 다시 그릴 이유가 없다.
+  const helpPane = q<HTMLElement>('[data-bm-help]');
+  q<HTMLButtonElement>('[data-bm-help-open]').addEventListener('click', () => {
+    helpPane.hidden = false;
+  });
+  q<HTMLButtonElement>('[data-bm-help-close]').addEventListener('click', () => {
+    helpPane.hidden = true;
+  });
+  helpPane.addEventListener('click', (event) => {
+    if (event.target === helpPane) helpPane.hidden = true;
+  });
   q<HTMLButtonElement>('[data-bm-run]').addEventListener('click', () => { void runTimeline(); });
   q<HTMLButtonElement>('[data-bm-close]').addEventListener('click', () => { close(); });
   q<HTMLButtonElement>('[data-bm-new]').addEventListener('click', () => {

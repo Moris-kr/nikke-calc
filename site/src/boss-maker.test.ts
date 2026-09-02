@@ -6,7 +6,7 @@ import {
   aimAt, aimForNikke, derivedOptimalRange, encodeBossCode, hitTest, impactOffsets, inFullBurst,
   mixRangeColor, outerRadius, parseDesign, parseLibrary, partBreaks, partsInBlast, pierceTargets,
   PLAYER_SLOT,
-  phaseAt, putDesign, spreadRadius, visibleAt,
+  phaseAt, putDesign, scoreUntil, spreadRadius, visibleAt,
   type AccuracyTable, type BossPart, type BossShape,
 } from './boss-maker';
 
@@ -207,6 +207,25 @@ describe('보스 메이커', () => {
     expect(derivedPartBreakInterval([], 500, 20)).toBe(0);
   });
 
+  it('파츠를 깨면 점수가 붙고, 깬 시각부터 쌓인다', () => {
+    // 시뮬이 때려서 낸 값이 아니라 «깨면 준다»는 규칙이라 총딜과 출처가 다르다.
+    const parts = [
+      part({ id: 'a', name: '왼팔', hp: 1000, score: 5_000_000 }),
+      part({ id: 'b', name: '오른팔', hp: 3000, score: 7_000_000 }),
+      part({ id: 'c', name: '등껍질', hp: 999_999 }),
+    ];
+    const breaks = partBreaks(parts, 500, 20);
+    expect(breaks.map((entry) => [entry.name, entry.at, entry.score]))
+      .toEqual([['왼팔', 2, 5_000_000], ['오른팔', 6, 7_000_000], ['등껍질', null, 0]]);
+
+    expect(scoreUntil(breaks, 0)).toBe(0);
+    expect(scoreUntil(breaks, 2)).toBe(5_000_000);
+    expect(scoreUntil(breaks, 5.9)).toBe(5_000_000);
+    expect(scoreUntil(breaks, 6)).toBe(12_000_000);
+    // 전투 안에 못 깨는 파츠의 점수는 영영 안 붙는다.
+    expect(scoreUntil(breaks, 999)).toBe(12_000_000);
+  });
+
   it('그림에서 엔진이 아는 숫자만 뽑는다', () => {
     const design = emptyDesign();
     design.core = { x: 10, y: 10, d: 52.4 };
@@ -315,7 +334,7 @@ describe('보스 메이커', () => {
     const design = emptyDesign('그레이브디거');
     design.shapes.push(shape({ kind: 'triangle', x: 300, y: 200, w: 120, h: 90, rotation: 30 }));
     design.shapes.push(shape({ id: 's2', kind: 'rect', from: 60, to: 120, range: ['SG', 'MG'] }));
-    design.parts.push(part({ name: '왼팔', x: 500, y: 300, hp: 1_200_000 }));
+    design.parts.push(part({ name: '왼팔', x: 500, y: 300, hp: 1_200_000, score: 9_000_000 }));
     design.core = { x: 480, y: 260, d: 64 };
     design.center = { x: 480, y: 320 };
     design.explosion['리타'] = 90;
@@ -332,7 +351,9 @@ describe('보스 메이커', () => {
     expect(back.shapes[1]!.from).toBe(60);
     expect(back.shapes[1]!.range).toEqual(['MG', 'SG']);
     expect(back.shapes[1]!.to).toBe(120);
-    expect(back.parts[0]).toMatchObject({ name: '왼팔', hp: 1_200_000, x: 500, y: 300 });
+    expect(back.parts[0]).toMatchObject({
+      name: '왼팔', hp: 1_200_000, x: 500, y: 300, score: 9_000_000,
+    });
     expect(back.core).toEqual({ x: 480, y: 260, d: 64 });
     expect(back.center).toEqual({ x: 480, y: 320 });
     // 폭발 반경은 이름 해시로 실어 보내고, 받는 쪽 목록에서 이름을 되찾는다.
