@@ -149,8 +149,89 @@ describe('보스 메이커 화면', () => {
     expect(applied.immuneWindows).toHaveLength(1);
     expect(applied.elementWindows).toHaveLength(1);
     const bars = [...host.querySelectorAll('.bm-bar')].map((bar) => bar.textContent);
-    expect(bars[0]).toContain('족자');
-    expect(bars[1]).toContain('풍압');
+    expect(bars[0]).toContain('10–15초');
+    expect(bars[1]).toContain('10–15초');
+  });
+
+  it('속저 속성은 적 코드로 열리고, 띠 안에서 바꾼다', () => {
+    // 철갑 보스의 속저는 철갑 속저다 — 매번 손으로 고르게 두면 그것부터 틀린다.
+    applied = { ...battle(), enemyCode: '철갑' };
+    const handle = mountBossMaker(host, {
+      settings,
+      catalog: [],
+      simulate: async () => result(),
+      currentSquad: () => ['리타'],
+      currentCharacters: () => ({}),
+      currentBattle: () => applied,
+      applyBattle: (next) => { applied = next; },
+      imageOf: () => undefined,
+      storage: () => localStorage,
+    });
+    handle.open();
+
+    const [, element] = [...host.querySelectorAll<HTMLButtonElement>('.bm-phase-head .bm-chip')];
+    element!.click();
+    expect(applied.elementWindows[0]!.code).toBe('철갑');
+
+    const pick = host.querySelector<HTMLSelectElement>('.bm-bar-code')!;
+    expect(pick.value).toBe('철갑');
+    pick.value = '수냉';
+    pick.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(applied.elementWindows[0]!.code).toBe('수냉');
+  });
+
+  it('도형을 돌리면 그림도 함께 돌아간다', () => {
+    // 판정만 돌리고 그림을 그대로 두면 «눌러야 잡히는 자리»와 보이는 자리가 어긋난다.
+    const handle = mount();
+    handle.open();
+    placeWith('rect');
+    const rotation = [...host.querySelectorAll('.bm-row')]
+      .find((row) => row.textContent?.startsWith('기울기'))!
+      .querySelector<HTMLInputElement>('.bm-field')!;
+    rotation.value = '30';
+    rotation.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(host.querySelector('.bm-shape')!.getAttribute('transform')).toMatch(/^rotate\(30 /);
+    // 기울기 고리도 함께 돈다 — 안 돌면 모서리와 손잡이가 따로 논다.
+    expect(host.querySelector('[data-bm-spin]')).not.toBeNull();
+  });
+
+  it('도형에 적정거리를 걸면 그 무기군이 계산으로 넘어간다', async () => {
+    const handle = mount();
+    handle.open();
+    placeWith('center');
+    placeWith('circle');
+
+    const chips = [...host.querySelectorAll<HTMLButtonElement>('.bm-chip.range')];
+    chips.find((chip) => chip.textContent === 'SG')!.click();
+    chips.find((chip) => chip.textContent === 'MG')!.click();
+
+    host.querySelector<HTMLButtonElement>('[data-bm-run]')!.click();
+    await new Promise((resolve) => { setTimeout(resolve, 0); });
+    // 겹쳐도 합집합이지 덧셈이 아니다 — 무기군마다 한 번만 붙는다.
+    expect((sent as Record<string, unknown>).optimalRangeWeapons).toEqual(['MG', 'SG']);
+  });
+
+  it('니케를 감추면 무대와 타임라인에서 함께 빠진다', async () => {
+    const handle = mount();
+    handle.open();
+    placeWith('core');
+    host.querySelector<HTMLButtonElement>('[data-bm-run]')!.click();
+    await new Promise((resolve) => { setTimeout(resolve, 0); });
+
+    expect(host.querySelectorAll('canvas.bm-shot')).toHaveLength(2);
+    expect(host.querySelectorAll('.bm-spread')).toHaveLength(2);
+
+    const faces = [...host.querySelectorAll<HTMLButtonElement>('.bm-face')];
+    expect(faces).toHaveLength(2);
+    faces[0]!.click();
+
+    expect(host.querySelectorAll('canvas.bm-shot')).toHaveLength(1);
+    expect(host.querySelectorAll('.bm-spread')).toHaveLength(1);
+    // 전부 되돌리는 단추는 감춘 사람이 있을 때만 나온다.
+    host.querySelector<HTMLButtonElement>('.bm-face-all')!.click();
+    expect(host.querySelectorAll('canvas.bm-shot')).toHaveLength(2);
+    expect(host.querySelector('.bm-face-all')).toBeNull();
   });
 
   it('좁은 화면에서는 구성이 안 된다고 먼저 말한다', () => {

@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   activeDesign, aimPoint, BOSS_PREFIX, breakTime, copyDesign, coreHitChance, decodeBossCode,
   derivedEnemy, derivedPartBreakInterval, distance, dropDesign, emptyDesign, emptyLibrary,
-  encodeBossCode, hitTest, impactOffsets, outerRadius, parseDesign, parseLibrary, partBreaks,
-  partsInBlast,
+  derivedOptimalRange, encodeBossCode, hitTest, impactOffsets, mixRangeColor, outerRadius,
+  parseDesign, parseLibrary, partBreaks, partsInBlast,
   phaseAt, putDesign, spreadRadius, visibleAt,
   type AccuracyTable, type BossPart, type BossShape,
 } from './boss-maker';
@@ -219,10 +219,36 @@ describe('보스 메이커', () => {
     expect(parseLibrary('{"designs":[]}')).toBeNull();
   });
 
+  it('도형별 적정거리는 겨냥한 도형의 것이 걸리고, 겹치면 합집합이다', () => {
+    const design = emptyDesign();
+    // 어느 도형에도 안 걸어 두면 전투 조건을 건드리지 않는다(null).
+    expect(derivedOptimalRange(design)).toBeNull();
+
+    design.center = { x: 100, y: 100 };
+    design.shapes.push(shape({ id: 'a', x: 100, y: 100, w: 200, h: 200, range: ['SG'] }));
+    design.shapes.push(shape({ id: 'b', x: 100, y: 100, w: 120, h: 120, range: ['SG', 'MG'] }));
+    design.shapes.push(shape({ id: 'far', x: 900, y: 900, w: 80, h: 80, range: ['RL'] }));
+    // 겹친 둘을 겨냥하면 합집합이다 — 보너스가 두 번 붙지 않는다(관통이라도 같다).
+    expect(derivedOptimalRange(design)).toEqual(['MG', 'SG']);
+
+    // 겨냥한 자리에 걸린 도형이 없으면 적정거리도 없다.
+    design.center = { x: 500, y: 500 };
+    expect(derivedOptimalRange(design)).toEqual([]);
+  });
+
+  it('적정거리 색은 여럿이면 섞인다', () => {
+    expect(mixRangeColor(['SG'])).toBe('#ffd166');
+    expect(mixRangeColor([])).toBeNull();
+    expect(mixRangeColor(undefined)).toBeNull();
+    // 두 색의 평균 — 「둘 다 걸린 자리」가 한눈에 갈린다.
+    // SG(255,209,102) + MG(255,143,107) → (255,176,105)
+    expect(mixRangeColor(['SG', 'MG'])).toBe('#ffb069');
+  });
+
   it('보스를 코드 한 줄로 주고받는다', () => {
     const design = emptyDesign('그레이브디거');
     design.shapes.push(shape({ kind: 'triangle', x: 300, y: 200, w: 120, h: 90, rotation: 30 }));
-    design.shapes.push(shape({ id: 's2', kind: 'rect', from: 60, to: 120 }));
+    design.shapes.push(shape({ id: 's2', kind: 'rect', from: 60, to: 120, range: ['SG', 'MG'] }));
     design.parts.push(part({ name: '왼팔', x: 500, y: 300, hp: 1_200_000 }));
     design.core = { x: 480, y: 260, d: 64 };
     design.center = { x: 480, y: 320 };
@@ -236,6 +262,7 @@ describe('보스 메이커', () => {
     expect(back.shapes.map((s) => s.kind)).toEqual(['triangle', 'rect']);
     expect(back.shapes[0]!.rotation).toBe(30);
     expect(back.shapes[1]!.from).toBe(60);
+    expect(back.shapes[1]!.range).toEqual(['MG', 'SG']);
     expect(back.shapes[1]!.to).toBe(120);
     expect(back.parts[0]).toMatchObject({ name: '왼팔', hp: 1_200_000, x: 500, y: 300 });
     expect(back.core).toEqual({ x: 480, y: 260, d: 64 });

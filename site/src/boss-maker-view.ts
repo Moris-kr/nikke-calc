@@ -13,14 +13,15 @@ import {
   activeDesign, aimPoint, coreHitChance, copyDesign, decodeBossCode, DEFAULT_CORE_PX,
   derivedEnemy, derivedPartBreakInterval, distance, dropDesign, ELEMENT_COLOR, emptyDesign,
   emptyLibrary, encodeBossCode,
-  hitTest, impactOffsets, newId, parseLibrary, partBreaks, partsInBlast, phaseAt, putDesign,
-  spreadRadius,
+  derivedOptimalRange, hitTest, impactOffsets, mixRangeColor, newId, parseLibrary, partBreaks,
+  partsInBlast, phaseAt, putDesign, RANGE_COLOR, spreadRadius,
   visibleAt,
   type BossDesign, type BossLibrary, type BossPart, type BossShape, type ShapeKind,
 } from './boss-maker';
-import type {
-  BattleSettings, CharacterMeta, CharacterOverrides, ElementCode, ShotTrack,
-  SettingsCatalog, SimulationRequest, SimulationResult,
+import {
+  spanTargets,
+  type BattleSettings, type CharacterMeta, type CharacterOverrides, type ElementCode,
+  type SettingsCatalog, type ShotTrack, type SimulationRequest, type SimulationResult,
 } from './types';
 import type { StorageLike } from './cache';
 import { formatDamage, formatDps } from './model';
@@ -58,6 +59,9 @@ const MIN_WIDTH = 1024;
 /** 니케 다섯을 가르는 색. 탄착군 원이 한 점에 포개지므로 색으로만 갈린다. */
 const AIM_COLORS = ['#45d6d0', '#ffbf3c', '#8ab6ff', '#ff8f6b', '#c79bff'];
 
+/** 속저에 고를 수 있는 속성. 전투 조건 창의 목록과 같다. */
+const ELEMENT_CODES: ElementCode[] = ['풍압', '수냉', '작열', '전격', '철갑'];
+
 const el = <K extends keyof HTMLElementTagNameMap>(
   tag: K, className = '', text = '',
 ): HTMLElementTagNameMap[K] => {
@@ -79,8 +83,21 @@ const round = (value: number, digits = 1): number => {
   return Math.round(value * scale) / scale;
 };
 
-/** 도형 하나를 SVG 요소로. 삼각형만 점 셋으로 그린다. */
+/**
+ * 도형 하나를 SVG 요소로. 삼각형만 점 셋으로 그린다.
+ *
+ * 기울기는 **그리는 쪽에서도 돌려야 한다** — 판정(`hitTest`)만 돌리고 그림을 그대로
+ * 두면, 눌러야 잡히는 자리와 보이는 자리가 어긋난다.
+ */
 function shapeNode(shape: BossShape): SVGElement {
+  const node = buildShape(shape);
+  if (shape.rotation) {
+    node.setAttribute('transform', `rotate(${shape.rotation} ${shape.x} ${shape.y})`);
+  }
+  return node;
+}
+
+function buildShape(shape: BossShape): SVGElement {
   if (shape.kind === 'circle') {
     const node = svgEl('ellipse');
     attrs(node, { cx: shape.x, cy: shape.y, rx: shape.w / 2, ry: shape.h / 2 });
@@ -226,6 +243,9 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
         </aside>
 
         <div class="bm-stage-wrap">
+          <!-- 지금 이 순간 걸려 있는 버프. 시전자 → 버프 이름 → 받는 사람 차례로 읽는다. -->
+          <div class="bm-buffs" data-bm-buffs hidden></div>
+          <div class="bm-squad-filter" data-bm-filter hidden></div>
           <div class="bm-stage-head">
             <span class="bm-stage-note" data-bm-center-warn hidden>
               <b>보스 중앙을 찍어 주세요.</b> 코어가 없는 보스는 이 점을 겨냥합니다.
@@ -268,6 +288,10 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   const showAim = q<HTMLInputElement>('[data-bm-show-aim]');
   const showHits = q<HTMLInputElement>('[data-bm-show-hits]');
   const pileHits = q<HTMLInputElement>('[data-bm-pile]');
+  const buffBar = q<HTMLElement>('[data-bm-buffs]');
+  const filterBar = q<HTMLElement>('[data-bm-filter]');
+  /** 화면에서 감춘 니케. 탄착군·탄착점·사격 줄·버프가 함께 빠진다 */
+  const hidden = new Set<string>();
   const picker = q<HTMLSelectElement>('[data-bm-picker]');
 
   /** 저장본 목록. 이름이 같아도 되도록 값은 id다. */
@@ -283,6 +307,9 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   }
 
   const accuracy = deps.settings.accuracy;
+  /** 지금 화면에 그릴 니케. 감춘 사람은 무대에서도 타임라인에서도 빠진다. */
+  const shownSquad = (): string[] =>
+    deps.currentSquad().filter((name) => name && !hidden.has(name));
   const weaponOf = (name: string) => deps.settings.characters[name]?.weaponType ?? 'AR';
   const allItems = (): BossShape[] => [...design.shapes, ...design.parts];
   const findItem = (id: string | null): BossShape | undefined =>
@@ -317,13 +344,21 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     for (const shape of visibleAt(design.shapes, at)) {
       const node = shapeNode(shape);
       node.setAttribute('class', `bm-shape${selectedId === shape.id ? ' is-on' : ''}`);
-      node.setAttribute('fill', shape.color);
+      // 적정거리가 걸린 도형은 그 무기군 색으로 칠한다. 여럿이면 섞인 색이다.
+      const tint = mixRangeColor(shape.range);
+      node.setAttribute('fill', tint ?? shape.color);
+      if (tint) node.setAttribute('stroke', tint);
       node.dataset.bmItem = shape.id;
       body.append(node);
     }
     for (const part of visibleAt(design.parts, at)) {
       const node = shapeNode(part);
       node.setAttribute('class', `bm-part${selectedId === part.id ? ' is-on' : ''}`);
+      const partTint = mixRangeColor(part.range);
+      if (partTint) {
+        node.setAttribute('fill', partTint);
+        node.setAttribute('stroke', partTint);
+      }
       node.dataset.bmItem = part.id;
       body.append(node);
       const label = svgEl('text');
@@ -375,6 +410,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     drawAim(phase.immune);
     drawHandles();
     updateStageMeta(hits);
+    renderBuffs();
   }
 
   /**
@@ -390,7 +426,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     centerWarn.hidden = !(aim === null || (design.core === null && design.center === null));
     if (!aim || hidden || !showAim.checked) return;
 
-    const squad = deps.currentSquad().filter(Boolean);
+    const squad = shownSquad();
     const group = svgEl('g');
     group.setAttribute('class', 'bm-aim');
     // 이름표는 조준점 둘레에 고르게 흩는다. 원이 클수록 바깥에 붙는다.
@@ -474,7 +510,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     const last = Math.min(shots.buckets - 1, Math.floor(cursor / bucket));
     const first = pileHits.checked
       ? 0 : Math.max(0, last - Math.round(TRAIL_SECONDS / bucket));
-    const squad = deps.currentSquad().filter(Boolean);
+    const squad = shownSquad();
     const modelN = accuracy?.modelN ?? 2.55;
 
     // 점은 **칸이 바뀔 때만** 달라진다. 재생은 초당 60번 다시 그리는데 칸은 0.1초마다
@@ -524,17 +560,42 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     return (row.normal[index] ?? 0) + (row.skill[index] ?? 0) > 0;
   }
 
-  /** 고른 것 둘레의 손잡이. 오른쪽 아래 하나로 크기를 잡는다. */
+  /**
+   * 고른 것 둘레의 손잡이. 오른쪽 아래로 크기를, 위쪽 고리로 기울기를 잡는다.
+   *
+   * 손잡이는 도형과 **함께 돌린다** — 안 돌리면 기울어진 도형의 모서리와 손잡이가
+   * 따로 놀아 어디를 잡아야 할지 알 수 없다.
+   */
   function drawHandles() {
     const item = findItem(selectedId);
     if (!item) return;
-    const handle = svgEl('rect');
-    attrs(handle, {
+    const group = svgEl('g');
+    if (item.rotation) {
+      group.setAttribute('transform', `rotate(${item.rotation} ${item.x} ${item.y})`);
+    }
+
+    const size = svgEl('rect');
+    attrs(size, {
       x: item.x + item.w / 2 - 5, y: item.y + item.h / 2 - 5, width: 10, height: 10,
     });
-    handle.setAttribute('class', 'bm-handle');
-    handle.dataset.bmHandle = item.id;
-    stage.append(handle);
+    size.setAttribute('class', 'bm-handle');
+    size.dataset.bmHandle = item.id;
+    group.append(size);
+
+    // 기울기 고리는 위쪽으로 뽑아 둔다. 도형 안에 두면 옮기기와 헷갈린다.
+    const arm = svgEl('line');
+    attrs(arm, {
+      x1: item.x, y1: item.y - item.h / 2, x2: item.x, y2: item.y - item.h / 2 - 22,
+    });
+    arm.setAttribute('class', 'bm-handle-arm');
+    group.append(arm);
+    const spin = svgEl('circle');
+    attrs(spin, { cx: item.x, cy: item.y - item.h / 2 - 22, r: 6 });
+    spin.setAttribute('class', 'bm-handle spin');
+    spin.dataset.bmSpin = item.id;
+    group.append(spin);
+
+    stage.append(group);
   }
 
   function updateStageMeta(hits = 0) {
@@ -627,6 +688,19 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       startDrag(event, (point) => {
         item.w = Math.max(12, Math.abs(point.x - item.x) * 2);
         item.h = Math.max(12, Math.abs(point.y - item.y) * 2);
+      });
+      return;
+    }
+    const spinId = target?.dataset?.bmSpin;
+    if (spinId) {
+      const item = findItem(spinId);
+      if (!item) return;
+      startDrag(event, (point) => {
+        // 위쪽을 0°로 둔다 — 고리가 위에 달려 있으니 손이 가는 대로 돈다.
+        const degrees = (Math.atan2(point.y - item.y, point.x - item.x) * 180) / Math.PI + 90;
+        const wrapped = ((degrees + 180) % 360 + 360) % 360 - 180;
+        // Shift를 누르면 15°씩 끊어 돈다 — 반듯하게 세우려는 손이 대부분이다.
+        item.rotation = Math.round(event.shiftKey ? Math.round(wrapped / 15) * 15 : wrapped);
       });
       return;
     }
@@ -754,6 +828,35 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     inspector.append(numberRow('사라짐', item.to ?? 0, 0, 600, (value) => {
       if (value > 0) item.to = value; else delete item.to;
     }, '초'));
+
+    // 도형별 적정거리 — 보스는 부위마다 거리가 다르다. 겨냥한 도형의 것이 걸린다.
+    inspector.append(el('p', 'bm-note-head', '이 도형의 적정거리'));
+    const rangeChips = el('div', 'bm-chips');
+    for (const weapon of deps.settings.optimalRangeWeapons ?? deps.settings.weaponTypes) {
+      const chip = el('button', 'bm-chip range', weapon);
+      chip.type = 'button';
+      if ((item.range ?? []).includes(weapon)) {
+        chip.classList.add('is-on');
+        chip.style.setProperty('--range', RANGE_COLOR[weapon] ?? '#8ea9c4');
+      }
+      chip.addEventListener('click', () => {
+        const now = new Set(item.range ?? []);
+        if (now.has(weapon)) now.delete(weapon); else now.add(weapon);
+        if (now.size > 0) item.range = [...now].sort(); else delete item.range;
+        save();
+        render();
+      });
+      rangeChips.append(chip);
+    }
+    inspector.append(rangeChips);
+    inspector.append(el('p', 'bm-note',
+      '켠 무기군은 이 도형을 겨냥할 때 일반 공격에 +30%가 붙습니다. 도형 색이 그 무기군 '
+      + '색이 되고, 여럿이면 섞인 색이 됩니다. 어느 도형에도 안 켜 두면 전투 조건에 직접 '
+      + '잡아 둔 적정거리를 그대로 씁니다.'));
+    inspector.append(el('p', 'bm-note',
+      '도형을 겹쳐 놓아도 한 발이 여러 번 맞지 않습니다 — 관통 니케라도 마찬가지입니다. '
+      + '계산기는 보스 하나를 상대하고 관통은 여러 «적»에게 걸리는 것이라, 겹친 자리는 '
+      + '적정거리 무기군이 합쳐질 뿐 대미지가 두 번 들어가지 않습니다.'));
 
     if (design.parts.length >= 2 && isPart(item.id)) {
       const list = el('div', 'bm-dist');
@@ -887,9 +990,11 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
             ...now, immuneWindows: [...now.immuneWindows, { from: start, to: start + 5 }],
           });
         } else {
+          // 적 코드가 잡혀 있으면 그 코드로 연다 — 철갑 보스의 속저는 철갑 속저다.
+          const code = now.enemyCode || '풍압';
           deps.applyBattle({
             ...now,
-            elementWindows: [...now.elementWindows, { from: start, to: start + 5, code: '풍압' }],
+            elementWindows: [...now.elementWindows, { from: start, to: start + 5, code }],
           });
         }
         render();
@@ -986,6 +1091,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       const battle = deps.currentBattle();
       // 그림에서 뽑은 값이 전투 조건보다 앞선다 — 지금 보고 있는 보스로 재는 것이다.
       const derived = derivedEnemy(design, squadDps(), battle.duration);
+      const aimRange = derivedOptimalRange(design);
       const request: SimulationRequest = {
         squad,
         characters: deps.currentCharacters(),
@@ -995,7 +1101,9 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
         corePx: derived.corePx,
         hasParts: derived.hasParts,
         seed: battle.seed,
-        optimalRangeWeapons: battle.optimalRangeWeapons,
+        // 도형에 적정거리를 걸어 뒀으면 **조준점이 놓인 도형**의 것이 이긴다.
+        // 겹친 도형은 합집합이다 — 보너스는 무기군마다 한 번만 붙는다.
+        optimalRangeWeapons: aimRange ?? battle.optimalRangeWeapons,
         immuneWindows: battle.immuneWindows,
         elementWindows: battle.elementWindows,
         rngMode: battle.rngMode,
@@ -1025,6 +1133,9 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
         derived.corePx > 0 ? `코어 ${derived.corePx}px` : '코어 없음',
       ];
       if (derived.hasParts) parts.push('파츠');
+      if (aimRange) {
+        parts.push(aimRange.length > 0 ? `적정 ${aimRange.join('·')}` : '적정거리 없음(겨냥한 도형에 없음)');
+      }
       // 파츠 파괴 시각은 «이 덱의 딜»에서 나오므로 **한 번 돌린 뒤에야** 알 수 있다.
       // 처음 돌릴 때는 넘길 값이 없었다는 사실을 숨기지 않고 적는다.
       const nextBreak = derivedPartBreakInterval(design.parts, dps, battle.duration);
@@ -1065,7 +1176,8 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       });
     }));
     tracks.append(phaseTrack('속저', battle.elementWindows.map((w, index) => ({
-      index, from: w.from, to: w.to, color: ELEMENT_COLOR[w.code] ?? '#8ab', label: w.code,
+      index, from: w.from, to: w.to, color: ELEMENT_COLOR[w.code] ?? '#8ab',
+      label: w.code, code: w.code,
     })), duration, (index, from, to) => {
       const now = deps.currentBattle();
       const next = [...now.elementWindows];
@@ -1103,7 +1215,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     // 니케별 사격 밀도. 오른쪽 끝에 **그 니케가 이 보스에게 넣은 딜**을 적는다.
     const totals = lastResult?.charTotals ?? {};
     const best = Math.max(1, ...Object.values(totals).map((value) => Number(value) || 0));
-    for (const name of deps.currentSquad().filter(Boolean)) {
+    for (const name of shownSquad()) {
       const row = el('div', 'bm-track');
       const label = el('span', 'bm-track-name', name);
       const face = deps.imageOf(name);
@@ -1295,6 +1407,8 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     to: number;
     color: string;
     label: string;
+    /** 속저 줄만 — 이 구간의 속성. 있으면 띠 안에서 바꿀 수 있다 */
+    code?: ElementCode;
   }
 
   /** 구간 줄 하나. 몸통을 끌면 옮기고, 양 끝을 끌면 길이를 바꾼다. */
@@ -1311,7 +1425,28 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       node.style.left = `${(bar.from / duration) * 100}%`;
       node.style.width = `${((bar.to - bar.from) / duration) * 100}%`;
       node.style.setProperty('--bar', bar.color);
-      node.append(el('span', 'bm-bar-label', `${bar.label} ${round(bar.from)}–${round(bar.to)}초`));
+      if (bar.code !== undefined) {
+        // 속저는 속성을 바꿀 수 있어야 한다. 띠 안에 드롭다운을 넣고, 그 위에서
+        // 시작된 누르기는 끌기로 넘기지 않는다(고르는 중에 띠가 딸려 간다).
+        const pick = el('select', 'bm-bar-code');
+        for (const code of ELEMENT_CODES) {
+          const option = el('option', '', code);
+          option.value = code;
+          pick.append(option);
+        }
+        pick.value = bar.code;
+        pick.addEventListener('pointerdown', (event) => event.stopPropagation());
+        pick.addEventListener('click', (event) => event.stopPropagation());
+        pick.addEventListener('change', () => {
+          const now = deps.currentBattle();
+          const next = [...now.elementWindows];
+          next[bar.index] = { ...next[bar.index]!, code: pick.value as ElementCode };
+          deps.applyBattle({ ...now, elementWindows: next });
+          render();
+        });
+        node.append(pick);
+      }
+      node.append(el('span', 'bm-bar-label', `${round(bar.from)}–${round(bar.to)}초`));
       const left = el('i', 'bm-bar-grip left');
       const right = el('i', 'bm-bar-grip right');
       node.append(left, right);
@@ -1357,8 +1492,89 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
 
   // ── 묶기 ──────────────────────────────────────────────────────────────────
 
+  /** 니케 걸러 보기. 초상화를 눌러 끄면 무대·타임라인·버프에서 함께 빠진다. */
+  function renderFilter() {
+    const squad = deps.currentSquad().filter(Boolean);
+    filterBar.hidden = squad.length === 0;
+    filterBar.replaceChildren();
+    for (const [index, name] of squad.entries()) {
+      const chip = el('button', hidden.has(name) ? 'bm-face is-off' : 'bm-face');
+      chip.type = 'button';
+      chip.title = hidden.has(name) ? `${name} 보이기` : `${name} 감추기`;
+      chip.ariaLabel = chip.title;
+      chip.setAttribute('aria-pressed', String(!hidden.has(name)));
+      chip.style.setProperty('--who', AIM_COLORS[index % AIM_COLORS.length]!);
+      const face = deps.imageOf(name);
+      if (face) chip.style.backgroundImage = `url(${face})`;
+      else chip.textContent = name.slice(0, 2);
+      chip.addEventListener('click', () => {
+        if (hidden.has(name)) hidden.delete(name); else hidden.add(name);
+        impactCache = null;
+        render();
+      });
+      filterBar.append(chip);
+    }
+    if (hidden.size > 0) {
+      const all = el('button', 'bm-face-all', '전부 보기');
+      all.type = 'button';
+      all.addEventListener('click', () => {
+        hidden.clear();
+        impactCache = null;
+        render();
+      });
+      filterBar.append(all);
+    }
+  }
+
+  /**
+   * 지금 이 순간 걸려 있는 버프 — [시전자] 버프 이름 [받는 사람].
+   *
+   * 타임라인이 들고 온 버프 구간에서 커서가 든 것만 고른다. 구간마다 받는 사람이
+   * 갈리는 버프가 있어(리버렐리오 「차분한 수심」처럼 공격력 순으로 대상이 바뀐다)
+   * 줄 전체의 대상이 아니라 **그 구간의 대상**을 읽는다(`spanTargets`).
+   */
+  function renderBuffs() {
+    const tracks2 = lastResult?.timeline?.buffs ?? [];
+    buffBar.replaceChildren();
+    if (shots === null || tracks2.length === 0) { buffBar.hidden = true; return; }
+    buffBar.hidden = false;
+
+    const face = (name: string): HTMLElement => {
+      const node = el('i', 'bm-buff-face');
+      const image = deps.imageOf(name);
+      if (image) node.style.backgroundImage = `url(${image})`;
+      else node.textContent = name.slice(0, 1);
+      node.title = name;
+      return node;
+    };
+
+    let shown = 0;
+    for (const track of tracks2) {
+      const span = track.spans.find(([from, to]) => cursor >= from && cursor < to);
+      if (!span) continue;
+      const targets = spanTargets(track, span).filter((name) => !hidden.has(name));
+      if (hidden.has(track.caster) && targets.length === 0) continue;
+      if (targets.length === 0) continue;
+      shown += 1;
+      const row = el('span', 'bm-buff');
+      row.append(face(track.caster));
+      const label = el('b', 'bm-buff-name', track.name);
+      const stack = span[2];
+      if (stack > 1) label.append(el('em', 'bm-buff-stack', `×${stack}`));
+      row.append(label);
+      const to = el('span', 'bm-buff-targets');
+      for (const target of targets) to.append(face(target));
+      row.append(to);
+      buffBar.append(row);
+    }
+    if (shown === 0) {
+      buffBar.append(el('span', 'bm-buff-none', `${round(cursor)}초 — 걸려 있는 버프가 없습니다`));
+    }
+  }
+
   function render() {
     renderPicker();
+    renderFilter();
     nameInput.value = design.name;
     narrow.hidden = window.innerWidth >= MIN_WIDTH;
     drawStage();

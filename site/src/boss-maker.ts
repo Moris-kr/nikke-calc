@@ -48,6 +48,12 @@ export interface BossShape {
   /** 이 도형이 보이는 구간(초). 비면 처음부터 끝까지 — 「모양이 바뀌는 보스」가 이걸로 산다. */
   from?: number;
   to?: number;
+  /**
+   * 이 도형을 겨냥할 때 **적정거리가 되는 무기군**. 보스는 부위마다 거리가 다르다 —
+   * 다리는 붙어 있고 머리는 멀리 있는 식이라, 어디를 겨냥하느냐로 적정거리가 갈린다.
+   * 비어 있으면 이 도형에는 적정거리가 걸리지 않는다.
+   */
+  range?: string[];
 }
 
 /** 파츠 하나. 도형에 **체력**과 이름이 붙은 것이다. */
@@ -345,6 +351,62 @@ export function phaseAt(
 export const visibleAt = <T extends { from?: number; to?: number }>(items: T[], t: number): T[] =>
   items.filter((item) => t >= (item.from ?? 0) && t < (item.to ?? Infinity));
 
+/** 무기군별 적정거리 색. 도형에 여러 개가 걸리면 이 색들을 섞는다. */
+export const RANGE_COLOR: Record<string, string> = {
+  AR: '#7fe08a',
+  SMG: '#6fc7ff',
+  SG: '#ffd166',
+  MG: '#ff8f6b',
+  SR: '#c79bff',
+  RL: '#45d6d0',
+};
+
+/** `#rrggbb` → [r, g, b]. 표에 없는 이름이면 회색으로 친다. */
+const rgbOf = (weapon: string): [number, number, number] => {
+  const hex = RANGE_COLOR[weapon] ?? '#8ea9c4';
+  return [1, 3, 5].map((at) => parseInt(hex.slice(at, at + 2), 16)) as [number, number, number];
+};
+
+/**
+ * 무기군 여럿의 색을 섞은 색. 하나면 그 색 그대로다.
+ *
+ * 평균으로 섞는다 — 두 색을 겹쳐 칠하는 것보다 «둘 다 걸린 자리»가 한눈에 읽힌다.
+ * 아무것도 안 걸린 도형은 색을 주지 않는다(`null`).
+ */
+export function mixRangeColor(weapons: string[] | undefined): string | null {
+  const list = (weapons ?? []).filter((weapon) => weapon);
+  if (list.length === 0) return null;
+  const sum = list.reduce<[number, number, number]>((acc, weapon) => {
+    const [r, g, b] = rgbOf(weapon);
+    return [acc[0] + r, acc[1] + g, acc[2] + b];
+  }, [0, 0, 0]);
+  const channel = (value: number) => Math.round(value / list.length).toString(16).padStart(2, '0');
+  return `#${channel(sum[0])}${channel(sum[1])}${channel(sum[2])}`;
+}
+
+/**
+ * 조준점이 놓인 도형들이 정하는 적정거리 무기군.
+ *
+ * **겹친 도형은 합집합이지 덧셈이 아니다.** 적정거리는 무기군마다 켜지거나 꺼지는
+ * 것이고 보너스는 한 번만 붙는다 — 도형을 두 장 겹쳐 놓아도 +30%가 두 번 붙지 않는다
+ * (계산기는 보스 하나를 상대한다. 관통 니케라도 한 발은 한 번 맞는다).
+ *
+ * 어느 도형에도 적정거리를 안 걸어 두었으면 `null`이다 — 그때는 전투 조건에 직접
+ * 잡아 둔 값을 그대로 둔다(이 기능을 안 쓰는 보스의 계산을 건드리지 않는다).
+ */
+export function derivedOptimalRange(design: BossDesign): string[] | null {
+  const tagged = [...design.shapes, ...design.parts].filter((shape) => (shape.range ?? []).length > 0);
+  if (tagged.length === 0) return null;
+  const aim = aimPoint(design);
+  if (!aim) return [];
+  const picked = new Set<string>();
+  for (const shape of tagged) {
+    if (!hitTest(shape, aim.x, aim.y)) continue;
+    for (const weapon of shape.range ?? []) picked.add(weapon);
+  }
+  return [...picked].sort();
+}
+
 /** 속성별 방어막 색. 계산기의 코드 색과 같은 계열로 둔다. */
 export const ELEMENT_COLOR: Record<string, string> = {
   풍압: '#7fe08a',
@@ -483,6 +545,7 @@ function packShape(shape: BossShape): Record<string, unknown> {
   if (shape.rotation) out.r = int(shape.rotation);
   if (shape.from) out.f = tenth(shape.from);
   if (shape.to) out.t = tenth(shape.to);
+  if ((shape.range ?? []).length > 0) out.g = [...shape.range!].sort();
   return out;
 }
 
@@ -519,6 +582,12 @@ function unpackShape(raw: unknown, color: string): BossShape | null {
   const to = seconds(item.t);
   if (from !== undefined) shape.from = from;
   if (to !== undefined) shape.to = to;
+  if (Array.isArray(item.g)) {
+    const range = item.g
+      .map((entry) => String(entry))
+      .filter((entry) => entry in RANGE_COLOR);
+    if (range.length > 0) shape.range = [...new Set(range)].sort();
+  }
   return shape;
 }
 
