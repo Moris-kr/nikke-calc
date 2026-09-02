@@ -259,6 +259,10 @@ _QUANT_BUFF_KEYS = frozenset(["max_ammo_pct", "charge_speed_pct"])
 _QUANT_PARTS_KEY = "_quant_parts"
 
 
+# 스킬로 걸린 효과의 소스 이름. 장비·큐브·소장품·고급 설정은 `_source_tag`를 달고 온다.
+_SKILL_SOURCE = "skill"
+
+
 def _quant_group_key(ab) -> tuple:
     """소스별 반올림의 **그룹 식별자**. 같은 그룹은 합산한 뒤 딱 한 번 반올림한다.
 
@@ -267,9 +271,12 @@ def _quant_group_key(ab) -> tuple:
     스킬 버프는 효과 하나가 한 그룹이라(같은 버프가 여러 번 걸리면 합산 후 1회 반올림)
     효과 객체 id를 그대로 쓴다. 시전자를 함께 넣어 서로 다른 캐릭터가 건 같은 효과가
     한 그룹으로 섞이지 않게 한다.
+
+    가운데 칸에 **어디서 온 값인지**를 함께 싣는다 — 묶는 방식은 그대로이고(태그는
+    효과마다 정해져 있다), 차지 속도 면역이 «스킬로 걸린 것»만 골라 내는 데 쓴다.
     """
     eff = ab.effect
-    return (ab.caster, eff.get("_quant_group") or id(eff))
+    return (ab.caster, eff.get("_source_tag", _SKILL_SOURCE), eff.get("_quant_group") or id(eff))
 
 
 def _equip_option_groups(stat: str, val) -> list[float]:
@@ -3059,9 +3066,22 @@ class BuffManager:
         buffs["crit_dmg_skill"] = sum(crit_dmg_skill_parts)
 
         # 소스별 반올림 스탯: 그룹별 목록과 합계를 함께 싣는다. 합계는 표시·후처리
-        # (면역·초과분 환산)용이고, 실제 반올림은 기본값을 아는 timeline이 목록으로 한다.
+        # (초과분 환산)용이고, 실제 반올림은 기본값을 아는 timeline이 목록으로 한다.
+        #
+        # 차지 속도 «효과» 면역은 여기서 **스킬로 걸린 기여만** 골라 뺀다 — 장비(오버로드)·
+        # 큐브·소장품·고급 설정은 효과가 아니라 스탯이라 면역이 걸리지 않는다
+        # (GAMEPLAY.md §차지 속도 증가·감소 효과 면역). 합계만 보고 0으로 만들면
+        # 차지 속도 큐브를 낀 리버렐리오가 큐브 값을 통째로 잃는다.
+        immune_up = buffs["charge_speed_buff_immune"]
+        immune_down = buffs["charge_speed_debuff_immune"]
         parts_by_key: dict[str, list[float]] = {k: [] for k in _QUANT_BUFF_KEYS}
-        for (bk, _group), v in quant_parts.items():
+        for (bk, group), v in quant_parts.items():
+            if (
+                bk == "charge_speed_pct"
+                and group[1] == _SKILL_SOURCE
+                and ((v > 0 and immune_up) or (v < 0 and immune_down))
+            ):
+                continue
             parts_by_key[bk].append(v)
             buffs[bk] = buffs.get(bk, 0.0) + v
         buffs[_QUANT_PARTS_KEY] = parts_by_key
@@ -3135,14 +3155,6 @@ class BuffManager:
         if buffs["charge_time_fixed"]:
             buffs["charge_speed_pct"] = 0.0
             parts_by_key["charge_speed_pct"] = []
-        else:
-            # 면역 후처리: 양수(증가) 또는 음수(감소) 성분만 제거
-            if buffs["charge_speed_buff_immune"] and buffs["charge_speed_pct"] > 0:
-                buffs["charge_speed_pct"] = 0.0
-                parts_by_key["charge_speed_pct"] = []
-            if buffs["charge_speed_debuff_immune"] and buffs["charge_speed_pct"] < 0:
-                buffs["charge_speed_pct"] = 0.0
-                parts_by_key["charge_speed_pct"] = []
 
         # charge_speed 100% 초과분을 charge_dmg_pct로 환산 (레드 후드)
         conv = buffs["charge_speed_overflow_conversion_pct"]
