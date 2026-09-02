@@ -90,6 +90,13 @@ export interface FeedbackInput {
 
 type Fetcher = typeof fetch;
 
+/**
+ * 아직 새 기능을 모르는 서버가 주는 말. 사이트는 먼저 나가고 Worker는 나중에 배포되므로,
+ * 그 사이에 «없는 경로입니다»가 그대로 화면에 뜬다 — 무슨 뜻인지 알 수 없는 말이라 바꿔 준다.
+ */
+const NO_ROUTE = '없는 경로입니다.';
+const notReady = (what: string) => new Error(`${what} 서버가 아직 준비되지 않았습니다. 잠시 뒤에 다시 시도해 주세요.`);
+
 /** 서버가 준 에러 문구를 그대로 살려 던진다 — 사용자에게 보여 줄 말이 거기 있다. */
 async function unwrap<T>(response: Response): Promise<T> {
   let body: unknown = null;
@@ -113,6 +120,16 @@ export class ShareServer {
   constructor(base: string, fetcher?: Fetcher) {
     this.base = base.replace(/\/+$/, '');
     this.fetcher = fetcher ?? ((...args) => fetch(...args));
+  }
+
+  /** `unwrap`에 «아직 배포 전» 안내를 얹은 것. 새로 만든 경로에만 쓴다. */
+  private async unwrapReady<T>(response: Response, what: string): Promise<T> {
+    try {
+      return await unwrap<T>(response);
+    } catch (error) {
+      if (error instanceof Error && error.message === NO_ROUTE) throw notReady(what);
+      throw error;
+    }
   }
 
   async list(kind: ShareKind): Promise<ShareListResult> {
@@ -150,7 +167,7 @@ export class ShareServer {
    */
   async abbrevRules(): Promise<AbbrevShare[]> {
     const response = await this.fetcher(`${this.base}/abbrev`);
-    const result = await unwrap<{ rules?: AbbrevShare[] }>(response);
+    const result = await this.unwrapReady<{ rules?: AbbrevShare[] }>(response, '약어 사전');
     return (result.rules ?? []).filter((rule) => rule.key && rule.names?.length > 0);
   }
 
@@ -161,12 +178,12 @@ export class ShareServer {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ key, names }),
     });
-    await unwrap<unknown>(response);
+    await this.unwrapReady<unknown>(response, '약어 사전');
   }
 
   async feedbackList(): Promise<FeedbackItem[]> {
     const response = await this.fetcher(`${this.base}/feedback`);
-    const result = await unwrap<{ items?: FeedbackItem[] }>(response);
+    const result = await this.unwrapReady<{ items?: FeedbackItem[] }>(response, '피드백');
     return result.items ?? [];
   }
 
@@ -176,7 +193,7 @@ export class ShareServer {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(input),
     });
-    const result = await unwrap<{ item: FeedbackItem }>(response);
+    const result = await this.unwrapReady<{ item: FeedbackItem }>(response, '피드백');
     return result.item;
   }
 
@@ -187,7 +204,7 @@ export class ShareServer {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, status, password }),
     });
-    const result = await unwrap<{ item: FeedbackItem }>(response);
+    const result = await this.unwrapReady<{ item: FeedbackItem }>(response, '피드백');
     return result.item;
   }
 
@@ -197,7 +214,7 @@ export class ShareServer {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, password }),
     });
-    await unwrap<unknown>(response);
+    await this.unwrapReady<unknown>(response, '피드백');
   }
 
   async adminCheck(password: string): Promise<boolean> {
@@ -206,7 +223,7 @@ export class ShareServer {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password }),
     });
-    await unwrap<unknown>(response);
+    await this.unwrapReady<unknown>(response, '피드백');
     return true;
   }
 

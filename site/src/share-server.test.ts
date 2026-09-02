@@ -82,6 +82,32 @@ describe('auto summaries', () => {
     })).toBe('90초 · 적 수냉 · 코어 60px · 파츠 · 적정 AR·SMG · 족자 1 · 속저 1 · 기대값');
   });
 
+  it('약어 사전과 피드백을 주고받는다', async () => {
+    const { fetcher, calls } = fakeFetch({
+      rules: [
+        { key: '리', names: ['리타'], count: 3 },
+        { key: '', names: ['버림받는다'], count: 9 },
+        { key: '센', names: [], count: 1 },
+      ],
+    });
+    const server = new ShareServer('https://share.example.com', fetcher);
+    // 글자나 이름이 빈 줄은 사전에 넣지 않는다 — 넣으면 아무 데나 걸린다.
+    expect(await server.abbrevRules()).toEqual([{ key: '리', names: ['리타'], count: 3 }]);
+
+    await server.addAbbrev('풍풍', ['아스카 : WILLE', '레이 (가칭)']);
+    expect(calls[1]!.url).toBe('https://share.example.com/abbrev');
+    expect(JSON.parse(String(calls[1]!.init?.body)))
+      .toEqual({ key: '풍풍', names: ['아스카 : WILLE', '레이 (가칭)'] });
+  });
+
+  it('아직 새 기능을 모르는 서버에는 알아들을 말로 답한다', async () => {
+    // 사이트가 먼저 나가고 Worker는 나중에 배포된다 — 그 사이에 「없는 경로입니다」가
+    // 그대로 뜨면 무슨 뜻인지 알 수 없다.
+    const { fetcher } = fakeFetch({ error: '없는 경로입니다.' }, 404);
+    const server = new ShareServer('https://share.example.com', fetcher);
+    await expect(server.feedbackList()).rejects.toThrow('피드백 서버가 아직 준비되지 않았습니다');
+  });
+
   it('names the squad, and counts decks in five-deck mode', () => {
     const decks = [
       { squad: ['리타', '크라운', '', '', ''] },
