@@ -10,12 +10,11 @@
  */
 
 import {
-  activeDesign, aimPoint, coreHitChance, copyDesign, decodeBossCode, DEFAULT_CORE_PX,
-  derivedEnemy, derivedPartBreakInterval, distance, dropDesign, ELEMENT_COLOR, emptyDesign,
-  emptyLibrary, encodeBossCode,
-  derivedOptimalRange, hitTest, impactOffsets, mixRangeColor, newId, parseLibrary, partBreaks,
-  partsInBlast, phaseAt, putDesign, RANGE_COLOR, spreadRadius,
-  visibleAt,
+  activeDesign, aimAt, aimForNikke, aimPoint, coreHitChance, copyDesign, decodeBossCode,
+  DEFAULT_CORE_PX, derivedEnemy, derivedOptimalRange, derivedPartBreakInterval, distance,
+  dropDesign, ELEMENT_COLOR, emptyDesign, emptyLibrary, encodeBossCode, hitTest, impactOffsets,
+  inFullBurst, mixRangeColor, newId, parseLibrary, partBreaks, partsInBlast, phaseAt,
+  pierceTargets, putDesign, RANGE_COLOR, spreadRadius, visibleAt,
   type BossDesign, type BossLibrary, type BossPart, type BossShape, type ShapeKind,
 } from './boss-maker';
 import {
@@ -23,6 +22,7 @@ import {
   type BattleSettings, type BurstCast, type CharacterMeta, type CharacterOverrides,
   type ElementCode,
   type SettingsCatalog, type ShotTrack, type SimulationRequest, type SimulationResult,
+  type StateTrack,
 } from './types';
 import type { StorageLike } from './cache';
 import { formatDamage, formatDps } from './model';
@@ -140,6 +140,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   /** 다음 무대 클릭으로 놓을 것. 없으면 고르기 모드다 */
   let placing: ShapeKind | 'part' | 'core' | 'center' | null = null;
   let shots: ShotTrack | null = null;
+  let states: StateTrack | null = null;
   let lastResult: SimulationResult | null = null;
   let cursor = 0;
   let running = false;
@@ -267,6 +268,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
             <label class="bm-stage-toggle"><input type="checkbox" data-bm-show-aim checked /><span>탄착군</span></label>
             <label class="bm-stage-toggle"><input type="checkbox" data-bm-show-hits checked /><span>탄착점</span></label>
             <label class="bm-stage-toggle"><input type="checkbox" data-bm-pile /><span>누적</span></label>
+            <button type="button" class="bm-stage-btn" data-bm-aim-key title="지금 시각에 조준 키프레임을 찍습니다. 무대를 누르면 그 자리로 잡힙니다">조준 찍기</button>
             <span class="bm-stage-meta" data-bm-stage-meta></span>
           </div>
           <div class="bm-stage-box">
@@ -278,6 +280,8 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
             <div class="bm-hud" data-bm-hud hidden></div>
             <!-- 버스트를 쓰는 순간의 작은 연출. 무대 아래 가운데라 그림을 가리지 않는다. -->
             <div class="bm-burst-flash" data-bm-flash aria-live="polite"></div>
+            <!-- 캐릭터별 상태 — 초상화 · 남은 탄 / 전체 · 지금 무엇을 하고 있나. -->
+            <div class="bm-states" data-bm-states hidden></div>
           </div>
         </div>
 
@@ -314,6 +318,9 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   const buffBar = q<HTMLElement>('[data-bm-buffs]');
   const hud = q<HTMLElement>('[data-bm-hud]');
   const flash = q<HTMLElement>('[data-bm-flash]');
+  const statePanel = q<HTMLElement>('[data-bm-states]');
+  /** 다음 무대 누르기를 조준 키프레임 찍기로 쓸지 */
+  let aimPicking = false;
   const filterBar = q<HTMLElement>('[data-bm-filter]');
   /** 화면에서 감춘 니케. 탄착군·탄착점·사격 줄·버프가 함께 빠진다 */
   const hidden = new Set<string>();
@@ -335,6 +342,20 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   /** 지금 화면에 그릴 니케. 감춘 사람은 무대에서도 타임라인에서도 빠진다. */
   const shownSquad = (): string[] =>
     deps.currentSquad().filter((name) => name && !hidden.has(name));
+
+  /** 그 시각이 풀버스트 안인가. 계산해 본 적이 없으면 «아니다»로 본다. */
+  const fullBurstNow = (t: number): boolean =>
+    inFullBurst(lastResult?.timeline?.fullBurst ?? [], t);
+
+  /** 이 니케가 그 시각에 겨냥하는 자리. 편성 칸 번호로 «플레이어가 잡은 니케»를 가른다. */
+  const aimOf = (name: string, t: number): { x: number; y: number } | null => {
+    const slot = deps.currentSquad().indexOf(name);
+    return aimForNikke(design, t, slot, fullBurstNow(t));
+  };
+
+  /** 이 니케의 탄착군 반지름. 손으로 적어 둔 지름이 있으면 그것이 먼저다. */
+  const spreadOf = (name: string): number =>
+    spreadRadius(accuracy, weaponOf(name), 0, design.spread?.[name]);
   const weaponOf = (name: string) => deps.settings.characters[name]?.weaponType ?? 'AR';
   const allItems = (): BossShape[] => [...design.shapes, ...design.parts];
   const findItem = (id: string | null): BossShape | undefined =>
@@ -442,6 +463,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     renderBuffs();
     renderHud();
     renderFlash();
+    renderStates();
   }
 
   /**
@@ -452,33 +474,32 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
    * 안 보인다. 원은 실제 크기 그대로 두고(줄이거나 늘리면 거짓말이 된다) 이름표를
    * 사방으로 뻗어, 작은 원도 «여기 있다»가 읽히게 한다.
    */
-  function drawAim(hidden: boolean) {
-    const aim = aimPoint(design);
-    centerWarn.hidden = !(aim === null || (design.core === null && design.center === null));
-    if (!aim || hidden || !showAim.checked) return;
+  function drawAim(gone: boolean) {
+    const base = aimAt(design, cursor);
+    centerWarn.hidden = !(base === null || (design.core === null && design.center === null));
+    if (!base || gone || !showAim.checked) return;
 
     const squad = shownSquad();
     const group = svgEl('g');
     group.setAttribute('class', 'bm-aim');
-    // 이름표는 조준점 둘레에 고르게 흩는다. 원이 클수록 바깥에 붙는다.
     const step = squad.length > 0 ? (Math.PI * 2) / squad.length : 0;
     for (const [index, name] of squad.entries()) {
-      const weapon = weaponOf(name);
-      const radius = spreadRadius(accuracy, weapon, 0);
-      const color = AIM_COLORS[index % AIM_COLORS.length]!;
+      const at = aimOf(name, cursor);
+      if (!at) continue;
+      const radius = spreadOf(name);
+      const color = AIM_COLORS[deps.currentSquad().indexOf(name) % AIM_COLORS.length]!;
 
       const ring = svgEl('circle');
-      attrs(ring, { cx: aim.x, cy: aim.y, r: radius });
+      attrs(ring, { cx: at.x, cy: at.y, r: radius });
       ring.setAttribute('class', 'bm-spread');
       ring.setAttribute('stroke', color);
       group.append(ring);
 
-      // 이름표까지 이어지는 실. 원이 점만 해도 이 실이 자리를 가리킨다.
       const angle = -Math.PI / 2 + step * index;
-      const near = { x: aim.x + Math.cos(angle) * radius, y: aim.y + Math.sin(angle) * radius };
+      const near = { x: at.x + Math.cos(angle) * radius, y: at.y + Math.sin(angle) * radius };
       const far = {
-        x: aim.x + Math.cos(angle) * (radius + 34),
-        y: aim.y + Math.sin(angle) * (radius + 34),
+        x: at.x + Math.cos(angle) * (radius + 34),
+        y: at.y + Math.sin(angle) * (radius + 34),
       };
       const lead = svgEl('line');
       attrs(lead, { x1: near.x, y1: near.y, x2: far.x, y2: far.y });
@@ -493,7 +514,6 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       });
       label.setAttribute('class', 'bm-aim-label');
       label.setAttribute('fill', color);
-      // 이름이 길면 이름표끼리 겹친다 — 앞머리만 남긴다(전체 이름은 마우스를 올리면 뜬다).
       const short = name.length > 9 ? `${name.slice(0, 8)}…` : name;
       label.textContent = `${short} Ø${Math.round(radius * 2)}`;
       const tip = svgEl('title');
@@ -501,17 +521,35 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       label.append(tip);
       group.append(label);
 
-      // 폭발 반경 — 참고선이다. 엔진은 폭발 범위를 계산하지 않는다.
       const blast = design.explosion[name];
       if (blast && blast > 0 && firing(name)) {
         const circle = svgEl('circle');
-        attrs(circle, { cx: aim.x, cy: aim.y, r: blast });
+        attrs(circle, { cx: at.x, cy: at.y, r: blast });
         circle.setAttribute('class', 'bm-blast');
         circle.setAttribute('stroke', color);
         group.append(circle);
       }
     }
     stage.append(group);
+
+    // 조준 키프레임을 지나온 길로 그린다 — 어디서 어디로 옮겨 가는지가 보인다.
+    const keys = [...(design.aimKeys ?? [])].sort((left, right) => left.t - right.t);
+    if (keys.length > 1) {
+      const path = svgEl('polyline');
+      attrs(path, { points: keys.map((key) => `${key.x},${key.y}`).join(' ') });
+      path.setAttribute('class', 'bm-aim-path');
+      stage.append(path);
+    }
+    for (const key of keys) {
+      const dot = svgEl('circle');
+      attrs(dot, { cx: key.x, cy: key.y, r: 4 });
+      dot.setAttribute('class', Math.abs(key.t - cursor) < 0.05 ? 'bm-aim-key is-on' : 'bm-aim-key');
+      dot.dataset.bmAimKey = String(key.t);
+      const tip = svgEl('title');
+      tip.textContent = `조준 ${round(key.t)}초`;
+      dot.append(tip);
+      stage.append(dot);
+    }
   }
 
   /** 지난번에 만든 탄착점 묶음. 같은 칸을 다시 그릴 때 그대로 쓴다. */
@@ -523,19 +561,19 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   const IMPACT_CAP = 900;
 
   /**
-   * 탄이 박힌 자리. 조준점 둘레에 **엔진이 코어 명중률을 내는 그 분포로** 뿌린다
-   * (`impactOffsets`) — 점이 코어에 드는 비율이 계산에 쓰이는 확률과 같다.
+   * 탄이 박힌 자리. **그 니케가 그때 겨냥한 자리** 둘레에 엔진이 코어 명중률을 내는
+   * 그 분포로 뿌린다(`impactOffsets`) — 점이 코어에 드는 비율이 계산에 쓰이는 확률과 같다.
    *
-   * 뿌리는 것은 **평타뿐이다.** 스킬·버스트 딜은 조준 판정을 거치지 않고 그대로 맞으므로
-   * 탄착군과 무관하다(엔진도 코어 명중을 평타에만 준다).
+   * 조준은 시각마다 다르다. 풀버스트가 아니면 플레이어가 잡은 니케(3번 칸)만 겨냥한
+   * 자리를 때리고 나머지는 보스 중앙을 때리므로, 칸마다 그 시각의 조준점을 다시 구한다.
+   *
+   * 뿌리는 것은 **평타뿐이다.** 스킬·버스트 딜은 조준 판정을 거치지 않고 그대로 맞는다.
    *
    * 「누적」을 끄면 최근 3초치만 남아 재생하며 흐르고, 켜면 지금 시각까지 쌓인다.
    * 새 것부터 채우므로 상한에 걸리면 **오래된 자국이 먼저 빠진다**.
    */
-  function drawImpacts(hidden: boolean): number {
-    if (!shots || hidden || !showHits.checked) return 0;
-    const aim = aimPoint(design);
-    if (!aim) return 0;
+  function drawImpacts(gone: boolean): number {
+    if (!shots || gone || !showHits.checked) return 0;
 
     const bucket = shots.bucket;
     const last = Math.min(shots.buckets - 1, Math.floor(cursor / bucket));
@@ -547,7 +585,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     // 점은 **칸이 바뀔 때만** 달라진다. 재생은 초당 60번 다시 그리는데 칸은 0.1초마다
     // 넘어가므로, 같은 칸이면 지난번에 만든 묶음을 그대로 다시 붙인다
     // (누적 900점을 매 프레임 새로 만들면 한 프레임에 6.5ms가 든다).
-    const key = [last, first, aim.x, aim.y, squad.join('·')].join(':');
+    const key = [last, first, squad.join('·'), (design.aimKeys ?? []).length].join(':');
     if (impactCache && impactCache.key === key) {
       stage.append(impactCache.group);
       return impactCache.count;
@@ -555,19 +593,23 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
 
     const dots: SVGElement[] = [];
     for (let index = last; index >= first && dots.length < IMPACT_CAP; index -= 1) {
-      for (const [slot, name] of squad.entries()) {
+      const at = index * bucket;
+      for (const name of squad) {
         const row = shots.chars[name];
         const count = row?.normal[index] ?? 0;
         if (!count) continue;
-        const radius = spreadRadius(accuracy, weaponOf(name), 0);
+        const aim = aimOf(name, at);
+        if (!aim) continue;
+        const radius = spreadOf(name);
         const age = (last - index) * bucket;
         const fade = pileHits.checked ? 0.4 : Math.max(0.14, 1 - age / TRAIL_SECONDS);
+        const color = AIM_COLORS[deps.currentSquad().indexOf(name) % AIM_COLORS.length]!;
         for (const offset of impactOffsets(`${name}:${index}`, count, radius, modelN)) {
           if (dots.length >= IMPACT_CAP) break;
           const dot = svgEl('circle');
           attrs(dot, { cx: aim.x + offset.x, cy: aim.y + offset.y, r: 1.7 });
           dot.setAttribute('class', 'bm-impact');
-          dot.setAttribute('fill', AIM_COLORS[slot % AIM_COLORS.length]!);
+          dot.setAttribute('fill', color);
           dot.setAttribute('opacity', fade.toFixed(2));
           dots.push(dot);
         }
@@ -636,8 +678,13 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       ? ` · 파츠 최소 간격 ${round(closestPair())}px` : '';
     const shown = hits > 0
       ? ` · 탄착점 ${hits}${hits >= IMPACT_CAP ? '(상한)' : ''}` : '';
+    // 지금 겨냥한 자리를 관통이 꿰뚫으면 몇을 때리나. 몸통과 파츠를 따로 센다.
+    const aim = aimAt(design, cursor);
+    const pierce = aim ? pierceTargets(design, aim, shots ? cursor : 0) : null;
+    const through = pierce && pierce.total > 1
+      ? ` · 관통 ${pierce.total}중(몸통 ${pierce.shapes}·파츠 ${pierce.parts})` : '';
     stageMeta.textContent =
-      `${design.canvas.w}×${design.canvas.h}px · ${core} · 파츠 ${parts}개${pair}${shown}`;
+      `${design.canvas.w}×${design.canvas.h}px · ${core} · 파츠 ${parts}개${pair}${shown}${through}`;
   }
 
   function closestPair(): number {
@@ -707,6 +754,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
 
   stage.addEventListener('pointerdown', (event) => {
     const at = stagePoint(event);
+    if (aimPicking) { putAimKey(at); return; }
     if (placing) { place(placing, at); return; }
 
     const target = event.target as SVGElement | null;
@@ -764,6 +812,21 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     selectedId = null;
     render();
   });
+
+  /**
+   * 지금 시각에 조준 키프레임을 찍는다. 같은 시각에 이미 있으면 그 자리를 옮긴다 —
+   * 한 시각에 두 자리를 겨냥할 수는 없다.
+   */
+  function putAimKey(at: { x: number; y: number }) {
+    const t = round(cursor);
+    const keys = [...(design.aimKeys ?? [])].filter((key) => Math.abs(key.t - t) >= 0.05);
+    keys.push({ t, x: Math.round(at.x), y: Math.round(at.y) });
+    design.aimKeys = keys.sort((left, right) => left.t - right.t);
+    aimPicking = false;
+    impactCache = null;
+    save();
+    render();
+  }
 
   function startDrag(event: PointerEvent, move: (point: { x: number; y: number }) => void) {
     event.preventDefault();
@@ -1064,6 +1127,25 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
         render();
       });
       battlePane.append(el('p', 'bm-note-head', '폭발 반경 (참고선)'), blast, preset);
+
+      // 니케별 탄착군 — 표가 기본값이고, 여기 적은 값이 그 위에 얹힌다.
+      const spreads = el('div', 'bm-blast-rows');
+      for (const name of squad) {
+        const current = design.spread?.[name] ?? 0;
+        const row = numberRow(name, current, 0, 2000, (value) => {
+          const next = { ...(design.spread ?? {}) };
+          if (value > 0) next[name] = value; else delete next[name];
+          design.spread = next;
+        }, 'px');
+        const base = Math.round(spreadRadius(accuracy, weaponOf(name), 0) * 2);
+        row.append(el('em', 'bm-cover', current > 0 ? `기본 ${base}` : `기본값 ${base}`));
+        spreads.append(row);
+      }
+      battlePane.append(el('p', 'bm-note-head', '탄착군 지름'), spreads);
+      battlePane.append(el('p', 'bm-note',
+        `무기군 표의 기본값(${(deps.settings.optimalRangeWeapons ?? []).length > 0 ? 'AR 76 · SMG 110 · SG 240 · MG/SR/RL 10' : ''}px)을 `
+        + '그대로 쓰다가, 0이 아닌 값을 적으면 그 니케만 그 지름으로 그립니다. 화면에만 '
+        + '쓰이고 계산의 코어 명중률은 표의 값을 그대로 씁니다.'));
       battlePane.append(el('p', 'bm-note',
         '계산에는 들어가지 않습니다 — 엔진은 폭발 범위를 다루지 않습니다. 겨냥한 자리에서 '
         + '파츠 둘을 한 번에 덮는지 눈으로 맞춰 보는 자리입니다.'));
@@ -1153,6 +1235,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       const result = await deps.simulate(request);
       lastResult = result;
       shots = result.shots ?? null;
+      states = result.states ?? null;
       impactCache = null;      // 새로 잰 판이다 — 지난 자국을 이어 쓰면 안 된다
       buildCumulative(result);
       cursor = 0;
@@ -1194,6 +1277,8 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
 
     // 시간 줄이 맨 위다 — 아래 줄들이 모두 이 시각을 기준으로 읽히기 때문이다.
     tracks.append(timeTrack(duration));
+
+    tracks.append(aimTrack(duration));
 
     // 보스 상태 줄 — 족자·속저를 끌어 옮긴다.
     tracks.append(phaseTrack('족자', battle.immuneWindows.map((w, index) => ({
@@ -1271,8 +1356,8 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     tracks.append(el('p', 'bm-note',
       '진한 칸일수록 그 순간에 많이 쏩니다. 노란 점은 확정 코어 명중, 붉은 점은 폭발입니다. '
       + '무대의 탄착점은 평타만 뿌립니다 — 스킬·버스트 딜은 조준 판정을 거치지 않고 그대로 맞습니다. '
-      + '풀버스트 밖에서도 겨냥한 곳에 집중해 쏜다고 보고 그립니다 — 인게임의 조준 배분 공식은 알 수 없어, '
-      + '코어 적중은 실제보다 후하게 잡힙니다.'));
+      + '풀버스트가 아닐 때는 플레이어가 잡은 3번 칸 니케만 겨냥한 자리를 때리고, 나머지는 '
+      + '자동 사격이라 보스 중앙을 때립니다. 풀버스트에 들어가면 다 같이 겨냥한 곳으로 몰립니다.'));
   }
 
   /** 사격 밀도 한 줄. 칸이 1800개까지 가므로 DOM 대신 캔버스로 찍는다. */
@@ -1433,6 +1518,64 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     lastFrame = now;
     if (cursor >= duration) { setPlaying(false); return; }
     rafId = requestAnimationFrame(step);
+  }
+
+  /**
+   * 조준 줄. 찍어 둔 키프레임이 점으로 서고, 끌어 시각을 옮긴다.
+   *
+   * 조준은 «어디를»과 «언제»가 따로 논다 — 자리는 무대에서 찍고, 시각은 여기서 민다.
+   */
+  function aimTrack(duration: number): HTMLElement {
+    const row = el('div', 'bm-track');
+    const head = el('span', 'bm-track-name aim');
+    head.append(el('span', '', '조준'));
+    const add = el('button', 'bm-mini', '+');
+    add.type = 'button';
+    add.title = '지금 시각에 조준 키프레임 찍기 — 누른 뒤 무대를 누르세요';
+    add.addEventListener('click', () => {
+      aimPicking = !aimPicking;
+      add.classList.toggle('is-on', aimPicking);
+      setHint(aimPicking ? '무대를 눌러 이 시각의 조준점을 찍으세요.' : '');
+    });
+    head.append(add);
+    row.append(head);
+
+    const lane = el('div', 'bm-lane');
+    for (const key of [...(design.aimKeys ?? [])].sort((a, b) => a.t - b.t)) {
+      const dot = el('i', Math.abs(key.t - cursor) < 0.05 ? 'bm-aim-mark is-on' : 'bm-aim-mark');
+      dot.style.left = `${(key.t / duration) * 100}%`;
+      dot.title = `${round(key.t)}초 · (${key.x}, ${key.y}) — 끌어 옮기고, 두 번 누르면 지웁니다`;
+      dot.addEventListener('pointerdown', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const box = lane.getBoundingClientRect();
+        const onMove = (moveEvent: PointerEvent) => {
+          const t = round(Math.max(0, Math.min(duration,
+            ((moveEvent.clientX - box.left) / box.width) * duration)));
+          key.t = t;
+          dot.style.left = `${(t / duration) * 100}%`;
+        };
+        const onUp = () => {
+          window.removeEventListener('pointermove', onMove);
+          window.removeEventListener('pointerup', onUp);
+          design.aimKeys = [...(design.aimKeys ?? [])].sort((a, b) => a.t - b.t);
+          impactCache = null;
+          save();
+          render();
+        };
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+      });
+      dot.addEventListener('dblclick', () => {
+        design.aimKeys = (design.aimKeys ?? []).filter((entry) => entry !== key);
+        impactCache = null;
+        save();
+        render();
+      });
+      lane.append(dot);
+    }
+    row.append(lane);
+    return row;
   }
 
   interface PhaseBar {
@@ -1630,6 +1773,53 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       if (cast.stage) chip.append(el('b', 'bm-flash-stage', `${cast.stage}버`));
       chip.append(el('span', 'bm-flash-name', cast.skill || `${name} 버스트`));
       flash.append(chip);
+    }
+  }
+
+  /** 무한 장탄의 센티널. 엔진이 999999로 둔다(`timeline.py`). */
+  const AMMO_INFINITE = 99_999;
+
+  /**
+   * 무대 오른쪽 아래 — 캐릭터별 상태. 초상화 · 남은 탄/전체 · 지금 무엇을 하고 있나.
+   *
+   * 상태는 계산이 남긴 기록에서 읽는다: 재장전 구간에 들었으면 「재장전」, 그 칸에 쏜
+   * 발이 있으면 「사격」, 풀버스트 구간이면 「버스트」, 아무것도 아니면 「대기」다.
+   * **기절은 다루지 않는다** — 보스 sim에는 아군을 기절시키는 것이 없다.
+   */
+  function renderStates() {
+    const squad = shownSquad();
+    if (!states || squad.length === 0) { statePanel.hidden = true; return; }
+    statePanel.hidden = false;
+    statePanel.replaceChildren();
+
+    const index = Math.min(states.buckets - 1, Math.floor(cursor / states.bucket));
+    const burstNow = fullBurstNow(cursor);
+    for (const name of squad) {
+      const row = states.chars[name];
+      if (!row) continue;
+      const line = el('div', 'bm-state-row');
+      const face = el('i', 'bm-buff-face');
+      const image = deps.imageOf(name);
+      if (image) face.style.backgroundImage = `url(${image})`;
+      else face.textContent = name.slice(0, 1);
+      line.append(face);
+
+      const infinite = row.maxAmmo >= AMMO_INFINITE;
+      const ammo = row.ammo[index] ?? 0;
+      const clip = el('span', 'bm-state-ammo');
+      clip.append(el('b', ammo === 0 ? 'is-empty' : '', infinite ? '∞' : String(ammo)));
+      if (!infinite) clip.append(el('em', '', `/${row.maxAmmo}`));
+      line.append(clip);
+
+      const reloading = row.reload.some(([from, to]) => cursor >= from && cursor < to);
+      const shooting = ((shots?.chars[name]?.normal[index] ?? 0)
+        + (shots?.chars[name]?.skill[index] ?? 0)) > 0;
+      const [mark, mood] = reloading ? ['재장전', 'reload']
+        : burstNow ? ['버스트', 'burst']
+        : shooting ? ['사격', 'fire'] : ['대기', 'idle'];
+      line.append(el('span', `bm-state-mark is-${mood}`, mark));
+      line.title = `${name} · ${infinite ? '무한 장탄' : `${ammo}/${row.maxAmmo}발`} · ${mark}`;
+      statePanel.append(line);
     }
   }
 

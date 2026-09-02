@@ -1962,3 +1962,40 @@ body.bm-open { overflow: hidden; }
 .bm-flash-stage { padding: 1px 6px; border-radius: 999px; background: rgba(255,191,60,.25);
   color: var(--amber); font: 800 9px inherit; }
 .bm-flash-name { color: #ffe1a8; font: 800 12px inherit; letter-spacing: -.01em; }
+
+/* 조준 키프레임 — 무대의 지나온 길과 타임라인의 점. */
+.bm-aim-path { fill: none; stroke: rgba(255,191,60,.5); stroke-width: 1.5; stroke-dasharray: 4 5; }
+.bm-aim-key { fill: rgba(255,191,60,.35); stroke: var(--amber); stroke-width: 1.5; }
+.bm-aim-key.is-on { fill: var(--amber); }
+.bm-track-name.aim { display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  padding-left: 0; }
+.bm-mini { width: 18px; height: 18px; flex: none; padding: 0; border: 1px solid var(--line);
+  border-radius: 5px; background: rgba(4,12,21,.6); color: var(--muted);
+  font: 800 11px inherit; cursor: pointer; }
+.bm-mini:hover { border-color: rgba(255,191,60,.5); color: var(--amber); }
+.bm-mini.is-on { border-color: var(--amber); background: rgba(255,191,60,.18); color: var(--amber); }
+.bm-aim-mark { position: absolute; top: 4px; width: 9px; height: 9px; margin-left: -4px;
+  border-radius: 50%; background: rgba(255,191,60,.55); border: 1px solid var(--amber);
+  cursor: ew-resize; }
+.bm-aim-mark.is-on { background: var(--amber); box-shadow: 0 0 8px rgba(255,191,60,.8); }
+.bm-stage-btn { padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px;
+  background: rgba(4,12,21,.6); color: var(--muted); font: 800 10px inherit; cursor: pointer; }
+.bm-stage-btn:hover { border-color: rgba(255,191,60,.5); color: var(--amber); }
+
+/* 캐릭터별 상태 — 무대 오른쪽 아래. */
+.bm-states { position: absolute; right: 8px; bottom: 8px; z-index: 2; width: 176px;
+  display: flex; flex-direction: column; gap: 3px; padding: 7px 8px;
+  border: 1px solid var(--line); border-radius: 10px; background: rgba(4,12,21,.82);
+  backdrop-filter: blur(4px); pointer-events: none; }
+.bm-state-row { display: flex; align-items: center; gap: 5px; }
+.bm-state-ammo { flex: 1; text-align: right; font: 700 10px ui-monospace, monospace; }
+.bm-state-ammo b { color: var(--ink); }
+.bm-state-ammo b.is-empty { color: var(--danger); }
+.bm-state-ammo em { color: var(--muted); font-style: normal; font-size: 9px; }
+/* 「재장전」이 네 글자라 좁으면 세로로 쪼개진다 — 폭을 주고 줄바꿈을 막는다. */
+.bm-state-mark { width: 42px; flex: none; text-align: center; padding: 2px 0; border-radius: 4px;
+  font: 800 9px inherit; white-space: nowrap; }
+.bm-state-mark.is-reload { background: rgba(255,119,135,.2); color: #ffb3bd; }
+.bm-state-mark.is-burst { background: rgba(255,191,60,.22); color: var(--amber); }
+.bm-state-mark.is-fire { background: rgba(69,214,208,.18); color: var(--cyan); }
+.bm-state-mark.is-idle { background: rgba(146,176,201,.12); color: var(--muted); }

@@ -52,6 +52,14 @@ const result = (): SimulationResult => ({
       },
     },
   },
+  states: {
+    bucket: 0.1, buckets: 1800,
+    chars: {
+      리타: { ammo: new Array(1800).fill(30), reload: [[5, 7]], maxAmmo: 60 },
+      크라운: { ammo: new Array(1800).fill(999_998), reload: [], maxAmmo: 999_998 },
+    },
+  },
+  timeline: { bucket: 1, buckets: 180, damage: {}, bursts: {}, fullBurst: [[10, 20]] },
 } as unknown as SimulationResult);
 
 let host: HTMLElement;
@@ -355,15 +363,51 @@ describe('보스 메이커 화면', () => {
     expect(frame).toBeNull();
   });
 
-  it('시간 줄이 족자보다 위에 선다', () => {
+  it('시간 줄이 맨 위, 그다음이 조준·족자·속저다', () => {
     const handle = mount();
     handle.open();
     const names = [...host.querySelectorAll('.bm-track .bm-track-name')]
       .map((node) => node.textContent?.trim() ?? '');
-    // 아래 줄들이 모두 이 시각을 기준으로 읽히므로 맨 위여야 한다.
+    // 아래 줄들이 모두 이 시각을 기준으로 읽히므로 시간이 맨 위여야 한다.
     expect(names[0]).toContain('초');
-    expect(names[1]).toBe('족자');
-    expect(names[2]).toBe('속저');
+    expect(names[1]).toContain('조준');
+    expect(names[2]).toBe('족자');
+    expect(names[3]).toBe('속저');
+  });
+
+  it('캐릭터별 탄환과 상태가 오른쪽 아래에 선다', async () => {
+    const handle = mount();
+    handle.open();
+    host.querySelector<HTMLButtonElement>('[data-bm-run]')!.click();
+    await new Promise((resolve) => { setTimeout(resolve, 0); });
+
+    const rows = [...host.querySelectorAll('.bm-state-row')];
+    expect(rows).toHaveLength(2);
+    expect(rows[0]!.textContent).toContain('30');
+    expect(rows[0]!.textContent).toContain('/60');
+    // 무한 장탄은 숫자 대신 기호로 — 999,998발이라고 적으면 읽는 사람이 멈칫한다.
+    expect(rows[1]!.textContent).toContain('∞');
+    expect(rows[1]!.textContent).not.toContain('999');
+  });
+
+  it('조준 키프레임을 찍고 타임라인에서 옮긴다', () => {
+    const handle = mount();
+    handle.open();
+    // 「+」를 눌러 찍기 모드로 들어간 뒤 무대를 누른다.
+    host.querySelector<HTMLButtonElement>('.bm-track-name.aim .bm-mini')!.click();
+    host.querySelector('[data-bm-stage]')!
+      .dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+
+    const saved = JSON.parse(localStorage.getItem('nikke-boss-library-v1')!) as
+      { designs: Array<{ aimKeys?: Array<{ t: number }> }> };
+    expect(saved.designs[0]!.aimKeys).toHaveLength(1);
+    expect(saved.designs[0]!.aimKeys![0]!.t).toBe(0);
+    // 타임라인에도 점으로 선다.
+    expect(host.querySelectorAll('.bm-aim-mark')).toHaveLength(1);
+
+    // 두 번 누르면 지운다.
+    host.querySelector('.bm-aim-mark')!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    expect(host.querySelectorAll('.bm-aim-mark')).toHaveLength(0);
   });
 
   it('그린 것은 저장돼 다시 열어도 남는다', () => {

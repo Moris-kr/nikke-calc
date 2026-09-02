@@ -3,8 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   activeDesign, aimPoint, BOSS_PREFIX, breakTime, copyDesign, coreHitChance, decodeBossCode,
   derivedEnemy, derivedPartBreakInterval, distance, dropDesign, emptyDesign, emptyLibrary,
-  derivedOptimalRange, encodeBossCode, hitTest, impactOffsets, mixRangeColor, outerRadius,
-  parseDesign, parseLibrary, partBreaks, partsInBlast,
+  aimAt, aimForNikke, derivedOptimalRange, encodeBossCode, hitTest, impactOffsets, inFullBurst,
+  mixRangeColor, outerRadius, parseDesign, parseLibrary, partBreaks, partsInBlast, pierceTargets,
+  PLAYER_SLOT,
   phaseAt, putDesign, spreadRadius, visibleAt,
   type AccuracyTable, type BossPart, type BossShape,
 } from './boss-maker';
@@ -96,6 +97,71 @@ describe('보스 메이커', () => {
     expect(coreHitChance(table, 'AR', 0)).toBe(0);
     // 표를 못 받은 옛 설정에서도 답은 나온다(10px 가정).
     expect(spreadRadius(undefined, 'AR')).toBe(5);
+  });
+
+  it('조준 키프레임 사이를 곧게 이어 따라간다', () => {
+    const design = emptyDesign();
+    design.center = { x: 0, y: 0 };
+    // 키가 없으면 코어(없으면 중앙)를 계속 겨냥한다.
+    expect(aimAt(design, 30)).toEqual({ x: 0, y: 0, on: 'center' });
+
+    design.aimKeys = [{ t: 10, x: 100, y: 100 }, { t: 20, x: 300, y: 200 }];
+    // 첫 키 앞과 마지막 키 뒤에서는 가만히 있는다 — 손으로 겨냥하는 모습에 가깝다.
+    expect(aimAt(design, 0)).toEqual({ x: 100, y: 100 });
+    expect(aimAt(design, 99)).toEqual({ x: 300, y: 200 });
+    // 사이는 곧게 잇는다.
+    expect(aimAt(design, 15)).toEqual({ x: 200, y: 150 });
+  });
+
+  it('풀버스트가 아니면 3번 칸만 겨냥한 자리를 때린다', () => {
+    // 손은 하나뿐이다 — 플레이어가 잡은 니케만 조준을 따라가고 나머지는 자동 사격이다.
+    const design = emptyDesign();
+    design.center = { x: 50, y: 50 };
+    design.aimKeys = [{ t: 0, x: 400, y: 300 }];
+
+    expect(aimForNikke(design, 10, PLAYER_SLOT, false)).toEqual({ x: 400, y: 300 });
+    expect(aimForNikke(design, 10, 0, false)).toEqual({ x: 50, y: 50 });
+    expect(aimForNikke(design, 10, 4, false)).toEqual({ x: 50, y: 50 });
+    // 풀버스트에 들어가면 다 같이 겨냥한 곳으로 몰린다.
+    expect(aimForNikke(design, 10, 0, true)).toEqual({ x: 400, y: 300 });
+
+    // 중앙을 안 찍어 두었으면 없는 점을 만들지 않고 겨냥한 자리를 쓴다.
+    const noCenter = emptyDesign();
+    noCenter.aimKeys = [{ t: 0, x: 7, y: 8 }];
+    expect(aimForNikke(noCenter, 3, 0, false)).toEqual({ x: 7, y: 8 });
+  });
+
+  it('풀버스트 구간은 반개구간이다', () => {
+    const windows: Array<[number, number]> = [[10, 20]];
+    expect(inFullBurst(windows, 9.9)).toBe(false);
+    expect(inFullBurst(windows, 10)).toBe(true);
+    expect(inFullBurst(windows, 20)).toBe(false);
+  });
+
+  it('관통은 몸통과 파츠를 따로 세고, 파츠가 여럿이면 그만큼 늘어난다', () => {
+    const design = emptyDesign();
+    design.shapes.push(shape({ id: 'body', x: 100, y: 100, w: 300, h: 300 }));
+    // 파츠 둘이 몸통 위에 겹쳐 있다.
+    design.parts.push(part({ id: 'p1', x: 100, y: 100, w: 60, h: 60 }));
+    design.parts.push(part({ id: 'p2', x: 100, y: 100, w: 40, h: 40 }));
+
+    expect(pierceTargets(design, { x: 100, y: 100 })).toEqual({ shapes: 1, parts: 2, total: 3 });
+    // 파츠를 비껴 몸통만 지나면 하나다.
+    expect(pierceTargets(design, { x: 200, y: 100 })).toEqual({ shapes: 1, parts: 0, total: 1 });
+    // 아무것도 없는 자리는 0이다.
+    expect(pierceTargets(design, { x: 900, y: 900 })).toEqual({ shapes: 0, parts: 0, total: 0 });
+    // 그 시각에 안 보이는 도형은 세지 않는다.
+    design.parts[1]!.from = 60;
+    expect(pierceTargets(design, { x: 100, y: 100 }, 0).total).toBe(2);
+    expect(pierceTargets(design, { x: 100, y: 100 }, 60).total).toBe(3);
+  });
+
+  it('니케별 탄착군 지름을 손으로 덮는다', () => {
+    // 표는 기본값이다 — 「이 니케는 실제로 이만큼 흩어지더라」를 적을 자리를 둔다.
+    expect(spreadRadius(table, 'SMG', 0)).toBe(55);
+    expect(spreadRadius(table, 'SMG', 0, 200)).toBe(100);
+    // 0이나 음수는 덮은 것으로 치지 않는다.
+    expect(spreadRadius(table, 'SMG', 0, 0)).toBe(55);
   });
 
   it('탄착점이 엔진의 코어 명중률과 같은 분포로 박힌다', () => {
@@ -253,6 +319,8 @@ describe('보스 메이커', () => {
     design.core = { x: 480, y: 260, d: 64 };
     design.center = { x: 480, y: 320 };
     design.explosion['리타'] = 90;
+    design.spread = { 리타: 180 };
+    design.aimKeys = [{ t: 0, x: 100, y: 120 }, { t: 12.5, x: 400, y: 260 }];
 
     const code = encodeBossCode(design);
     expect(code.startsWith(BOSS_PREFIX)).toBe(true);
@@ -269,6 +337,8 @@ describe('보스 메이커', () => {
     expect(back.center).toEqual({ x: 480, y: 320 });
     // 폭발 반경은 이름 해시로 실어 보내고, 받는 쪽 목록에서 이름을 되찾는다.
     expect(back.explosion).toEqual({ 리타: 90 });
+    expect(back.spread).toEqual({ 리타: 180 });
+    expect(back.aimKeys).toEqual([{ t: 0, x: 100, y: 120 }, { t: 12.5, x: 400, y: 260 }]);
     // 받은 것은 남의 저장본이 아니라 내 새 저장본이다.
     expect(back.id).not.toBe(design.id);
   });

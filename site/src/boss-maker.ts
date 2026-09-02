@@ -100,6 +100,23 @@ export interface BossDesign {
   center: BossCenter | null;
   /** 니케별 폭발 반경(px). 참고용 — 엔진은 폭발 범위를 계산하지 않는다 */
   explosion: Record<string, number>;
+  /**
+   * 니케별 탄착군 지름(px). 안 적으면 무기군 기본값(명중률 표)을 쓴다 —
+   * 「이 니케는 실제로 이만큼 흩어지더라」를 손으로 덮어 볼 자리다.
+   */
+  spread?: Record<string, number>;
+  /**
+   * 조준 키프레임. 시각순으로 두면 그 사이를 잇는 선을 따라 조준이 움직인다.
+   * 비어 있으면 코어(없으면 중앙)를 계속 겨냥한다.
+   */
+  aimKeys?: AimKey[];
+}
+
+/** 「몇 초에 여기를 겨냥한다」. 사이는 곧게 잇는다. */
+export interface AimKey {
+  t: number;
+  x: number;
+  y: number;
 }
 
 export const DEFAULT_CANVAS = { w: 960, h: 620 };
@@ -173,6 +190,77 @@ export function aimPoint(design: BossDesign): { x: number; y: number; on: 'core'
   return null;
 }
 
+/**
+ * 그 시각의 조준점. 키프레임이 있으면 그 사이를 곧게 이어 따라간다.
+ *
+ * 첫 키 앞에서는 첫 키에, 마지막 키 뒤에서는 마지막 키에 머문다 — 사이만 움직이고
+ * 바깥에서는 가만히 있는 것이 손으로 겨냥하는 모습에 가깝다.
+ */
+export function aimAt(design: BossDesign, t: number): { x: number; y: number } | null {
+  const keys = [...(design.aimKeys ?? [])].sort((a, b) => a.t - b.t);
+  if (keys.length === 0) return aimPoint(design);
+  if (t <= keys[0]!.t) return { x: keys[0]!.x, y: keys[0]!.y };
+  const last = keys[keys.length - 1]!;
+  if (t >= last.t) return { x: last.x, y: last.y };
+  for (let at = 1; at < keys.length; at += 1) {
+    const before = keys[at - 1]!;
+    const after = keys[at]!;
+    if (t > after.t) continue;
+    const span = after.t - before.t;
+    const ratio = span > 0 ? (t - before.t) / span : 0;
+    return {
+      x: before.x + (after.x - before.x) * ratio,
+      y: before.y + (after.y - before.y) * ratio,
+    };
+  }
+  return { x: last.x, y: last.y };
+}
+
+/** 플레이어가 잡고 쏘는 자리. 인게임에서 가운데 칸이라 3번이다(0부터 세면 2). */
+export const PLAYER_SLOT = 2;
+
+/**
+ * 그 니케가 지금 겨냥하는 자리.
+ *
+ * **풀버스트가 아닐 때는 손이 하나뿐이다.** 플레이어가 잡고 있는 니케(3번 칸)만
+ * 겨냥한 자리를 때리고, 나머지는 자동 사격이라 **보스 중앙**을 때린다. 풀버스트에
+ * 들어가면 다 같이 겨냥한 곳으로 몰린다.
+ *
+ * 중앙을 안 찍어 두었으면 겨냥한 자리를 그대로 쓴다 — 없는 점을 만들어 내지 않는다.
+ */
+export function aimForNikke(
+  design: BossDesign,
+  t: number,
+  slot: number,
+  inFullBurst: boolean,
+): { x: number; y: number } | null {
+  const aimed = aimAt(design, t);
+  if (inFullBurst || slot === PLAYER_SLOT) return aimed;
+  return design.center ? { x: design.center.x, y: design.center.y } : aimed;
+}
+
+/** 그 시각이 풀버스트 구간 안인가. 구간은 `[시작, 끝)`이다. */
+export const inFullBurst = (windows: Array<[number, number]>, t: number): boolean =>
+  windows.some(([from, to]) => t >= from && t < to);
+
+/**
+ * 이 점을 지나는 관통 사격이 꿰뚫는 것들.
+ *
+ * 몸통 도형과 파츠를 따로 센다 — 파츠가 몸통에 겹쳐 있으면 관통은 둘 다 때리고,
+ * 파츠가 여럿이면 그 수만큼 늘어난다.
+ */
+export function pierceTargets(
+  design: BossDesign,
+  at: { x: number; y: number },
+  time = 0,
+): { shapes: number; parts: number; total: number } {
+  const shapes = visibleAt(design.shapes, time)
+    .filter((shape) => hitTest(shape, at.x, at.y)).length;
+  const parts = visibleAt(design.parts, time)
+    .filter((part) => hitTest(part, at.x, at.y)).length;
+  return { shapes, parts, total: shapes + parts };
+}
+
 export interface AccuracyTable {
   modelN: number;
   weapons: Record<string, { baseDiameter: number; accSlope: number }>;
@@ -188,7 +276,10 @@ export function spreadRadius(
   table: AccuracyTable | undefined,
   weapon: string,
   accuracyPct = 0,
+  override?: number,
 ): number {
+  // 손으로 적어 둔 지름이 있으면 그것이 먼저다 — 표는 어디까지나 기본값이다.
+  if (override !== undefined && override > 0) return override / 2;
   const spec = table?.weapons?.[weapon];
   const base = spec?.baseDiameter ?? 10;
   const slope = spec?.accSlope ?? 0;
@@ -615,6 +706,14 @@ export function encodeBossCode(design: BossDesign): string {
       hp: Math.max(0, int(part.hp)),
     }));
   }
+  if ((design.aimKeys ?? []).length > 0) {
+    out.a = design.aimKeys!.map((key) => [tenth(key.t), int(key.x), int(key.y)]);
+  }
+  const spread: Record<string, number> = {};
+  for (const [name, value] of Object.entries(design.spread ?? {})) {
+    if (value > 0) spread[nameHash(name).toString(36)] = int(value);
+  }
+  if (Object.keys(spread).length > 0) out.w = spread;
   if (design.core) out.k = [int(design.core.x), int(design.core.y), int(design.core.d)];
   if (design.center) out.m = [int(design.center.x), int(design.center.y)];
   const blast: Record<string, number> = {};
@@ -693,15 +792,31 @@ export function decodeBossCode(code: string, catalogNames: string[] = []): BossD
     const [x, y] = center as [number, number];
     design.center = { x: Math.round(x), y: Math.round(y) };
   }
-  if (raw.e && typeof raw.e === 'object' && catalogNames.length > 0) {
-    const byHash = new Map(catalogNames.map((name) => [nameHash(name).toString(36), name]));
-    for (const [key, value] of Object.entries(raw.e as Record<string, unknown>)) {
-      const name = byHash.get(key);
-      const radius = Number(value);
-      if (name && Number.isFinite(radius) && radius > 0) {
-        design.explosion[name] = Math.min(600, Math.round(radius));
-      }
+  if (Array.isArray(raw.a)) {
+    const keys: AimKey[] = [];
+    for (const item of raw.a.slice(0, 60)) {
+      const trio = numbers(item, 3);
+      if (!trio) continue;
+      const [t, x, y] = trio as [number, number, number];
+      if (t < 0 || t > 18_000) continue;
+      keys.push({ t: Math.round(t) / 10, x: Math.round(x), y: Math.round(y) });
     }
+    if (keys.length > 0) design.aimKeys = keys.sort((left, right) => left.t - right.t);
+  }
+  if (catalogNames.length > 0) {
+    const byHash = new Map(catalogNames.map((name) => [nameHash(name).toString(36), name]));
+    const pick = (source: unknown, limit: number, apply: (name: string, value: number) => void) => {
+      if (!source || typeof source !== 'object') return;
+      for (const [key, value] of Object.entries(source as Record<string, unknown>)) {
+        const name = byHash.get(key);
+        const number = Number(value);
+        if (name && Number.isFinite(number) && number > 0) apply(name, Math.min(limit, Math.round(number)));
+      }
+    };
+    pick(raw.e, 600, (name, value) => { design.explosion[name] = value; });
+    pick(raw.w, 2000, (name, value) => {
+      design.spread = { ...(design.spread ?? {}), [name]: value };
+    });
   }
   return design;
 }

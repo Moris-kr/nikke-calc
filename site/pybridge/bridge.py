@@ -92,6 +92,56 @@ def _burst_skill_name(name: str) -> str:
     return ""
 
 
+def _build_states(result, names: list[str], bucket: float = SHOT_BUCKET) -> dict:
+    """캐릭터별 «그때 탄이 몇 발이었나»와 재장전 구간.
+
+    탄환 로그는 **바뀔 때만** 찍히므로 칸마다 값을 앞에서 끌어와 채운다(마지막 값 유지).
+    재장전은 시작·완료 짝을 구간으로 묶고, 끝나지 않은 것은 전투 끝에서 닫는다.
+
+    최대 장탄은 따로 실려 오지 않아 **본 값 중 가장 큰 것**으로 잡는다 — 재장전이 끝나면
+    가득 차므로 실전에서는 그 값이 곧 탄창 크기다(장탄 버프가 도중에 붙으면 그중 가장
+    큰 값이 남는다).
+    """
+    if result.log is None:
+        return {}
+    buckets = int(math.ceil(result.duration / bucket)) if result.duration > 0 else 0
+    chars: dict = {
+        name: {"ammo": [0] * buckets, "reload": [], "maxAmmo": 0} for name in names
+    }
+
+    events: dict[str, list] = {name: [] for name in names}
+    for entry in result.log.ammo_log:
+        if entry.caster in events:
+            events[entry.caster].append((float(entry.t), int(entry.ammo)))
+    for name, log in events.items():
+        log.sort(key=lambda item: item[0])
+        row = chars[name]
+        row["maxAmmo"] = max((ammo for _, ammo in log), default=0)
+        at = 0
+        current = log[0][1] if log else 0
+        for index in range(buckets):
+            edge = (index + 1) * bucket
+            while at < len(log) and log[at][0] < edge:
+                current = log[at][1]
+                at += 1
+            row["ammo"][index] = current
+
+    for entry in result.log.reload_log:
+        row = chars.get(entry.caster)
+        if row is None:
+            continue
+        if "시작" in entry.event:
+            row["reload"].append([round(float(entry.t), 2), None])
+        elif row["reload"] and row["reload"][-1][1] is None:
+            row["reload"][-1][1] = round(float(entry.t), 2)
+    for row in chars.values():
+        for span in row["reload"]:
+            if span[1] is None:
+                span[1] = round(float(result.duration), 2)
+
+    return {"bucket": bucket, "buckets": buckets, "chars": chars}
+
+
 def _build_timeline(result, names: list[str], bucket: float = TIMELINE_BUCKET) -> dict:
     """캐릭터별 대미지 · 버스트 시각 · 풀버스트 구간을 `TIMELINE_BUCKET` 단위로 요약한다.
 
@@ -556,4 +606,6 @@ def run_request(raw: str) -> str:
     # 보스 메이커 전용 — 사격 밀도. 켤 때만 싣는다(응답이 그만큼 무거워진다).
     if bool(payload.get("shotTrack")):
         response["shots"] = _build_shots(result, names)
+        # 사격 트랙을 볼 때는 탄환·재장전도 같이 본다 — 둘이 한 화면에서 읽힌다.
+        response["states"] = _build_states(result, names)
     return json.dumps(response, ensure_ascii=False, separators=(",", ":"))

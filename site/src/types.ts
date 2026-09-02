@@ -161,6 +161,23 @@ export interface SimulationRequest {
  * 코어는 확률로 태우므로, 여기 세는 것은 «확정 코어»뿐이다 — 조준 적중률은 화면이
  * 탄착군 공식으로 따로 낸다.
  */
+/**
+ * 캐릭터별 상태 — 그때 탄이 몇 발이었고 언제 재장전했나.
+ *
+ * 최대 장탄은 «본 값 중 가장 큰 것»이다. 재장전이 끝나면 가득 차므로 실전에서는 그
+ * 값이 곧 탄창 크기다. 무한 장탄은 엔진이 센티널(999999)로 두므로 그대로 온다.
+ */
+export interface StateTrack {
+  bucket: number;
+  buckets: number;
+  chars: Record<string, {
+    ammo: number[];
+    /** `[시작, 끝]` 재장전 구간(초) */
+    reload: Array<[number, number]>;
+    maxAmmo: number;
+  }>;
+}
+
 export interface ShotTrack {
   bucket: number;
   buckets: number;
@@ -323,6 +340,8 @@ export interface SimulationResult {
   timeline?: BattleTimeline;
   /** 보스 메이커의 사격 트랙. `shotTrack`을 켠 요청에만 실린다. */
   shots?: ShotTrack;
+  /** 캐릭터별 탄환·재장전. 사격 트랙과 함께 온다. */
+  states?: StateTrack;
   /** 감시 대상 버프의 실제 수령자 — `{시전자: [...]}`. 구버전 캐시에는 없다. */
   buffTargets?: Record<string, BuffTargetRow[]>;
   /** 0.1초 칸으로 나눈 같은 결과. `fineTimeline`을 켠 요청에만 실려 온다. */
