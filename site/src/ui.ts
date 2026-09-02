@@ -5489,6 +5489,12 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       storage: resolveStorage,
       shareServer,
       onClose: () => markSettingsTab('battle'),
+      // 피드백 창은 이 판 바깥(머리줄)에 있다 — 공유 서버가 있는 빌드에만 그려진다.
+      ...(SHARE_API ? {
+        openFeedback: () => {
+          root.querySelector<HTMLButtonElement>('[data-feedback-open]')?.click();
+        },
+      } : {}),
     },
   );
   // 탭처럼 오간다 — 보스 메이커를 열면 그 탭이 켜지고, 닫으면 전투 조건으로 돌아온다.

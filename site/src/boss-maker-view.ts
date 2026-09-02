@@ -50,6 +50,8 @@ export interface BossMakerDeps {
   shareServer?: ShareServer | null;
   /** 창이 닫힐 때. 부른 쪽의 탭 표시를 되돌리는 데 쓴다. */
   onClose?: () => void;
+  /** 피드백 창을 여는 길. 없으면(공유 서버가 없는 빌드) 단추를 안 낸다. */
+  openFeedback?: () => void;
 }
 
 export interface BossMakerHandle {
@@ -353,6 +355,13 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
         </aside>
 
         <div class="bm-stage-wrap">
+          <!-- 아직 만드는 중인 화면이다. 쓰는 사람이 알려 주지 않으면 무엇이 불편한지
+               알 길이 없으므로, 무대 바로 위에 한 줄로 부탁해 둔다. -->
+          <p class="bm-callout">
+            <b>한창 개발중이기에 많은 피드백이 필요합니다.</b>
+            <span>피드백 기능을 활용해주세요!</span>
+            <button type="button" class="bm-callout-go" data-bm-feedback hidden>피드백 남기기</button>
+          </p>
           <div class="bm-squad-filter" data-bm-filter hidden></div>
           <div class="bm-stage-head">
             <span class="bm-stage-note" data-bm-center-warn hidden>
@@ -2310,6 +2319,14 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   showHits.addEventListener('change', redrawImpacts);
   pileHits.addEventListener('change', redrawImpacts);
   // 창을 닫으면 재생도 멈춘다 — 안 보이는 화면을 60프레임으로 다시 그릴 이유가 없다.
+  // 피드백 창은 이 화면 바깥에 있다 — 창을 닫고 그쪽을 연다.
+  const feedbackButton = q<HTMLButtonElement>('[data-bm-feedback]');
+  feedbackButton.hidden = deps.openFeedback === undefined;
+  feedbackButton.addEventListener('click', () => {
+    close();
+    deps.openFeedback?.();
+  });
+
   const helpPane = q<HTMLElement>('[data-bm-help]');
   q<HTMLButtonElement>('[data-bm-help-open]').addEventListener('click', () => {
     helpPane.hidden = false;

@@ -2080,3 +2080,14 @@ body.bm-open { overflow: hidden; }
 .bm-windows { display: flex; flex-direction: column; gap: 4px; }
 .bm-window { display: flex; align-items: center; gap: 4px; }
 .bm-field.tiny { width: 56px; }
+
+/* 아직 만드는 중인 화면이라는 안내. 무대 바로 위 한 줄 — 그리는 자리를 뺏지 않는다. */
+.bm-callout { display: flex; align-items: center; justify-content: center; gap: 8px;
+  flex-wrap: wrap; margin: 0; padding: 7px 12px; border-radius: 999px;
+  border: 1px solid rgba(255,191,60,.28); background: rgba(255,191,60,.09);
+  color: #ffe1a8; font-size: 11px; line-height: 1.5; word-break: keep-all; }
+.bm-callout b { color: var(--amber); }
+.bm-callout-go { padding: 3px 10px; border: 1px solid rgba(255,191,60,.5); border-radius: 999px;
+  background: rgba(255,191,60,.16); color: var(--amber); font: 800 10px inherit; cursor: pointer;
+  transition: background .18s cubic-bezier(.2,.8,.2,1); }
+.bm-callout-go:hover { background: rgba(255,191,60,.3); }

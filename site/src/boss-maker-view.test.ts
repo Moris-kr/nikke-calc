@@ -485,6 +485,41 @@ describe('보스 메이커 화면', () => {
     expect(savedPart().windows).toBeUndefined();
   });
 
+  it('만드는 중이라는 안내와 피드백 길을 낸다', () => {
+    // 쓰는 사람이 알려 주지 않으면 무엇이 불편한지 알 길이 없다.
+    let opened = 0;
+    const handle = mountBossMaker(host, {
+      settings,
+      catalog: [],
+      simulate: async () => result(),
+      currentSquad: () => ['리타'],
+      currentCharacters: () => ({}),
+      currentBattle: () => applied,
+      applyBattle: (next) => { applied = next; },
+      imageOf: () => undefined,
+      storage: () => localStorage,
+      openFeedback: () => { opened += 1; },
+    });
+    handle.open();
+
+    const callout = host.querySelector('.bm-callout')!;
+    expect(callout.textContent).toContain('한창 개발중이기에 많은 피드백이 필요합니다');
+    expect(callout.textContent).toContain('피드백 기능을 활용해주세요');
+
+    // 피드백 창은 이 화면 바깥이라, 누르면 창을 닫고 그쪽을 연다.
+    host.querySelector<HTMLButtonElement>('[data-bm-feedback]')!.click();
+    expect(opened).toBe(1);
+    expect(host.hidden).toBe(true);
+  });
+
+  it('피드백 길이 없는 빌드에서는 단추를 안 낸다', () => {
+    // 공유 서버 주소가 없으면 피드백 창 자체가 없다 — 누를 수 없는 단추를 남기지 않는다.
+    const handle = mount();
+    handle.open();
+    expect(host.querySelector<HTMLElement>('[data-bm-feedback]')!.hidden).toBe(true);
+    expect(host.querySelector('.bm-callout')!.textContent).toContain('피드백');
+  });
+
   it('사용설명서를 i 단추로 연다', () => {
     const handle = mount();
     handle.open();
