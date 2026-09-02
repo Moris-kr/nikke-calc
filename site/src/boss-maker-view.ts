@@ -13,7 +13,8 @@ import {
   activeDesign, aimPoint, coreHitChance, copyDesign, decodeBossCode, DEFAULT_CORE_PX,
   derivedEnemy, derivedPartBreakInterval, distance, dropDesign, ELEMENT_COLOR, emptyDesign,
   emptyLibrary, encodeBossCode,
-  hitTest, newId, parseLibrary, partBreaks, partsInBlast, phaseAt, putDesign, spreadRadius,
+  hitTest, impactOffsets, newId, parseLibrary, partBreaks, partsInBlast, phaseAt, putDesign,
+  spreadRadius,
   visibleAt,
   type BossDesign, type BossLibrary, type BossPart, type BossShape, type ShapeKind,
 } from './boss-maker';
@@ -230,6 +231,8 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
               <b>보스 중앙을 찍어 주세요.</b> 코어가 없는 보스는 이 점을 겨냥합니다.
             </span>
             <label class="bm-stage-toggle"><input type="checkbox" data-bm-show-aim checked /><span>탄착군</span></label>
+            <label class="bm-stage-toggle"><input type="checkbox" data-bm-show-hits checked /><span>탄착점</span></label>
+            <label class="bm-stage-toggle"><input type="checkbox" data-bm-pile /><span>누적</span></label>
             <span class="bm-stage-meta" data-bm-stage-meta></span>
           </div>
           <svg class="bm-stage" data-bm-stage xmlns="${SVG_NS}"></svg>
@@ -263,6 +266,8 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   const narrow = q<HTMLElement>('[data-bm-narrow]');
   const runNote = q<HTMLElement>('[data-bm-run-note]');
   const showAim = q<HTMLInputElement>('[data-bm-show-aim]');
+  const showHits = q<HTMLInputElement>('[data-bm-show-hits]');
+  const pileHits = q<HTMLInputElement>('[data-bm-pile]');
   const picker = q<HTMLSelectElement>('[data-bm-picker]');
 
   /** 저장본 목록. 이름이 같아도 되도록 값은 id다. */
@@ -366,9 +371,10 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       stage.append(mark);
     }
 
+    const hits = drawImpacts(phase.immune);
     drawAim(phase.immune);
     drawHandles();
-    updateStageMeta();
+    updateStageMeta(hits);
   }
 
   /**
@@ -441,6 +447,74 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     stage.append(group);
   }
 
+  /** 지난번에 만든 탄착점 묶음. 같은 칸을 다시 그릴 때 그대로 쓴다. */
+  let impactCache: { key: string; group: SVGElement; count: number } | null = null;
+
+  /** 자국을 남기는 구간(초). 재생할 때 «방금 어디를 때렸나»가 읽히는 길이다. */
+  const TRAIL_SECONDS = 3;
+  /** 한 번에 찍는 점의 상한. 180초를 누적하면 만 발이 넘어 그리는 값이 아니다. */
+  const IMPACT_CAP = 900;
+
+  /**
+   * 탄이 박힌 자리. 조준점 둘레에 **엔진이 코어 명중률을 내는 그 분포로** 뿌린다
+   * (`impactOffsets`) — 점이 코어에 드는 비율이 계산에 쓰이는 확률과 같다.
+   *
+   * 뿌리는 것은 **평타뿐이다.** 스킬·버스트 딜은 조준 판정을 거치지 않고 그대로 맞으므로
+   * 탄착군과 무관하다(엔진도 코어 명중을 평타에만 준다).
+   *
+   * 「누적」을 끄면 최근 3초치만 남아 재생하며 흐르고, 켜면 지금 시각까지 쌓인다.
+   * 새 것부터 채우므로 상한에 걸리면 **오래된 자국이 먼저 빠진다**.
+   */
+  function drawImpacts(hidden: boolean): number {
+    if (!shots || hidden || !showHits.checked) return 0;
+    const aim = aimPoint(design);
+    if (!aim) return 0;
+
+    const bucket = shots.bucket;
+    const last = Math.min(shots.buckets - 1, Math.floor(cursor / bucket));
+    const first = pileHits.checked
+      ? 0 : Math.max(0, last - Math.round(TRAIL_SECONDS / bucket));
+    const squad = deps.currentSquad().filter(Boolean);
+    const modelN = accuracy?.modelN ?? 2.55;
+
+    // 점은 **칸이 바뀔 때만** 달라진다. 재생은 초당 60번 다시 그리는데 칸은 0.1초마다
+    // 넘어가므로, 같은 칸이면 지난번에 만든 묶음을 그대로 다시 붙인다
+    // (누적 900점을 매 프레임 새로 만들면 한 프레임에 6.5ms가 든다).
+    const key = [last, first, aim.x, aim.y, squad.join('·')].join(':');
+    if (impactCache && impactCache.key === key) {
+      stage.append(impactCache.group);
+      return impactCache.count;
+    }
+
+    const dots: SVGElement[] = [];
+    for (let index = last; index >= first && dots.length < IMPACT_CAP; index -= 1) {
+      for (const [slot, name] of squad.entries()) {
+        const row = shots.chars[name];
+        const count = row?.normal[index] ?? 0;
+        if (!count) continue;
+        const radius = spreadRadius(accuracy, weaponOf(name), 0);
+        const age = (last - index) * bucket;
+        const fade = pileHits.checked ? 0.4 : Math.max(0.14, 1 - age / TRAIL_SECONDS);
+        for (const offset of impactOffsets(`${name}:${index}`, count, radius, modelN)) {
+          if (dots.length >= IMPACT_CAP) break;
+          const dot = svgEl('circle');
+          attrs(dot, { cx: aim.x + offset.x, cy: aim.y + offset.y, r: 1.7 });
+          dot.setAttribute('class', 'bm-impact');
+          dot.setAttribute('fill', AIM_COLORS[slot % AIM_COLORS.length]!);
+          dot.setAttribute('opacity', fade.toFixed(2));
+          dots.push(dot);
+        }
+      }
+    }
+    const group = svgEl('g');
+    group.setAttribute('class', 'bm-impacts');
+    // 새 자국이 위로 오게 뒤집어 붙인다 — 위에서 훑을 때 방금 쏜 것이 먼저 보인다.
+    group.append(...dots.reverse());
+    stage.append(group);
+    impactCache = { key, group, count: dots.length };
+    return dots.length;
+  }
+
   /** 지금 커서 자리에서 그 니케가 쏘고 있는가. 트랙이 없으면 늘 참으로 본다. */
   function firing(name: string): boolean {
     if (!shots) return true;
@@ -463,12 +537,15 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     stage.append(handle);
   }
 
-  function updateStageMeta() {
+  function updateStageMeta(hits = 0) {
     const parts = design.parts.length;
     const core = design.core ? `코어 ${Math.round(design.core.d)}px` : '코어 없음';
     const pair = design.parts.length >= 2
       ? ` · 파츠 최소 간격 ${round(closestPair())}px` : '';
-    stageMeta.textContent = `${design.canvas.w}×${design.canvas.h}px · ${core} · 파츠 ${parts}개${pair}`;
+    const shown = hits > 0
+      ? ` · 탄착점 ${hits}${hits >= IMPACT_CAP ? '(상한)' : ''}` : '';
+    stageMeta.textContent =
+      `${design.canvas.w}×${design.canvas.h}px · ${core} · 파츠 ${parts}개${pair}${shown}`;
   }
 
   function closestPair(): number {
@@ -935,6 +1012,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       const result = await deps.simulate(request);
       lastResult = result;
       shots = result.shots ?? null;
+      impactCache = null;      // 새로 잰 판이다 — 지난 자국을 이어 쓰면 안 된다
       cursor = 0;
       setPlaying(false);
       // **여기서 나온 딜이 이 보스로 잰 딜이다.** 코어 직경·파츠 유무·파츠 파괴 시각이
@@ -1046,6 +1124,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     }
     tracks.append(el('p', 'bm-note',
       '진한 칸일수록 그 순간에 많이 쏩니다. 노란 점은 확정 코어 명중, 붉은 점은 폭발입니다. '
+      + '무대의 탄착점은 평타만 뿌립니다 — 스킬·버스트 딜은 조준 판정을 거치지 않고 그대로 맞습니다. '
       + '풀버스트 밖에서도 겨냥한 곳에 집중해 쏜다고 보고 그립니다 — 인게임의 조준 배분 공식은 알 수 없어, '
       + '코어 적중은 실제보다 후하게 잡힙니다.'));
   }
@@ -1293,7 +1372,10 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     save();
     renderPicker();
   });
+  const redrawImpacts = () => { impactCache = null; drawStage(); };
   showAim.addEventListener('change', drawStage);
+  showHits.addEventListener('change', redrawImpacts);
+  pileHits.addEventListener('change', redrawImpacts);
   // 창을 닫으면 재생도 멈춘다 — 안 보이는 화면을 60프레임으로 다시 그릴 이유가 없다.
   q<HTMLButtonElement>('[data-bm-run]').addEventListener('click', () => { void runTimeline(); });
   q<HTMLButtonElement>('[data-bm-close]').addEventListener('click', () => { close(); });

@@ -201,6 +201,63 @@ export function coreHitChance(
   return Math.min(1, ((corePx / 2) / radius) ** (table?.modelN ?? 2.55));
 }
 
+// ── 탄착점 ──────────────────────────────────────────────────────────────────
+
+/** 글자 → 32비트 씨앗. 같은 글자면 언제나 같은 수다(조합 코드의 해시와 같은 방식). */
+const seedOf = (text: string): number => {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash >>> 0;
+};
+
+/** mulberry32 — 씨앗 하나로 늘 같은 수열을 낸다. 탄착점이 프레임마다 떨지 않게 한다. */
+function randomFrom(seed: number): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4_294_967_296;
+  };
+}
+
+/**
+ * 탄이 박히는 자리들. 조준점을 0으로 둔 상대 좌표(px)다.
+ *
+ * **엔진이 코어 명중률을 내는 그 분포를 그대로 쓴다.** 계산기는
+ * `P(코어 명중) = (코어반경 / 탄착군반경)^n`으로 본다 — 이는 «탄이 반경 r 안에 박힐
+ * 확률이 `(r/R)^n`»이라는 말과 같다. 그래서 `r = R · u^(1/n)`로 뽑으면(u는 0~1 균등)
+ * 찍힌 점이 코어 안에 드는 비율이 엔진이 쓰는 확률과 **정확히 맞는다**. 눈으로 세어도
+ * 계산과 어긋나지 않는다는 뜻이다.
+ *
+ * n이 2보다 크므로 점은 넓이 기준으로 봐도 가운데에 몰린다 — 작은 코어가 생각보다
+ * 자주 맞는 이유가 이 쏠림이다.
+ *
+ * 씨앗은 «누가·언제»로 짓는다. 같은 사격은 다시 그려도 같은 자리에 박혀야 한다 —
+ * 프레임마다 새로 뽑으면 재생할 때 점들이 부글거린다.
+ */
+export function impactOffsets(
+  seed: string,
+  count: number,
+  radius: number,
+  modelN = 2.55,
+): Array<{ x: number; y: number }> {
+  if (!(count > 0) || !(radius > 0)) return [];
+  const random = randomFrom(seedOf(seed));
+  const out: Array<{ x: number; y: number }> = [];
+  for (let i = 0; i < count; i += 1) {
+    const u = random();
+    const angle = random() * Math.PI * 2;
+    const r = radius * u ** (1 / (modelN || 2.55));
+    out.push({ x: Math.cos(angle) * r, y: Math.sin(angle) * r });
+  }
+  return out;
+}
+
 // ── 그림 → 엔진이 아는 숫자 ─────────────────────────────────────────────────
 
 /** 파츠 하나가 깨지는 시각(초). 체력 ÷ 초당 대미지. */

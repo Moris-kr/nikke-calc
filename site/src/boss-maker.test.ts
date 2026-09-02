@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   activeDesign, aimPoint, BOSS_PREFIX, breakTime, copyDesign, coreHitChance, decodeBossCode,
   derivedEnemy, derivedPartBreakInterval, distance, dropDesign, emptyDesign, emptyLibrary,
-  encodeBossCode, hitTest, outerRadius, parseDesign, parseLibrary, partBreaks, partsInBlast,
+  encodeBossCode, hitTest, impactOffsets, outerRadius, parseDesign, parseLibrary, partBreaks,
+  partsInBlast,
   phaseAt, putDesign, spreadRadius, visibleAt,
   type AccuracyTable, type BossPart, type BossShape,
 } from './boss-maker';
@@ -95,6 +96,29 @@ describe('보스 메이커', () => {
     expect(coreHitChance(table, 'AR', 0)).toBe(0);
     // 표를 못 받은 옛 설정에서도 답은 나온다(10px 가정).
     expect(spreadRadius(undefined, 'AR')).toBe(5);
+  });
+
+  it('탄착점이 엔진의 코어 명중률과 같은 분포로 박힌다', () => {
+    // 계산기는 P(코어 명중) = (코어반경/탄착군반경)^n으로 본다. 점을 뿌려 세었을 때
+    // 그 비율이 안 나오면 화면과 계산이 서로 다른 말을 하는 것이다.
+    const radius = 55;      // SMG 탄착군 지름 110px
+    const core = 26;        // 코어 지름 52px
+    const points = impactOffsets('리타:0', 20_000, radius, 2.55);
+    expect(points).toHaveLength(20_000);
+
+    const inside = points.filter((p) => Math.hypot(p.x, p.y) <= core).length / points.length;
+    expect(inside).toBeCloseTo((core / radius) ** 2.55, 2);
+    // 탄착군 밖으로는 한 발도 안 나간다.
+    expect(points.every((p) => Math.hypot(p.x, p.y) <= radius + 1e-9)).toBe(true);
+  });
+
+  it('같은 사격은 다시 그려도 같은 자리에 박힌다', () => {
+    // 프레임마다 새로 뽑으면 재생할 때 점들이 부글거린다.
+    expect(impactOffsets('리타:12', 8, 30)).toEqual(impactOffsets('리타:12', 8, 30));
+    expect(impactOffsets('리타:12', 8, 30)).not.toEqual(impactOffsets('리타:13', 8, 30));
+    // 쏘지 않았거나 탄착군이 없으면 찍을 것도 없다.
+    expect(impactOffsets('리타:0', 0, 30)).toEqual([]);
+    expect(impactOffsets('리타:0', 5, 0)).toEqual([]);
   });
 
   it('파츠 체력을 파괴 시각으로 바꾼다', () => {
