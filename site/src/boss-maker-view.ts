@@ -1205,6 +1205,10 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       // 그림에서 뽑은 값이 전투 조건보다 앞선다 — 지금 보고 있는 보스로 재는 것이다.
       const derived = derivedEnemy(design, squadDps(), battle.duration);
       const aimRange = derivedOptimalRange(design);
+      // 관통이 꿰뚫는 수는 **지금 겨냥한 자리** 기준이다. 조준이 시각마다 달라지므로
+      // 어느 자리로 쟀는지를 결과 줄에 함께 적는다.
+      const aimNow = aimAt(design, cursor);
+      const pierce = aimNow ? pierceTargets(design, aimNow, shots ? cursor : 0) : null;
       const request: SimulationRequest = {
         squad,
         characters: deps.currentCharacters(),
@@ -1228,6 +1232,8 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
         console: battle.console,
         ...(derived.partBreakInterval > 0
           ? { partBreakInterval: derived.partBreakInterval } : {}),
+        ...(pierce && pierce.total > 1
+          ? { piercePass: { shapes: Math.max(1, pierce.shapes), parts: pierce.parts } } : {}),
         shotTrack: true,
         // 누적 딜을 사격 트랙과 같은 0.1초 칸으로 읽으려면 잘게 나눈 표가 필요하다.
         fineTimeline: true,
@@ -1250,6 +1256,9 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
         derived.corePx > 0 ? `코어 ${derived.corePx}px` : '코어 없음',
       ];
       if (derived.hasParts) parts.push('파츠');
+      if (pierce && pierce.total > 1) {
+        parts.push(`관통 ${pierce.total}중(몸통 ${pierce.shapes}·파츠 ${pierce.parts} · ${round(cursor)}초 조준 기준)`);
+      }
       if (aimRange) {
         parts.push(aimRange.length > 0 ? `적정 ${aimRange.join('·')}` : '적정거리 없음(겨냥한 도형에 없음)');
       }

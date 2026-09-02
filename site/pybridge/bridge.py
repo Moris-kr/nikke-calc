@@ -580,6 +580,18 @@ def run_request(raw: str) -> str:
         "immune_windows": normalize_immune_windows(payload.get("immuneWindows")),
         "element_windows": normalize_element_windows(payload.get("elementWindows")),
     }
+    # 관통이 꿰뚫는 몸통·파츠 수. 보스 메이커가 그림에서 세어 넘긴다 — 안 주면
+    # 몸통 하나(한 발 = 한 히트)라 기존 계산과 같다.
+    pierce = payload.get("piercePass")
+    if isinstance(pierce, dict):
+        # `or`로 기본값을 주면 0이 1로 둔갑해 잘못된 값이 그대로 통과한다 — 없을 때만 채운다.
+        raw_shapes = pierce.get("shapes")
+        raw_parts = pierce.get("parts")
+        shapes = int(1 if raw_shapes is None else raw_shapes)
+        parts = int(0 if raw_parts is None else raw_parts)
+        if shapes < 1 or parts < 0 or shapes > 20 or parts > 20:
+            raise ValueError("관통 대상 수가 범위를 벗어났습니다")
+        enemy["pierce_pass"] = {"shapes": shapes, "parts": parts}
     result = simulate(
         squad,
         config=config,

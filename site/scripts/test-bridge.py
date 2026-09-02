@@ -715,6 +715,39 @@ class BrowserBridgeTest(unittest.TestCase):
         # 레이븐 「일점 공격」은 파츠 파괴에 반응한다 — 파괴가 없으면 영원히 안 걸린다.
         self.assertGreater(with_break["charTotals"]["레이븐"], without["charTotals"]["레이븐"])
 
+    def test_pierce_passes_through_shapes_and_parts(self):
+        """관통은 꿰뚫은 만큼 때린다 — 파츠에 든 히트는 파츠 판정을 받는다.
+
+        안 주면 몸통 하나(한 발 = 한 히트)라 지금까지의 계산과 같아야 한다.
+        그레이브는 버스트 중에 관통이 걸린다.
+        """
+        base = {
+            "squad": ["그레이브", "크라운", "리타"], "duration": 120, "enemyDef": 31_784,
+            "enemyCode": "", "corePx": 0, "hasParts": True, "seed": 42, "rngMode": "expected",
+        }
+        plain = json.loads(run_request(json.dumps(base, ensure_ascii=False)))
+        through = json.loads(run_request(json.dumps(
+            {**base, "piercePass": {"shapes": 1, "parts": 2}}, ensure_ascii=False)))
+        twice = json.loads(run_request(json.dumps(
+            {**base, "piercePass": {"shapes": 2, "parts": 0}}, ensure_ascii=False)))
+
+        # 파츠 둘을 더 꿰뚫으면 그만큼 히트가 늘고 딜도 오른다.
+        self.assertGreater(through["charTotals"]["그레이브"], plain["charTotals"]["그레이브"])
+        self.assertGreater(through["hitCount"], plain["hitCount"])
+        # 몸통 둘보다 «몸통 하나 + 파츠 둘»이 더 많이 때린다(히트가 하나 더 많다).
+        self.assertGreater(through["charTotals"]["그레이브"], twice["charTotals"]["그레이브"])
+        # 관통이 없는 동료는 한 자리도 안 바뀐다.
+        self.assertEqual(through["charTotals"]["크라운"], plain["charTotals"]["크라운"])
+
+    def test_rejects_a_bad_pierce_pass(self):
+        payload = {
+            "squad": ["리타"], "duration": 10, "enemyDef": 31_784, "enemyCode": "",
+            "corePx": 0, "hasParts": True, "seed": 42,
+            "piercePass": {"shapes": 0, "parts": 0},
+        }
+        with self.assertRaises(ValueError):
+            run_request(json.dumps(payload, ensure_ascii=False))
+
     def test_rejects_a_negative_part_break_interval(self):
         payload = {
             "squad": ["리타"], "duration": 10, "enemyDef": 31_784, "enemyCode": "",

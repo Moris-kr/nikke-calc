@@ -151,6 +151,11 @@ export interface SimulationRequest {
   partBreakInterval?: number;
   /** 사격 밀도 트랙을 함께 받을지. 보스 메이커의 타임라인이 쓴다. */
   shotTrack?: boolean;
+  /**
+   * 관통 사격이 꿰뚫는 몸통·파츠 수. 보스 메이커가 겨냥한 자리에서 세어 보낸다 —
+   * 안 주면 몸통 하나(한 발 = 한 히트)라 지금까지의 계산과 같다.
+   */
+  piercePass?: { shapes: number; parts: number };
 }
 
 /**

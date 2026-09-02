@@ -164,6 +164,9 @@ DEFAULT_ENEMY: dict = {
     #                     e.g. {"from":100,"to":102,"code":"풍압"} → 작열 캐릭터만
     "immune_windows":       [],
     "element_windows":      [],
+    # 관통 사격이 꿰뚫는 몸통·파츠 수(보스 메이커가 그림에서 세어 넘긴다).
+    # 기본은 몸통 하나 — 한 발이 한 히트로 끝나 지금까지와 같다.
+    "pierce_pass":          {"shapes": 1, "parts": 0},
 }
 
 
@@ -194,6 +197,18 @@ def _core_hit_prob(weapon_type: str, accuracy_pct: float, core_px: float) -> flo
     R = D / 2.0
     r_c = core_px / 2.0
     return min(1.0, (r_c / R) ** _MODEL_N)
+
+
+def _pierce_passthrough(enemy: dict) -> tuple[int, int]:
+    """관통 사격이 꿰뚫는 **몸통 수와 파츠 수**. 기본은 몸통 하나 — 지금까지와 같다.
+
+    보스 메이커가 «겨냥한 자리에 겹친 도형·파츠»를 세어 넘긴다(`enemy["pierce_pass"]`).
+    안 넘기면 `(1, 0)`이라 한 발이 한 히트로 끝나므로 기존 계산은 한 자리도 안 바뀐다.
+    """
+    spec = enemy.get("pierce_pass") or {}
+    shapes = max(1, int(spec.get("shapes", 1) or 1))
+    parts = max(0, int(spec.get("parts", 0) or 0))
+    return shapes, parts
 
 
 def _apply_hit_coeff(damage, cfg: dict, weapon_type: str, is_skill_shot: bool):
@@ -704,6 +719,10 @@ class CharState:
                                    is_crit=res["is_crit"], hit_tag=tag,
                                    **({"skill_name": self._wc_name}
                                       if self._wc_is_skill_damage() else {})))
+            events.extend(self._pierce_extra(
+                ht=ht, base_damage=shot_damage, is_crit=res["is_crit"], buffs=buffs,
+                enemy=enemy, cfg=cfg, expected=expected, t=t, tag=tag,
+            ))
             bm.notify("pellet_hit", t, self.name)
             body_ev = "squad_part_hit" if enemy.get("has_parts", False) else "squad_body_hit"
             core_frac = P_core if expected else (1.0 if is_core else 0.0)
@@ -724,6 +743,45 @@ class CharState:
             bm.notify("last_bullet", t, self.name)
 
         return events
+
+    def _pierce_extra(
+        self, *, ht: dict, base_damage: int, is_crit: bool, buffs: dict, enemy: dict,
+        cfg: dict, expected: bool, t: float, tag: str,
+    ) -> list[HitEvent]:
+        """관통이 꿰뚫고 지나간 **나머지 대상** 몫.
+
+        한 발이 몸통 1 + 파츠 2를 지나면 히트가 셋이다. 파츠에 든 히트는 파츠 판정을
+        받아 `part_dmg_pct`(파츠 대미지 ▲)가 실린다 — 그래서 대미지를 다시 계산한다.
+        몸통을 여러 장 지나는 몫은 판정이 같으므로 값을 그대로 복제한다.
+
+        **트리거는 늘리지 않는다.** 대미지만 더한다 — 히트 수를 세는 스킬까지 함께
+        늘리면 파츠 하나 겹쳐 놓은 것만으로 스택이 두 배로 도는 일이 생긴다.
+        """
+        if not ht.get("is_pierce_damage"):
+            return []
+        shapes, parts = _pierce_passthrough(enemy)
+        if shapes <= 1 and parts <= 0:
+            return []
+
+        extra: list[HitEvent] = []
+        named = {"skill_name": self._wc_name} if self._wc_is_skill_damage() else {}
+        for _ in range(shapes - 1):
+            extra.append(HitEvent(t=t, caster=self.name, damage=base_damage,
+                                  is_crit=is_crit, hit_tag=f"pierce:{tag}", **named))
+        # 파츠 판정은 파츠를 가진 보스에서만 성립한다.
+        if parts > 0 and enemy.get("has_parts", False):
+            part_ht = dict(ht, is_part=True)
+            part_res = calc_damage(
+                base_atk=self.base_atk, buffs=buffs, weapon=self.weapon,
+                hit_type=part_ht, enemy_def=enemy.get("def", 31784), expected=expected,
+            )
+            part_damage = _apply_hit_coeff(part_res["damage"], cfg, self.weapon_type,
+                                           self._wc_is_skill_damage())
+            for _ in range(parts):
+                extra.append(HitEvent(t=t, caster=self.name, damage=part_damage,
+                                      is_crit=part_res["is_crit"],
+                                      hit_tag="pierce:part", **named))
+        return extra
 
     # ── charge (SR/RL) ────────────────────────────────────────────────────
 
@@ -915,6 +973,10 @@ class CharState:
                                is_crit=res["is_crit"], hit_tag=tag,
                                **({"skill_name": self._wc_name}
                                   if self._wc_is_skill_damage() else {})))
+        events.extend(self._pierce_extra(
+            ht=ht, base_damage=shot_damage, is_crit=res["is_crit"], buffs=buffs,
+            enemy=enemy, cfg=cfg, expected=expected, t=t, tag=tag,
+        ))
         # 명중 직후 파생되는 "자신이 가한 피해량 비례 고정 대미지"의 기준값.
         # notify(full_charge_hit) 동안만 소비되며 방어력·공격 버프를 다시 적용하지 않는다.
         bm.state.setdefault("last_normal_hit_damage", {})[self.name] = res["damage"]

@@ -90,6 +90,8 @@ export function normalizeRequest(request: SimulationRequest): SimulationRequest 
     // 갈리지 않게 하려는 것으로, 다른 필드와 같은 규칙이다.
     ...(request.partBreakInterval ? { partBreakInterval: request.partBreakInterval } : {}),
     ...(request.shotTrack ? { shotTrack: true } : {}),
+    ...(request.piercePass && (request.piercePass.shapes > 1 || request.piercePass.parts > 0)
+      ? { piercePass: request.piercePass } : {}),
     ...(request.console ? { console: {
       common_level: Math.trunc(request.console.common_level),
       class_level: normalizeBuckets(request.console.class_level),
