@@ -79,11 +79,16 @@ export interface CandidateSource {
  * 이 단계를 채울 수 있는 니케.
  *
  * **편성 순서를 지킨다** — 단축키가 자리를 바꾸면 손이 외운 위치가 무너진다.
- * 단계가 `A`인 니케(레드 후드)는 어느 단계에나 선다.
+ * 단계가 `A`인 니케는 어느 단계에나 선다.
+ *
+ * 라피 : 레드 후드처럼 «그 단계 아군이 없으면 내가 선다»는 사람(`altBurstStage`)은
+ * **정말 아무도 없을 때만** 후보가 된다 — 엔진이 그렇게 굴리므로(조건
+ * `no_burst1_ally`), 화면이 먼저 세워 두면 엔진이 안 따르는 순서를 적게 된다.
  */
 export function candidatesFor(stage: BurstStage, source: CandidateSource): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
+  const fallback: string[] = [];
   for (const raw of source.squad) {
     const name = (raw ?? '').trim();
     if (!name || seen.has(name)) continue;
@@ -93,8 +98,9 @@ export function candidatesFor(stage: BurstStage, source: CandidateSource): strin
     if (!meta) continue;
     const own = String(meta.burstStage).toUpperCase();
     if (own === stage || own === 'A') out.push(name);
+    else if (String(meta.altBurstStage ?? '') === stage) fallback.push(name);
   }
-  return out;
+  return out.length > 0 ? out : fallback;
 }
 
 /** 고른 것들(`걸음키 → 이름`)을 엔진이 받는 모양으로 편다. */

@@ -93,6 +93,27 @@ const text = (value, limit, field, required) => {
   return trimmed;
 };
 
+/**
+ * 줄바꿈을 지키는 자리 — 피드백 본문뿐이다.
+ *
+ * 이름·닉네임은 한 줄이어야 하므로 `text`가 공백을 통째로 접는다. 그런데 본문까지 그
+ * 규칙을 받아 「내가 쓴 것도 읽기 힘들다」는 말이 올라왔다. 줄 **안**의 공백만 접고
+ * 줄바꿈은 남긴다(빈 줄은 하나까지 — 스무 줄 띄우기로 게시판을 밀지 못하게).
+ */
+const multiline = (value, limit, field, required) => {
+  const trimmed = String(value ?? '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[^\S\n]+/g, ' ')
+    .split('\n')
+    .map((line) => line.trim())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  if (required && trimmed === '') throw new Fail(400, `${field}을(를) 입력해 주세요.`);
+  if (trimmed.length > limit) throw new Fail(400, `${field}이(가) 너무 깁니다(${limit}자까지).`);
+  return trimmed;
+};
+
 const kindOf = (value) => {
   const kind = String(value ?? '');
   if (!(kind in KINDS)) throw new Fail(400, '알 수 없는 공유 종류입니다.');
@@ -324,7 +345,7 @@ async function handleFeedbackList(env) {
 
 async function handleFeedbackAdd(request, env, body) {
   const kind = FEEDBACK_KINDS.includes(String(body.kind)) ? String(body.kind) : 'etc';
-  const content = text(body.text, LIMITS.feedbackText, '내용', true);
+  const content = multiline(body.text, LIMITS.feedbackText, '내용', true);
   const by = text(body.by, LIMITS.by, '닉네임', false);
 
   const voter = await voterId(request, env);

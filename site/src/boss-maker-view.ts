@@ -27,6 +27,7 @@ import {
   type StateTrack,
 } from './types';
 import type { StorageLike } from './cache';
+import { confirmTwice } from './confirm-twice';
 import { hacksForRequest } from './hacks';
 import { formatDamage, formatDps } from './model';
 import { mountSharePanel, type SharePanel } from './share-panel';
@@ -2401,7 +2402,8 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     save();
     render();
   });
-  q<HTMLButtonElement>('[data-bm-drop]').addEventListener('click', () => {
+  // 공들여 그린 보스가 한 번의 오누름으로 사라지지 않게 두 번 묻는다.
+  confirmTwice(q<HTMLButtonElement>('[data-bm-drop]'), () => {
     // 마지막 하나는 지워도 빈 판이 남는다 — 다룰 것이 없는 화면은 만들지 않는다.
     library = dropDesign(library, design.id);
     design = activeDesign(library);

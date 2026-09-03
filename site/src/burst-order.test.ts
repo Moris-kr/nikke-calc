@@ -74,6 +74,23 @@ describe('단계별 후보', () => {
     expect(candidatesFor('3', { squad, metaOf })).toEqual(['앨리스', '레드 후드']);
   });
 
+  it('«그 단계 아군이 없으면 내가 선다»는 사람은 정말 아무도 없을 때만 나온다', () => {
+    // 라피 : 레드 후드의 1버(엔진 조건 `no_burst1_ally`). 1버가 따로 있으면 안 나온다.
+    const 라피 = { ...meta('라피 : 레드 후드', '3'), altBurstStage: '1' };
+    const withOther = ['리타', '라피 : 레드 후드'];
+    const alone = ['크라운', '라피 : 레드 후드'];
+    const look = (name: string) => (name === '라피 : 레드 후드' ? 라피 : metaOf(name));
+
+    expect(candidatesFor('1', { squad: withOther, metaOf: look })).toEqual(['리타']);
+    expect(candidatesFor('1', { squad: alone, metaOf: look })).toEqual(['라피 : 레드 후드']);
+    // 제 단계(3버)에는 언제나 선다.
+    expect(candidatesFor('3', { squad: alone, metaOf: look })).toEqual(['라피 : 레드 후드']);
+    // 「버스트 안 씀」이면 대타 자리에도 안 선다.
+    expect(candidatesFor('1', {
+      squad: alone, metaOf: look, skipped: new Set(['라피 : 레드 후드']),
+    })).toEqual([]);
+  });
+
   it('「버스트 안 씀」으로 잡아 둔 사람은 후보에서 뺀다', () => {
     expect(candidatesFor('1', { squad, metaOf, skipped: new Set(['리타']) }))
       .toEqual(['레드 후드', '돌치']);

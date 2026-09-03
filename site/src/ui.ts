@@ -51,6 +51,7 @@ import {
   activeHacks, HACK_DMG_MULT_MAX, hacksOn, NO_HACKS, normalizeHacks,
 } from './hacks';
 import type { HackSettings } from './hacks';
+import { confirmTwice } from './confirm-twice';
 import { startPresence } from './presence';
 import { mountUnionRaid, type UnionHandle } from './union-raid';
 import { mountBossMaker, type BossMakerHandle } from './boss-maker-view';
@@ -210,11 +211,18 @@ function renderCharacterRows(
   entry: DeckResultEntry,
   imageOf: (name: string) => string | undefined,
   fmt: DamageFormat,
+  /**
+   * 막대를 재는 자(딜). 안 주면 **그 덱의 1등**이 100%다 — 덱 안에서 누가 얼마나
+   * 넣었나를 보는 눈금이다. 덱끼리 견줄 때는 **다섯 덱을 통틀어 1등**을 넘겨받아,
+   * 덱을 갈아 가며 봐도 막대 길이가 서로 비교된다.
+   */
+  scale?: number,
 ): void {
   const rows = document.createElement('div');
   rows.className = 'result-rows';
   const tops = topScorers(entry);
-  const best = Math.max(...entry.request.squad.map((name) => entry.result.charTotals[name] ?? 0), 0);
+  const best = scale
+    ?? Math.max(...entry.request.squad.map((name) => entry.result.charTotals[name] ?? 0), 0);
 
   for (const name of entry.request.squad) {
     const value = entry.result.charTotals[name] ?? 0;
@@ -1300,6 +1308,17 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const errors = element<HTMLElement>(root, '[data-errors]');
   const submit = element<HTMLButtonElement>(root, 'button[type="submit"]');
   const resultPanel = element<HTMLElement>(root, '[data-result-panel]');
+  // 창은 «뒷판을 눌렀을 때» 닫힌다. 그런데 창 안에서 시작한 끌기 — 드롭다운을 눌러
+  // 끌다가 창 밖에서 손을 뗀 경우 — 는 바깥 누르기가 아니다. 그때의 click 대상은 누른
+  // 곳과 뗀 곳의 공통 조상(뒷판)이라 창이 통째로 닫혀 버렸다. 누르기 **시작한 자리**를
+  // 함께 보고, 안에서 시작했으면 닫지 않는다.
+  let pressStartedOutsideCard = true;
+  document.addEventListener('pointerdown', (event) => {
+    pressStartedOutsideCard = !(event.target as HTMLElement | null)?.closest('.custom-card');
+  }, true);
+  /** 이 click이 «뒷판을 눌러 닫으려는» 것인가. */
+  const hitBackdrop = (event: Event, modal: HTMLElement): boolean =>
+    event.target === modal && pressStartedOutsideCard;
   const timelinePanel = element<HTMLElement>(root, '[data-timeline-panel]');
   // 타임라인은 «계산 결과가 있는가»와 «지금 계산기 화면인가» 둘 다 만족할 때만 보인다.
   let timelineHasContent = false;
@@ -1720,7 +1739,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     buffOrderModal.hidden = true;
   });
   buffOrderModal.addEventListener('click', (event) => {
-    if (event.target === buffOrderModal) buffOrderModal.hidden = true;
+    if (hitBackdrop(event, buffOrderModal)) buffOrderModal.hidden = true;
   });
 
   // ── 업데이트 공지 ───────────────────────────────────────────────────────
@@ -1797,7 +1816,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   element<HTMLButtonElement>(root, '[data-notice-close]').addEventListener('click', closeNotice);
   element<HTMLButtonElement>(root, '[data-notice-dismiss]').addEventListener('click', closeNotice);
   noticeModal.addEventListener('click', (event) => {
-    if (event.target === noticeModal) closeNotice();
+    if (hitBackdrop(event, noticeModal)) closeNotice();
   });
   {
     let seen: string | null = null;
@@ -1832,7 +1851,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   };
   element<HTMLButtonElement>(root, '[data-char-panel-close]').addEventListener('click', closeCharPanel);
   charPanelModal.addEventListener('click', (event) => {
-    if (event.target === charPanelModal) closeCharPanel();
+    if (hitBackdrop(event, charPanelModal)) closeCharPanel();
   });
 
   // ── 끌어다 놓기 ─────────────────────────────────────────────────────────
@@ -1941,6 +1960,34 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       const from = sources.get(pick.value);
       if (!from) return;
       const deck = activeDeck();
+      const moved = carryGrowth(from, name);
+      if (!moved) {
+        status.textContent = `${pick.value}에게는 베껴올 육성값이 없습니다.`;
+        return;
+      }
+      deck.characters[name] = moved.next;
+      saveState();
+      renderSquad();
+      status.textContent = `${pick.value}의 ${moved.carried.join(' · ')}을(를) ${name}에게 베꼈습니다.`;
+    });
+    const row = document.createElement('div');
+    row.className = 'copy-from-row';
+    row.append(pick, apply);
+    box.append(row, createText('p', '돌파 · 스킬 · 오버로드 · 장비 강화 · 소장품을 가져옵니다. 컨트롤·버스트 운용·큐브는 그대로 둡니다.', 'field-note'));
+    return box;
+  };
+
+  /**
+   * 육성값 한 벌을 다른 니케에게 옮긴 결과. 못 옮길 것이 하나도 없으면 null.
+   *
+   * 옮기는 것은 **육성값뿐**이다 — 돌파·스킬·오버로드·장비 강화·소장품. 컨트롤과
+   * 버스트 운용은 그 캐릭터의 조작이고 큐브는 각자 고르는 것이라 건드리지 않는다.
+   * 등급마다 상한이 다른 값(돌파)과 애장품 유무는 **받는 쪽에 맞춰** 깎는다.
+   */
+  const carryGrowth = (
+    from: CharacterOverrides, name: string,
+  ): { next: CharacterOverrides; carried: string[] } | null => {
+      const deck = activeDeck();
       const target = settings.characters[name];
       const next: CharacterOverrides = { ...cloneOverride(deck.characters[name] ?? {}) };
       const carried: string[] = [];
@@ -1981,19 +2028,50 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           : { stage: from.collection.stage, favorite: 0 };
         carried.push('소장품');
       }
-      if (carried.length === 0) {
-        status.textContent = `${pick.value}에게는 베껴올 육성값이 없습니다.`;
-        return;
+      return carried.length === 0 ? null : { next, carried };
+  };
+
+  /**
+   * 「이 육성을 덱 전원에게」 — 스펙업이 총딜을 얼마나 올리는지 보려면 다섯 명을 같은
+   * 육성으로 맞춰야 하는데, 지금은 한 명씩 다섯 번 베껴야 한다.
+   *
+   * 넷을 한꺼번에 덮어쓰는 단추라 **두 번 눌러야** 터진다(`confirm-twice.ts`).
+   */
+  const spreadControl = (name: string): HTMLElement => {
+    const box = document.createElement('div');
+    box.className = 'copy-from spread-growth';
+    const others = activeDeck().squad.filter((who) => who && who !== name);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'copy-from-apply spread-apply';
+    button.dataset.spreadGrowth = name;
+    button.textContent = '이 육성을 덱 전원에게';
+    button.title = '돌파·스킬·오버로드·장비 강화·소장품을 이 덱의 다른 니케에게 그대로 입힙니다';
+    button.disabled = others.length === 0;
+    confirmTwice(button, () => {
+      const from = activeDeck().characters[name];
+      if (!from) { status.textContent = `${name}에게 아직 손댄 육성값이 없습니다.`; return; }
+      const deck = activeDeck();
+      const done: string[] = [];
+      for (const who of others) {
+        const moved = carryGrowth(from, who);
+        if (!moved) continue;
+        deck.characters[who] = moved.next;
+        done.push(who);
       }
-      deck.characters[name] = next;
       saveState();
       renderSquad();
-      status.textContent = `${pick.value}의 ${carried.join(' · ')}을(를) ${name}에게 베꼈습니다.`;
-    });
-    const row = document.createElement('div');
-    row.className = 'copy-from-row';
-    row.append(pick, apply);
-    box.append(row, createText('p', '돌파 · 스킬 · 오버로드 · 장비 강화 · 소장품을 가져옵니다. 컨트롤·버스트 운용·큐브는 그대로 둡니다.', 'field-note'));
+      status.textContent = done.length
+        ? `${name}의 육성을 ${done.join(' · ')}에게 입혔습니다.`
+        : '입힐 니케가 없습니다.';
+    }, { armed: '정말 덮어쓸까요?' });
+    box.append(button, createText(
+      'p',
+      others.length === 0
+        ? '덱에 다른 니케가 없습니다.'
+        : `${others.length}명(${others.join(' · ')})의 돌파·스킬·오버로드·장비 강화·소장품을 덮어씁니다. 컨트롤·버스트 운용·큐브는 그대로 둡니다.`,
+      'field-note',
+    ));
     return box;
   };
 
@@ -2190,13 +2268,24 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         'span',
         char ? `B${char.burstStage} · ${char.elementCode} · ${char.weaponType}` : '눌러서 이 칸에 넣기',
       ));
-      choose.addEventListener('click', () => {
+      const chooseHere = () => {
         // 같은 칸을 다시 누르면 접는다 — 켜고 끄는 자리가 한 곳이면 헷갈리지 않는다.
         const same = pickerOpen && activeSlot === index;
         activeSlot = index;
         pullActiveSlot = !same;
         setPickerOpen(!same);
-      });
+      };
+      choose.addEventListener('click', chooseHere);
+      // 빈 칸은 초상화 자리도 통째로 «이 칸에 넣기» 단추가 된다 — 비어 있는 그림을
+      // 눌렀는데 아무 일도 안 일어나는 것이 이상하다. 채워진 칸에서는 그 자리가 집어
+      // 끄는(자리 맞바꾸기) 손잡이라 건드리지 않는다.
+      if (!name) {
+        portrait.classList.add('is-empty');
+        portrait.addEventListener('click', (event) => {
+          if ((event.target as HTMLElement | null)?.closest('.slot-move')) return;
+          chooseHere();
+        });
+      }
       // 좁은 화면에서는 슬롯 줄이 옆으로 밀린다. 겨냥한 칸이 화면 밖에 있으면
       // 판이 어디를 채우는지 알 수 없으므로 끌어다 보여 준다.
       // jsdom에는 scrollIntoView가 없다. 없다고 렌더가 깨질 일은 아니므로 건너뛴다.
@@ -2352,7 +2441,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
         renderEditor();
         card.append(editor);
-        card.append(copyFromControl(cname));
+        card.append(copyFromControl(cname), spreadControl(cname));
       }
       squadGrid.append(card);
     }
@@ -2850,7 +2939,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   element<HTMLButtonElement>(root, '[data-battle-modal-close]')
     .addEventListener('click', () => setBattleOpen(false));
   battleModal.addEventListener('click', (event) => {
-    if (event.target === battleModal) setBattleOpen(false);
+    if (hitBackdrop(event, battleModal)) setBattleOpen(false);
   });
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && !battleModal.hidden) setBattleOpen(false);
@@ -2977,7 +3066,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       remove.className = 'preset-remove';
       remove.textContent = '삭제';
       remove.setAttribute('aria-label', `${preset.name} 삭제`);
-      remove.addEventListener('click', () => {
+      remove.title = '두 번 눌러야 지워집니다';
+      // 바로 위가 「저장」이라 «적용»으로 착각해 날리는 일이 있었다 — 한 번 더 묻는다.
+      confirmTwice(remove, () => {
         presets = presets.filter((item) => item.name !== preset.name);
         savePresets();
         renderPresets();
@@ -3101,7 +3192,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       remove.type = 'button';
       remove.className = 'preset-remove';
       remove.textContent = '삭제';
-      remove.addEventListener('click', () => {
+      remove.title = '두 번 눌러야 지워집니다';
+      confirmTwice(remove, () => {
         calcHistory = calcHistory.filter((item) => item.at !== entry.at);
         persistHistory();
         renderHistory();
@@ -3115,7 +3207,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     historyModal.hidden = true;
   });
   historyModal.addEventListener('click', (event) => {
-    if (event.target === historyModal) historyModal.hidden = true;
+    if (hitBackdrop(event, historyModal)) historyModal.hidden = true;
   });
 
   /**
@@ -3191,7 +3283,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     shareModal.hidden = true;
   });
   shareModal.addEventListener('click', (event) => {
-    if (event.target === shareModal) shareModal.hidden = true;
+    if (hitBackdrop(event, shareModal)) shareModal.hidden = true;
   });
   element<HTMLButtonElement>(root, '[data-share-copy]').addEventListener('click', async () => {
     try {
@@ -3394,7 +3486,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const closeReport = () => { reportModal.hidden = true; };
   element<HTMLButtonElement>(root, '[data-report-close]').addEventListener('click', closeReport);
   reportModal.addEventListener('click', (event) => {
-    if (event.target === reportModal) closeReport();
+    if (hitBackdrop(event, reportModal)) closeReport();
   });
   element<HTMLButtonElement>(root, '[data-report-copy]').addEventListener('click', () => {
     void (async () => {
@@ -3422,6 +3514,16 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   try {
     detailDamage = resolveStorage()?.getItem(DETAIL_KEY) === '1';
   } catch { /* 저장된 값을 못 읽으면 줄여 쓰기(기본)로 간다 */ }
+
+  // 「덱끼리 견주기」도 같은 성질의 눈 — 켜 둔 상태가 이 브라우저에 남는다.
+  const COMPARE_KEY = 'nikke-compare-decks-v1';
+  let compareDecks = false;
+  try {
+    compareDecks = resolveStorage()?.getItem(COMPARE_KEY) === '1';
+  } catch { /* 못 읽으면 덱 안에서만 견준다(기본) */ }
+
+  /** 결과 판에서 지금 펼쳐 둔 덱. 다시 그려도 이 덱을 지킨다. */
+  let shownDeckId: number | null = null;
 
   /**
    * 「자세히 보기」 — 결과의 대미지를 줄이지 않고 1의 자리까지 적는다.
@@ -3514,12 +3616,36 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     });
     detailLabel.append(detailBox, createText('span', '자세히 보기'));
     reportTools.append(historySave, historyOpen, reportButton, csvButton, detailLabel);
+    // 덱끼리 견주기 — 막대를 재는 자를 «그 덱의 1등»에서 «다섯 덱 통틀어 1등»으로
+    // 바꾼다. 덱마다 제 1등을 100%로 그리면 어느 덱을 봐도 막대가 꽉 차서, 정작
+    // 덱 사이의 차이가 그림에서 사라진다. 덱이 하나뿐이면 견줄 것이 없다.
+    if (batch.decks.length > 1) {
+      const compareLabel = document.createElement('label');
+      compareLabel.className = 'inline-check detail-toggle';
+      compareLabel.title = '막대를 다섯 덱 통틀어 딜이 가장 높은 니케 기준으로 그립니다';
+      const compareBox = document.createElement('input');
+      compareBox.type = 'checkbox';
+      compareBox.dataset.compareDecks = '';
+      compareBox.checked = compareDecks;
+      compareBox.addEventListener('change', () => {
+        compareDecks = compareBox.checked;
+        try {
+          resolveStorage()?.setItem(COMPARE_KEY, compareDecks ? '1' : '0');
+        } catch { /* 저장 실패는 무시한다 — 이번 판만 못 기억할 뿐이다 */ }
+        renderBatchResult(batch);
+      });
+      compareLabel.append(compareBox, createText('span', '덱끼리 견주기'));
+      reportTools.append(compareLabel);
+    }
     resultPanel.append(reportTools);
 
     // 덱 순위 — 딜 내림차순으로 «등수»만 구한다. 세우는 순서는 끝까지 덱 번호 그대로다.
     const ordered = [...batch.decks].sort((a, b) => b.result.squadTotal - a.result.squadTotal);
     const ranking = new Map(ordered.map((entry, index) => [entry.deckId, index + 1]));
     const best = ordered[0]?.result.squadTotal ?? 0;
+    // 다섯 덱을 통틀어 가장 많이 넣은 니케. 「덱끼리 견주기」의 눈금이다.
+    const bestChar = Math.max(0, ...batch.decks.flatMap((entry) =>
+      entry.request.squad.map((name) => entry.result.charTotals[name] ?? 0)));
     const portraitOf = (name: string): string | undefined => {
       const image = catalogByName.get(name)?.image;
       return image ? `${import.meta.env.BASE_URL}${image}` : undefined;
@@ -3557,8 +3683,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       // 덱을 갈아 가며 볼 때는 줄이 짧고 비교가 쉽다. 한 덱만 볼 때는 카드가 편성과
       // 자리가 맞아 낫다 — 화면의 목적이 달라서 모양도 다르다.
       const fmt: DamageFormat = { dmg, dps };
-      if (batch.decks.length > 1) renderCharacterRows(section, entry, portraitOf, fmt);
-      else renderCharacterCards(section, entry, portraitOf, fmt);
+      if (batch.decks.length > 1) {
+        renderCharacterRows(section, entry, portraitOf, fmt, compareDecks ? bestChar : undefined);
+      } else renderCharacterCards(section, entry, portraitOf, fmt);
       const facts = document.createElement('div');
       facts.className = 'result-facts';
       facts.append(
@@ -3580,6 +3707,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       tabs.dataset.deckResultTabs = '';
       const buttons = new Map<number, HTMLButtonElement>();
       const show = (entry: DeckResultEntry) => {
+        shownDeckId = entry.deckId;
         for (const [id, button] of buttons) {
           button.classList.toggle('is-on', id === entry.deckId);
           button.setAttribute('aria-pressed', String(id === entry.deckId));
@@ -3589,6 +3717,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       for (const entry of batch.decks) {
         const rank = ranking.get(entry.deckId)!;
         const tab = document.createElement('button');
+        // (탭 하나하나는 아래에서 만든다)
         tab.type = 'button';
         // 순위는 다섯 덱 모두에 적고, 1·2위만 색으로 강조한다. 자리는 덱 번호 순 그대로다.
         tab.className = 'deck-result-tab'
@@ -3606,7 +3735,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         tabs.append(tab);
       }
       resultPanel.append(tabs);
-      show(batch.decks[0]!);
+      // 보고 있던 덱을 지킨다 — 「자세히 보기」를 켜면 판을 다시 그리는데, 그때마다
+      // 1덱으로 튕겨 나가면 3덱을 보던 사람은 세 번을 다시 눌러야 한다.
+      show(batch.decks.find((entry) => entry.deckId === shownDeckId) ?? batch.decks[0]!);
     } else if (batch.decks[0]) {
       renderDeckDetail(detail, batch.decks[0]);
     }
@@ -3651,7 +3782,10 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         tabs.append(tab);
       }
       timelineBody.append(tabs, stage);
-      show([...blocks.keys()][0]!);
+      // 결과 판과 같은 덱을 편다 — 위아래가 서로 다른 덱을 보고 있으면 읽는 사람이
+      // 둘을 한 덱으로 착각한다.
+      show(shownDeckId !== null && blocks.has(shownDeckId)
+        ? shownDeckId : [...blocks.keys()][0]!);
     } else {
       for (const block of blocks.values()) timelineBody.append(block);
     }
@@ -3875,7 +4009,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   burstOpenButton.addEventListener('click', openBurstOrder);
   element<HTMLButtonElement>(root, '[data-burst-order-close]').addEventListener('click', closeBurstOrder);
   burstModal.addEventListener('click', (event) => {
-    if (event.target === burstModal) closeBurstOrder();
+    if (hitBackdrop(event, burstModal)) closeBurstOrder();
   });
   element<HTMLButtonElement>(root, '[data-burst-cycles-up]').addEventListener('click', () => {
     burstCycles = Math.min(MAX_CYCLES, burstCycles + 1);
@@ -4077,7 +4211,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     battleShareModal.hidden = true;
   });
   battleShareModal.addEventListener('click', (event) => {
-    if (event.target === battleShareModal) battleShareModal.hidden = true;
+    if (hitBackdrop(event, battleShareModal)) battleShareModal.hidden = true;
   });
   element<HTMLButtonElement>(root, '[data-battle-share-copy]').addEventListener('click', async () => {
     try {
@@ -4523,7 +4657,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   element<HTMLButtonElement>(root, '[data-reset-close]').addEventListener('click', closeResetModal);
   element<HTMLButtonElement>(root, '[data-reset-cancel]').addEventListener('click', closeResetModal);
   resetModal.addEventListener('click', (event) => {
-    if (event.target === resetModal) closeResetModal();
+    if (hitBackdrop(event, resetModal)) closeResetModal();
   });
   element<HTMLButtonElement>(root, '[data-reset-confirm]').addEventListener('click', () => {
     cache.clear();
@@ -4731,7 +4865,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       blablaModal.hidden = true;
     });
     blablaModal.addEventListener('click', (event) => {
-      if (event.target === blablaModal) blablaModal.hidden = true;
+      if (hitBackdrop(event, blablaModal)) blablaModal.hidden = true;
     });
     blablaSync.addEventListener('click', () => { void runSync(); });
     blablaUrl.addEventListener('keydown', (event) => {
@@ -4886,7 +5020,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       feedbackModal.hidden = true;
     });
     feedbackModal.addEventListener('click', (event) => {
-      if (event.target === feedbackModal) feedbackModal.hidden = true;
+      if (hitBackdrop(event, feedbackModal)) feedbackModal.hidden = true;
     });
     feedbackSend.addEventListener('click', () => { void sendFeedback(); });
 
@@ -5118,7 +5252,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     abbrevModal.hidden = true;
   });
   abbrevModal.addEventListener('click', (event) => {
-    if (event.target === abbrevModal) abbrevModal.hidden = true;
+    if (hitBackdrop(event, abbrevModal)) abbrevModal.hidden = true;
   });
   element<HTMLButtonElement>(root, '[data-abbrev-apply]').addEventListener('click', runAbbrev);
   abbrevInput.addEventListener('keydown', (event) => {
@@ -6043,7 +6177,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     doroModal.hidden = true;
   });
   doroModal.addEventListener('click', (event) => {
-    if (event.target === doroModal) doroModal.hidden = true;
+    if (hitBackdrop(event, doroModal)) doroModal.hidden = true;
   });
 
   const customModal = element<HTMLElement>(root, '[data-custom-modal]');
@@ -6098,7 +6232,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     customModal.hidden = true;
   });
   customModal.addEventListener('click', (event) => {
-    if (event.target === customModal) customModal.hidden = true;
+    if (hitBackdrop(event, customModal)) customModal.hidden = true;
   });
   element<HTMLButtonElement>(root, '[data-copy-prompt]').addEventListener('click', async () => {
     try {

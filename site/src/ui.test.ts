@@ -2335,6 +2335,78 @@ describe('calculator UI', () => {
     expect(root.querySelector('[data-status]')?.textContent).toContain('2개 덱 계산 완료');
   });
 
+  it('「이 육성을 덱 전원에게」가 덱의 나머지에게 육성을 입힌다', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    // 1번 칸의 스킬을 올린다.
+    const toggle = root.querySelector<HTMLInputElement>('[data-slot-card="0"] [data-custom-toggle]')!;
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event('change'));
+    const skill = root.querySelector<HTMLSelectElement>('[data-slot-card="0"] [data-skill-level="1"]')!;
+    skill.value = '4';
+    skill.dispatchEvent(new Event('change'));
+
+    const spread = root.querySelector<HTMLButtonElement>('[data-slot-card="0"] [data-spread-growth]')!;
+    // 넷을 한꺼번에 덮어쓰는 단추라 한 번으로는 안 터진다.
+    spread.click();
+    const saved = () => (JSON.parse(localStorage.getItem('nikke-state-v1')!) as
+      { decks: Array<{ squad: string[]; characters: Record<string, { skillLevels?: Record<string, number> }> }> })
+      .decks[0]!;
+    const second = saved().squad[1]!;
+    expect(saved().characters[second]?.skillLevels?.['1']).not.toBe(4);
+
+    root.querySelector<HTMLButtonElement>('[data-slot-card="0"] [data-spread-growth]')!.click();
+    expect(saved().characters[saved().squad[1]!]?.skillLevels?.['1']).toBe(4);
+    expect(saved().characters[saved().squad[4]!]?.skillLevels?.['1']).toBe(4);
+  });
+
+  /** 5덱 모드로 켜고 2덱에 한 명 넣는다 — 결과 탭이 나오려면 덱이 둘이어야 한다. */
+  const twoDecks = (host: HTMLElement) => {
+    host.querySelector<HTMLInputElement>('#duration')!.value = '10';
+    const mode = host.querySelector<HTMLInputElement>('#squad-mode')!;
+    mode.checked = true;
+    mode.dispatchEvent(new Event('change'));
+    host.querySelector<HTMLButtonElement>('[data-deck-tab="2"]')!.click();
+    chooseCharacter(host, 0, '리타');
+  };
+
+  it('결과에서 보던 덱은 다시 그려도 그대로다', async () => {
+    // 「자세히 보기」를 켜면 판을 다시 그린다 — 그때 1덱으로 튕기면 3덱을 보던 사람은
+    // 켤 때마다 다시 눌러야 한다.
+    const client = new FakeClient();
+    mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });
+    twoDecks(root);
+    root.querySelector<HTMLFormElement>('form')!.requestSubmit();
+    await flush();
+    await flush();
+
+    const second = root.querySelector<HTMLButtonElement>('[data-deck-result-tab="2"]')!;
+    second.click();
+    expect(root.querySelector<HTMLElement>('[data-deck-result]')!.dataset.deckResult).toBe('2');
+
+    root.querySelector<HTMLInputElement>('[data-detail-damage]')!.click();
+    expect(root.querySelector<HTMLElement>('[data-deck-result]')!.dataset.deckResult).toBe('2');
+  });
+
+  it('덱끼리 견주기는 막대를 다섯 덱 통틀어 1등 기준으로 그린다', async () => {
+    const client = new FakeClient();
+    mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });
+    twoDecks(root);
+    root.querySelector<HTMLFormElement>('form')!.requestSubmit();
+    await flush();
+    await flush();
+
+    const widths = () => [...root.querySelectorAll<HTMLElement>('.share-track i')]
+      .map((bar) => bar.style.width);
+    // 기본은 그 덱의 1등이 100%다.
+    expect(widths()).toContain('100%');
+
+    const compare = root.querySelector<HTMLInputElement>('[data-compare-decks]')!;
+    compare.click();
+    // 덱이 하나뿐이면 견줄 것이 없으므로 이 칸 자체가 없다(아래 단일 덱 시험 참고).
+    expect(compare.checked).toBe(true);
+    expect(widths().length).toBeGreaterThan(0);
+  });
+
   // ── 핵 ────────────────────────────────────────────────────────────────
   describe('핵', () => {
     const openHacks = (client: CalculatorClientLike) => {

@@ -267,6 +267,12 @@ export interface DeckState {
 export interface CharacterMeta {
   name: string;
   burstStage: string;
+  /**
+   * 그 단계의 **다른 아군이 없을 때만** 설 수 있는 자리(라피 : 레드 후드의 1버).
+   * 엔진은 `burst_stage_override:N`으로 이미 그렇게 굴린다 — 화면의 버스트 순서 표가
+   * 같은 사실을 알아야 그 칸에 세울 수 있다. 없으면 null이다.
+   */
+  altBurstStage?: string | null;
   elementCode: string;
   weaponType: string;
   className: string;

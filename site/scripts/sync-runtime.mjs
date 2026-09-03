@@ -132,6 +132,23 @@ const names = Object.keys(skills)
   .filter((name) => !name.startsWith('test_') && nikke[name])
   .sort(collator.compare);
 
+/**
+ * 「1버 아군이 없으면 내가 1버」 — 라피 : 레드 후드처럼 **다른 사람이 없을 때만** 그
+ * 단계에 서는 니케. 엔진은 `burst_stage_override:N`(조건 `no_burstN_ally`)로 이미
+ * 그렇게 굴리는데, 화면의 버스트 순서 표는 카탈로그의 고정 단계만 보고 있어 그 사람을
+ * 1버 칸에 세울 수가 없었다. 데이터에서 뽑아 화면에도 알려 준다.
+ */
+const altBurstStageOf = (name) => {
+  for (const effect of skills[name] ?? []) {
+    const stat = String(effect?.stat ?? '');
+    const match = /^burst_stage_override:([123])$/.exec(stat);
+    if (!match) continue;
+    const conditions = effect?.trigger?.condition ?? [];
+    if (conditions.includes(`no_burst${match[1]}_ally`)) return match[1];
+  }
+  return null;
+};
+
 const catalog = names.map((name, index) => {
   const meta = nikke[name];
   const sourceImage = imageIndex.get(normalizeImageName(name));
@@ -144,6 +161,8 @@ const catalog = names.map((name, index) => {
   return {
     name,
     burstStage: String(meta.burst_stage ?? ''),
+    // 그 단계의 다른 아군이 없을 때만 설 수 있는 자리. 없으면 null.
+    altBurstStage: altBurstStageOf(name),
     elementCode: String(meta.element_code ?? ''),
     weaponType: String(meta.weapon_type ?? ''),
     className: String(meta.class ?? ''),

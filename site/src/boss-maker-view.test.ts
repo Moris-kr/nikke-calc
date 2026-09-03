@@ -286,6 +286,9 @@ describe('보스 메이커 화면', () => {
     expect([...picker.options].map((o) => o.textContent)).toContain('새 보스 사본');
     expect(host.querySelectorAll('.bm-part')).toHaveLength(1);
 
+    // 공들여 그린 보스라 한 번으로는 안 지워진다 — 두 번 눌러야 터진다.
+    host.querySelector<HTMLButtonElement>('[data-bm-drop]')!.click();
+    expect(host.querySelector<HTMLSelectElement>('[data-bm-picker]')!.options).toHaveLength(2);
     host.querySelector<HTMLButtonElement>('[data-bm-drop]')!.click();
     expect(host.querySelector<HTMLSelectElement>('[data-bm-picker]')!.options).toHaveLength(1);
   });

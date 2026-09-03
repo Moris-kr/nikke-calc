@@ -2236,3 +2236,12 @@ body.bm-open { overflow: hidden; }
 .hack-hero::after { content: ""; position: absolute; inset: auto 0 0; height: 6px;
   background: repeating-linear-gradient(135deg, #ff3a5e 0 12px, #1b0a12 12px 24px);
   opacity: .85; }
+/* 빈 칸의 초상화 자리는 통째로 «이 칸에 넣기» 단추다. */
+.portrait-wrap.is-empty { cursor: pointer; }
+.portrait-wrap.is-empty:hover { background: rgba(69,214,208,.06); }
+/* 두 번 눌러야 터지는 단추 — 겨눈 동안은 스스로 붉어진다(`confirm-twice.ts`). */
+.is-armed { border-color: rgba(255,120,140,.6) !important; color: #ffb3c0 !important;
+  background: rgba(255,60,90,.16) !important; }
+/* 「이 육성을 덱 전원에게」 — 베껴오기와 같은 자리, 같은 무게로 선다. */
+.spread-growth { display: grid; gap: 6px; margin-top: 6px; }
+.spread-apply { justify-self: start; }
