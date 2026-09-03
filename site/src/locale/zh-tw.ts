@@ -1410,4 +1410,10 @@ export const ZH_TW: Record<string, string> = {
   '{n}위 · 1위 대비 {gap}% ({dmg})': '第 {n} 名 · 相較第 1 名 {gap}%（{dmg}）',
   '{n}초 전투': '{n} 秒戰鬥',
   '시드 {n}': '種子 {n}',
+  '{n}명': '{n} 位',
+  '{shown} / {all}명': '{shown} / {all} 位',
+  '{n}번 칸을 {name} 대신 채웁니다 · {filled}/5명':
+    '第 {n} 格將改為 {name} · {filled}/5 人',
+  '{n}번 빈 칸을 채웁니다 · {filled}/5명': '正在填入第 {n} 個空位 · {filled}/5 人',
+  '{name} 초상화': '{name} 立繪',
 };

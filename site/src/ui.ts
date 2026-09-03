@@ -2354,7 +2354,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       if (char?.image) {
         const image = document.createElement('img');
         image.src = `${import.meta.env.BASE_URL}${char.image}`;
-        image.alt = `${char.name} 초상화`;
+        image.alt = t('{name} 초상화', { name: tName(char.name) });
         image.loading = 'lazy';
         portrait.append(image);
       }
@@ -4726,7 +4726,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     // 「ㅋㄹㅇ」·「라피레드」가 걸리고, 친 이름이 맨 앞에 온다.
     const shown = filterByQuery(narrowed, rosterSearch.value, buildIndex);
     rosterCount.textContent = shown.length === all.length
-      ? `${all.length}명` : `${shown.length} / ${all.length}명`;
+      ? t('{n}명', { n: all.length })
+      : t('{shown} / {all}명', { shown: shown.length, all: all.length });
     const deck = activeDeck();
     rosterGrid.replaceChildren();
     for (const char of shown) {
@@ -4845,8 +4846,12 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     const filled = deck.squad.filter(Boolean).length;
     const current = deck.squad[activeSlot];
     rosterDesc.textContent = current
-      ? `${activeSlot + 1}번 칸을 ${current} 대신 채웁니다 · ${filled}/5명`
-      : `${activeSlot + 1}번 빈 칸을 채웁니다 · ${filled}/5명`;
+      ? t('{n}번 칸을 {name} 대신 채웁니다 · {filled}/5명', {
+        n: activeSlot + 1, name: tName(current), filled,
+      })
+      : t('{n}번 빈 칸을 채웁니다 · {filled}/5명', {
+        n: activeSlot + 1, filled,
+      });
   };
 
   // 접힌 채로 시작한다 — 무엇으로 재는지 한 줄은 처음부터 적혀 있어야 한다.
