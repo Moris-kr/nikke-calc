@@ -53,6 +53,7 @@ import {
 import type { HackSettings } from './hacks';
 import { confirmTwice } from './confirm-twice';
 import { GUIDE } from './guide';
+import { lang, LANG_KEY, LANGS, t, tName, watchLocalize } from './i18n';
 import { startPresence } from './presence';
 import { mountUnionRaid, type UnionHandle } from './union-raid';
 import { mountBossMaker, type BossMakerHandle } from './boss-maker-view';
@@ -383,7 +384,16 @@ const BLABLA_PROXY = (import.meta.env.VITE_BLABLA_PROXY ?? '').trim().replace(/\
 const SHARE_API = (import.meta.env.VITE_SHARE_API ?? '').trim().replace(/\/+$/, '');
 
 export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies): () => void {
-  const { catalog, settings, version, client, storage, reload } = deps;
+  const { settings, version, client, storage, reload } = deps;
+  // 다른 말로 보는 사람은 **그 말의 이름으로 찾는다**. 화면에 뜨는 이름은 `i18n`의
+  // 훑기가 바꾸므로, 여기서 손대는 것은 «찾는 열쇠»뿐이다 — 번역된 이름을 별칭에
+  // 얹어 「Rapi」로도, 「라피」로도 걸리게 한다.
+  const catalog = deps.catalog.map((char) => {
+    const localized = tName(char.name);
+    return localized === char.name
+      ? char
+      : { ...char, aliases: [...(char.aliases ?? []), localized] };
+  });
   const blablaProxy = (deps.blablaProxy ?? BLABLA_PROXY).trim().replace(/\/+$/, '');
   /** 유니온 탭 손잡이. 프록시가 없어 탭을 안 만든 배포에서는 끝까지 비어 있다. */
   let unionHandle: UnionHandle | null = null;
@@ -560,7 +570,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           <p class="eyebrow">BROWSER SIM <span>·</span> 60 FPS TIMELINE</p>
           <h1><span>NIKKE</span> 스쿼드 계산기</h1>
           <p class="hero-lede">캐릭터별 오버로드와 큐브, 전투 조건을 반영해 프레임 단위 예상 대미지를 계산합니다.</p>
-          <div class="trust-row" aria-label="서비스 특징"><span>${catalog.length}명 지원</span><span class="online-now" data-online hidden title="최근 1~2분 사이에 이 계산기를 연 사람 수입니다. 탭을 숨기면 세지 않습니다"><b class="online-dot" aria-hidden="true"></b><span data-online-text></span></span><button type="button" class="notice-open" data-guide-open title="화면의 각 기능이 무엇을 하는지 봅니다">사용 설명서</button><button type="button" class="notice-open" data-notice-open title="지금까지 무엇이 바뀌었는지 봅니다">업데이트 내역</button>${SHARE_API ? '<button type="button" class="notice-open" data-feedback-open title="불편한 점·바라는 점을 남깁니다. 올린 글은 모두에게 보입니다">피드백</button>' : ''}<a class="credit-link" href="https://github.com/Jgaram/nikke-calc" target="_blank" rel="noreferrer noopener" title="이 계산기의 원본 저장소">원본 알고리즘 개발자에게 무한한 감사를</a></div>
+          <div class="trust-row" aria-label="서비스 특징"><span>${t('{n}명 지원', { n: catalog.length })}</span><span class="online-now" data-online hidden title="최근 1~2분 사이에 이 계산기를 연 사람 수입니다. 탭을 숨기면 세지 않습니다"><b class="online-dot" aria-hidden="true"></b><span data-online-text></span></span><select class="lang-pick" data-lang-pick aria-label="언어 / Language">${LANGS.map((entry) => `<option value="${entry.code}">${entry.label}</option>`).join('')}</select><button type="button" class="notice-open" data-guide-open title="화면의 각 기능이 무엇을 하는지 봅니다">사용 설명서</button><button type="button" class="notice-open" data-notice-open title="지금까지 무엇이 바뀌었는지 봅니다">업데이트 내역</button>${SHARE_API ? '<button type="button" class="notice-open" data-feedback-open title="불편한 점·바라는 점을 남깁니다. 올린 글은 모두에게 보입니다">피드백</button>' : ''}<a class="credit-link" href="https://github.com/Jgaram/nikke-calc" target="_blank" rel="noreferrer noopener" title="이 계산기의 원본 저장소">원본 알고리즘 개발자에게 무한한 감사를</a></div>
         </div>
         <div class="hero-orbit" aria-hidden="true"><span>01</span><strong>LOCAL<br />SIM</strong></div>
       </header>
@@ -1087,6 +1097,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       <div class="custom-modal" data-notice-modal hidden>
         <div class="custom-card notice-card" role="dialog" aria-label="업데이트 내역">
           <div class="custom-head"><h2>업데이트 내역</h2><button type="button" class="custom-close" data-notice-close aria-label="닫기">✕</button></div>
+          <!-- 공지는 한국어로만 적는다(그때그때 세 번 쓰면 결국 셋 다 늦어진다).
+               다른 말로 보는 사람에게는 그 사실을 미리 알린다. -->
+          <p class="custom-desc" data-notice-korean hidden>These notes are written in Korean only. / 更新履歴は韓国語のみです。</p>
           <div class="notice-body" data-notice-body></div>
           <div class="deck-copy-actions">
             <button type="button" class="deck-copy-apply" data-notice-dismiss>확인 · 다시 보지 않기</button>
@@ -1790,6 +1803,19 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     overloadMoveModal.hidden = false;
   };
 
+  // ── 언어 ────────────────────────────────────────────────────────────────
+  // 고르면 그 자리에서 다시 그리지 않고 **새로 연다**. 화면 절반이 한 덩어리 HTML이라
+  // 다시 그리는 길을 따로 만들면 그 길만 낡는다 — 새로 고침 한 번이 가장 확실하다.
+  const langPick = element<HTMLSelectElement>(root, '[data-lang-pick]');
+  langPick.value = lang();
+  langPick.addEventListener('change', () => {
+    try { resolveStorage()?.setItem(LANG_KEY, langPick.value); } catch { /* 저장 실패는 무시 */ }
+    if (reload) reload();
+    else window.location.reload();
+  });
+  // 이미 그려진 것과 앞으로 그려질 것을 그 나라 말로 바꾼다(`i18n.ts`).
+  const stopLocalize = watchLocalize(root);
+
   // ── 사용 설명서 ─────────────────────────────────────────────────────────
   const guideModal = element<HTMLElement>(root, '[data-guide-modal]');
   const guideBody = element<HTMLElement>(root, '[data-guide-body]');
@@ -1838,6 +1864,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
   const noticeModal = element<HTMLElement>(root, '[data-notice-modal]');
   const noticeBody = element<HTMLElement>(root, '[data-notice-body]');
+  element<HTMLElement>(root, '[data-notice-korean]').hidden = lang() === 'ko';
 
   const renderNotices = () => {
     noticeBody.replaceChildren();
@@ -6640,5 +6667,5 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     }
   });
 
-  return () => client.dispose();
+  return () => { stopLocalize(); client.dispose(); };
 }

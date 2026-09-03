@@ -1,0 +1,3311 @@
+{
+  "_comment": "영어·일본어 이름. `scraper/cdn_locale.py`가 CDN에서 받아 적는다.",
+  "_locales": [
+    "en",
+    "ja"
+  ],
+  "characters": {
+    "2B": {
+      "en": "2B",
+      "ja": "2B"
+    },
+    "A2": {
+      "en": "A2",
+      "ja": "A2"
+    },
+    "D": {
+      "en": "D",
+      "ja": "D"
+    },
+    "D : 킬러 와이프": {
+      "en": "D: Killer Wife",
+      "ja": "D：キラーワイフ"
+    },
+    "E.H.": {
+      "en": "E.H.",
+      "ja": "E.H."
+    },
+    "K": {
+      "en": "K",
+      "ja": "K"
+    },
+    "N102": {
+      "en": "N102",
+      "ja": "N102"
+    },
+    "iDoll 썬": {
+      "en": "iDoll Sun",
+      "ja": "I-DOLL・サン"
+    },
+    "iDoll 오션": {
+      "en": "iDoll Ocean",
+      "ja": "I-DOLL・オーシャン"
+    },
+    "iDoll 플라워": {
+      "en": "iDoll Flower",
+      "ja": "I-DOLL・フラワー"
+    },
+    "그레이브": {
+      "en": "Grave",
+      "ja": "グレイブ"
+    },
+    "길로틴": {
+      "en": "Guillotine",
+      "ja": "ギロチン"
+    },
+    "길로틴 : 윈터 슬레이어": {
+      "en": "Guillotine: Winter Slayer",
+      "ja": "ギロチン：ウィンタースレイヤー"
+    },
+    "길티": {
+      "en": "Guilty",
+      "ja": "ギルティ"
+    },
+    "나가": {
+      "en": "Naga",
+      "ja": "ナガ"
+    },
+    "나유타": {
+      "en": "Nayuta",
+      "ja": "ナユタ"
+    },
+    "네로": {
+      "en": "Nero",
+      "ja": "ネロ"
+    },
+    "네베": {
+      "en": "Neve",
+      "ja": "ネヴェ"
+    },
+    "네온": {
+      "en": "Neon",
+      "ja": "ネオン"
+    },
+    "네온 : 블루 오션": {
+      "en": "Neon: Blue Ocean",
+      "ja": "ネオン：ブルーオーシャン"
+    },
+    "네온 : 비전 아이": {
+      "en": "Neon: Vision Eye",
+      "ja": "ネオン：ビジョン・アイ"
+    },
+    "노벨": {
+      "en": "Novel",
+      "ja": "ノベル"
+    },
+    "노아": {
+      "en": "Noah",
+      "ja": "ノア"
+    },
+    "노이즈": {
+      "en": "Noise",
+      "ja": "ノイズ"
+    },
+    "누아르": {
+      "en": "Noir",
+      "ja": "ノワール"
+    },
+    "니힐리스타": {
+      "en": "Nihilister",
+      "ja": "ニヒリスター"
+    },
+    "델타": {
+      "en": "Delta",
+      "ja": "デルタ"
+    },
+    "델타 : 닌자 시프": {
+      "en": "Delta: Ninja Thief",
+      "ja": "デルタ：ニンジャシーフ"
+    },
+    "도라": {
+      "en": "Dolla",
+      "ja": "ドラー"
+    },
+    "도로시": {
+      "en": "Dorothy",
+      "ja": "ドロシー"
+    },
+    "도로시 : 세렌디피티": {
+      "en": "Dorothy: Serendipity",
+      "ja": "ドロシー：セレンディピティ"
+    },
+    "드레이크": {
+      "en": "Drake",
+      "ja": "ドレイク"
+    },
+    "디젤": {
+      "en": "Diesel",
+      "ja": "ディーゼル"
+    },
+    "디젤 : 윈터 스위츠": {
+      "en": "Diesel: Winter Sweets",
+      "ja": "ディーゼル：ウィンタースイーツ"
+    },
+    "라이": {
+      "en": "Rei",
+      "ja": "ライ"
+    },
+    "라푼젤": {
+      "en": "Rapunzel",
+      "ja": "ラプンツェル"
+    },
+    "라푼젤 : 퓨어 그레이스": {
+      "en": "Rapunzel: Pure Grace",
+      "ja": "ラプンツェル：ピュアグレイス"
+    },
+    "라플라스": {
+      "en": "Laplace",
+      "ja": "ラプラス"
+    },
+    "라플라스 : 얼티밋 히어로": {
+      "en": "Laplace: Ultimate Hero",
+      "ja": "ラプラス：アルティメットヒーロー"
+    },
+    "라피": {
+      "en": "Rapi",
+      "ja": "ラピ"
+    },
+    "라피 : 레드 후드": {
+      "en": "Rapi: Red Hood",
+      "ja": "ラピ：レッドフード"
+    },
+    "람": {
+      "en": "Ram",
+      "ja": "ラム"
+    },
+    "레드 후드": {
+      "en": "Red Hood",
+      "ja": "レッドフード"
+    },
+    "레오나": {
+      "en": "Leona",
+      "ja": "レオナ"
+    },
+    "레이": {
+      "en": "Rei",
+      "ja": "レイ"
+    },
+    "레이 (가칭)": {
+      "en": "Rei (Tentative Name)",
+      "ja": "レイ（仮称）"
+    },
+    "레이븐": {
+      "en": "Raven",
+      "ja": "レイヴン"
+    },
+    "레이블": {
+      "en": "Label",
+      "ja": "レーベル"
+    },
+    "렘": {
+      "en": "Rem",
+      "ja": "レム"
+    },
+    "로산나": {
+      "en": "Rosanna",
+      "ja": "ロザンナ"
+    },
+    "로산나 : 시크 오션": {
+      "en": "Rosanna: Chic Ocean",
+      "ja": "ロザンナ：シックオーシャン"
+    },
+    "루드밀라": {
+      "en": "Ludmilla",
+      "ja": "ルドミラ"
+    },
+    "루드밀라 : 윈터 오너": {
+      "en": "Ludmilla: Winter Owner",
+      "ja": "ルドミラ：ウィンターオーナー"
+    },
+    "루마니": {
+      "en": "Rumani",
+      "ja": "ルマニ"
+    },
+    "루주": {
+      "en": "Rouge",
+      "ja": "ルージュ"
+    },
+    "루피": {
+      "en": "Rupee",
+      "ja": "ルピー"
+    },
+    "루피 : 윈터 쇼퍼": {
+      "en": "Rupee: Winter Shopper",
+      "ja": "ルピー：ウィンターショッパー"
+    },
+    "리버렐리오": {
+      "en": "Liberalio",
+      "ja": "リバーレリオ"
+    },
+    "리타": {
+      "en": "Liter",
+      "ja": "リター"
+    },
+    "리틀 머메이드": {
+      "en": "Little Mermaid",
+      "ja": "リトルマーメイド"
+    },
+    "릴리": {
+      "en": "Lily",
+      "ja": "リリー"
+    },
+    "마나": {
+      "en": "Mana",
+      "ja": "マナ"
+    },
+    "마르차나": {
+      "en": "Marciana",
+      "ja": "マルチャーナ"
+    },
+    "마르차나 : 마린 스터디": {
+      "en": "Marciana: Marine Study",
+      "ja": "マルチャーナ：マリンスタディ"
+    },
+    "마리": {
+      "en": "Mari",
+      "ja": "マリ"
+    },
+    "마스트": {
+      "en": "Mast",
+      "ja": "マスト"
+    },
+    "마스트 : 로망틱 메이드": {
+      "en": "Mast: Romantic Maid",
+      "ja": "マスト：ロマンチックメイド"
+    },
+    "마키마": {
+      "en": "Makima",
+      "ja": "マキマ"
+    },
+    "맥스웰": {
+      "en": "Maxwell",
+      "ja": "マクスウェル"
+    },
+    "맥스웰 : 오디너리 미케닉": {
+      "en": "Maxwell: Ordinary Mechanic",
+      "ja": "マクスウェル：オーディナリーメカニック"
+    },
+    "메어리": {
+      "en": "Mary",
+      "ja": "メアリー"
+    },
+    "메어리 : 베이 갓데스": {
+      "en": "Mary: Bay Goddess",
+      "ja": "メアリー：ベイゴッデス"
+    },
+    "메이든": {
+      "en": "Maiden",
+      "ja": "メイデン"
+    },
+    "메이든 : 아이스 로즈": {
+      "en": "Maiden: Ice Rose",
+      "ja": "メイデン：アイスローズ"
+    },
+    "모더니아": {
+      "en": "Modernia",
+      "ja": "モダニア"
+    },
+    "모리": {
+      "en": "Mori",
+      "ja": "モリー"
+    },
+    "목단": {
+      "en": "Moran",
+      "ja": "モラン"
+    },
+    "미란다": {
+      "en": "Miranda",
+      "ja": "ミランダ"
+    },
+    "미사토": {
+      "en": "Misato",
+      "ja": "ミサト"
+    },
+    "미카": {
+      "en": "Mica",
+      "ja": "ミカ"
+    },
+    "미카 : 스노우 버디": {
+      "en": "Mica: Snow Buddy",
+      "ja": "ミカ：スノーバディ"
+    },
+    "미하라": {
+      "en": "Mihara",
+      "ja": "ミハラ"
+    },
+    "미하라 : 본딩 체인": {
+      "en": "Mihara: Bonding Chain",
+      "ja": "ミハラ：ボンディングチェーン"
+    },
+    "민트": {
+      "en": "Mint",
+      "ja": "ミント"
+    },
+    "밀크": {
+      "en": "Milk",
+      "ja": "ミルク"
+    },
+    "밀크 : 블루밍 바니": {
+      "en": "Milk: Blooming Bunny",
+      "ja": "ミルク：ブルーミングバニー"
+    },
+    "바이퍼": {
+      "en": "Viper",
+      "ja": "バイパー"
+    },
+    "백학": {
+      "en": "Snow Crane",
+      "ja": "シラツル"
+    },
+    "베스티": {
+      "en": "Vesti",
+      "ja": "ベスティー"
+    },
+    "베스티 : 택티컬 업": {
+      "en": "Vesti: Tactical Upgrade",
+      "ja": "ベスティー：タクティカル・アップ"
+    },
+    "베이": {
+      "en": "Bay",
+      "ja": "ベイ"
+    },
+    "벨로타": {
+      "en": "Belorta",
+      "ja": "ベロータ"
+    },
+    "벨벳": {
+      "en": "Velvet",
+      "ja": "ベルベット"
+    },
+    "볼륨": {
+      "en": "Volume",
+      "ja": "ボリューム"
+    },
+    "브래디": {
+      "en": "Bready",
+      "ja": "ブレッディ"
+    },
+    "브리드": {
+      "en": "Brid",
+      "ja": "ブリッド"
+    },
+    "브리드 : 사일런트 트랙": {
+      "en": "Brid: Silent Track",
+      "ja": "ブリッド：サイレントトラック"
+    },
+    "블랑": {
+      "en": "Blanc",
+      "ja": "ブラン"
+    },
+    "비스킷": {
+      "en": "Biscuit",
+      "ja": "ビスケット"
+    },
+    "사쿠라": {
+      "en": "Sakura",
+      "ja": "サクラ"
+    },
+    "사쿠라 : 블룸 인 서머": {
+      "en": "Sakura: Bloom in Summer",
+      "ja": "サクラ：ブルーム・イン・サマー"
+    },
+    "센티": {
+      "en": "Centi",
+      "ja": "センチ"
+    },
+    "소다": {
+      "en": "Soda",
+      "ja": "ソーダ"
+    },
+    "소다 : 트윙클링 바니": {
+      "en": "Soda: Twinkling Bunny",
+      "ja": "ソーダ：トゥインクルバニー"
+    },
+    "소라": {
+      "en": "Sora",
+      "ja": "ソラ"
+    },
+    "솔린": {
+      "en": "Soline",
+      "ja": "ソリン"
+    },
+    "솔린 : 프로스트 티켓": {
+      "en": "Soline: Frost Ticket",
+      "ja": "ソリン：フロストチケット"
+    },
+    "솔져 E.G.": {
+      "en": "Soldier EG",
+      "ja": "ソルジャーE.G."
+    },
+    "솔져 F.A.": {
+      "en": "Soldier FA",
+      "ja": "ソルジャーF.A."
+    },
+    "솔져 O.W.": {
+      "en": "Soldier OW",
+      "ja": "ソルジャーO.W."
+    },
+    "슈가": {
+      "en": "Sugar",
+      "ja": "シュガー"
+    },
+    "스노우 화이트": {
+      "en": "Snow White",
+      "ja": "スノーホワイト"
+    },
+    "스노우 화이트 : 이노센트 데이즈": {
+      "en": "Snow White: Innocent Days",
+      "ja": "スノーホワイト：イノセントデイズ"
+    },
+    "스노우 화이트 : 헤비암즈": {
+      "en": "Snow White: Heavy Arms",
+      "ja": "スノーホワイト：ヘビーアームズ"
+    },
+    "시그널": {
+      "en": "Signal",
+      "ja": "シグナル"
+    },
+    "신": {
+      "en": "Sin",
+      "ja": "シン"
+    },
+    "신데렐라": {
+      "en": "Cinderella",
+      "ja": "シンデレラ"
+    },
+    "신데렐라 : 크리스탈 웨이브": {
+      "en": "Cinderella: Crystal Wave",
+      "ja": "シンデレラ：クリスタルウェーブ"
+    },
+    "아니스": {
+      "en": "Anis",
+      "ja": "アニス"
+    },
+    "아니스 : 스타": {
+      "en": "Anis: Star",
+      "ja": "アニス：スター"
+    },
+    "아니스 : 스파클링 서머": {
+      "en": "Anis: Sparkling Summer",
+      "ja": "アニス：スパークリングサマー"
+    },
+    "아르카나": {
+      "en": "Arcana",
+      "ja": "アルカナ"
+    },
+    "아르카나 : 포츈 메이트": {
+      "en": "Arcana: Fortune Mate",
+      "ja": "アルカナ：フォーチュンメイト"
+    },
+    "아리아": {
+      "en": "Aria",
+      "ja": "アリア"
+    },
+    "아비스타": {
+      "en": "Avistar",
+      "ja": "アビスタ"
+    },
+    "아스카": {
+      "en": "Asuka",
+      "ja": "アスカ"
+    },
+    "아스카 : WILLE": {
+      "en": "Asuka: WILLE",
+      "ja": "アスカ：WILLE"
+    },
+    "아이기스": {
+      "en": "Aigis",
+      "ja": "アイギス"
+    },
+    "아인": {
+      "en": "Ein",
+      "ja": "アイン"
+    },
+    "아크레인저 블랙": {
+      "en": "Ark Ranger Black",
+      "ja": "アークレンジャー・ブラック"
+    },
+    "애드미": {
+      "en": "Admi",
+      "ja": "アドミ"
+    },
+    "앤 : 미라클 페어리": {
+      "en": "Anne: Miracle Fairy",
+      "ja": "エヌ : ミラクルフェアリー"
+    },
+    "앨리스": {
+      "en": "Alice",
+      "ja": "アリス"
+    },
+    "앨리스 : 원더랜드 바니": {
+      "en": "Alice: Wonderland Bunny",
+      "ja": "アリス：ワンダーランドバニー"
+    },
+    "앵커": {
+      "en": "Anchor",
+      "ja": "アンカー"
+    },
+    "앵커 : 이노센트 메이드": {
+      "en": "Anchor: Innocent Maid",
+      "ja": "アンカー：イノセントメイド"
+    },
+    "얀": {
+      "en": "Yan",
+      "ja": "ヤン"
+    },
+    "에밀리아": {
+      "en": "Emilia",
+      "ja": "エミリア"
+    },
+    "에이다": {
+      "en": "Ada",
+      "ja": "エイダ"
+    },
+    "에이드": {
+      "en": "Ade",
+      "ja": "エード"
+    },
+    "에이드 : 에이전트 바니": {
+      "en": "Ade: Agent Bunny",
+      "ja": "エード：エージェントバニー"
+    },
+    "에테르": {
+      "en": "Ether",
+      "ja": "エーテル"
+    },
+    "에피넬": {
+      "en": "Epinel",
+      "ja": "エピネル"
+    },
+    "엑시아": {
+      "en": "Exia",
+      "ja": "エクシア"
+    },
+    "엠마": {
+      "en": "Emma",
+      "ja": "エマ"
+    },
+    "엠마 : 택티컬 업": {
+      "en": "Emma: Tactical Upgrade",
+      "ja": "エマ：タクティカル・アップ"
+    },
+    "유니": {
+      "en": "Yuni",
+      "ja": "ユニ"
+    },
+    "유키코": {
+      "en": "Yukiko",
+      "ja": "雪子"
+    },
+    "율리아": {
+      "en": "Julia",
+      "ja": "ジュリア"
+    },
+    "율하": {
+      "en": "Yulha",
+      "ja": "ユルハ"
+    },
+    "은화": {
+      "en": "Eunhwa",
+      "ja": "ウンファ"
+    },
+    "은화 : 택티컬 업": {
+      "en": "Eunhwa: Tactical Upgrade",
+      "ja": "ウンファ：タクティカル・アップ"
+    },
+    "이브": {
+      "en": "EVE",
+      "ja": "イヴ"
+    },
+    "이사벨": {
+      "en": "Isabel",
+      "ja": "イサベル"
+    },
+    "일레그": {
+      "en": "Elegg",
+      "ja": "エレグ"
+    },
+    "일레그 : 붐 앤 쇼크": {
+      "en": "Elegg: Boom and Shock",
+      "ja": "エレグ：ブーム・アンド・ショック"
+    },
+    "자칼": {
+      "en": "Jackal",
+      "ja": "ジャッカル"
+    },
+    "질": {
+      "en": "Jill",
+      "ja": "ジル"
+    },
+    "차임": {
+      "en": "Chime",
+      "ja": "チャイム"
+    },
+    "츠바이": {
+      "en": "Zwei",
+      "ja": "ツバイ"
+    },
+    "치사토": {
+      "en": "Chisato",
+      "ja": "千束"
+    },
+    "코코아": {
+      "en": "Cocoa",
+      "ja": "ココア"
+    },
+    "쿠루미": {
+      "en": "Kurumi",
+      "ja": "クルミ"
+    },
+    "퀀시": {
+      "en": "Quency",
+      "ja": "クエンシー"
+    },
+    "퀀시 : 이스케이프 퀸": {
+      "en": "Quency: Escape Queen",
+      "ja": "クエンシー：エスケープクイーン"
+    },
+    "퀸(마코토)": {
+      "en": "Queen (Makoto)",
+      "ja": "クイーン（真）"
+    },
+    "크라운": {
+      "en": "Crown",
+      "ja": "クラウン"
+    },
+    "크러스트": {
+      "en": "Crust",
+      "ja": "クラスト"
+    },
+    "크로우": {
+      "en": "Crow",
+      "ja": "クロウ"
+    },
+    "클레어": {
+      "en": "Claire",
+      "ja": "クレア"
+    },
+    "클레이": {
+      "en": "Clay",
+      "ja": "クレイ"
+    },
+    "키리": {
+      "en": "Quiry",
+      "ja": "キリ"
+    },
+    "킬로": {
+      "en": "Kilo",
+      "ja": "キロ"
+    },
+    "타키나": {
+      "en": "Takina",
+      "ja": "たきな"
+    },
+    "토브": {
+      "en": "Tove",
+      "ja": "トーブ"
+    },
+    "트로니": {
+      "en": "Trony",
+      "ja": "トロニー"
+    },
+    "트리나": {
+      "en": "Trina",
+      "ja": "トリナ"
+    },
+    "티아": {
+      "en": "Tia",
+      "ja": "ティア"
+    },
+    "파스칼": {
+      "en": "Pascal",
+      "ja": "パスカル"
+    },
+    "파워": {
+      "en": "Power",
+      "ja": "パワー"
+    },
+    "팬텀": {
+      "en": "Phantom",
+      "ja": "ファントム"
+    },
+    "페퍼": {
+      "en": "Pepper",
+      "ja": "ペッパー"
+    },
+    "폴리": {
+      "en": "Poli",
+      "ja": "ポリ"
+    },
+    "폴크방": {
+      "en": "Folkwang",
+      "ja": "フォルクヴァン"
+    },
+    "프로덕트 08": {
+      "en": "Product 08",
+      "ja": "プロダクト08"
+    },
+    "프로덕트 12": {
+      "en": "Product 12",
+      "ja": "プロダクト12"
+    },
+    "프로덕트 23": {
+      "en": "Product 23",
+      "ja": "プロダクト23"
+    },
+    "프리바티": {
+      "en": "Privaty",
+      "ja": "プリバティ"
+    },
+    "프리바티 : 언카인드 메이드": {
+      "en": "Privaty: Unkind Maid",
+      "ja": "プリバティ：アンカインド・メイド"
+    },
+    "프리카": {
+      "en": "Prika",
+      "ja": "プリカ"
+    },
+    "프림": {
+      "en": "Frima",
+      "ja": "プリム"
+    },
+    "플로라": {
+      "en": "Flora",
+      "ja": "フローラ"
+    },
+    "하란": {
+      "en": "Harran",
+      "ja": "ハラン"
+    },
+    "헬름": {
+      "en": "Helm",
+      "ja": "ヘルム"
+    },
+    "헬름 : 아쿠아마린": {
+      "en": "Helm: Aquamarine",
+      "ja": "ヘルム：アクアマリン"
+    },
+    "홍련": {
+      "en": "Scarlet",
+      "ja": "紅蓮"
+    },
+    "홍련 : 흑영": {
+      "en": "Scarlet: Black Shadow",
+      "ja": "紅蓮：ブラックシャドウ"
+    },
+    "히메노": {
+      "en": "Himeno",
+      "ja": "姫野"
+    }
+  },
+  "skills": {
+    "13 고스트": {
+      "en": "13 Ghosts",
+      "ja": "サーティーンゴースト"
+    },
+    "AK 미사일": {
+      "en": "AK Missile",
+      "ja": "AKミサイル"
+    },
+    "AZX": {
+      "en": "AZX",
+      "ja": "AZX"
+    },
+    "B 모드": {
+      "en": "Mode B",
+      "ja": "Bモード"
+    },
+    "BDG": {
+      "en": "BDG",
+      "ja": "BDG"
+    },
+    "CIWS": {
+      "en": "CIWS",
+      "ja": "CIWS"
+    },
+    "CPR": {
+      "en": "CPR",
+      "ja": "CPR"
+    },
+    "DMNS": {
+      "en": "DMNS",
+      "ja": "DMNS"
+    },
+    "DON'T MISS!": {
+      "en": "DON'T MISS!",
+      "ja": "DON'T MISS！"
+    },
+    "EX 매거진": {
+      "en": "EX Magazine",
+      "ja": "EXマガジン"
+    },
+    "GO! GO! VICTORY!": {
+      "en": "GO! GO! VICTORY!",
+      "ja": "GO！GO！VICTORY！"
+    },
+    "GS": {
+      "en": "GS",
+      "ja": "GS"
+    },
+    "LD 어설트": {
+      "en": "LD Assault",
+      "ja": "LDアサルト"
+    },
+    "MDS": {
+      "en": "MDS",
+      "ja": "MDS"
+    },
+    "R&D 샷": {
+      "en": "R&D Shot",
+      "ja": "R&Dショット"
+    },
+    "R+G+B": {
+      "en": "R+G+B",
+      "ja": "R+G+B"
+    },
+    "SAFE 50-50": {
+      "en": "SAFE 50-50",
+      "ja": "SAFE 50-50"
+    },
+    "SDS": {
+      "en": "SDS",
+      "ja": "SDS"
+    },
+    "T.Rony 봄버": {
+      "en": "T.Rony Bomber",
+      "ja": "T.Ronyボンバー"
+    },
+    "VIP 기프트": {
+      "en": "VIP Gift",
+      "ja": "VIPギフト"
+    },
+    "WAKE UP!": {
+      "en": "WAKE UP!",
+      "ja": "WAKE UP！"
+    },
+    "…귀찮아": {
+      "en": "... Annoying",
+      "ja": "…メンドイ"
+    },
+    "…아": {
+      "en": "... Ah",
+      "ja": "…あ"
+    },
+    "…자고 싶다": {
+      "en": "... I Want to Sleep",
+      "ja": "…眠い"
+    },
+    "가든 오브 샹그릴라": {
+      "en": "Garden of Shangri-La",
+      "ja": "ガーデンオブシャングリラ"
+    },
+    "가든 오브 유토피아": {
+      "en": "Garden of Utopia",
+      "ja": "ガーデンオブユートピア"
+    },
+    "같이 놀자아….": {
+      "en": "Time to play",
+      "ja": "一緒に遊ぼうよぉ…"
+    },
+    "개조 성공": {
+      "en": "Modification Successful",
+      "ja": "改造成功"
+    },
+    "건강한 당근": {
+      "en": "Healthy Carrot",
+      "ja": "健康なニンジン"
+    },
+    "건강한 몸": {
+      "en": "Healthy Body",
+      "ja": "超健康体"
+    },
+    "검신합일": {
+      "en": "Zatoichi",
+      "ja": "身剣合一"
+    },
+    "곁눈질": {
+      "en": "Glance",
+      "ja": "のぞき見"
+    },
+    "계승되는 힘": {
+      "en": "Power of Inheritance",
+      "ja": "継承される力"
+    },
+    "고 어헤드, 소다!": {
+      "en": "Onward, Soda!",
+      "ja": "ゴー・アヘッド、ソーダ！"
+    },
+    "고속진화": {
+      "en": "High-Speed Evolution",
+      "ja": "高速進化"
+    },
+    "고스트": {
+      "en": "Ghost",
+      "ja": "ゴースト"
+    },
+    "고스트 버스터": {
+      "en": "Ghostbuster",
+      "ja": "ゴーストバスター"
+    },
+    "고양이 보은": {
+      "en": "Cat's Repayment",
+      "ja": "ネコの恩返し"
+    },
+    "고양이 손": {
+      "en": "Lil' Paw",
+      "ja": "ネコの手"
+    },
+    "고양이 숨결": {
+      "en": "Kitten's Breath",
+      "ja": "ネコの息遣い"
+    },
+    "고요한 수면": {
+      "en": "Tranquil Waters",
+      "ja": "静かな水面"
+    },
+    "고행": {
+      "en": "Asceticism",
+      "ja": "苦行難行"
+    },
+    "골조 해석": {
+      "en": "Frame Analysis",
+      "ja": "構造分析"
+    },
+    "공격 지원": {
+      "en": "Attack Support",
+      "ja": "攻撃支援"
+    },
+    "공격 태세": {
+      "en": "Attack State",
+      "ja": "攻撃態勢"
+    },
+    "과열": {
+      "en": "Overheat",
+      "ja": "オーバーヒート"
+    },
+    "과충전 공식": {
+      "en": "Overcharge Formula",
+      "ja": "過充電方程式"
+    },
+    "관통 계산식": {
+      "en": "Pierce Equation",
+      "ja": "貫通力計算式"
+    },
+    "관통 특화 탄환": {
+      "en": "Piercing Bullets",
+      "ja": "貫通特化弾丸"
+    },
+    "광익": {
+      "en": "Radiant Wings",
+      "ja": "光翼"
+    },
+    "괴도의 시선": {
+      "en": "Thief's Vision",
+      "ja": "怪盗の鑑定眼"
+    },
+    "괴도의 예고장": {
+      "en": "Thief's Calling Card",
+      "ja": "怪盗の予告状"
+    },
+    "굽고, 데치고": {
+      "en": "Grill and Boil",
+      "ja": "グリル・アンド・ボイル"
+    },
+    "궁극! 아크 블랙 메테오!": {
+      "en": "Ultimate Attack! Ark Black Meteor!",
+      "ja": "必殺！アークブラックメテオ！"
+    },
+    "그리디": {
+      "en": "Greed",
+      "ja": "食い意地"
+    },
+    "글레링 아이즈": {
+      "en": "Glaring Eyes",
+      "ja": "グレアリングアイズ"
+    },
+    "급조 탄환": {
+      "en": "Emergency-Crafted Bullets",
+      "ja": "代用弾丸"
+    },
+    "급조품의 기적": {
+      "en": "Miracle of Makeshifts",
+      "ja": "その場しのぎの奇跡"
+    },
+    "기동": {
+      "en": "Ignition Sequence",
+      "ja": "出発進行"
+    },
+    "기묘한 해류": {
+      "en": "Strange Currents",
+      "ja": "奇妙な海流"
+    },
+    "기습": {
+      "en": "Surprise Attack",
+      "ja": "奇襲"
+    },
+    "기억과 추억": {
+      "en": "Memories and Moments",
+      "ja": "記憶と思い出"
+    },
+    "기업가 정신": {
+      "en": "Entrepreneurship",
+      "ja": "企業家精神"
+    },
+    "긴급 보수": {
+      "en": "Emergency Repair",
+      "ja": "緊急補修"
+    },
+    "긴급 수복": {
+      "en": "Emergency Repair",
+      "ja": "緊急修復"
+    },
+    "긴급 충전": {
+      "en": "Emergency Charge",
+      "ja": "緊急チャージ"
+    },
+    "깔끔한 마무리": {
+      "en": "Perfect Execution",
+      "ja": "鮮やかな終幕"
+    },
+    "깨어나는 운명": {
+      "en": "Awakened Destiny",
+      "ja": "目覚める運命"
+    },
+    "꽃잎 떨구기": {
+      "en": "Falling Petals",
+      "ja": "花びら落とし"
+    },
+    "꿰뚫어보기": {
+      "en": "Penetrating Stare",
+      "ja": "お見通し"
+    },
+    "나노 코팅": {
+      "en": "Nano Coating",
+      "ja": "ナノコーティング"
+    },
+    "나도 한다면 해!": {
+      "en": "My Word, My Bond!",
+      "ja": "大胆不敵！"
+    },
+    "나쁜 손버릇": {
+      "en": "Sticky Fingers",
+      "ja": "イタズラな手"
+    },
+    "나에게 활약을 보여줄 수 있겠니?": {
+      "en": "Show Me What You Got",
+      "ja": "私に活躍見せられそう？"
+    },
+    "내부 폭발탄": {
+      "en": "Explosive Round",
+      "ja": "徹甲炸裂弾"
+    },
+    "너싱": {
+      "en": "Nursing",
+      "ja": "ナーシング"
+    },
+    "네온 특제탄": {
+      "en": "Neon's Special Bullet",
+      "ja": "ネオン特製弾"
+    },
+    "네이처 그레이스": {
+      "en": "Nature's Grace",
+      "ja": "ネイチャーズグレイス"
+    },
+    "노도": {
+      "en": "Vigorous Waves",
+      "ja": "怒とう"
+    },
+    "노래, 시작할게요!": {
+      "en": "Here I Go!",
+      "ja": "ミュージック、スタート！"
+    },
+    "노래할게요!": {
+      "en": "I'm Gonna Sing Now!",
+      "ja": "歌います！"
+    },
+    "노블레스 오블리주": {
+      "en": "Noblesse Oblige",
+      "ja": "ノブレス・オブリージュ"
+    },
+    "노트 위의 기억": {
+      "en": "Written Memories",
+      "ja": "ノートの中の記憶"
+    },
+    "녹색 약초": {
+      "en": "Green Herb",
+      "ja": "グリーンハーブ"
+    },
+    "눈보라": {
+      "en": "Snowstorm",
+      "ja": "雪嵐"
+    },
+    "눈의 여왕": {
+      "en": "Snow Queen",
+      "ja": "雪の女王"
+    },
+    "뉴 플레이버": {
+      "en": "New Flavor",
+      "ja": "ニューフレーバー"
+    },
+    "느와르 센서": {
+      "en": "Noire Sensor",
+      "ja": "ノワールセンサー"
+    },
+    "다 덤벼!": {
+      "en": "Bring It On!",
+      "ja": "かかって来い！"
+    },
+    "다 함께 불러주세요!": {
+      "en": "Let's Sing Together!",
+      "ja": "みんな一緒に～！"
+    },
+    "다다익선": {
+      "en": "The More, the Merrier",
+      "ja": "多々益々弁ず"
+    },
+    "다들 다치지 말아요!": {
+      "en": "Stay Safe, Everyone!",
+      "ja": "安全第一ですよ！"
+    },
+    "다이아몬드 더스트": {
+      "en": "Diamond Dust",
+      "ja": "ダイヤモンドダスト"
+    },
+    "다탄두 미사일": {
+      "en": "Warhead Volley",
+      "ja": "多弾頭ミサイル"
+    },
+    "당근과 토끼 파티": {
+      "en": "Carrot and Bunny Party",
+      "ja": "ニンジンとウサギパーティー"
+    },
+    "대도약": {
+      "en": "Giant Leap",
+      "ja": "大跳躍"
+    },
+    "대정령의 철퇴": {
+      "en": "Great Spirit's Mace",
+      "ja": "大精霊の鉄槌"
+    },
+    "대청소 메이드": {
+      "en": "Spring Cleaning",
+      "ja": "大掃除メイド"
+    },
+    "더 게임 마스터": {
+      "en": "Game Master",
+      "ja": "ザ・ゲームマスター"
+    },
+    "더 테러리스트": {
+      "en": "The Terrorist",
+      "ja": "ザ・テロリスト"
+    },
+    "더러워지지 않는 거울": {
+      "en": "Dirt-Resistant Mirror",
+      "ja": "曇りなき鏡"
+    },
+    "더블 부스트": {
+      "en": "Double Boost",
+      "ja": "ダブルブースト"
+    },
+    "데어데블": {
+      "en": "Daredevil",
+      "ja": "デアデビル"
+    },
+    "데크레센도": {
+      "en": "Decrescendo",
+      "ja": "デクレッシェンド"
+    },
+    "도그 테라피": {
+      "en": "That's a Good Boy",
+      "ja": "ドッグセラピー"
+    },
+    "도마뱀의 보호": {
+      "en": "Lizard's Protection",
+      "ja": "トカゲの保護"
+    },
+    "독점 서약": {
+      "en": "Exclusive Agreement",
+      "ja": "独占誓約"
+    },
+    "돌격 전술": {
+      "en": "Assault Tactics",
+      "ja": "突撃戦術"
+    },
+    "두더지 숨기": {
+      "en": "Mole in Hiding",
+      "ja": "モグラ隠れ"
+    },
+    "드랍 더 비트": {
+      "en": "Drop the Beat",
+      "ja": "ドロップ・ザ・ビート"
+    },
+    "드레이크 스페셜": {
+      "en": "Drake Special",
+      "ja": "ドレイクスペシャル"
+    },
+    "드론 서포터": {
+      "en": "Drone Supporter",
+      "ja": "ドローンサポーター"
+    },
+    "든든한 요리": {
+      "en": "Reliable Cooking",
+      "ja": "たっぷりクッキング"
+    },
+    "디바인 블레스": {
+      "en": "Divine Blessing",
+      "ja": "ディヴァインブレス"
+    },
+    "딸기 사탕의 힘": {
+      "en": "Sweet Strawberry Goodness",
+      "ja": "イチゴキャンディのパワー"
+    },
+    "딸기향 이끌림": {
+      "en": "Strawberry Fields",
+      "ja": "イチゴの香りの誘惑"
+    },
+    "때려볼래?": {
+      "en": "Cruisin' for a Bruisin'",
+      "ja": "殴ってみれば？"
+    },
+    "라라라♬": {
+      "en": "La La La ♬",
+      "ja": "ラララ♬"
+    },
+    "라스트 메모리": {
+      "en": "Last Memory",
+      "ja": "ラストメモリー"
+    },
+    "라스트 킹덤": {
+      "en": "Last Kingdom",
+      "ja": "ラストキングダム"
+    },
+    "라이터즈 스포일러": {
+      "en": "Plot Spoiler",
+      "ja": "ライターズ・スポイラー"
+    },
+    "라크리모소": {
+      "en": "Lacrimoso",
+      "ja": "ラクリモソ"
+    },
+    "라플라스 버스터": {
+      "en": "Laplace Buster",
+      "ja": "ラプラスバスター"
+    },
+    "람을 번거롭게 하지 마": {
+      "en": "Don't Bother Ram",
+      "ja": "ラムの手を煩わせないことね"
+    },
+    "래빗 트윈즈 B": {
+      "en": "Rabbit Twins B",
+      "ja": "ラビットツインズB"
+    },
+    "래빗 트윈즈 W": {
+      "en": "Rabbit Twins W",
+      "ja": "ラビットツインズW"
+    },
+    "럭키 가드": {
+      "en": "Lucky Guard",
+      "ja": "ラッキーガード"
+    },
+    "럭키 골든 칩": {
+      "en": "Lucky Golden Chip",
+      "ja": "ラッキーゴールデンチップ"
+    },
+    "럭키챰": {
+      "en": "Lucky Charm",
+      "ja": "ラッキーチャーム"
+    },
+    "레드 울프": {
+      "en": "Red Wolf",
+      "ja": "レッドウルフ"
+    },
+    "렘에게 맡겨주세요!": {
+      "en": "Leave it to Rem!",
+      "ja": "レムにお任せください！"
+    },
+    "렘은 용서하지 않습니다!": {
+      "en": "No Mercy from Rem",
+      "ja": "レムは許しません！"
+    },
+    "렘이 치료하겠습니다!": {
+      "en": "Rem the Healer",
+      "ja": "レムが治療します！"
+    },
+    "로얄 에타이어": {
+      "en": "Royal Attire",
+      "ja": "ロイヤルアタイア"
+    },
+    "론리 구르메": {
+      "en": "Lonely Gourmet",
+      "ja": "ロンリーグルメ"
+    },
+    "루트 탐색": {
+      "en": "Explore Route",
+      "ja": "ルート探索"
+    },
+    "루트 확정": {
+      "en": "Secure Route",
+      "ja": "ルート確定"
+    },
+    "리멤버 미": {
+      "en": "Remember Me",
+      "ja": "リメンバーミー"
+    },
+    "리스크 공유": {
+      "en": "Risk Sharing",
+      "ja": "リスク共有"
+    },
+    "리콜렉션": {
+      "en": "Recollection",
+      "ja": "リコレクション"
+    },
+    "리크": {
+      "en": "Leak",
+      "ja": "リーク"
+    },
+    "리타 부스트": {
+      "en": "Liter Boost",
+      "ja": "リターブースト"
+    },
+    "리프레쉬 하트": {
+      "en": "Refresh Heart",
+      "ja": "リフレッシュハート"
+    },
+    "마계흑룡파": {
+      "en": "Dragon of the Deep",
+      "ja": "魔界黒龍波"
+    },
+    "마일리지": {
+      "en": "Mileage",
+      "ja": "マイレージ"
+    },
+    "마하라기다인": {
+      "en": "Maragidyne",
+      "ja": "マハラギダイン"
+    },
+    "마하프레이다인": {
+      "en": "Mafreidyne",
+      "ja": "マハフレイダイン"
+    },
+    "만남과 이별(상상)": {
+      "en": "Meeting and Parting (Imagined)",
+      "ja": "出会いと別れ（想像）"
+    },
+    "말미잘(모양) 파스타": {
+      "en": "Sea Anemone (Shaped) Pasta",
+      "ja": "イソギンチャク（形）パスタ"
+    },
+    "맛있는 별님": {
+      "en": "Wonderous Star",
+      "ja": "美味しいお星さま"
+    },
+    "매그넘탄": {
+      "en": "Magnum Ammo",
+      "ja": "マグナム弾"
+    },
+    "매터 감마": {
+      "en": "Metal γ",
+      "ja": "マターガンマ"
+    },
+    "매터 시그마": {
+      "en": "Metal σ",
+      "ja": "マターシグマ"
+    },
+    "머덜리 포레스트": {
+      "en": "Mother Forest",
+      "ja": "マザリーフォレスト"
+    },
+    "머슬 업": {
+      "en": "Muscle Up",
+      "ja": "マッスルアップ"
+    },
+    "머슬 올마이티": {
+      "en": "Almighty Muscle",
+      "ja": "マッスルオールマイティー"
+    },
+    "머슬 타임": {
+      "en": "Muscle Time",
+      "ja": "マッスルタイム"
+    },
+    "멋진 무대였어요!": {
+      "en": "Fantastic Performance!",
+      "ja": "素敵なステージでした！"
+    },
+    "메가 T.Rony": {
+      "en": "Mega T.Rony",
+      "ja": "メガT.Rony"
+    },
+    "메기도 플레임": {
+      "en": "Megiddo Flame",
+      "ja": "メギドフレイム"
+    },
+    "메디테이션": {
+      "en": "Meditation",
+      "ja": "メディテーション"
+    },
+    "메티스 버스트 버스터": {
+      "en": "Matis UberBuster",
+      "ja": "メティスバスターバスター"
+    },
+    "명령 : 응급 조치": {
+      "en": "Order: Emergency Measures",
+      "ja": "命令：応急措置"
+    },
+    "명령 : 출력 보강": {
+      "en": "Order: Power Boost",
+      "ja": "命令：出力補強"
+    },
+    "명령 : 특수 탄환": {
+      "en": "Order: Special Bullets",
+      "ja": "命令：特殊弾丸"
+    },
+    "모드 스왑": {
+      "en": "Mode Swap",
+      "ja": "モードスワップ"
+    },
+    "몬스터 스테이지": {
+      "en": "Monster Stage",
+      "ja": "モンスターステージ"
+    },
+    "무결한 유리": {
+      "en": "Flawless Glass",
+      "ja": "汚れなきガラス"
+    },
+    "무대, 시작할게.": {
+      "en": "Let's Get the Show Started",
+      "ja": "ステージを始めよう"
+    },
+    "무상": {
+      "en": "Impermanence",
+      "ja": "有為転変"
+    },
+    "미사일": {
+      "en": "Missile",
+      "ja": "ミサイル"
+    },
+    "미사일 가이드": {
+      "en": "Missile Guide",
+      "ja": "ミサイルガイド"
+    },
+    "미사일 컨테이너 온라인": {
+      "en": "Missile Container Online",
+      "ja": "ミサイルコンテナオンライン"
+    },
+    "미정령의 축복": {
+      "en": "Lesser Spirit's Blessing",
+      "ja": "微精霊の祝福"
+    },
+    "밀크 도핑": {
+      "en": "Sugar Rush",
+      "ja": "ミルクドーピング"
+    },
+    "바다 산책": {
+      "en": "Seaside Stroll",
+      "ja": "海辺で散歩"
+    },
+    "바닥 청소 메이드": {
+      "en": "Squeaky Clean Floor",
+      "ja": "床掃除メイド"
+    },
+    "바디 컨텍": {
+      "en": "Body Contact",
+      "ja": "ボディコンタクト"
+    },
+    "바이팅 리더십": {
+      "en": "Tough Leadership",
+      "ja": "バイティングリーダーシップ"
+    },
+    "반짝반짝 별님": {
+      "en": "Sparkling Star",
+      "ja": "キラキラお星さま"
+    },
+    "발각된 모양이네": {
+      "en": "Seems I've Been Noticed",
+      "ja": "気づかれたようだね"
+    },
+    "발을 적시는 파도": {
+      "en": "Waves Kiss The Feet",
+      "ja": "足を濡らす波"
+    },
+    "방어 관통 사격": {
+      "en": "AP Rounds",
+      "ja": "装甲貫通射撃"
+    },
+    "방어 프로토콜 붕괴": {
+      "en": "Defense Protocol Breakdown",
+      "ja": "防御プロトコル破壊"
+    },
+    "방열": {
+      "en": "Heat Emission",
+      "ja": "ヒートラジエーション"
+    },
+    "백의의 천사": {
+      "en": "Angel in White",
+      "ja": "白衣の天使"
+    },
+    "버닝 샷": {
+      "en": "Burning Shot",
+      "ja": "バーニングショット"
+    },
+    "버블 오더": {
+      "en": "Bubble Order",
+      "ja": "バブルオーダー"
+    },
+    "버블 웨이브": {
+      "en": "Bubble Wave",
+      "ja": "バブルウェーブ"
+    },
+    "번 아포칼립스": {
+      "en": "Burning Scourge",
+      "ja": "バーンアポカリプス"
+    },
+    "벚꽃차": {
+      "en": "Cherry Blossom Tea",
+      "ja": "桜茶"
+    },
+    "벤데타": {
+      "en": "Vendetta",
+      "ja": "ヴェンデッタ"
+    },
+    "변신! 아크레인저 블랙!": {
+      "en": "Transform! Ark Ranger Black!",
+      "ja": "変身！アークレンジャー・ブラック！"
+    },
+    "보수공사": {
+      "en": "Maintain Fortification",
+      "ja": "補修工事"
+    },
+    "보이지 않는 손": {
+      "en": "Invisible Hand",
+      "ja": "見えない手"
+    },
+    "본딩 페인": {
+      "en": "Bonding Pain",
+      "ja": "ボンディングペイン"
+    },
+    "볼륨 업, 가이즈!": {
+      "en": "Turn up the volume!",
+      "ja": "ボリュームアップ、ガイズ！"
+    },
+    "볼트 부스트": {
+      "en": "Volt Boost",
+      "ja": "ボルトブースト"
+    },
+    "부끄러운! 당신의 메이드": {
+      "en": "Your Bashful Maid!",
+      "ja": "あなたのはにかみメイド"
+    },
+    "부끄러움 참기": {
+      "en": "Embarrassment Suppression",
+      "ja": "やせ我慢"
+    },
+    "부끄러움 폭발": {
+      "en": "Embarrassment Explosion",
+      "ja": "恥ずかしさ大爆発"
+    },
+    "부상하는 기억": {
+      "en": "Impaired Memory",
+      "ja": "蘇る記憶"
+    },
+    "부식물질 탑재탄환": {
+      "en": "Corrosive Bullets",
+      "ja": "腐蝕物質搭載弾丸"
+    },
+    "부착형 유탄": {
+      "en": "Attachable Projectiles",
+      "ja": "粘着榴弾"
+    },
+    "북극곰의 겨울잠": {
+      "en": "Hibernation",
+      "ja": "ホッキョクグマの冬眠"
+    },
+    "북극곰의 포효": {
+      "en": "Roar",
+      "ja": "ホッキョクグマの遠吠え"
+    },
+    "북극곰의 힘": {
+      "en": "Bear Power",
+      "ja": "ホッキョクグマの力"
+    },
+    "불가사리(모양) 오므라이스": {
+      "en": "Starfish (Shaped) Omurice",
+      "ja": "ヒトデ（形）オムライス"
+    },
+    "붐 인스톨": {
+      "en": "BOOM Install",
+      "ja": "ブームインストール"
+    },
+    "뷰티-풀": {
+      "en": "Beauty-Full",
+      "ja": "ビューティー・フル"
+    },
+    "브레이브 콜": {
+      "en": "Brave Call",
+      "ja": "ブレイブコール"
+    },
+    "블랙 타이푼": {
+      "en": "Black Typhoon",
+      "ja": "ブラックタイフーン"
+    },
+    "블레스 유": {
+      "en": "Blessings Upon You",
+      "ja": "ブレス・ユー"
+    },
+    "비기 : 닌자 오버드라이브": {
+      "en": "Secret Technique: Ninja Overdrive",
+      "ja": "秘技：忍者オーバードライブ"
+    },
+    "비기 괴도 난무": {
+      "en": "Secret Trick: Rampage of Thieves",
+      "ja": "秘技・怪盗乱舞"
+    },
+    "비기너즈 베네핏": {
+      "en": "Beginner's Rewards",
+      "ja": "ビギナーズベネフィット"
+    },
+    "비밀 수화물": {
+      "en": "Secret Carry-On",
+      "ja": "秘密の手荷物"
+    },
+    "비바람을 뚫고!": {
+      "en": "Sail Through the Tempest!",
+      "ja": "嵐を突っ切って！"
+    },
+    "비타민파워": {
+      "en": "Vitamin Power",
+      "ja": "ビタミンパワー"
+    },
+    "빌려 갈게에….": {
+      "en": "Mind If I Borrow This?",
+      "ja": "借りていくよぉ…"
+    },
+    "빙결의 마녀": {
+      "en": "Freezing Witch",
+      "ja": "氷結の魔女"
+    },
+    "빛나는 청춘": {
+      "en": "Radiant Youth",
+      "ja": "輝く青春"
+    },
+    "사건 해결인 것입니다!": {
+      "en": "Case Closed",
+      "ja": "事件解決であります！"
+    },
+    "사격 매뉴얼": {
+      "en": "Shooting Manual",
+      "ja": "射撃マニュアル"
+    },
+    "사랑 가득 메이드": {
+      "en": "Loving Maid",
+      "ja": "愛情たっぷりメイド"
+    },
+    "사랑의 탄환": {
+      "en": "Bullets of Love",
+      "ja": "愛の弾丸"
+    },
+    "사멸의 날": {
+      "en": "Death Scythe",
+      "ja": "死滅の刀"
+    },
+    "사자의 심장": {
+      "en": "Lion's Heart",
+      "ja": "ライオンの心"
+    },
+    "산성탄": {
+      "en": "Acid Ammo",
+      "ja": "硫酸弾"
+    },
+    "산책 훈련": {
+      "en": "Walk Training",
+      "ja": "お散歩トレーニング"
+    },
+    "상상실현": {
+      "en": "Dreams Do Come True",
+      "ja": "想像の実現"
+    },
+    "상태 집중 관리": {
+      "en": "Intensive Condition Management",
+      "ja": "状態集中管理"
+    },
+    "새로운 루트": {
+      "en": "New Route",
+      "ja": "新しいルート"
+    },
+    "생존 행동": {
+      "en": "Survival",
+      "ja": "生存行動"
+    },
+    "생존본능": {
+      "en": "Survival Instinct",
+      "ja": "生存本能"
+    },
+    "생츄어리": {
+      "en": "Sanctuary",
+      "ja": "サンクチュアリ"
+    },
+    "서약 효력": {
+      "en": "Legal Effect",
+      "ja": "誓約発効"
+    },
+    "서프라이즈": {
+      "en": "Surprise",
+      "ja": "サプライズ"
+    },
+    "선두 제압": {
+      "en": "Preemptive Subdual",
+      "ja": "先頭制圧"
+    },
+    "선배의 기합": {
+      "en": "Senior Spirit",
+      "ja": "先輩の気合"
+    },
+    "선배의 모범": {
+      "en": "Model Senior Student",
+      "ja": "先輩のお手本"
+    },
+    "선배의 응원": {
+      "en": "Senior Support",
+      "ja": "先輩の応援"
+    },
+    "설온제": {
+      "en": "Snowfield Festival",
+      "ja": "雪見温泉祭り"
+    },
+    "섬광": {
+      "en": "Flash",
+      "ja": "閃耀"
+    },
+    "섬광 수류탄": {
+      "en": "Flash Grenade",
+      "ja": "閃光手榴弾"
+    },
+    "섬멸 지원": {
+      "en": "Annihilation Support",
+      "ja": "殲滅支援"
+    },
+    "섬멸 태세": {
+      "en": "Annihilation State",
+      "ja": "殲滅態勢"
+    },
+    "섬멸용 고폭탄": {
+      "en": "Annihilation: High Explosives",
+      "ja": "殲滅用榴弾"
+    },
+    "성질 내기": {
+      "en": "Outburst",
+      "ja": "怒り爆発"
+    },
+    "성화": {
+      "en": "Holy Fire",
+      "ja": "聖火"
+    },
+    "세례": {
+      "en": "Baptism",
+      "ja": "洗礼"
+    },
+    "세븐스 드워프 : I": {
+      "en": "Seven Dwarves: I",
+      "ja": "セブンスドワーフ：I"
+    },
+    "세븐스 드워프 : V&VI": {
+      "en": "Seven Dwarves: V&VI",
+      "ja": "セブンスドワーフ：V&VI"
+    },
+    "세븐스 드워프 III": {
+      "en": "Seven Dwarves III",
+      "ja": "セブンスドワーフIII"
+    },
+    "세븐스 드워프 IV": {
+      "en": "Seven Dwarves IV",
+      "ja": "セブンスドワーフIV"
+    },
+    "세븐스 드워프 V&VI": {
+      "en": "Seven Dwarves V&VI",
+      "ja": "セブンスドワーフV&VI"
+    },
+    "세븐스 드워프 풀 액티브": {
+      "en": "Seven Dwarves Fully Active",
+      "ja": "セブンスドワーフ・フルアクティブ"
+    },
+    "세븐스 드워프 V+VI": {
+      "en": "Seven Dwarves V+VI",
+      "ja": "セブンスドワーフV+VI"
+    },
+    "세이렌 송": {
+      "en": "Siren's Song",
+      "ja": "セイレーンソング"
+    },
+    "세크리파이스": {
+      "en": "Sacrifice",
+      "ja": "サクリファイス"
+    },
+    "센스 쉐어링": {
+      "en": "Sense Sharing",
+      "ja": "センスシェアリング"
+    },
+    "센텐스 엔딩스": {
+      "en": "Full Stop",
+      "ja": "センテンス・エンディングズ"
+    },
+    "소닉 체이서": {
+      "en": "Sonic Chaser",
+      "ja": "ソニックチェイサー"
+    },
+    "소중한 큰 당근": {
+      "en": "Precious Big Carrot",
+      "ja": "大きくて大切なニンジン"
+    },
+    "쇼크웨이브": {
+      "en": "Shock Wave",
+      "ja": "ショックウェーブ"
+    },
+    "쇼타임": {
+      "en": "Showtime",
+      "ja": "ショータイム"
+    },
+    "쇼트": {
+      "en": "Short Circuit",
+      "ja": "回路ショート"
+    },
+    "쇼퍼홀릭 데이트": {
+      "en": "Shopaholic Date",
+      "ja": "ショッパホリックデート"
+    },
+    "수상한 것입니다!": {
+      "en": "Something's Fishy Here",
+      "ja": "怪しいのであります！"
+    },
+    "순백의 의지": {
+      "en": "Determination",
+      "ja": "純白の意志"
+    },
+    "순차적 리미트 해제": {
+      "en": "Sequential Limit Release",
+      "ja": "シーケンシャルリミット解除"
+    },
+    "순환하는 운명": {
+      "en": "Cycle of Destiny",
+      "ja": "巡る運命"
+    },
+    "슈퍼 루키": {
+      "en": "Total Noob",
+      "ja": "スーパールーキー"
+    },
+    "슈퍼 캅": {
+      "en": "Supercop",
+      "ja": "スーパーコップ"
+    },
+    "스네이크 바이트": {
+      "en": "Snake Bite",
+      "ja": "スネークバイト"
+    },
+    "스네이크 센스": {
+      "en": "Snake Sense",
+      "ja": "スネークセンス"
+    },
+    "스네이크 스케일": {
+      "en": "Snake Scale",
+      "ja": "スネークスケール"
+    },
+    "스승의 은혜": {
+      "en": "A Teacher's Grace",
+      "ja": "わが師の恩"
+    },
+    "스타 아니스": {
+      "en": "Star Anis",
+      "ja": "スターアニス"
+    },
+    "스타 폴": {
+      "en": "Starfall",
+      "ja": "スターフォール"
+    },
+    "스타게이저": {
+      "en": "Stargazer",
+      "ja": "スターゲイザー"
+    },
+    "스타더스트": {
+      "en": "Stardust",
+      "ja": "スターダスト"
+    },
+    "스타팅 휘슬": {
+      "en": "Starting Whistle",
+      "ja": "スターティングホイッスル"
+    },
+    "스트레이트 샷": {
+      "en": "Straight Shot",
+      "ja": "ストレートショット"
+    },
+    "스트로베리 쇼크": {
+      "en": "Strawberry Shock",
+      "ja": "ストロベリーショック"
+    },
+    "스파이더": {
+      "en": "Arachnid",
+      "ja": "スパイダー"
+    },
+    "스파클링 미사일": {
+      "en": "Sparkling Missile",
+      "ja": "スパークリングミサイル"
+    },
+    "스파클링 부스트": {
+      "en": "Sparkling Boost",
+      "ja": "スパークリングブースト"
+    },
+    "스파클링 웨이브": {
+      "en": "Sparkling Wave",
+      "ja": "スパークリングウェーブ"
+    },
+    "스플린트": {
+      "en": "Sprint",
+      "ja": "スプリント"
+    },
+    "스피나 디 로사": {
+      "en": "Spina di Rosa",
+      "ja": "スピーナ・ディ・ローザ"
+    },
+    "승부욕": {
+      "en": "In It to Win It",
+      "ja": "負けず嫌い"
+    },
+    "시크릿 가든": {
+      "en": "Secret Garden",
+      "ja": "秘密の花園"
+    },
+    "시크릿 에이전트": {
+      "en": "Secret Agent",
+      "ja": "シークレットエージェント"
+    },
+    "시크릿 코드": {
+      "en": "Secret Code",
+      "ja": "シークレットコード"
+    },
+    "식사 시간입니다, 주인님.": {
+      "en": "Mealtime",
+      "ja": "お食事のお時間です、ご主人様"
+    },
+    "신기하고 이상한 나라": {
+      "en": "Wonderland",
+      "ja": "摩訶不思議な世界"
+    },
+    "신세계": {
+      "en": "New World",
+      "ja": "新世界"
+    },
+    "실낙원": {
+      "en": "Paradise Lost",
+      "ja": "失楽園"
+    },
+    "싱글 페이먼트": {
+      "en": "Single Payment",
+      "ja": "シングルペイメント"
+    },
+    "싱잉 투게더": {
+      "en": "Sing Together",
+      "ja": "シンギングトゥギャザー"
+    },
+    "쌓여가는 사진첩": {
+      "en": "Keepsake Album",
+      "ja": "重ねるアルバム"
+    },
+    "썬더볼트": {
+      "en": "Thunderbolt",
+      "ja": "サンダーボルト"
+    },
+    "썬라이트": {
+      "en": "Sunlight",
+      "ja": "サンライト"
+    },
+    "썬샤인": {
+      "en": "Sunshine",
+      "ja": "サンシャイン"
+    },
+    "썬셋": {
+      "en": "Sunset",
+      "ja": "サンセット"
+    },
+    "아리아 디 캄포": {
+      "en": "Da Capo Aria",
+      "ja": "アリア・デ・カンポ"
+    },
+    "아아, 마이크 테스트": {
+      "en": "Ah Ah, Mic Test",
+      "ja": "あーあー、マイクテスト"
+    },
+    "아이리스": {
+      "en": "Iris",
+      "ja": "アイリス"
+    },
+    "아파 보이네?": {
+      "en": "This is Gonna Hurt",
+      "ja": "痛そうだね？"
+    },
+    "악성 코드 주입": {
+      "en": "Malicious Code Injection",
+      "ja": "マルウェア注入"
+    },
+    "안전하게 모실게!": {
+      "en": "I'll Get You There Safely!",
+      "ja": "安全に案内してあげる！"
+    },
+    "안티 AT 필드": {
+      "en": "Anti A.T. Field",
+      "ja": "アンチA.T.フィールド"
+    },
+    "알레그로": {
+      "en": "Allegro",
+      "ja": "アレグロ"
+    },
+    "알트루이즘": {
+      "en": "Altruism",
+      "ja": "自己犠牲"
+    },
+    "애정의 보은": {
+      "en": "Love Returned",
+      "ja": "愛情の恩返し"
+    },
+    "애프터 글러우": {
+      "en": "Afterglow",
+      "ja": "アフターグロウ"
+    },
+    "애프터쇼": {
+      "en": "Aftershow",
+      "ja": "アフターショー"
+    },
+    "앵화난만": {
+      "en": "Resplendent Cherry Blossom",
+      "ja": "桜花らんまん"
+    },
+    "약오르죠?": {
+      "en": "U Mad Bro?",
+      "ja": "ムカつくでしょう？"
+    },
+    "약자의 생존법": {
+      "en": "Survival Tactics of the Weak",
+      "ja": "弱者の生存術"
+    },
+    "약점 간파": {
+      "en": "Achilles' Heel",
+      "ja": "弱点の見極め"
+    },
+    "약점 공략": {
+      "en": "Weak Spot Attack",
+      "ja": "弱点攻略"
+    },
+    "양호 선생님": {
+      "en": "School Nurse",
+      "ja": "保健室の先生"
+    },
+    "어나더 화이트": {
+      "en": "Shades of White",
+      "ja": "アナザーホワイト"
+    },
+    "어른스럽게!": {
+      "en": "Grow up!",
+      "ja": "シックに！"
+    },
+    "어썰트 포메이션": {
+      "en": "Assault Formation",
+      "ja": "アサルト・フォーメーション"
+    },
+    "어택 시그널": {
+      "en": "Attack Signal",
+      "ja": "アタックシグナル"
+    },
+    "어퍼 웨이브": {
+      "en": "Upper Wave",
+      "ja": "アッパーウェーブ"
+    },
+    "언니의 위광": {
+      "en": "Sister's Authority",
+      "ja": "姉の威厳"
+    },
+    "언령 : 기교의 언": {
+      "en": "Kotodama: Words of Skill",
+      "ja": "言霊：技巧の言"
+    },
+    "언령 : 필중의 언": {
+      "en": "Kotodama: Words of Assault",
+      "ja": "言霊：必中の言"
+    },
+    "언령 : 힘있는 말": {
+      "en": "Kotodama: Words of Power",
+      "ja": "言霊：確かな言葉"
+    },
+    "에너제틱 노이즈": {
+      "en": "Energetic Noise",
+      "ja": "エナジェティックノイズ"
+    },
+    "엑셀러레이션": {
+      "en": "Acceleration",
+      "ja": "アクセラレーション"
+    },
+    "여긴 내가 맡는다!": {
+      "en": "Leave It To Me!",
+      "ja": "ここは俺に任せろ！"
+    },
+    "여왕의 시선": {
+      "en": "The Queen's Gaze",
+      "ja": "女王の眼光"
+    },
+    "여왕의 품격": {
+      "en": "Queenly Disposition",
+      "ja": "女王の品格"
+    },
+    "역병 전이": {
+      "en": "Plague Transfer",
+      "ja": "疫病転移"
+    },
+    "연속 공격": {
+      "en": "Series of Attacks",
+      "ja": "連続攻撃"
+    },
+    "연애의 달콤함(상상)": {
+      "en": "Sweetness of Love (Imagined)",
+      "ja": "甘い恋愛（想像）"
+    },
+    "열정 충만 메이드": {
+      "en": "Passionate Maid",
+      "ja": "やる気満々メイド"
+    },
+    "열차 탑승 도와줄게!": {
+      "en": "I'll Help You Board the Train!",
+      "ja": "乗車を補助します！"
+    },
+    "예후 반응 실험": {
+      "en": "Prognostic Response Experiment",
+      "ja": "副反応実験"
+    },
+    "오버 에너지": {
+      "en": "Over Energy",
+      "ja": "オーバーエネルギー"
+    },
+    "오버 차지": {
+      "en": "Overcharge",
+      "ja": "オーバーチャージ"
+    },
+    "오션 다이브": {
+      "en": "Ocean Dive",
+      "ja": "オーシャンダイブ"
+    },
+    "오션 샤워": {
+      "en": "Ocean Shower",
+      "ja": "オーシャンシャワー"
+    },
+    "오션 클렌징": {
+      "en": "Ocean Cleansing",
+      "ja": "オーシャンクレンジング"
+    },
+    "오울 윈드": {
+      "en": "Owl Wind",
+      "ja": "オウルウィンド"
+    },
+    "오울 크로": {
+      "en": "Owl's Claw",
+      "ja": "オウルクロー"
+    },
+    "오울 페더": {
+      "en": "Owl Feather",
+      "ja": "オウルフェザー"
+    },
+    "오직 화력!": {
+      "en": "Firepower Rules!",
+      "ja": "火力が全て！"
+    },
+    "온 더 렘": {
+      "en": "On the Lam",
+      "ja": "オン・ザ・ラム"
+    },
+    "온다 그란데": {
+      "en": "Onda Grande",
+      "ja": "オンダ・グランデ"
+    },
+    "와일드 투스": {
+      "en": "Wild Tooth",
+      "ja": "ワイルドトゥース"
+    },
+    "완충전 공격": {
+      "en": "Slow Charge Attack",
+      "ja": "フルチャージ攻撃"
+    },
+    "왕을 위해": {
+      "en": "For the King",
+      "ja": "王のために"
+    },
+    "왕의 비서": {
+      "en": "The King's Secretary",
+      "ja": "王の秘書"
+    },
+    "요원의 시선": {
+      "en": "Agent's Gaze",
+      "ja": "エージェントの目配り"
+    },
+    "요원의 움직임": {
+      "en": "Agent's Movement",
+      "ja": "エージェントの所作"
+    },
+    "요정의 장난": {
+      "en": "Fairy's Jest",
+      "ja": "妖精のイタズラ"
+    },
+    "용감한 별님": {
+      "en": "Brave Star",
+      "ja": "勇敢なお星さま"
+    },
+    "용기있는 시선": {
+      "en": "Courageous Look",
+      "ja": "勇気の眼差し"
+    },
+    "용사의 숙명": {
+      "en": "Hero's Fate",
+      "ja": "勇者の宿命"
+    },
+    "용사의 자질": {
+      "en": "Hero's Gift",
+      "ja": "勇者の資格"
+    },
+    "우렁찬 포효": {
+      "en": "Thunderous Roar",
+      "ja": "力強い咆哮"
+    },
+    "우선 순위 지정": {
+      "en": "Assign Priority",
+      "ja": "プライオリタイズ"
+    },
+    "우정의 가드": {
+      "en": "Guardian of Friendship",
+      "ja": "友情のガード"
+    },
+    "우정의 서포트": {
+      "en": "Support of Friendship",
+      "ja": "友情のサポート"
+    },
+    "운명의 굴레": {
+      "en": "Shackles of Destiny",
+      "ja": "運命の鎖"
+    },
+    "워드 오브 킬": {
+      "en": "Words can Kill",
+      "ja": "ワード・オブ・キル"
+    },
+    "워터 제트": {
+      "en": "Water Jet",
+      "ja": "ウォータージェット"
+    },
+    "원 포 올": {
+      "en": "One for All",
+      "ja": "ワンフォーオール"
+    },
+    "원사이드 프로토콜": {
+      "en": "Partisan Protocol",
+      "ja": "ワンサイドプロトコル"
+    },
+    "웨이크업!": {
+      "en": "Wake Up!",
+      "ja": "ウェイクアップ！"
+    },
+    "웨이팅 포 시그널": {
+      "en": "Waiting for Signal",
+      "ja": "ウェイティング・フォー・シグナル"
+    },
+    "위구원": {
+      "en": "False Salvation",
+      "ja": "偽救"
+    },
+    "위대한 도둑": {
+      "en": "The Great Thief",
+      "ja": "素晴らしき大泥棒"
+    },
+    "위대한 탈출": {
+      "en": "The Great Escape",
+      "ja": "偉大なる脱出"
+    },
+    "위드 어드마이어": {
+      "en": "Admire Accompaniment",
+      "ja": "ウィズアドマイアー"
+    },
+    "위선": {
+      "en": "Hypocrisy",
+      "ja": "雑毒之善"
+    },
+    "위크 메이커": {
+      "en": "The Weakener",
+      "ja": "ウィークメイカー"
+    },
+    "윈터 프리미엄": {
+      "en": "Winter Premium",
+      "ja": "ウィンタープレミアム"
+    },
+    "유 캔 두잇": {
+      "en": "You Can Do It",
+      "ja": "ユーキャンドゥーイット"
+    },
+    "유능하게!": {
+      "en": "On the Ball!",
+      "ja": "落ち度なく！"
+    },
+    "유리 구두 풀 컨텍트": {
+      "en": "Glass Slippers. Full Contact.",
+      "ja": "ガラスの靴・フルコンタクト"
+    },
+    "유리 구두 풀 컨텍트 W": {
+      "en": "Glass Slippers Full Contact W",
+      "ja": "ガラスの靴・フルコンタクトW"
+    },
+    "유열": {
+      "en": "Residual Heat",
+      "ja": "愉悦"
+    },
+    "육참골단": {
+      "en": "Blood for Blood",
+      "ja": "肉斬骨断"
+    },
+    "은밀한 공범자": {
+      "en": "Hidden Accomplice",
+      "ja": "隠れた共犯者"
+    },
+    "은밀한 지원": {
+      "en": "Covert Support",
+      "ja": "隠密支援"
+    },
+    "응급 치료": {
+      "en": "Emergency Healing",
+      "ja": "応急手当"
+    },
+    "응원의 손길": {
+      "en": "Helping Hand",
+      "ja": "応援の手"
+    },
+    "응원의 축포": {
+      "en": "Blessing Cannon",
+      "ja": "応援の祝砲"
+    },
+    "이글 샷": {
+      "en": "Eagle Shot",
+      "ja": "イーグルショット"
+    },
+    "이글 아이": {
+      "en": "Eagle Eye",
+      "ja": "イーグルアイ"
+    },
+    "이글 택틱": {
+      "en": "Eagle's Gambit",
+      "ja": "イーグルタクティク"
+    },
+    "이글아이 타입 엑소스파인": {
+      "en": "Eagle Eye-Type Exospine",
+      "ja": "イーグルアイエグゾスパイン"
+    },
+    "이끄는 등불": {
+      "en": "Guiding Lantern",
+      "ja": "導きの灯火"
+    },
+    "이머전시 시그널": {
+      "en": "Emergency Signal",
+      "ja": "エマージェンシー・シグナル"
+    },
+    "이머전시 휘슬": {
+      "en": "Emergency Whistle",
+      "ja": "エマージェンシー・ホイッスル"
+    },
+    "이지스 캐논": {
+      "en": "Aegis Cannon",
+      "ja": "イージスキャノン"
+    },
+    "이지스 캐논 견제 사격": {
+      "en": "Aegis Cannon Suppression Fire",
+      "ja": "イージスキャノン牽制射撃"
+    },
+    "이지스 캐논 오버로드": {
+      "en": "Aegis Cannon Overload",
+      "ja": "イージスキャノンオーバーロード"
+    },
+    "익스터미네이션": {
+      "en": "Extermination",
+      "ja": "エクスターミネイション"
+    },
+    "인 투 더 헤븐": {
+      "en": "Heavenbound",
+      "ja": "イン・トゥ・ザ・ヘブン"
+    },
+    "인듀어": {
+      "en": "Endure",
+      "ja": "エンデュアー"
+    },
+    "인법 애시드 봄": {
+      "en": "Ninjutsu Acid Bomb",
+      "ja": "忍法アシッドボム"
+    },
+    "인법 카모플라쥬": {
+      "en": "Ninjutsu Camouflage",
+      "ja": "忍法カモフラージュ"
+    },
+    "인베이젼": {
+      "en": "Invasion",
+      "ja": "インヴェイジョン"
+    },
+    "일등 신하": {
+      "en": "Chief Aide",
+      "ja": "王国一の臣下"
+    },
+    "일렉트릭 샷": {
+      "en": "Spark Shot",
+      "ja": "エレクトリックショット"
+    },
+    "일렉트릭 파워 풀 풀 차지": {
+      "en": "Electric Power, Fully Full Charge!",
+      "ja": "エレクトリックパワー、フル・フルチャージ！！"
+    },
+    "일점 저격": {
+      "en": "Precision Sniping",
+      "ja": "一点狙撃"
+    },
+    "일확천금": {
+      "en": "Fat Cat",
+      "ja": "一攫千金"
+    },
+    "임시 바리케이드": {
+      "en": "Temporary Barricade",
+      "ja": "応急バリケード"
+    },
+    "임팩트 타입 엑소스파인": {
+      "en": "Impact-Type Exospine",
+      "ja": "インパクトエグゾスパイン"
+    },
+    "자가 수복": {
+      "en": "Self-Repair",
+      "ja": "自己修復"
+    },
+    "자리 청소 메이드": {
+      "en": "Spotless Chair",
+      "ja": "整理整頓メイド"
+    },
+    "잠기는 세계": {
+      "en": "Submerged World",
+      "ja": "水底の世界"
+    },
+    "잠시 쉬어갈 시간입니다, 주인님.": {
+      "en": "Rest Time",
+      "ja": "休憩のお時間です、ご主人様"
+    },
+    "잡았다아….": {
+      "en": "Gotcha...",
+      "ja": "つかまえたぁ…"
+    },
+    "전도": {
+      "en": "Journey Ahead",
+      "ja": "前途良好"
+    },
+    "전세 역전": {
+      "en": "Turning the Tide",
+      "ja": "戦勢逆転"
+    },
+    "전술 : 장갑 보강": {
+      "en": "Tactic: Enhance Armor",
+      "ja": "戦術：装甲補強"
+    },
+    "전술 : 정밀 사격": {
+      "en": "Tactic: Crack Shot",
+      "ja": "戦術：精密射撃"
+    },
+    "전술 : 출력 상승": {
+      "en": "Tactic: Power Boost",
+      "ja": "戦術：出力上昇"
+    },
+    "전율! 아크 블랙 코레더!": {
+      "en": "Tremble! Ark Black Collider!",
+      "ja": "激震！アークブラックコレダー！"
+    },
+    "전장 조성": {
+      "en": "Battlefield Formation",
+      "ja": "戦場コントロール"
+    },
+    "전장 통제": {
+      "en": "Battlefield Control",
+      "ja": "戦場支配"
+    },
+    "전투 보정": {
+      "en": "Combat Support",
+      "ja": "戦闘補正"
+    },
+    "전황 파악": {
+      "en": "Battlefield Assessment",
+      "ja": "戦況把握"
+    },
+    "정당방위": {
+      "en": "Justifiable Defense",
+      "ja": "正当防衛"
+    },
+    "정리정돈": {
+      "en": "Tidying Up",
+      "ja": "整理整頓"
+    },
+    "정밀 조정": {
+      "en": "Precise Adjustment",
+      "ja": "精密調整"
+    },
+    "정비 및 보급": {
+      "en": "Maintenance and Resupply",
+      "ja": "整備補給"
+    },
+    "정신 집중": {
+      "en": "Full Focus",
+      "ja": "精神集中"
+    },
+    "정의 집행": {
+      "en": "Execution of Righteousness",
+      "ja": "正義の執行"
+    },
+    "정의로운 수단": {
+      "en": "Means of Righteousness",
+      "ja": "正義への手段"
+    },
+    "정의의 천칭": {
+      "en": "Scale of Righteousness",
+      "ja": "正義の天秤"
+    },
+    "정정당당 승부다!": {
+      "en": "Fair and Square!",
+      "ja": "正々堂々と勝負だ！"
+    },
+    "정크 헌팅": {
+      "en": "Scrap Hunt",
+      "ja": "ジャンクハンティング"
+    },
+    "제압 개시": {
+      "en": "Suppression Initiated",
+      "ja": "制圧開始"
+    },
+    "조심해요!": {
+      "en": "Watch Out!",
+      "ja": "お気をつけて！"
+    },
+    "조용히 해주겠니?": {
+      "en": "Can You Be Quiet?",
+      "ja": "静かにできる？"
+    },
+    "좀 더 많은 당근": {
+      "en": "More Carrots",
+      "ja": "もっとたくさんのニンジン"
+    },
+    "좌표 유도식 미사일": {
+      "en": "GPS Guided Missile",
+      "ja": "座標誘導式ミサイル"
+    },
+    "준비 태세": {
+      "en": "Ready and Able",
+      "ja": "準備態勢"
+    },
+    "지원 사격": {
+      "en": "Support Fire",
+      "ja": "支援射撃"
+    },
+    "진두지휘": {
+      "en": "Frontline Command",
+      "ja": "陣頭指揮"
+    },
+    "진짜 맛": {
+      "en": "True Flavor",
+      "ja": "トゥルー・フレーバー"
+    },
+    "진홍의 꽃": {
+      "en": "Scarlet Flower",
+      "ja": "真紅の華"
+    },
+    "차분한 수심": {
+      "en": "Calm Depths",
+      "ja": "静かな深淵"
+    },
+    "착공시작": {
+      "en": "Start Construction",
+      "ja": "着工開始"
+    },
+    "처단": {
+      "en": "Chastisement",
+      "ja": "処断"
+    },
+    "철・권・제・재!": {
+      "en": "Fist of Justice!",
+      "ja": "鉄・拳・制・裁！"
+    },
+    "청소를 시작하겠습니다, 주인님.": {
+      "en": "Cleaning Time",
+      "ja": "お掃除を始めます、ご主人様"
+    },
+    "초감각": {
+      "en": "Extrasensory",
+      "ja": "超感覚"
+    },
+    "초거대 단세포": {
+      "en": "Colossal Single Cell",
+      "ja": "超巨大単細胞"
+    },
+    "초화력": {
+      "en": "Super Firepower",
+      "ja": "超火力解放"
+    },
+    "최고의 무대를 보여줄게!": {
+      "en": "Get Ready for an Amazing Show!",
+      "ja": "最高のステージを見せてやる！"
+    },
+    "최고의 엔지니어!": {
+      "en": "The Best Engineer!",
+      "ja": "最高のエンジニア！"
+    },
+    "최선을 다해볼게요.": {
+      "en": "I'll Do My Best",
+      "ja": "最善を尽くします"
+    },
+    "최첨단 요원 장비": {
+      "en": "Cutting-Edge Agent Equipment",
+      "ja": "エージェントの隠し道具"
+    },
+    "출력 상승": {
+      "en": "Output Increased",
+      "ja": "出力上昇"
+    },
+    "출력 전환 시퀀스": {
+      "en": "Output Switching Sequence",
+      "ja": "出力切替シーケンス"
+    },
+    "춤추는 요정": {
+      "en": "Fairy Dance",
+      "ja": "踊る妖精"
+    },
+    "치어리딩": {
+      "en": "Cheerleading",
+      "ja": "チアリーディング"
+    },
+    "치얼업 자칼": {
+      "en": "Jumpin' Jackal Flash",
+      "ja": "チアーアップジャッカル"
+    },
+    "치얼업 투게더": {
+      "en": "Cheer Up Together",
+      "ja": "チアアップトゥギャザー"
+    },
+    "친구들과 함께라면!": {
+      "en": "As Long As We're With Friends",
+      "ja": "友だちと一緒なら！"
+    },
+    "카드 스로우": {
+      "en": "Card Throw",
+      "ja": "カードスロー"
+    },
+    "카멜레온 은신술": {
+      "en": "Chameleon Invisibility",
+      "ja": "カメレオンの隠れ身の術"
+    },
+    "카모플라쥬 스카프": {
+      "en": "Camouflage Scarf",
+      "ja": "カモフラージュスカーフ"
+    },
+    "카운터 체인": {
+      "en": "Counter Chain",
+      "ja": "カウンターチェーン"
+    },
+    "카포 디 카피": {
+      "en": "Capo dei Capi",
+      "ja": "カポ・ディ・カピ"
+    },
+    "캄 스나이핑": {
+      "en": "Calm Sniping",
+      "ja": "カーム・スナイピング"
+    },
+    "코러스": {
+      "en": "Chorus",
+      "ja": "コーラス"
+    },
+    "코인 플리핑": {
+      "en": "Coin Flip",
+      "ja": "コインフリップ"
+    },
+    "크고 난폭한 고양이": {
+      "en": "Grumpy Cat",
+      "ja": "大きくて乱暴なネコ"
+    },
+    "크레센도": {
+      "en": "Crescendo",
+      "ja": "クレッシェンド"
+    },
+    "크레이지 자칼": {
+      "en": "Crazy Jackal",
+      "ja": "クレイジージャッカル"
+    },
+    "클라이맥스": {
+      "en": "Climax",
+      "ja": "クライマックス"
+    },
+    "클러스터 봄": {
+      "en": "Cluster Bomb",
+      "ja": "クラスターボム"
+    },
+    "킬 더 타겟": {
+      "en": "Kill the Target",
+      "ja": "キル・ザ・ターゲット"
+    },
+    "킬링타임": {
+      "en": "Killing Time",
+      "ja": "暇つぶし"
+    },
+    "타겟 마킹": {
+      "en": "Marked Target",
+      "ja": "ターゲットマーキング"
+    },
+    "타이트": {
+      "en": "Tighten Up",
+      "ja": "タイテンアップ"
+    },
+    "탐정 도구인 것입니다!": {
+      "en": "Detective's Intuition",
+      "ja": "探偵グッズであります！"
+    },
+    "탑승 수속": {
+      "en": "Boarding Procedure",
+      "ja": "搭乗手続き"
+    },
+    "터그 놀이": {
+      "en": "Tug of War",
+      "ja": "引っ張り合い"
+    },
+    "템페스트": {
+      "en": "Tempest",
+      "ja": "テンペスト"
+    },
+    "템프테이션": {
+      "en": "Temptation",
+      "ja": "テンプテーション"
+    },
+    "투 더 빅토리": {
+      "en": "Victory is Mine",
+      "ja": "勝利に向かって"
+    },
+    "트러블 슈터": {
+      "en": "Trouble Shooter",
+      "ja": "トラブルシューター"
+    },
+    "트릭키 봄버": {
+      "en": "Tricky Bomber",
+      "ja": "トリッキーボンバー"
+    },
+    "특약 효력": {
+      "en": "Special Provisions",
+      "ja": "特約発効"
+    },
+    "티켓 확인할게!": {
+      "en": "I'll Check Your Ticket!",
+      "ja": "チケットを拝見します！"
+    },
+    "파란 나비의 기억": {
+      "en": "Memories of Blue Butterflies",
+      "ja": "青い蝶の記憶"
+    },
+    "파란 나비의 꿈": {
+      "en": "Blue Butterfly Slumber",
+      "ja": "青い蝶の夢"
+    },
+    "파워 업!": {
+      "en": "Powering Up!",
+      "ja": "パワーアップ！"
+    },
+    "파이레츠 로망": {
+      "en": "A Pirate's Romance",
+      "ja": "パイレーツロマン"
+    },
+    "파이레츠 스피릿": {
+      "en": "A Pirate's Spirit",
+      "ja": "パイレーツスピリット"
+    },
+    "파이레츠 하트": {
+      "en": "A Pirate's Heart",
+      "ja": "パイレーツハート"
+    },
+    "파충류 애호가": {
+      "en": "Reptile Lover",
+      "ja": "爬虫類愛好家"
+    },
+    "파피용 하트": {
+      "en": "Papillon Heart",
+      "ja": "パピヨンハート"
+    },
+    "팔콘 네스트": {
+      "en": "Falcon Nest",
+      "ja": "ファルコンネスト"
+    },
+    "팔콘 부스트": {
+      "en": "Falcon Boost",
+      "ja": "ファルコンブースト"
+    },
+    "팔콘 윙": {
+      "en": "Falcon Wings",
+      "ja": "ファルコンウィング"
+    },
+    "패스트 차지": {
+      "en": "Fast Charge",
+      "ja": "ファストチャージ"
+    },
+    "퍼스트 위너": {
+      "en": "First Winner",
+      "ja": "ファーストウィナー"
+    },
+    "페더 샷": {
+      "en": "Feather Shot",
+      "ja": "フェザーショット"
+    },
+    "페더 스탠바이": {
+      "en": "Feather Standby",
+      "ja": "フェザースタンバイ"
+    },
+    "페더 올레인지": {
+      "en": "Feather All-Range",
+      "ja": "フェザーオールレンジ"
+    },
+    "페더 이젝션": {
+      "en": "Pointed Feather",
+      "ja": "フェザー・イジェクション"
+    },
+    "페르소나 : 요한나": {
+      "en": "Persona: Johanna",
+      "ja": "ペルソナ：ヨハンナ"
+    },
+    "페르소나 : 코노하나사쿠야": {
+      "en": "Persona: Konohana Sakuya",
+      "ja": "ペルソナ：コノハナサクヤ"
+    },
+    "페르소나 : 팔라디온": {
+      "en": "Persona: Palladion",
+      "ja": "ペルソナ：パラディオン"
+    },
+    "페리타": {
+      "en": "Ferita",
+      "ja": "フェリータ"
+    },
+    "페이로드 확산": {
+      "en": "Payload Diffusion",
+      "ja": "ペイロード分割"
+    },
+    "페이버릿 캔디": {
+      "en": "Favorite Candy",
+      "ja": "フェイバリット・キャンディー"
+    },
+    "페이스 다운": {
+      "en": "Harder, Better, Faster",
+      "ja": "ペースダウン"
+    },
+    "페이탈 에러!": {
+      "en": "Fatal Error!",
+      "ja": "フェイタルエラー！"
+    },
+    "페인 로드": {
+      "en": "Highway to Hell",
+      "ja": "ペインロード"
+    },
+    "페퍼 테라피": {
+      "en": "Pepper Therapy",
+      "ja": "ペッパーセラピー"
+    },
+    "펭군 긴급 출동": {
+      "en": "Penguin Emergency Dispatch",
+      "ja": "ペンくん緊急出動"
+    },
+    "펭군 스파이럴": {
+      "en": "Penguin Spiral",
+      "ja": "ペンくんスパイラル"
+    },
+    "포메이션 AS": {
+      "en": "AS Formation",
+      "ja": "フォーメーションAS"
+    },
+    "포메이션 C.H": {
+      "en": "C.H. Formation",
+      "ja": "フォーメーションC.H"
+    },
+    "포메이션 D.H": {
+      "en": "D.H. Formation",
+      "ja": "フォーメーションD.H"
+    },
+    "포메이션 F.F": {
+      "en": "FF Formation",
+      "ja": "フォーメーションF.F"
+    },
+    "포메이션 LT": {
+      "en": "LT Formation",
+      "ja": "フォーメーションLT"
+    },
+    "포문 개방": {
+      "en": "Fire Away",
+      "ja": "砲門開放"
+    },
+    "포식": {
+      "en": "Predator",
+      "ja": "捕食"
+    },
+    "폭발하는 마음": {
+      "en": "Bursting Heart",
+      "ja": "爆発する心"
+    },
+    "폴리스 라인": {
+      "en": "Poli's Defense Line",
+      "ja": "ポリスライン"
+    },
+    "푸른 칼날": {
+      "en": "Blue Blade",
+      "ja": "青き刃"
+    },
+    "풀 마스콘": {
+      "en": "Full Throttle",
+      "ja": "最大力行"
+    },
+    "풀 하이드로 샷": {
+      "en": "Full Hydro Shot",
+      "ja": "フルハイドロショット"
+    },
+    "품 안의 비밀": {
+      "en": "Closely Carried Secret",
+      "ja": "胸の中の隠しごと"
+    },
+    "풍비박산": {
+      "en": "Struck Dumb",
+      "ja": "木っ端みじん"
+    },
+    "프라이즈": {
+      "en": "Prize",
+      "ja": "プライズ"
+    },
+    "프레이": {
+      "en": "Pray",
+      "ja": "プレイア"
+    },
+    "프로 메이드장": {
+      "en": "Professional Maid Leader",
+      "ja": "プロメイド長"
+    },
+    "프로 종이접기": {
+      "en": "Professional Origami",
+      "ja": "プロ折り紙"
+    },
+    "프로 케첩": {
+      "en": "Professional Tomato Sauce",
+      "ja": "プロケチャップ"
+    },
+    "프리스타일": {
+      "en": "Freestyle",
+      "ja": "フリースタイル"
+    },
+    "플라워 리프": {
+      "en": "Perennial Leaf",
+      "ja": "フラワーリーフ"
+    },
+    "플라워 컬러": {
+      "en": "Hue of the Perennial",
+      "ja": "フラワーカラー"
+    },
+    "플라워 퍼퓸": {
+      "en": "Perennial Perfume",
+      "ja": "フラワーパフュー厶"
+    },
+    "피날레": {
+      "en": "Finale",
+      "ja": "フィナーレ"
+    },
+    "피스풀 트리": {
+      "en": "Peaceful Tree",
+      "ja": "ピースフルツリー"
+    },
+    "피어나다": {
+      "en": "Bloom",
+      "ja": "花のほころび"
+    },
+    "피어스 샷": {
+      "en": "Pierce Shot",
+      "ja": "ピアスショット"
+    },
+    "피의 마인": {
+      "en": "Blood Fiend",
+      "ja": "血の魔人"
+    },
+    "피의 폭발": {
+      "en": "Blood Explosion",
+      "ja": "血の爆発"
+    },
+    "피의 해머": {
+      "en": "Blood Hammer",
+      "ja": "血のハンマー"
+    },
+    "피튜니아": {
+      "en": "Petunia",
+      "ja": "ペチュニア"
+    },
+    "핀 포인트 미사일": {
+      "en": "Pinpoint Missile",
+      "ja": "ピンポイントミサイル"
+    },
+    "필사의 지원": {
+      "en": "All-Out Support",
+      "ja": "必死のサポート"
+    },
+    "한 곡 더!": {
+      "en": "One More Song!",
+      "ja": "もう1曲！"
+    },
+    "해변의 햇살": {
+      "en": "Seaside Sunshine",
+      "ja": "海辺の日差し"
+    },
+    "해적의 근성": {
+      "en": "Pirate's Grit",
+      "ja": "海賊の根性"
+    },
+    "해적의 안목": {
+      "en": "Pirate's Sight",
+      "ja": "海賊の眼差し"
+    },
+    "해피 자칼": {
+      "en": "Happy Jackal",
+      "ja": "ハッピージャッカル"
+    },
+    "해피 퍼피": {
+      "en": "Happy Puppy",
+      "ja": "ハッピーパピー"
+    },
+    "행동 : 공격 상승": {
+      "en": "Action: Increase ATK",
+      "ja": "行動：攻撃上昇"
+    },
+    "행동 : 정밀 타격": {
+      "en": "Action: Precision Strike",
+      "ja": "行動：精密打撃"
+    },
+    "행동 : 화력 집중": {
+      "en": "Action: Focus Fire",
+      "ja": "行動：火力集中"
+    },
+    "허리 온": {
+      "en": "Hurry Up",
+      "ja": "ハリーオン"
+    },
+    "헬로 고스트": {
+      "en": "Hello Ghost",
+      "ja": "ハローゴースト"
+    },
+    "헬스업!": {
+      "en": "Health Up!",
+      "ja": "ヘルスアップ！"
+    },
+    "현장검토": {
+      "en": "Field Discussion",
+      "ja": "現場検討"
+    },
+    "호승심": {
+      "en": "Competitiveness",
+      "ja": "負けず嫌い"
+    },
+    "홈메이드 매거진": {
+      "en": "Homemade Magazine",
+      "ja": "ホームメイドマガジン"
+    },
+    "홍련일섬": {
+      "en": "Scarlet Flash",
+      "ja": "紅蓮一閃"
+    },
+    "화력 만세!": {
+      "en": "Viva Firepower!",
+      "ja": "火力最高！"
+    },
+    "화력 충전": {
+      "en": "Firepower Charge",
+      "ja": "超火力チャージ"
+    },
+    "화무십일홍 · 만개": {
+      "en": "Fleetly Fading: Strike",
+      "ja": "花無十日紅・満開"
+    },
+    "화무십일홍 · 수라": {
+      "en": "Fleetly Fading: Asura",
+      "ja": "花無十日紅・修羅"
+    },
+    "화무십일홍 · 파죽": {
+      "en": "Fleetly Fading: Breakthrough",
+      "ja": "花無十日紅・破竹"
+    },
+    "화양연화": {
+      "en": "Ephemeral Splendor",
+      "ja": "花の生涯"
+    },
+    "환경 조성": {
+      "en": "Environment Setup",
+      "ja": "環境コントロール"
+    },
+    "회복 보조": {
+      "en": "Recovery Assistant",
+      "ja": "回復補助"
+    },
+    "회생전력활용무장 : 묠니르": {
+      "en": "Regenerative Energy Armament: Mjolnir",
+      "ja": "回生エネルギー式武装：ミョルニル"
+    },
+    "효율 증가": {
+      "en": "Efficiency Increase",
+      "ja": "効率アップ"
+    },
+    "후라": {
+      "en": "Fura",
+      "ja": "フーラ"
+    },
+    "훑어보기": {
+      "en": "Scrutiny",
+      "ja": "見渡し"
+    },
+    "휴식 명령": {
+      "en": "Command to Rest",
+      "ja": "休息命令"
+    },
+    "흐드러지다": {
+      "en": "Full Glory",
+      "ja": "競い咲き"
+    },
+    "흑화": {
+      "en": "Shroud of Darkness",
+      "ja": "黒化"
+    },
+    "히스테릭 워커": {
+      "en": "Busy Bee",
+      "ja": "ヒステリックワーカー"
+    },
+    "히어로 봄버": {
+      "en": "Hero Bomber",
+      "ja": "ヒーローボンバー"
+    },
+    "히어로 비전": {
+      "en": "Hero Vision",
+      "ja": "ヒーロービジョン"
+    },
+    "히트 웨이브": {
+      "en": "Heat Wave",
+      "ja": "ヒートウェイブ"
+    },
+    "힘나는 당근": {
+      "en": "Energizing Carrot",
+      "ja": "元気が出るニンジン"
+    }
+  },
+  "cubes": {
+    "렐릭 디바이드 큐브": {
+      "en": "Diffusion Cube",
+      "ja": "レリックディバイドキューブ"
+    },
+    "렐릭 디스트로이 큐브": {
+      "en": "Destruction Cube",
+      "ja": "レリックデストロイキューブ"
+    },
+    "렐릭 베어 큐브": {
+      "en": "Resilience Cube",
+      "ja": "レリックベアーキューブ"
+    },
+    "렐릭 부스트 큐브": {
+      "en": "Adjutant Cube",
+      "ja": "レリックブーストキューブ"
+    },
+    "렐릭 비고르 큐브": {
+      "en": "Vigor Cube",
+      "ja": "レリックビガーキューブ"
+    },
+    "렐릭 어설트 큐브": {
+      "en": "Assault Cube",
+      "ja": "レリックアサルトキューブ"
+    },
+    "렐릭 어시스터 큐브": {
+      "en": "Assist Cube",
+      "ja": "レリックアシストキューブ"
+    },
+    "렐릭 인듀어 큐브": {
+      "en": "Endurance Cube",
+      "ja": "レリックエンデュアーキューブ"
+    },
+    "렐릭 커버 큐브": {
+      "en": "Stealth Cube",
+      "ja": "レリックカバーキューブ"
+    },
+    "렐릭 퀀텀 큐브": {
+      "en": "Quantum Cube",
+      "ja": "レリッククオンタムキューブ"
+    },
+    "렐릭 크래시 큐브": {
+      "en": "Rupture Cube",
+      "ja": "レリッククラッシュキューブ"
+    },
+    "렐릭 템퍼링 큐브": {
+      "en": "Tempering Cube",
+      "ja": "レリックテンパリングキューブ"
+    },
+    "렐릭 피어싱 큐브": {
+      "en": "Piercing Cube",
+      "ja": "レリックピアシングキューブ"
+    },
+    "렐릭 힐링 큐브": {
+      "en": "Healing Cube",
+      "ja": "レリックヒーリングキューブ"
+    },
+    "택티컬 베어 큐브": {
+      "en": "Bastion Cube",
+      "ja": "タクティカルベアーキューブ"
+    },
+    "택티컬 부스트 큐브": {
+      "en": "Wingman Cube",
+      "ja": "タクティカルブーストキューブ"
+    },
+    "택티컬 어설트 큐브": {
+      "en": "Onslaught Cube",
+      "ja": "タクティカルアサルトキューブ"
+    }
+  },
+  "favorites": {
+    "낮잠 지휘관 인형": {
+      "en": "Napping Commander Doll",
+      "ja": "お昼寝指揮官のぬいぐるみ"
+    },
+    "낮잠 지휘관 인형 Ltd.": {
+      "en": "Napping Commander Doll Ltd.",
+      "ja": "お昼寝指揮官のぬいぐるみLtd."
+    },
+    "쇼핑 지휘관 인형": {
+      "en": "Shopping Commander Doll",
+      "ja": "お買い物指揮官のぬいぐるみ"
+    },
+    "쇼핑 지휘관 인형 Ltd.": {
+      "en": "Shopping Commander Doll Ltd.",
+      "ja": "お買い物指揮官のぬいぐるみLtd."
+    },
+    "요리 지휘관 인형": {
+      "en": "Cooking Commander Doll",
+      "ja": "お料理指揮官のぬいぐるみ"
+    },
+    "요리 지휘관 인형 Ltd.": {
+      "en": "Cooking Commander Doll Ltd.",
+      "ja": "お料理指揮官のぬいぐるみLtd."
+    },
+    "운동 지휘관 인형": {
+      "en": "Exercising Commander Doll",
+      "ja": "運動指揮官のぬいぐるみ"
+    },
+    "운동 지휘관 인형 Ltd.": {
+      "en": "Exercising Commander Doll Ltd.",
+      "ja": "運動指揮官のぬいぐるみLtd."
+    },
+    "전투 지휘관 인형": {
+      "en": "Battling Commander Doll",
+      "ja": "戦闘指揮官のぬいぐるみ"
+    },
+    "전투 지휘관 인형 Ltd.": {
+      "en": "Battling Commander Doll Ltd.",
+      "ja": "戦闘指揮官のぬいぐるみLtd."
+    },
+    "커피 지휘관 인형": {
+      "en": "Coffee Commander Doll",
+      "ja": "コーヒー指揮官のぬいぐるみ"
+    },
+    "커피 지휘관 인형 Ltd.": {
+      "en": "Coffee Commander Doll Ltd.",
+      "ja": "コーヒー指揮官のぬいぐるみLtd."
+    }
+  }
+}

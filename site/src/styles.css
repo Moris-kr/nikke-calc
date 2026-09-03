@@ -2306,3 +2306,8 @@ body.bm-open { overflow: hidden; }
   color: var(--muted); font: 700 8px inherit; cursor: pointer; }
 .bm-layer-move:hover:not(:disabled) { color: var(--ink); }
 .bm-layer-move:disabled { opacity: .25; cursor: default; }
+/* 언어 고르개 — 머리줄의 다른 단추들과 같은 크기로 선다. */
+.lang-pick { flex: none; width: auto; padding: 4px 8px; border-radius: 999px;
+  border: 1px solid var(--line); background: rgba(146,176,201,.08); color: var(--muted);
+  font: 700 11px inherit; cursor: pointer; }
+.lang-pick:hover { color: var(--ink); border-color: rgba(69,214,208,.4); }
