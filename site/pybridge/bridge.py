@@ -12,6 +12,7 @@ from calculator.customization import (
     normalize_character_overrides,
     normalize_console,
     normalize_element_windows,
+    normalize_hacks,
     normalize_immune_windows,
     normalize_normal_hit_coeff,
     normalize_burst_reaction,
@@ -571,6 +572,10 @@ def run_request(raw: str) -> str:
     # 족자 중 버스트 게이지 정지 여부. 안 주면 켠 것으로 본다(인게임 기준).
     blocks = payload.get("immuneBlocksBurst")
     config_in["immune_blocks_burst"] = True if blocks is None else bool(blocks)
+    # 핵. 하나도 안 켰으면 아예 안 싣는다 — 옛 요청과 캐시 키가 갈리지 않게.
+    hacks = normalize_hacks(payload.get("hacks"))
+    if hacks is not None:
+        config_in["cheats"] = hacks
     config = char_spec.build_config(squad, config_in)
     # 평타 계수는 적이 아니라 **우리 쪽 명중**의 문제라 config에 둔다.
     hit_coeff = normalize_normal_hit_coeff(payload.get("normalHitCoeff"))

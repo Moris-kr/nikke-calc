@@ -27,10 +27,11 @@ describe('generated browser runtime', () => {
     ) as RuntimeManifest;
 
     expect(manifest.version).toMatch(/^[a-f0-9]{16}$/);
-    expect(manifest.files).toHaveLength(24);
+    expect(manifest.files).toHaveLength(25);
     expect(manifest.files).toContain('context/growth.py');
     // 브리지가 import하는 모듈이 목록에서 빠지면 엔진 초기화가 통째로 실패한다.
     expect(manifest.files).toContain('calculator/combat_power.py');
+    expect(manifest.files).toContain('calculator/cheats.py');
 
     // 스탯표를 새로 넣고 매니페스트에 안 실으면 **엔진 임포트부터** 죽는다
     // (`level_beyond.json`을 그렇게 빠뜨려 계산이 전부 실패했다, 2026-08-27).

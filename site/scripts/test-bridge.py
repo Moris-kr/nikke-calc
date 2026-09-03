@@ -13,6 +13,41 @@ from context.spec import is_preview
 from context.spec import _nikke as parsed_nikke
 
 
+class HackBridgeTest(unittest.TestCase):
+    """핵(`calculator/cheats.py`)이 payload에서 엔진까지 이어지는지."""
+
+    BASE = {
+        "squad": ["리타"],
+        "duration": 20,
+        "enemyDef": 31_784,
+        "enemyCode": "",
+        "corePx": 0,
+        "hasParts": False,
+        "seed": 42,
+    }
+
+    def _total(self, hacks=None):
+        payload = {**self.BASE, **({"hacks": hacks} if hacks is not None else {})}
+        return json.loads(run_request(json.dumps(payload, ensure_ascii=False)))["squadTotal"]
+
+    def test_damage_mult_reaches_the_engine(self):
+        plain = self._total()
+        self.assertAlmostEqual(self._total({"damageMult": 7}) / plain, 7.0, places=3)
+
+    def test_all_off_is_the_same_as_no_hacks(self):
+        # 켠 것이 없으면 요청에 아예 안 실려야 한다 — 옛 결과와 한 톨도 달라지지 않는다.
+        plain = self._total()
+        self.assertEqual(self._total({}), plain)
+        self.assertEqual(self._total({"alwaysCrit": False, "damageMult": 1}), plain)
+
+    def test_always_crit_reaches_the_engine(self):
+        self.assertGreater(self._total({"alwaysCrit": True}), self._total())
+
+    def test_bad_multiplier_is_refused(self):
+        with self.assertRaises(ValueError):
+            self._total({"damageMult": 0})
+
+
 class BrowserBridgeTest(unittest.TestCase):
     def test_growth_stage_changes_the_engine_result(self):
         payload = {

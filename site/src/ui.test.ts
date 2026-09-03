@@ -2334,4 +2334,104 @@ describe('calculator UI', () => {
     expect(root.querySelector('[data-batch-total]')?.textContent).toContain('246,912');
     expect(root.querySelector('[data-status]')?.textContent).toContain('2개 덱 계산 완료');
   });
+
+  // ── 핵 ────────────────────────────────────────────────────────────────
+  describe('핵', () => {
+    const openHacks = (client: CalculatorClientLike) => {
+      mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });
+      root.querySelector<HTMLButtonElement>('[data-hack-open]')!.click();
+      return root;
+    };
+    const toggle = (id: string) => {
+      const box = root.querySelector<HTMLInputElement>(id)!;
+      box.click();
+      box.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+
+    it('전투 조건 창의 다른 탭으로 열린다', () => {
+      openHacks(new FakeClient());
+      expect(root.querySelector<HTMLElement>('[data-battle-modal]')!.hidden).toBe(false);
+      expect(root.querySelector<HTMLElement>('[data-hack-body]')!.hidden).toBe(false);
+      // 전투 조건은 가려진다 — 같은 판에 섞이면 실수로 켜진다.
+      expect(root.querySelector<HTMLElement>('[data-battle-body]')!.hidden).toBe(true);
+      expect(root.querySelector('[data-battle-title]')?.textContent).toBe('핵 사용');
+
+      root.querySelector<HTMLButtonElement>('[data-battle-tab="battle"]')!.click();
+      expect(root.querySelector<HTMLElement>('[data-hack-body]')!.hidden).toBe(true);
+      expect(root.querySelector('[data-battle-title]')?.textContent).toBe('전투 조건');
+    });
+
+    it('안 켰으면 요청에 실리지 않는다', async () => {
+      const client = new FakeClient();
+      mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });
+      root.querySelector<HTMLFormElement>('form')!.requestSubmit();
+      await flush();
+      // 켠 적 없는 사람의 결과는 예전과 한 톨도 달라지지 않아야 한다.
+      expect(client.lastRequest?.hacks).toBeUndefined();
+      expect(root.querySelector<HTMLElement>('[data-hack-banner]')!.hidden).toBe(true);
+    });
+
+    it('켜면 요청에 실리고 화면이 크게 떠든다', async () => {
+      const client = new FakeClient();
+      openHacks(client);
+      toggle('#hack-always-crit');
+      toggle('#hack-damage');
+      const mult = root.querySelector<HTMLInputElement>('#hack-damage-mult')!;
+      mult.value = '3';
+      mult.dispatchEvent(new Event('change', { bubbles: true }));
+
+      root.querySelector<HTMLFormElement>('form')!.requestSubmit();
+      await flush();
+      expect(client.lastRequest?.hacks)
+        .toEqual({ burstCharge: false, infiniteAmmo: false, alwaysCrit: true, damageMult: 3 });
+
+      const banner = root.querySelector<HTMLElement>('[data-hack-banner]')!;
+      expect(banner.hidden).toBe(false);
+      expect(root.querySelector('[data-hack-banner-list]')?.textContent)
+        .toBe('올크리핵 · 대미지증가핵 ×3');
+      // 사람들은 결과만 잘라 올린다 — 그 그림에도 표가 찍혀야 한다.
+      expect(root.querySelector('[data-result-panel]')!.classList.contains('is-hacked')).toBe(true);
+    });
+
+    it('«전부 끄기»로 한 번에 끈다', () => {
+      openHacks(new FakeClient());
+      toggle('#hack-burst-charge');
+      toggle('#hack-infinite-ammo');
+      expect(root.querySelector<HTMLElement>('[data-hack-banner]')!.hidden).toBe(false);
+
+      root.querySelector<HTMLButtonElement>('[data-hack-off]')!.click();
+      expect(root.querySelector<HTMLElement>('[data-hack-banner]')!.hidden).toBe(true);
+      expect(root.querySelector<HTMLInputElement>('#hack-burst-charge')!.checked).toBe(false);
+      expect(root.querySelector<HTMLInputElement>('#hack-infinite-ammo')!.checked).toBe(false);
+    });
+
+    it('새로고침해도 켜 둔 채로 남는다', () => {
+      openHacks(new FakeClient());
+      toggle('#hack-always-crit');
+
+      root.remove();
+      root = document.createElement('main');
+      document.body.append(root);
+      mountCalculator(root, {
+        catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+      });
+      expect(root.querySelector<HTMLInputElement>('#hack-always-crit')!.checked).toBe(true);
+      expect(root.querySelector<HTMLElement>('[data-hack-banner]')!.hidden).toBe(false);
+    });
+
+    it('남의 전투 조건 코드를 적용해도 내 핵은 그대로다', () => {
+      openHacks(new FakeClient());
+      toggle('#hack-always-crit');
+      // 코드에는 핵이 담기지 않는다 — 그렇다고 남의 코드가 내 것을 끄지도 않는다.
+      const code = encodeBattleCode(
+        { ...decodeBattleCode('NK3-e30'), duration: 90 } as never,
+      );
+      const input = root.querySelector<HTMLTextAreaElement>('[data-battle-share-in]')!;
+      input.value = code;
+      root.querySelector<HTMLButtonElement>('[data-battle-share-apply]')!.click();
+
+      expect(root.querySelector<HTMLInputElement>('#duration')!.value).toBe('90');
+      expect(root.querySelector<HTMLInputElement>('#hack-always-crit')!.checked).toBe(true);
+    });
+  });
 });

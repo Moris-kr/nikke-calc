@@ -1,4 +1,5 @@
 import type { BurstSequence } from './burst-order';
+import type { HackSettings } from './hacks';
 
 export type ElementCode = '' | '풍압' | '수냉' | '작열' | '전격' | '철갑';
 // 큐브 종류의 정본은 `data/base_stat_tables/cube.json`이며 게임 업데이트로 계속
@@ -134,6 +135,11 @@ export interface SimulationRequest {
   fineTimeline?: boolean;
   /** 족자 중에는 버스트 게이지도 안 찬다고 볼지. */
   immuneBlocksBurst?: boolean;
+  /**
+   * 핵(`site/src/hacks.ts`). 하나라도 켰을 때만 실린다 — 안 켠 요청에는 이 키가
+   * 아예 없어야 캐시 키가 옛 결과와 갈리지 않는다.
+   */
+  hacks?: HackSettings;
   // 무기군별 평타 계수. 실전에서 탄퍼짐으로 빗나가는 탄을 보정한다 — 평타에만 붙고
   // 스킬·버스트와 변신 모드 사격에는 붙지 않는다. 안 주면 데이터 기본값을 쓴다.
   normalHitCoeff?: Record<string, number>;
@@ -235,6 +241,11 @@ export interface BattleSettings {
    * **버스트 하나하나마다** 더해진다 — 3단계까지 쓰면 그 세 배만큼 늦어진다.
    */
   burstReaction: number;
+  /**
+   * 켜 둔 핵. 인게임에 없는 값을 억지로 켜는 스위치라 **공유 코드에는 담기지 않는다** —
+   * 남이 준 전투 조건을 적용했더니 몰래 핵이 켜져 있는 일은 없어야 한다.
+   */
+  hacks?: HackSettings;
 }
 
 export interface DeckState {

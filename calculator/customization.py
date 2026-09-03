@@ -15,6 +15,7 @@ from typing import Any
 
 from calculator.base_stat import NO_ITEM
 from calculator.buff_manager import FAVORITE_MAX_STAGE
+from calculator.cheats import DMG_MULT_MAX as HACK_DMG_MULT_MAX, from_config
 from context.growth import resolve_character_growth
 
 
@@ -509,6 +510,30 @@ def _window(raw: Any, label: str) -> tuple[float, float]:
     if start >= end:
         raise ValueError(f"{label} 구간은 시작이 끝보다 앞서야 한다 ({start:g}~{end:g})")
     return start, end
+
+
+def normalize_hacks(raw: Any) -> dict[str, Any] | None:
+    """핵 — 화면이 켠 스위치를 엔진 config의 `cheats`로 옮긴다.
+
+    끈 상태와 «아무것도 안 켠 채로 켠 상태»를 굳이 가르지 않고 **None**을 낸다 —
+    그래야 캐시 키가 옛 요청과 갈리지 않고, 엔진도 예전 그대로 돈다.
+    자세한 것은 `calculator/cheats.py`.
+    """
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise ValueError("핵 설정은 객체여야 한다")
+    mult_raw = raw.get("damageMult")
+    mult = 1.0 if mult_raw is None else float(mult_raw)
+    if not math.isfinite(mult) or not 0 < mult <= HACK_DMG_MULT_MAX:
+        raise ValueError(f"대미지 배수는 0 초과 {HACK_DMG_MULT_MAX:g} 이하여야 한다")
+    cheats = {
+        "burst_charge": bool(raw.get("burstCharge")),
+        "infinite_ammo": bool(raw.get("infiniteAmmo")),
+        "always_crit": bool(raw.get("alwaysCrit")),
+        "damage_mult": mult,
+    }
+    return cheats if from_config({"cheats": cheats}).on else None
 
 
 def normalize_immune_windows(raw: Any) -> list[list[float]]:

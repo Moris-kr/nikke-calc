@@ -27,6 +27,7 @@ import {
   type StateTrack,
 } from './types';
 import type { StorageLike } from './cache';
+import { hacksForRequest } from './hacks';
 import { formatDamage, formatDps } from './model';
 import { mountSharePanel, type SharePanel } from './share-panel';
 import type { ShareServer } from './share-server';
@@ -1522,6 +1523,9 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
         burstRegenTime: battle.burstRegenTime,
         burstReaction: battle.burstReaction,
         console: battle.console,
+        // 켜 둔 핵은 여기서도 그대로 걸린다 — 같은 조건인데 판마다 다른 수가 나오면
+        // 어느 쪽이 진짜인지 알 수 없게 된다. 안 켰으면 이 키는 아예 빠진다.
+        ...(hacksForRequest(battle.hacks) ? { hacks: battle.hacks! } : {}),
         ...(derived.partBreakInterval > 0
           ? { partBreakInterval: derived.partBreakInterval } : {}),
         ...(pierce && pierce.total > 1

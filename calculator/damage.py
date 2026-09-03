@@ -322,6 +322,10 @@ def calc_damage(
     # ①의 계수는 %이므로 /100
     damage = (f1 / 100.0) * f2 * f3 * f4 * f5 * f6 * f7
 
+    # 핵(`calculator/cheats.py`)의 대미지 배수. 게임의 계산식에는 이런 자리가 없으므로
+    # ①~⑦ **밖에서** 곱한다 — 안에 섞으면 어디까지가 진짜 계산인지 흐려진다.
+    damage *= buffs.get("cheat_dmg_mult", 1.0)
+
     if hit_type.get("_debug_factors"):
         print(
             f"  ①계수={f1:.4f}%  ②공방차={f2:,.1f}"

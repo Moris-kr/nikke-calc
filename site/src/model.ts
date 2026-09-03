@@ -1,4 +1,5 @@
 import { sequenceForDeck, trimSequence } from './burst-order';
+import { hacksForRequest } from './hacks';
 import type {
   BatchResult,
   BattleSettings,
@@ -74,6 +75,8 @@ export function normalizeRequest(request: SimulationRequest): SimulationRequest 
       ? { burstSequence: trimSequence(request.burstSequence)! } : {}),
     // 기본값(켜짐)은 요청·캐시 키에서 뺀다.
     ...(request.immuneBlocksBurst === false ? { immuneBlocksBurst: false } : {}),
+    // 핵은 켠 것이 있을 때만 싣는다 — 안 켠 사람의 캐시 키가 갈리지 않게.
+    ...(hacksForRequest(request.hacks) ? { hacks: hacksForRequest(request.hacks)! } : {}),
     // 평타 계수도 캐시 키에 실린다 — 값이 다른 결과가 섞이면 안 된다. 키 순서가
     // 흔들려도 같은 설정이므로 정렬해 싣는다.
     ...(normalizeRecord(request.normalHitCoeff)
@@ -279,6 +282,7 @@ export function requestForDeck(
     elementWindows: battle.elementWindows,
     rngMode: battle.rngMode,
     immuneBlocksBurst: battle.immuneBlocksBurst,
+    ...(hacksForRequest(battle.hacks) ? { hacks: battle.hacks! } : {}),
     normalHitCoeff: battle.normalHitCoeff,
     console: battle.console,
     // 덱마다 따로 잡아 뒀으면 그 값이 이긴다 — 버스트 쿨이 밀리는 덱만 달리 잰다.

@@ -2102,3 +2102,137 @@ body.bm-open { overflow: hidden; }
   stroke: rgba(3,8,14,.8); stroke-width: 5px; }
 .bm-phase-sub { font: 700 12px system-ui; paint-order: stroke;
   stroke: rgba(3,8,14,.8); stroke-width: 4px; }
+
+/* ── 핵 ─────────────────────────────────────────────────────────────────
+   인게임에 없는 값을 억지로 켜는 스위치(`site/src/hacks.ts`). 이 계산기가 파는
+   것은 «인게임에서 이만큼 나온다»는 믿음뿐이라, 이 판만은 실수로 켜지지도,
+   켜 놓고 잊히지도 않아야 한다 — 그래서 사이트에서 유일하게 요란하다. */
+.battle-tabs { display: flex; gap: 4px; margin: -4px 0 12px; border-bottom: 1px solid var(--line); }
+.battle-tab { padding: 8px 16px; border: 1px solid transparent; border-bottom: none;
+  border-radius: 9px 9px 0 0; background: transparent; color: var(--muted);
+  font: 800 13px inherit; cursor: pointer; white-space: nowrap;
+  transition: color .18s cubic-bezier(.2,.8,.2,1), background .18s cubic-bezier(.2,.8,.2,1); }
+.battle-tab:hover { color: var(--ink); background: rgba(146,176,201,.08); }
+.battle-tab.is-on { color: var(--ink); background: rgba(69,214,208,.1);
+  border-color: rgba(69,214,208,.32); box-shadow: inset 0 -2px 0 var(--cyan); }
+.battle-tab:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+/* 핵 탭만은 다른 세계로 넘어가는 문처럼 보여야 한다. */
+.hack-tab { color: #ff8b9b; }
+.hack-tab b { font-size: 15px; line-height: 1; }
+.hack-tab:hover { color: #ffd7de; background: rgba(255,60,90,.12); }
+.hack-tab.is-on { color: #fff; background: rgba(255,40,72,.16);
+  border-color: rgba(255,80,110,.5); box-shadow: inset 0 -2px 0 #ff4b6e, 0 0 22px rgba(255,60,90,.28); }
+
+.hack-body { display: grid; gap: 14px; }
+/* 경고 띠 — 공사장 테이프. 이 판이 무엇인지 한 번에 말한다. */
+.hack-hero { position: relative; overflow: hidden; padding: 16px 18px 18px;
+  border: 1px solid rgba(255,80,110,.42); border-radius: 14px;
+  background:
+    radial-gradient(120% 120% at 0% 0%, rgba(255,40,72,.18), transparent 60%),
+    linear-gradient(180deg, rgba(28,6,14,.92), rgba(12,4,10,.92)); }
+.hack-hero-bar { position: absolute; inset: 0 0 auto; height: 6px;
+  background: repeating-linear-gradient(135deg, #ff3a5e 0 12px, #1b0a12 12px 24px);
+  opacity: .85; }
+.hack-hero-tag { display: inline-block; margin: 8px 0 6px; padding: 3px 9px;
+  border: 1px solid rgba(255,120,140,.45); border-radius: 999px;
+  color: #ff9cae; font: 800 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .22em; }
+.hack-hero-line { margin: 0 0 10px; color: #ffe4e9; font: 800 clamp(15px, 2.2vw, 20px)/1.45 inherit;
+  text-shadow: 0 0 18px rgba(255,60,90,.45); }
+.hack-hero-link { display: inline-flex; align-items: center; gap: 4px;
+  color: #ff7d95; font: 700 13px inherit; text-decoration: underline;
+  text-underline-offset: 3px; }
+.hack-hero-link:hover { color: #ffd7de; }
+
+.hack-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.hack-card { position: relative; display: grid; gap: 10px 12px; align-items: start;
+  grid-template-columns: auto 1fr; padding: 14px 16px;
+  border: 1px solid rgba(255,120,140,.24); border-radius: 12px;
+  background: rgba(20,6,12,.6); cursor: pointer;
+  transition: border-color .18s cubic-bezier(.2,.8,.2,1), background .18s cubic-bezier(.2,.8,.2,1); }
+.hack-card:hover { border-color: rgba(255,120,140,.5); background: rgba(32,8,18,.7); }
+.hack-card-wide { grid-column: 1 / -1; }
+/* 스위치의 진짜 체크박스만 숨긴다 — 배수 칸까지 숨기면 켜고도 값을 못 고친다. */
+.hack-card > input[type="checkbox"] { position: absolute; opacity: 0; pointer-events: none; }
+/* 스위치 — 켜지면 빨갛게 달아오른다. */
+.hack-switch { width: 44px; height: 24px; border-radius: 999px; position: relative;
+  border: 1px solid rgba(255,120,140,.4); background: rgba(255,255,255,.06);
+  transition: background .18s cubic-bezier(.2,.8,.2,1), box-shadow .18s cubic-bezier(.2,.8,.2,1); }
+.hack-switch::after { content: ""; position: absolute; top: 3px; left: 3px;
+  width: 16px; height: 16px; border-radius: 50%; background: #8394a6;
+  transition: transform .18s cubic-bezier(.2,.8,.2,1), background .18s cubic-bezier(.2,.8,.2,1); }
+.hack-card > input:checked ~ .hack-switch { background: rgba(255,40,72,.55);
+  border-color: #ff4b6e; box-shadow: 0 0 16px rgba(255,60,90,.5); }
+.hack-card > input:checked ~ .hack-switch::after { transform: translateX(20px); background: #fff; }
+.hack-card > input:focus-visible ~ .hack-switch { outline: 2px solid #ff4b6e; outline-offset: 2px; }
+.hack-card:has(> input:checked) { border-color: rgba(255,80,110,.6); background: rgba(46,8,22,.72); }
+.hack-text { display: grid; gap: 4px; }
+.hack-text b { color: #ffdbe2; font: 800 15px inherit; letter-spacing: .01em; }
+.hack-text em { color: var(--muted); font: 400 12px/1.5 inherit; font-style: normal; }
+.hack-text em b { color: #ff9cae; font-size: inherit; }
+.hack-mult { grid-column: 2; display: inline-flex; align-items: center; gap: 6px; }
+.hack-mult input { width: 110px; padding: 7px 10px; border-radius: 9px;
+  border: 1px solid rgba(255,120,140,.4); background: rgba(0,0,0,.35);
+  color: #ffdbe2; font: 800 15px inherit; }
+.hack-mult input:disabled { opacity: .4; }
+.hack-mult em { color: var(--muted); font: 700 12px inherit; font-style: normal; }
+.hack-note { margin: 0; color: var(--muted); font: 400 12px/1.6 inherit; }
+.hack-note b { color: #ff9cae; }
+
+/* 켜 둔 채로 잊히지 않게 — 실행 단추 바로 위에서 결과가 나오기 전에 읽힌다. */
+.hack-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+  margin: 0 0 10px; padding: 10px 14px; border-radius: 12px;
+  border: 1px solid rgba(255,80,110,.55);
+  background: linear-gradient(90deg, rgba(255,40,72,.22), rgba(255,40,72,.06));
+  box-shadow: 0 0 26px rgba(255,60,90,.22); }
+.hack-banner-mark { font-size: 18px; line-height: 1; animation: hack-pulse 1.4s infinite; }
+.hack-banner-text { color: #ffdbe2; font: 800 13px inherit; }
+.hack-banner-text b { color: #ff5f7d; }
+.hack-banner-list { color: #ff9cae; font: 700 12px inherit; }
+.hack-banner-off { margin-left: auto; padding: 5px 12px; border-radius: 999px;
+  border: 1px solid rgba(255,120,140,.5); background: transparent;
+  color: #ffb3c0; font: 700 12px inherit; cursor: pointer; }
+.hack-banner-off:hover { background: rgba(255,60,90,.2); color: #fff; }
+@keyframes hack-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .hack-banner-mark { animation: none; } }
+/* 배너 한 줄은 스크롤 밖으로 나가지만 테두리는 판에 남는다. */
+.settings-panel.is-hacked { border-color: rgba(255,80,110,.45);
+  box-shadow: 0 0 0 1px rgba(255,60,90,.18), 0 18px 40px rgba(255,40,72,.12); }
+/* 밖에 내놓은 진입 단추. 옆의 회색 단추들 사이에서 혼자 붉게 탄다. */
+.hack-open { padding: 6px 13px; border-radius: 999px;
+  border: 1px solid rgba(255,80,110,.55); background: rgba(255,40,72,.14);
+  color: #ff9cae; font: 800 12px inherit; cursor: pointer; white-space: nowrap;
+  transition: background .18s cubic-bezier(.2,.8,.2,1), color .18s cubic-bezier(.2,.8,.2,1),
+    box-shadow .18s cubic-bezier(.2,.8,.2,1); }
+.hack-open b { font-size: 13px; line-height: 1; }
+.hack-open:hover { background: rgba(255,40,72,.3); color: #fff;
+  box-shadow: 0 0 20px rgba(255,60,90,.4); }
+.hack-open:focus-visible { outline: 2px solid #ff4b6e; outline-offset: 2px; }
+/* 결과 판의 도장. 사람들은 결과만 잘라 올리므로 그 그림 안에 함께 찍혀야 한다. */
+.result-panel.is-hacked { position: relative; border-color: rgba(255,80,110,.45);
+  box-shadow: 0 0 0 1px rgba(255,60,90,.18), 0 18px 40px rgba(255,40,72,.12); }
+.result-panel.is-hacked::before { content: "☠ 핵 사용 중 — 이 수치는 인게임과 다릅니다";
+  display: block; margin: -4px 0 14px; padding: 8px 14px; border-radius: 10px;
+  border: 1px solid rgba(255,80,110,.5);
+  background: linear-gradient(90deg, rgba(255,40,72,.24), rgba(255,40,72,.05));
+  color: #ffdbe2; font: 800 12px inherit; letter-spacing: .01em; }
+/* 핵 탭에 들어와 있는 동안은 창 자체가 붉게 물든다. */
+.battle-card.is-hack { border-color: rgba(255,80,110,.45);
+  box-shadow: 0 0 0 1px rgba(255,60,90,.16), 0 30px 80px rgba(255,40,72,.18); }
+/* 켜 둔 동안은 탭이 뛴다 — 창을 닫아도 켜 둔 사실을 잊지 않게. */
+.hack-tab.is-live { color: #fff; background: rgba(255,40,72,.18);
+  border-color: rgba(255,80,110,.5); animation: hack-live 1.6s infinite; }
+@keyframes hack-live {
+  0%, 100% { box-shadow: inset 0 -2px 0 #ff4b6e, 0 0 0 rgba(255,60,90,0); }
+  50% { box-shadow: inset 0 -2px 0 #ff4b6e, 0 0 20px rgba(255,60,90,.5); }
+}
+@media (prefers-reduced-motion: reduce) { .hack-tab.is-live { animation: none; } }
+/* 켜진 칸에는 「ON」을 찍는다 — 스위치 하나로는 멀리서 안 읽힌다. */
+.hack-card:has(> input:checked)::after { content: "ON"; position: absolute;
+  top: 10px; right: 12px; padding: 2px 7px; border-radius: 999px;
+  background: #ff2c48; color: #fff;
+  font: 800 9px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .16em; }
+/* 경고 띠는 위아래 둘 다 — 공사장 테이프는 한 줄로 치지 않는다. */
+.hack-hero::after { content: ""; position: absolute; inset: auto 0 0; height: 6px;
+  background: repeating-linear-gradient(135deg, #ff3a5e 0 12px, #1b0a12 12px 24px);
+  opacity: .85; }

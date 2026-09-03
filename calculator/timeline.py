@@ -21,6 +21,7 @@ from typing import Any
 
 from .base_stat import calc_base_stats
 from .buff_manager import BuffManager, _QUANT_PARTS_KEY, _get_skill_lv
+from .cheats import from_config as cheats_from_config
 from .damage import calc_damage, default_hit_type, is_element_match
 from .sim_result import (
     HitEvent,
@@ -645,6 +646,11 @@ class CharState:
 
         if not infinite_ammo:
             self.ammo -= 1
+        # 핵의 무한 장탄은 «탄창이 안 비는 것»이다 — 소비는 그대로 일어나 「탄 소비 시」
+        # 효과가 계속 터지고, 빈 자리가 그 자리에서 차서 재장전만 사라진다.
+        # (탄창이 안 비니 「마지막 탄」 효과는 당연히 안 나온다 — 화면에도 그렇게 적었다)
+        if bm.cheats.infinite_ammo:
+            self.ammo = self._full_ammo(bm, t)
         if self._sim_log is not None:
             self._sim_log.ammo_log.append(AmmoLogEntry(t=t, caster=self.name, ammo=self.ammo))
         if not infinite_ammo:
@@ -1001,6 +1007,9 @@ class CharState:
             # _tick_charge()는 _fire()를 거치지 않고 자체 발사 처리를 하므로 여기에도 필요하다.
             self._wc_shots += 1
         self.ammo -= 1
+        # 차지 무기도 마찬가지로 탄창이 안 빈다(`_fire`와 같은 취지).
+        if bm.cheats.infinite_ammo:
+            self.ammo = self._full_ammo(bm, t)
         if self._sim_log is not None:
             self._sim_log.ammo_log.append(AmmoLogEntry(t=t, caster=self.name, ammo=self.ammo))
         bm.notify("squad_ammo_consume", t, self.name)
@@ -1741,6 +1750,8 @@ class BurstController:
         enemy: dict,
     ):
         self.config = config
+        # 켜 둔 핵. 게이지 충전은 표(buffs)가 아니라 **시간**의 문제라 여기서 직접 읽는다.
+        self.cheats = cheats_from_config(config)
         # 족자 중에는 평타가 빗나가니 버스트 게이지도 안 찬다 — 옵션이다.
         # 기본은 켬이며, 옵션을 끄면 족자 중에도 충전이 이어진다.
         self._gauge_blocked = (
@@ -1795,7 +1806,8 @@ class BurstController:
         self._cd_applied_at_cast: dict[str, float] = {n: 0.0 for n in self.squad_names}
 
         # 버스트 게이지 충전 완료 시각 — 첫 버스트는 burst_regen_time 무시, first_burst_time에 발동
-        _first_burst_t = config.get("first_burst_time", 3.0)
+        # 핵을 켜면 첫 게이지도 이미 차 있다 — 충전 시간이 0이라는 말이 그 뜻이다.
+        _first_burst_t = 0.0 if self.cheats.burst_charge else config.get("first_burst_time", 3.0)
         self.gauge_full_at: dict[str, float] = {
             c["name"]: _first_burst_t for c in squad
         }
@@ -1858,6 +1870,10 @@ class BurstController:
             if self._log is not None:
                 self._log.burst_log.append(BurstLogEntry(t=t, event="full_burst 종료", caster=""))
             for name in self.squad_names:
+                if self.cheats.burst_charge:
+                    # 충전 시간 0. 족자로 멈추고 말고 할 것도 없이 그 자리에서 다 찬다.
+                    self.gauge_full_at[name] = t
+                    continue
                 regen = self.char_states[name].char.get("burst_regen_time", 2.0)
                 self.gauge_full_at[name] = charge_end(t, regen, self._gauge_blocked)
             self._burst_count += 1
@@ -2183,6 +2199,10 @@ class BurstController:
         cd_buff = buffs.get("burst_cooldown", 0.0)
         self._cd_applied_at_cast[name] = cd_buff
         cd = max(0.0, cd - cd_buff)
+        # 핵: 충전이 없다는 말은 게이지뿐 아니라 **버스트 쿨도 없다**는 뜻이다.
+        # 게이지만 0으로 두면 쿨이 그대로라 사이클 수가 그대로다 — 그건 핵이 아니다.
+        if self.cheats.burst_charge:
+            cd = 0.0
         self.burst_ready_at[name] = t + cd
 
         bm.notify("burst_cast", t, name)
@@ -2458,6 +2478,8 @@ def simulate(
     }
 
     bm = BuffManager(squad, state)
+    # 핵(`calculator/cheats.py`). 켜져 있으면 get_buffs가 내는 표마다 얹힌다.
+    bm.cheats = cheats_from_config(cfg)
     burst_ctrl = BurstController(squad, cfg, char_states, enm)
     _register_instant_handlers(bm, char_states, burst_ctrl)
 

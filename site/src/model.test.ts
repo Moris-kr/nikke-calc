@@ -391,3 +391,35 @@ describe('formatDamage', () => {
     expect(validateRequest({ ...valid, burstRegenTime: 2.8 })).toEqual([]);
   });
 });
+
+describe('핵', () => {
+  const deck: DeckState = { id: 1, squad: ['리타'], characters: {} };
+
+  it('안 켰으면 요청에 아예 없다', () => {
+    // 켠 적 없는 사람의 캐시 키가 갈리면 예전 결과가 통째로 버려진다.
+    expect(requestForDeck(deck, battle)).not.toHaveProperty('hacks');
+    expect(requestForDeck(deck, {
+      ...battle,
+      hacks: { burstCharge: false, infiniteAmmo: false, alwaysCrit: false, damageMult: 1 },
+    })).not.toHaveProperty('hacks');
+  });
+
+  it('켠 것이 있으면 정규화해 싣는다', () => {
+    const request = requestForDeck(deck, {
+      ...battle,
+      hacks: { burstCharge: true, infiniteAmmo: false, alwaysCrit: false, damageMult: 0 },
+    });
+    // 말이 안 되는 배수(0)는 1로 돌아가고, 켠 스위치는 그대로 실린다.
+    expect(request.hacks)
+      .toEqual({ burstCharge: true, infiniteAmmo: false, alwaysCrit: false, damageMult: 1 });
+  });
+
+  it('핵이 다르면 캐시 키도 다르다', () => {
+    const plain = requestForDeck(deck, battle);
+    const hacked = requestForDeck(deck, {
+      ...battle,
+      hacks: { burstCharge: false, infiniteAmmo: false, alwaysCrit: true, damageMult: 1 },
+    });
+    expect(cacheKey(hacked, 'v1')).not.toBe(cacheKey(plain, 'v1'));
+  });
+});

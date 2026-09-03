@@ -47,6 +47,10 @@ import {
 } from './share-code';
 import { LATEST_NOTICE_ID, NOTICES, noticeFragment, noticeToShow } from './notices';
 import { mountSharePanel, squadPreview, type SharePanel } from './share-panel';
+import {
+  activeHacks, HACK_DMG_MULT_MAX, hacksOn, NO_HACKS, normalizeHacks,
+} from './hacks';
+import type { HackSettings } from './hacks';
 import { startPresence } from './presence';
 import { mountUnionRaid, type UnionHandle } from './union-raid';
 import { mountBossMaker, type BossMakerHandle } from './boss-maker-view';
@@ -813,6 +817,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
               <button type="button" class="settings-tab" data-settings-tab="maker" role="tab" aria-selected="false" title="보스의 모양·코어·파츠를 직접 그려 두고, 그 위에서 덱의 사격을 읽습니다. 구성은 PC에서만 됩니다">보스 메이커<b class="tab-beta">BETA</b></button>
             </div>
             <div class="target-actions">
+              <!-- 핵은 창 안 탭에 살지만, 들어가는 문은 밖에 내놓는다 — 찾으려고
+                   전투 조건을 뒤지게 하면 그건 숨겨 둔 것이지 «기능»이 아니다. -->
+              <button type="button" class="hack-open" data-hack-open title="인게임에 없는 값을 억지로 켭니다. 여기서 낸 수치는 실제와 다릅니다"><b aria-hidden="true">☠</b> 핵 사용</button>
               <button type="button" class="reset-enemy" data-battle-share-open title="전투 조건을 코드로 만들어 공유하거나, 받은 코드를 붙여넣어 적용합니다">전투 조건 공유</button>
               <button type="button" class="reset-enemy" data-reset-enemy>적 수치 초기화</button>
               <button type="button" class="reset-enemy" data-clear-cache title="같은 조건에 저장된 결과를 지우고 다음 실행부터 새로 계산합니다">저장된 결과 지우기</button>
@@ -840,6 +847,14 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
               <input type="checkbox" data-quick-core /><span class="toggle"></span><span>코어 있음</span>
             </label>
           </div>
+          <!-- 핵을 켜 두면 결과가 인게임과 다르다. 그 사실은 결과를 보기 전에,
+               실행 단추 바로 위에서 읽혀야 한다. -->
+          <div class="hack-banner" data-hack-banner hidden>
+            <b class="hack-banner-mark" aria-hidden="true">☠</b>
+            <span class="hack-banner-text">핵 사용 중 — 이 수치는 <b>인게임과 다릅니다</b></span>
+            <span class="hack-banner-list" data-hack-banner-list></span>
+            <button type="button" class="hack-banner-off" data-hack-off>전부 끄기</button>
+          </div>
           <div class="cond-bar">
             <button type="button" class="battle-open" data-battle-open aria-expanded="false">
               <span class="battle-open-label">전투 조건</span>
@@ -864,7 +879,13 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
                기준으로 걸려 있어, 밖으로 빼면 값을 바꿔도 저장되지 않는다. -->
           <div class="custom-modal" data-battle-modal hidden>
           <div class="custom-card battle-card" role="dialog" aria-label="전투 조건">
-          <div class="custom-head"><h2>전투 조건</h2><button type="button" class="custom-close" data-battle-modal-close aria-label="닫기">✕</button></div>
+          <div class="custom-head"><h2 data-battle-title>전투 조건</h2><button type="button" class="custom-close" data-battle-modal-close aria-label="닫기">✕</button></div>
+          <!-- 핵은 «전투 조건의 한 항목»이 아니라 이 계산기의 약속을 깨는 다른 세계다.
+               같은 판에 섞어 두면 실수로 켜지므로 탭으로 갈라 두고, 그 탭만 요란하게 만든다. -->
+          <div class="battle-tabs" role="tablist" aria-label="전투 조건 보기">
+            <button type="button" class="battle-tab is-on" data-battle-tab="battle" role="tab" aria-selected="true">전투 조건</button>
+            <button type="button" class="battle-tab hack-tab" data-battle-tab="hack" role="tab" aria-selected="false" title="인게임에 없는 값을 억지로 켭니다. 여기서 낸 수치는 실제와 다릅니다"><b aria-hidden="true">☠</b> 핵 사용</button>
+          </div>
           <div class="battle-body" data-battle-body>
           <div class="field-grid">
             <label><span>전투 시간</span><div class="input-unit"><input id="duration" type="number" min="10" max="180" step="1" value="180" /><em>초</em></div></label>
@@ -918,6 +939,39 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <div class="console-grid" data-console-grid></div>
             <p class="field-note">계정 설정이라 스쿼드 전원에게 같이 적용됩니다. 클래스·기업은 인게임에서 소속별로 따로 크므로 각각 받습니다. 기업은 공격력, 공통·클래스는 체력을 올립니다 — 체력 계수를 쓰는 캐릭터(신데렐라 등)는 공통·클래스도 딜에 반영됩니다.</p>
           </section>
+          </div>
+          <div class="hack-body" data-hack-body hidden>
+            <div class="hack-hero">
+              <div class="hack-hero-bar" aria-hidden="true"></div>
+              <b class="hack-hero-tag">CHEAT MODE</b>
+              <p class="hack-hero-line">7일만 쉬면 된다는 게임사의 공식적인 입장이 있었으니 마음껏 쓰세요</p>
+              <a class="hack-hero-link" href="https://gall.dcinside.com/mgallery/board/view/?id=gov&amp;no=6103271" target="_blank" rel="noreferrer noopener">공식적인 입장 보러 가기 ↗</a>
+            </div>
+            <div class="hack-grid">
+              <label class="hack-card">
+                <input type="checkbox" id="hack-burst-charge" />
+                <span class="hack-switch" aria-hidden="true"></span>
+                <span class="hack-text"><b>버충무한핵</b><em>버스트 게이지 충전과 버스트 쿨타임이 <b>0초</b>가 됩니다 — 풀버스트가 거의 끊기지 않습니다.</em></span>
+              </label>
+              <label class="hack-card">
+                <input type="checkbox" id="hack-infinite-ammo" />
+                <span class="hack-switch" aria-hidden="true"></span>
+                <span class="hack-text"><b>무한장탄핵</b><em>탄창이 비지 않아 <b>재장전이 사라집니다</b>. 탄은 그대로 소비한 것으로 세므로 「아군 탄 소비 N발마다」 효과는 계속 터지고, 대신 탄창이 안 비니 「마지막 탄」 효과는 나오지 않습니다.</em></span>
+              </label>
+              <label class="hack-card">
+                <input type="checkbox" id="hack-always-crit" />
+                <span class="hack-switch" aria-hidden="true"></span>
+                <span class="hack-text"><b>올크리핵</b><em>크리티컬 확률이 <b>100%</b>가 됩니다. 크리 대미지 버프는 그대로 얹힙니다.</em></span>
+              </label>
+              <label class="hack-card hack-card-wide">
+                <input type="checkbox" id="hack-damage" />
+                <span class="hack-switch" aria-hidden="true"></span>
+                <span class="hack-text"><b>대미지증가핵</b><em>최종 대미지에 정한 배수를 곱합니다. 계산식 <b>바깥에서</b> 곱하므로 다른 값에는 영향을 주지 않습니다.</em></span>
+                <span class="hack-mult"><input type="number" id="hack-damage-mult" min="1" max="${HACK_DMG_MULT_MAX}" step="0.1" value="2" aria-label="대미지 배수" /><em>배</em></span>
+              </label>
+            </div>
+            <p class="hack-note">여기서 낸 수치는 <b>인게임과 다릅니다.</b> 핵은 이 브라우저에만 남고 <b>공유 코드에는 담기지 않습니다</b> — 남이 준 전투 조건을 적용해도 몰래 켜지지 않습니다.</p>
+          </div>
           </div>
           </div>
           </div>
@@ -2619,6 +2673,28 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     refreshBattleSummary();
   });
 
+  // ── 핵 ────────────────────────────────────────────────────────────────
+  // 인게임에 없는 값을 억지로 켜는 스위치(`site/src/hacks.ts`). 전투 조건 창의 다른
+  // 탭에 살고, 켜져 있으면 실행 줄 위에서 화면이 크게 떠든다.
+  const hackDamage = element<HTMLInputElement>(root, '#hack-damage');
+  const hackDamageMult = element<HTMLInputElement>(root, '#hack-damage-mult');
+  const readHacks = (): HackSettings => normalizeHacks({
+    burstCharge: element<HTMLInputElement>(root, '#hack-burst-charge').checked,
+    infiniteAmmo: element<HTMLInputElement>(root, '#hack-infinite-ammo').checked,
+    alwaysCrit: element<HTMLInputElement>(root, '#hack-always-crit').checked,
+    // 스위치를 끄면 배수 칸에 적힌 값과 무관하게 안 걸린다 — 켠 것만 걸리는 게 맞다.
+    damageMult: hackDamage.checked ? Number(hackDamageMult.value) : 1,
+  });
+  const writeHacks = (hacks: HackSettings | undefined) => {
+    const value = normalizeHacks(hacks ?? NO_HACKS);
+    element<HTMLInputElement>(root, '#hack-burst-charge').checked = value.burstCharge;
+    element<HTMLInputElement>(root, '#hack-infinite-ammo').checked = value.infiniteAmmo;
+    element<HTMLInputElement>(root, '#hack-always-crit').checked = value.alwaysCrit;
+    hackDamage.checked = value.damageMult !== 1;
+    // 껐다 켤 때 «직전에 쓰던 배수»가 남아 있게, 1일 때는 칸을 건드리지 않는다.
+    if (value.damageMult !== 1) hackDamageMult.value = String(value.damageMult);
+  };
+
   const readBattle = (): BattleSettings => ({
     duration: Number(element<HTMLInputElement>(root, '#duration').value),
     synchroLevel: Number(element<HTMLInputElement>(root, '#synchro-level').value),
@@ -2640,6 +2716,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     ...(element<HTMLInputElement>(root, '#burst-regen-per-deck').checked
       ? { burstRegenPerDeck: readDeckRegen() } : {}),
     burstReaction: Number(element<HTMLInputElement>(root, '#burst-reaction').value),
+    hacks: readHacks(),
     console: {
       common_level: Number(consoleCommon.value),
       class_level: readConsoleBuckets('class'),
@@ -2672,6 +2749,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     // 이 항목이 생기기 전에 저장된 설정에는 없다 — 기본값으로 채운다.
     element<HTMLInputElement>(root, '#burst-reaction').value =
       String(battle.burstReaction ?? DEFAULT_BURST_REACTION);
+    writeHacks(battle.hacks);
     writeDeckRegen(battle.burstRegenPerDeck, battle.burstRegenTime);
     if (battle.console) {
       consoleCommon.value = String(battle.console.common_level);
@@ -2695,11 +2773,28 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   // 만져도 반대쪽이 따라온다 — 두 벌로 두면 무엇이 진짜인지 알 수 없게 된다.
   const quickCode = element<HTMLSelectElement>(root, '[data-quick-enemy-code]');
   const quickCore = element<HTMLInputElement>(root, '[data-quick-core]');
+  const hackBanner = element<HTMLElement>(root, '[data-hack-banner]');
+  const hackBannerList = element<HTMLElement>(root, '[data-hack-banner-list]');
+  const settingsPanel = element<HTMLElement>(root, '.settings-panel');
+  const refreshHacks = (hacks: HackSettings) => {
+    const on = hacksOn(hacks);
+    hackBanner.hidden = !on;
+    hackBannerList.textContent = activeHacks(hacks).join(' · ');
+    // 판 전체에 표를 남긴다 — 배너 한 줄은 스크롤 밖으로 나가지만 테두리는 남는다.
+    settingsPanel.classList.toggle('is-hacked', on);
+    // 결과 판에도 찍는다. 사람들은 결과만 잘라 올리므로, 그 그림 안에 «핵»이
+    // 함께 찍혀 있어야 한다 — 안 그러면 이 계산기가 낸 거짓말이 홀로 돌아다닌다.
+    resultPanel.classList.toggle('is-hacked', on);
+    hackDamageMult.disabled = !hackDamage.checked;
+    // 켜 둔 채로 창을 닫아도 탭이 계속 뛴다.
+    for (const tab of root.querySelectorAll('.hack-tab')) tab.classList.toggle('is-live', on);
+  };
   const refreshBattleSummary = () => {
     const battle = readBattle();
     battleSummary.textContent = summarizeBattle(battle);
     quickCode.value = battle.enemyCode;
     quickCore.checked = battle.coreEnabled;
+    refreshHacks(battle.hacks ?? NO_HACKS);
   };
   quickCode.addEventListener('change', () => {
     element<HTMLSelectElement>(root, '#enemy-code').value = quickCode.value;
@@ -2711,6 +2806,34 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     coreToggle.dispatchEvent(new Event('change', { bubbles: true }));
     refreshBattleSummary();
   });
+  // 전투 조건 ↔ 핵 탭. 창 제목도 함께 바뀐다 — 무엇을 보고 있는지 헷갈리면 안 된다.
+  const battleTabs = [...root.querySelectorAll<HTMLButtonElement>('[data-battle-tab]')];
+  const hackBody = element<HTMLElement>(root, '[data-hack-body]');
+  const battleBody = element<HTMLElement>(root, '[data-battle-body]');
+  const battleTitle = element<HTMLElement>(root, '[data-battle-title]');
+  const battleCard = element<HTMLElement>(root, '.battle-card');
+  const showBattleTab = (which: string) => {
+    const hack = which === 'hack';
+    for (const tab of battleTabs) {
+      const on = tab.dataset.battleTab === which;
+      tab.classList.toggle('is-on', on);
+      tab.setAttribute('aria-selected', String(on));
+    }
+    battleBody.hidden = hack;
+    hackBody.hidden = !hack;
+    battleTitle.textContent = hack ? '핵 사용' : '전투 조건';
+    // 창 전체가 붉게 물든다 — 다른 세계에 들어와 있다는 것이 배경에서도 읽혀야 한다.
+    battleCard.classList.toggle('is-hack', hack);
+  };
+  for (const tab of battleTabs) {
+    tab.addEventListener('click', () => showBattleTab(tab.dataset.battleTab ?? 'battle'));
+  }
+  element<HTMLButtonElement>(root, '[data-hack-off]').addEventListener('click', () => {
+    writeHacks(NO_HACKS);
+    saveState();
+    refreshBattleSummary();
+  });
+
   /** 첫 계산 전 강조. 한 번이라도 열어 봤거나 계산을 돌렸으면 더 붙잡지 않는다. */
   const settleBattleNote = () => { battleFirstNote.hidden = true; };
   const setBattleOpen = (open: boolean) => {
@@ -2719,7 +2842,11 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     refreshBattleSummary();
     if (open) settleBattleNote();
   };
-  battleOpen.addEventListener('click', () => { setBattleOpen(true); });
+  battleOpen.addEventListener('click', () => { setBattleOpen(true); showBattleTab('battle'); });
+  element<HTMLButtonElement>(root, '[data-hack-open]').addEventListener('click', () => {
+    setBattleOpen(true);
+    showBattleTab('hack');
+  });
   element<HTMLButtonElement>(root, '[data-battle-modal-close]')
     .addEventListener('click', () => setBattleOpen(false));
   battleModal.addEventListener('click', (event) => {
@@ -3907,11 +4034,17 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     battleShareMsg.classList.toggle('is-ok', ok);
   };
 
-  /** 받은 전투 조건을 얹는다. 콘솔과 싱크로 레벨은 코드에 없으므로 내 값을 그대로 둔다. */
+  /**
+   * 받은 전투 조건을 얹는다. 콘솔과 싱크로 레벨은 코드에 없으므로 내 값을 그대로 둔다.
+   * 핵도 마찬가지다 — 코드에 담기지 않으니, 남의 코드를 적용했다고 **내가 켜 둔 것이
+   * 조용히 꺼지지도** 남의 것이 켜지지도 않는다.
+   */
   const applyBattleCode = (code: string): void => {
     const applied = decodeBattleCode(code);
     const mine = readBattle();
-    writeBattle({ ...applied, console: mine.console, synchroLevel: mine.synchroLevel });
+    writeBattle({
+      ...applied, console: mine.console, synchroLevel: mine.synchroLevel, hacks: mine.hacks,
+    });
     corePxInput.disabled = !applied.coreEnabled;
     saveState();
     showErrors([]);

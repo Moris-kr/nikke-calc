@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from calculator.base_stat import NO_ITEM
+from calculator.cheats import NO_CHEATS, Cheats
 
 _DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 _TABLE_DIR = os.path.join(_DATA_DIR, "base_stat_tables")
@@ -488,6 +489,9 @@ class BuffManager:
         self.squad = squad
         self.squad_names = [c["name"] for c in squad]
         self.state = state or {}
+
+        # 켜 둔 핵. `simulate`가 config에서 읽어 꽂아 준다 — 기본은 아무것도 안 켠 것.
+        self.cheats: Cheats = NO_CHEATS
 
         # 캐릭터명 → 인스턴스 빠른 접근
         self._char = {c["name"]: c for c in squad}
@@ -3162,6 +3166,11 @@ class BuffManager:
             overflow = max(0.0, buffs["charge_speed_pct"] - 100.0)
             if overflow > 0.0:
                 buffs["charge_dmg_pct"] += overflow * conv / 100.0
+
+        # 핵(`calculator/cheats.py`)은 계산식이 아니라 **입력 표**를 바꾼다 — 크리 확률과
+        # 무한 장탄은 엔진에 이미 있는 값이라 여기서 얹으면 모든 딜 경로가 함께 따라온다.
+        if self.cheats.on:
+            self.cheats.apply_to_buffs(buffs)
 
         self._buffs_cache[cache_key] = buffs
         return buffs
