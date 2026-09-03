@@ -1826,11 +1826,13 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     for (const section of GUIDE) {
       const block = document.createElement('section');
       block.className = 'guide-section';
-      block.append(createText('h3', section.title));
+      // 설명서는 문장 안에 <b>·<code>가 섞여 있다. 그런 글은 DOM 훑기로 조각조각
+      // 바꾸면 문장이 부서지므로, **문장 통째로** 사전을 지난다.
+      block.append(createText('h3', t(section.title)));
       if (section.lead) {
         const lead = document.createElement('p');
         lead.className = 'guide-lead';
-        lead.innerHTML = section.lead;
+        lead.innerHTML = t(section.lead);
         block.append(lead);
       }
       for (const entry of section.entries) {
@@ -1838,10 +1840,10 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         row.className = 'guide-entry';
         const head = document.createElement('p');
         head.className = 'guide-term';
-        head.append(createText('b', entry.term), createText('em', entry.where));
+        head.append(createText('b', t(entry.term)), createText('em', t(entry.where)));
         const body = document.createElement('p');
         body.className = 'guide-what';
-        body.innerHTML = entry.what;
+        body.innerHTML = t(entry.what);
         row.append(head, body);
         block.append(row);
       }
