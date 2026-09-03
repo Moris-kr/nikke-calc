@@ -2437,6 +2437,35 @@ describe('calculator UI', () => {
     expect(widths().length).toBeGreaterThan(0);
   }, 20_000);
 
+  it('이름으로 편성 — 친 글자 통째로 니케를 빼고 더해 등록한다', () => {
+    // 글자마다 고르는 것으로는 «한 명 더»도 «이 사람은 빼»도 할 수 없다.
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    root.querySelector<HTMLButtonElement>('[data-abbrev-open]')!.click();
+    const input = root.querySelector<HTMLInputElement>('[data-abbrev-input]')!;
+    input.value = '리크';
+    root.querySelector<HTMLButtonElement>('[data-abbrev-apply]')!.click();
+
+    const chips = () => [...root.querySelectorAll<HTMLElement>('[data-abbrev-chip]')]
+      .map((chip) => chip.dataset.abbrevChip!);
+    expect(chips()).toEqual(['리타', '크라운']);
+
+    // 한 명 빼고
+    root.querySelector<HTMLButtonElement>('[data-abbrev-chip="크라운"] .abbrev-chip-x')!.click();
+    expect(chips()).toEqual(['리타']);
+    // 한 명 더한다
+    const add = root.querySelector<HTMLSelectElement>('[data-abbrev-add]')!;
+    add.value = '앨리스';
+    add.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(chips()).toEqual(['리타', '앨리스']);
+
+    root.querySelector<HTMLButtonElement>('[data-abbrev-save-whole]')!.click();
+    // 등록하면 그 자리에서 다시 풀어 편성까지 바뀐다.
+    expect(savedSquad().slice(0, 2)).toEqual(['리타', '앨리스']);
+    const mine = JSON.parse(localStorage.getItem('nikke-abbrev-mine-v1')!) as
+      { rules: Array<{ key: string; names: string[] }> };
+    expect(mine.rules).toContainEqual({ key: '리크', names: ['리타', '앨리스'] });
+  });
+
   // ── 핵 ────────────────────────────────────────────────────────────────
   describe('핵', () => {
     const openHacks = (client: CalculatorClientLike) => {

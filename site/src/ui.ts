@@ -574,7 +574,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           <p class="eyebrow">BROWSER SIM <span>·</span> 60 FPS TIMELINE</p>
           <h1><span>NIKKE</span> 스쿼드 계산기</h1>
           <p class="hero-lede">캐릭터별 오버로드와 큐브, 전투 조건을 반영해 프레임 단위 예상 대미지를 계산합니다.</p>
-          <div class="trust-row" aria-label="서비스 특징"><span>${t('{n}명 지원', { n: catalog.length })}</span><span class="online-now" data-online hidden title="최근 1~2분 사이에 이 계산기를 연 사람 수입니다. 탭을 숨기면 세지 않습니다"><b class="online-dot" aria-hidden="true"></b><span data-online-text></span></span><select class="lang-pick" data-lang-pick aria-label="언어 / Language">${LANGS.map((entry) => `<option value="${entry.code}">${entry.label}</option>`).join('')}</select><button type="button" class="notice-open" data-guide-open title="화면의 각 기능이 무엇을 하는지 봅니다">사용 설명서</button><button type="button" class="notice-open" data-notice-open title="지금까지 무엇이 바뀌었는지 봅니다">업데이트 내역</button>${SHARE_API ? '<button type="button" class="notice-open" data-feedback-open title="불편한 점·바라는 점을 남깁니다. 올린 글은 모두에게 보입니다">피드백</button>' : ''}<a class="credit-link" href="https://github.com/Jgaram/nikke-calc" target="_blank" rel="noreferrer noopener" title="이 계산기의 원본 저장소">원본 알고리즘 개발자에게 무한한 감사를</a></div>
+          <div class="trust-row" aria-label="서비스 특징"><span>${t('{n}명 지원', { n: catalog.length })}</span><span class="online-now" data-online hidden title="최근 1~2분 사이에 이 계산기를 연 사람 수입니다. 탭을 숨기면 세지 않습니다"><b class="online-dot" aria-hidden="true"></b><span data-online-text></span></span><span class="lang-field" title="Language · 言語 · 언어"><svg class="lang-globe" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="6.2" /><path d="M1.8 8h12.4" /><path d="M8 1.8c1.9 2.1 2.9 4.1 2.9 6.2s-1 4.1-2.9 6.2c-1.9-2.1-2.9-4.1-2.9-6.2s1-4.1 2.9-6.2z" /></svg><select class="lang-pick" data-lang-pick aria-label="Language · 言語 · 언어">${LANGS.map((entry) => `<option value="${entry.code}">${entry.label}</option>`).join('')}</select></span><button type="button" class="notice-open" data-guide-open title="화면의 각 기능이 무엇을 하는지 봅니다">사용 설명서</button><button type="button" class="notice-open" data-notice-open title="지금까지 무엇이 바뀌었는지 봅니다">업데이트 내역</button>${SHARE_API ? '<button type="button" class="notice-open" data-feedback-open title="불편한 점·바라는 점을 남깁니다. 올린 글은 모두에게 보입니다">피드백</button>' : ''}<a class="credit-link" href="https://github.com/Jgaram/nikke-calc" target="_blank" rel="noreferrer noopener" title="이 계산기의 원본 저장소">원본 알고리즘 개발자에게 무한한 감사를</a></div>
         </div>
         <div class="hero-orbit" aria-hidden="true"><span>01</span><strong>LOCAL<br />SIM</strong></div>
       </header>
@@ -1082,6 +1082,15 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <div class="abbrev-picks" data-abbrev-picks></div>
             <div class="deck-copy-actions">
               <button type="button" class="deck-copy-apply" data-abbrev-save>이 뜻으로 등록</button>
+            </div>
+            <!-- 글자마다 고르는 것으로는 «한 명 더»도 «이 사람은 빼»도 할 수 없다 —
+                 끊긴 자리가 정해져 있기 때문이다. 그래서 결과를 통째로 고치는 자리를
+                 따로 둔다: 친 글자 전체를 이 목록으로 등록한다. -->
+            <p class="abbrev-fix-head abbrev-whole-head"><b>친 글자 통째로</b> 이 편성으로 등록할 수도 있습니다 — 한 명을 빼거나 더할 때 씁니다.</p>
+            <div class="abbrev-whole" data-abbrev-whole></div>
+            <div class="abbrev-row">
+              <select class="abbrev-add" data-abbrev-add aria-label="니케 더하기"></select>
+              <button type="button" class="deck-copy-apply" data-abbrev-save-whole>이 약어를 이대로 등록</button>
             </div>
             <p class="custom-desc abbrev-collect">등록한 뜻은 <b>모두가 함께 쓰는 사전</b>으로 서버에 모입니다 — 보내는 것은 <b>친 글자와 고른 니케 이름뿐</b>이고, 편성·스펙·계정 정보는 보내지 않습니다. 같은 약어에 답이 갈리면 표가 많은 쪽이 사전이 됩니다.</p>
           </div>
@@ -4416,11 +4425,15 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   // 인게임 도감이 이 방식이라 익숙하고, 하나만 고르는 것보다 훨씬 빨리 좁혀진다.
   // `item`은 애장품 유무다 — 다른 칸과 달리 카탈로그가 아니라 설정 표(`favoriteItem`)를
   // 봐야 알 수 있어서 값이 「있음」·「없음」 둘뿐이다.
-  type FilterKey = 'burst' | 'rarity' | 'class' | 'code' | 'weapon' | 'corp' | 'item';
+  // `item`은 애장품 유무, `own`은 불러온 프로필에 있는가다 — 둘 다 카탈로그가 아니라
+  // 다른 표를 봐야 알 수 있어서 값이 「있음」·「없음」 둘뿐이다.
+  type FilterKey = 'burst' | 'rarity' | 'class' | 'code' | 'weapon' | 'corp' | 'item' | 'own';
   const picked: Record<FilterKey, Set<string>> = {
     burst: new Set(), rarity: new Set(), class: new Set(),
-    code: new Set(), weapon: new Set(), corp: new Set(), item: new Set(),
+    code: new Set(), weapon: new Set(), corp: new Set(), item: new Set(), own: new Set(),
   };
+  /** 불러온 프로필이 있어야 «보유»를 말할 수 있다. 없으면 그 칸 자체를 안 만든다. */
+  const knowsRoster = (): boolean => Object.keys(roster).length > 0;
   type SortKey = 'power' | 'name' | 'element' | 'elementAtk';
   // 처음 보이는 순서는 전투력 높은 순이다 — 목록에서 먼저 찾는 것이 «내가 키운
   // 니케»라, 가나다순으로 세워 두면 매번 스크롤해서 찾아야 한다.
@@ -4481,13 +4494,16 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
   /** 버스트만 판 밖에 있다 — 값은 여기 두고 그리는 자리만 다르다. */
   const BURST_VALUES = ['1', '2', '3', 'A'];
-  const FILTER_GROUPS: Array<{ key: FilterKey; title: string; values: string[] }> = [
+  const filterGroups = (): Array<{ key: FilterKey; title: string; values: string[] }> => [
     { key: 'rarity', title: '등급', values: ['SSR', 'SR', 'R'] },
     { key: 'class', title: '클래스', values: ['화력형', '방어형', '지원형'] },
     { key: 'code', title: '코드', values: ['작열', '수냉', '풍압', '전격', '철갑'] },
     { key: 'weapon', title: '무기', values: ['AR', 'SMG', 'SG', 'SR', 'RL', 'MG'] },
     { key: 'corp', title: '기업', values: ['엘리시온', '미실리스', '테트라', '필그림', '어브노말'] },
     { key: 'item', title: '애장품', values: ['있음', '없음'] },
+    // 프로필을 불러온 뒤에만 뜻이 있는 칸이라 그때만 만든다.
+    ...(knowsRoster()
+      ? [{ key: 'own' as FilterKey, title: '보유', values: ['보유', '미보유'] }] : []),
   ];
 
   const labelOf = (key: FilterKey, value: string) =>
@@ -4529,7 +4545,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     const label = SORTS.find((s) => s.key === sortKey)?.label;
     const pending = sortKey === 'power' && Object.keys(combatPower).length === 0;
     parts.push(`${label}${pending ? ' 계산중' : sortDesc ? ' ▼' : ' ▲'}`);
-    for (const key of ['burst', ...FILTER_GROUPS.map((group) => group.key)] as FilterKey[]) {
+    for (const key of ['burst', ...filterGroups().map((group) => group.key)] as FilterKey[]) {
       const set = picked[key];
       if (set.size > 0) {
         parts.push([...set].map((value) => labelOf(key, value)).join('·'));
@@ -4589,7 +4605,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
     const box = element<HTMLElement>(root, '[data-filter-groups]');
     box.replaceChildren();
-    for (const group of FILTER_GROUPS) {
+    for (const group of filterGroups()) {
       const section = document.createElement('div');
       section.className = 'filter-section';
       section.append(createText('p', group.title, 'filter-title'));
@@ -4648,11 +4664,19 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     renderSquad();
   });
 
-  /** 이 니케의 지금 육성값. 덱에 잡아 둔 것 > 불러온 프로필 > 카탈로그 기본값. */
+  /**
+   * 이 니케의 지금 육성값. 덱에 잡아 둔 것 > 불러온 프로필 순이다.
+   *
+   * **둘 다 없으면 아무것도 적지 않는다.** 카탈로그 기본값(3돌 · SR15)을 적으면 안
+   * 키운 니케까지 «3돌 SR15»로 보여, 목록이 내 계정에 대해 거짓말을 하게 된다 —
+   * 계산은 그 기본값으로 도는 것이 맞지만 그것은 딱지가 할 말이 아니다.
+   * 프로필을 불러온 사람에게는 대신 「미보유」라고 적는다.
+   */
   const growthShownFor = (name: string): { stars: string; item: string } | null => {
     const meta = settings.characters[name];
     if (!meta) return null;
     const own = activeDeck().characters[name] ?? roster[name];
+    if (!own) return knowsRoster() ? { stars: '', item: '미보유' } : null;
     const stage = own?.growthStage ?? meta.growthStage ?? 0;
     const slots = Math.min(meta.maxGrowthStage, 3);
     const core = Math.max(0, stage - 3);
@@ -4694,7 +4718,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         && hit('code', char.elementCode)
         && hit('weapon', char.weaponType)
         && hit('corp', char.manufacturer)
-        && hit('item', meta?.favoriteItem ? '있음' : '없음');
+        && hit('item', meta?.favoriteItem ? '있음' : '없음')
+        && hit('own', roster[char.name] ? '보유' : '미보유');
     });
     sortRoster(narrowed);
     // 칩으로 먼저 좁히고 검색어로 세운다. 검색은 초성과 구분자까지 받아
@@ -5366,6 +5391,50 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   };
 
   /** 「원하는 대로 나오지 않나요?」 — 글자마다 무엇으로 읽었는지 보이고 고치게 한다. */
+  /** 「친 글자 통째로」가 등록할 이름들. 칩을 지우거나 더해 손으로 고친다. */
+  let abbrevWhole: string[] = [];
+
+  const renderAbbrevWhole = () => {
+    const box = element<HTMLElement>(root, '[data-abbrev-whole]');
+    box.replaceChildren();
+    if (abbrevWhole.length === 0) {
+      box.append(createText('span', '아무도 없습니다 — 아래에서 골라 더해 주세요.', 'field-note'));
+    }
+    for (const [at, name] of abbrevWhole.entries()) {
+      const chip = document.createElement('span');
+      chip.className = 'abbrev-chip';
+      chip.dataset.abbrevChip = name;
+      chip.append(createText('b', tName(name)));
+      const drop = document.createElement('button');
+      drop.type = 'button';
+      drop.className = 'abbrev-chip-x';
+      drop.textContent = '✕';
+      drop.title = `${name} 빼기`;
+      drop.addEventListener('click', () => {
+        abbrevWhole.splice(at, 1);
+        renderAbbrevWhole();
+      });
+      chip.append(drop);
+      box.append(chip);
+    }
+    // 더하기 목록에는 이미 든 사람을 빼고 세운다 — 같은 니케를 두 번 넣을 자리가 없다.
+    const add = element<HTMLSelectElement>(root, '[data-abbrev-add]');
+    add.replaceChildren();
+    const blank = document.createElement('option');
+    blank.value = '';
+    blank.textContent = '니케 더하기…';
+    add.append(blank);
+    for (const char of [...catalogByName.values()]
+      .filter((entry) => !abbrevWhole.includes(entry.name))
+      .sort((a, b) => tName(a.name).localeCompare(tName(b.name)))) {
+      const option = document.createElement('option');
+      option.value = char.name;
+      option.textContent = tName(char.name);
+      add.append(option);
+    }
+    add.value = '';
+  };
+
   const renderAbbrevPicks = (parse: AbbrevParse) => {
     abbrevPicks.replaceChildren();
     for (const segment of parse.segments) {
@@ -5382,6 +5451,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       }
       abbrevPicks.append(cell);
     }
+    // 통째로 고치는 자리는 «지금 나온 결과»에서 시작한다.
+    abbrevWhole = [...parse.names];
+    renderAbbrevWhole();
     abbrevFix.hidden = parse.segments.length === 0;
   };
 
@@ -5478,6 +5550,44 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     if (event.key === 'Enter') { event.preventDefault(); runAbbrev(); }
   });
   abbrevSave.addEventListener('click', () => { void saveAbbrev(); });
+  element<HTMLSelectElement>(root, '[data-abbrev-add]').addEventListener('change', (event) => {
+    const pick = (event.target as HTMLSelectElement).value;
+    if (!pick) return;
+    if (abbrevWhole.length >= 5) {
+      setAbbrevMsg('한 편성은 다섯 명까지입니다.');
+      renderAbbrevWhole();
+      return;
+    }
+    abbrevWhole.push(pick);
+    renderAbbrevWhole();
+  });
+
+  /**
+   * 친 글자 통째로 등록한다. 글자마다의 뜻으로는 «한 명 더»도 «이 사람은 빼»도
+   * 할 수 없어서(끊긴 자리가 이미 정해져 있다) 이 길을 따로 둔다.
+   */
+  const saveAbbrevWhole = async () => {
+    const key = normalizeAbbrev(abbrevInput.value);
+    if (!key) { setAbbrevMsg('앞글자를 이어서 적어 주세요.'); return; }
+    if (abbrevWhole.length === 0) { setAbbrevMsg('등록할 니케를 골라 주세요.'); return; }
+    const rule: AbbrevRule = { key, names: [...abbrevWhole] };
+    myAbbrev = mergeRules(myAbbrev, [rule]);
+    writeAbbrev(ABBREV_MINE_KEY, myAbbrev);
+    runAbbrev();
+    if (!shareServer) return;
+    const button = element<HTMLButtonElement>(root, '[data-abbrev-save-whole]');
+    button.disabled = true;
+    try {
+      await shareServer.addAbbrev(rule.key, rule.names);
+      setAbbrevMsg(`${abbrevMsg.textContent} · 「${key}」를 사전에 등록했습니다`, true);
+    } catch (error) {
+      setAbbrevMsg(`${abbrevMsg.textContent} · 사전 등록은 실패했습니다(${error instanceof Error ? error.message : String(error)}). 이 브라우저에서는 등록한 대로 풀립니다.`);
+    } finally {
+      button.disabled = false;
+    }
+  };
+  element<HTMLButtonElement>(root, '[data-abbrev-save-whole]')
+    .addEventListener('click', () => { void saveAbbrevWhole(); });
 
   // ── ENIKK 조합 가져오기 ─────────────────────────────────────────────────
   // enikk.app 솔로레이드 랭킹 상위 300명(서버당 50명 × 6서버)의 1~5덱을 받아

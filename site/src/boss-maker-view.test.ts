@@ -675,4 +675,20 @@ describe('보스 메이커 화면', () => {
     expect(box()[2]).toBe(w0);
     expect(host.querySelector('[data-bm-zoom-label]')?.textContent).toBe('100%');
   });
+
+  it('확대해 둔 채로 빈 곳을 눌러도 고른 것이 풀린다', () => {
+    // 확대하면 빈 곳 끌기가 «화면 옮기기»가 되는데, 그 길이 «고른 것 풀기»까지
+    // 삼켜 버렸다 — 끌지 않고 눌렀다 뗀 것은 옮기기가 아니다.
+    const handle = mount();
+    handle.open();
+    placeWith('circle');
+    expect(host.querySelectorAll('.bm-handle').length).toBeGreaterThan(0);
+
+    host.querySelector<HTMLButtonElement>('[data-bm-zoom="in"]')!.click();
+    const stage = host.querySelector<SVGSVGElement>('[data-bm-stage]')!;
+    stage.dispatchEvent(new PointerEvent('pointerdown', { clientX: 5, clientY: 5, bubbles: true }));
+    window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+
+    expect(host.querySelectorAll('.bm-handle')).toHaveLength(0);
+  });
 });

@@ -28,6 +28,7 @@ import {
 } from './types';
 import type { StorageLike } from './cache';
 import { confirmTwice } from './confirm-twice';
+import { t } from './i18n';
 import { hacksForRequest } from './hacks';
 import { formatDamage, formatDps } from './model';
 import { mountSharePanel, type SharePanel } from './share-panel';
@@ -357,7 +358,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
           <!-- 레이어. 겹쳐 놓으면 무엇이 어디에 있는지 무대만 봐서는 알 수 없다 —
                목록에서 짚어 고르고, 위아래로 순서를 바꾼다(나중이 위다). -->
           <div class="bm-tool-group bm-layers-group">
-            <span class="bm-tool-label">레이어</span>
+            <span class="bm-tool-label" data-bm-layers-label>레이어</span>
             <div class="bm-layers" data-bm-layers></div>
           </div>
           <div class="bm-tool-group">
@@ -438,6 +439,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   const stageMeta = q<HTMLElement>('[data-bm-stage-meta]');
   const zoomLabel = q<HTMLElement>('[data-bm-zoom-label]');
   const layerBox = q<HTMLElement>('[data-bm-layers]');
+  const layerLabel = q<HTMLElement>('[data-bm-layers-label]');
   const gridToggle = q<HTMLInputElement>('[data-bm-grid]');
   const centerWarn = q<HTMLElement>('[data-bm-center-warn]');
   const nameInput = q<HTMLInputElement>('[data-bm-name]');
@@ -1051,9 +1053,15 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     if (event.button === 1 || (zoom > 1 && onEmpty && !placing && !aimPicking)) {
       event.preventDefault();
       const from = { x: at.x, y: at.y, panX, panY };
+      // 끌지 않고 그냥 눌렀다 뗀 것은 «옮기기»가 아니라 «고른 것 풀기»다. 확대해 둔
+      // 채로는 빈 곳을 눌러도 선택이 안 풀린다는 이야기가 나왔다 — 손이 움직였는지로
+      // 둘을 가른다(몇 px은 손떨림이므로 흘려 보낸다).
+      let moved = false;
       const onMove = (moveEvent: PointerEvent) => {
         // 끌린 만큼 창을 반대로 민다. 화면 배율은 stagePoint가 이미 걷어 냈다.
         const now = stagePoint(moveEvent);
+        if (Math.abs(now.x - from.x) + Math.abs(now.y - from.y) > 3) moved = true;
+        if (!moved) return;
         panX = from.panX - (now.x - from.x);
         panY = from.panY - (now.y - from.y);
         drawStage();
@@ -1061,6 +1069,10 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       const onUp = () => {
         window.removeEventListener('pointermove', onMove);
         window.removeEventListener('pointerup', onUp);
+        if (!moved && onEmpty && selectedId !== null) {
+          selectedId = null;
+          render();
+        }
       };
       window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', onUp);
@@ -2518,6 +2530,9 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   function renderLayers() {
     layerBox.replaceChildren();
     const items = allItems();
+    // 「레이어 UI가 없는 것 같다」는 이야기가 있었다 — 몇 개가 들어 있는지 이름표에
+    // 적어 두면 접힌 목록이 아니라 «내용이 있는 자리»로 읽힌다.
+    layerLabel.textContent = items.length > 0 ? t('레이어 {n}', { n: items.length }) : t('레이어');
     if (items.length === 0) {
       layerBox.append(el('p', 'bm-layers-empty', '아직 아무것도 없습니다.'));
       return;
@@ -2742,7 +2757,19 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       corePx: derived.corePx || battle.corePx,
       hasParts: derived.hasParts,
     });
-    runNote.textContent = `전투 조건에 반영했습니다 — 코어 ${derived.corePx || '없음'}${derived.corePx ? 'px' : ''} · 파츠 ${derived.hasParts ? '있음' : '없음'}`;
+    // 무엇이 실제로 건너갔는지 적는다. 그림을 아무리 고쳐도 이 넷이 그대로면 계산
+    // 결과가 같은데(그래서 저장된 결과가 그대로 나온다), 화면이 말해 주지 않으면
+    // 「도형이 계산에 안 먹는다」로 읽힌다.
+    const range = derivedOptimalRange(design);
+    runNote.textContent = t(
+      '전투 조건에 반영했습니다 — 코어 {core} · 파츠 {parts} · 적정거리 {range}. '
+      + '계산에 건너가는 것은 이 값들이라, 그림을 고쳐도 이것이 그대로면 결과도 같습니다.',
+      {
+        core: derived.corePx ? `${derived.corePx}px` : t('없음'),
+        parts: derived.hasParts ? t('있음') : t('없음'),
+        range: range && range.length > 0 ? range.join('·') : t('없음'),
+      },
+    );
     render();
   });
 

@@ -1403,4 +1403,22 @@ export const EN: Record<string, string> = {
   '{n}위 · 1위 대비 {gap}% ({dmg})': '#{n} · {gap}% vs #1 ({dmg})',
   '{n}초 전투': '{n}s fight',
   '시드 {n}': 'seed {n}',
+
+  // ── Ownership ──
+  '보유': 'Owned',
+  '미보유': 'Not owned',
+
+  // ── Boss Maker apply ──
+  '레이어 {n}': 'Layers {n}',
+  '전투 조건에 반영했습니다 — 코어 {core} · 파츠 {parts} · 적정거리 {range}. 계산에 건너가는 것은 이 값들이라, 그림을 고쳐도 이것이 그대로면 결과도 같습니다.': 'Applied to the battle setup — core {core} · parts {parts} · optimal range {range}. These are the values that cross into the calculation, so editing the drawing without changing them leaves the result identical.',
+
+  // ── Abbrev whole ──
+  '친 글자 통째로': 'the whole thing you typed',
+  '이 편성으로 등록할 수도 있습니다 — 한 명을 빼거나 더할 때 씁니다.': ' can also be registered as this exact squad — use it to drop or add a member.',
+  '니케 더하기…': 'Add a NIKKE…',
+  '니케 더하기': 'Add a NIKKE',
+  '이 약어를 이대로 등록': 'Register this shorthand as is',
+  '아무도 없습니다 — 아래에서 골라 더해 주세요.': 'Nobody yet — pick someone below.',
+  '한 편성은 다섯 명까지입니다.': 'A squad holds five at most.',
+  '등록할 니케를 골라 주세요.': 'Pick the NIKKEs to register.',
 };

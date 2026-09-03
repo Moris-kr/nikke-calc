@@ -2306,8 +2306,33 @@ body.bm-open { overflow: hidden; }
   color: var(--muted); font: 700 8px inherit; cursor: pointer; }
 .bm-layer-move:hover:not(:disabled) { color: var(--ink); }
 .bm-layer-move:disabled { opacity: .25; cursor: default; }
-/* 언어 고르개 — 머리줄의 다른 단추들과 같은 크기로 선다. */
-.lang-pick { flex: none; width: auto; padding: 4px 8px; border-radius: 999px;
-  border: 1px solid var(--line); background: rgba(146,176,201,.08); color: var(--muted);
-  font: 700 11px inherit; cursor: pointer; }
-.lang-pick:hover { color: var(--ink); border-color: rgba(69,214,208,.4); }
+/* 언어 고르개 — 머리줄의 다른 단추들과 같은 크기로 선다.
+   지구본을 왼쪽에 세우는 이유: 「한국어」라고 적힌 칸은 **한국어를 못 읽는 사람에게는
+   그냥 정체 모를 드롭다운**이다. 무엇을 고르는 자리인지는 글자 말고 그림이 말해야 한다. */
+.lang-field { flex: none; align-self: center; display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 8px 3px 9px; border-radius: 999px; border: 1px solid var(--line);
+  background: rgba(146,176,201,.08); color: var(--muted);
+  transition: color .18s cubic-bezier(.2,.8,.2,1), border-color .18s cubic-bezier(.2,.8,.2,1); }
+.lang-field:hover { color: var(--ink); border-color: rgba(69,214,208,.4); }
+.lang-field:focus-within { border-color: var(--cyan); }
+.lang-globe { width: 13px; height: 13px; flex: none; fill: none; stroke: currentColor;
+  stroke-width: 1.3; stroke-linecap: round; }
+.lang-pick { width: auto; padding: 1px 0; border: none; background: transparent;
+  color: inherit; font: 700 11px inherit; cursor: pointer; }
+.lang-pick:focus-visible { outline: none; }
+/* 「미보유」 딱지는 물러난 색으로 — 값이 아니라 없음을 알리는 자리다. */
+.growth-badge:has(.growth-badge-item:only-child) { opacity: .8; }
+/* 친 글자 통째로 고치는 자리 — 칩을 지우거나 더해 그 편성을 그대로 등록한다. */
+.abbrev-whole-head { margin-top: 10px; }
+.abbrev-whole { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 8px; }
+.abbrev-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 6px 4px 10px;
+  border: 1px solid var(--line); border-radius: 999px; background: rgba(146,176,201,.08); }
+.abbrev-chip b { color: var(--ink); font: 700 11.5px inherit; }
+.abbrev-chip-x { width: 16px; height: 16px; padding: 0; display: grid; place-items: center;
+  border: none; border-radius: 50%; background: rgba(146,176,201,.14);
+  color: var(--muted); font: 700 9px inherit; cursor: pointer; }
+.abbrev-chip-x:hover { background: rgba(255,119,135,.24); color: #ffd7de; }
+.abbrev-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.abbrev-add { flex: 1 1 180px; padding: 7px 10px; border-radius: 9px;
+  border: 1px solid var(--line); background: rgba(4,12,21,.55); color: var(--ink);
+  font: 600 12px inherit; }
