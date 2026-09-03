@@ -60,12 +60,20 @@ a:focus-visible {
 .hero h1 { margin: 0; font-size: clamp(42px, 6vw, 92px); line-height: .96; letter-spacing: -.065em; font-weight: 900; }
 .hero h1 span { color: var(--amber); text-shadow: 0 0 40px rgba(255, 184, 58, .15); }
 .hero-lede { max-width: 650px; margin: 24px 0 20px; color: #aebdca; font-size: clamp(15px, 1.4vw, 19px); line-height: 1.7; }
-.trust-row { display: flex; flex-wrap: wrap; gap: 8px; }
-.trust-row span, .trust-row .roster-open { border: 1px solid var(--line); padding: 7px 11px; color: #b9c7d3; background: rgba(7, 15, 25, .55); font-size: 12px; }
+.trust-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+/* 한 줄에 서는 것들은 **키를 맞춘다**. 글자 크기가 조금씩 달라 상자마다 26~31px로
+   들쭉날쭉하면, 한 줄인데도 줄이 두꺼워 보인다. */
+.trust-row > span,
+.trust-row > a,
+.trust-row > button,
+.trust-row > label { display: inline-flex; align-items: center; min-height: 28px; }
+/* 칩이 되는 것은 이 줄의 **직계 자식**뿐이다. 안쪽 span까지 테두리를 받으면 상자 속
+   상자가 되어 줄이 통째로 두꺼워진다 — 접속자 수(「지금 1명」)가 그랬다. */
+.trust-row > span, .trust-row .roster-open { border: 1px solid var(--line); padding: 0 11px; color: #b9c7d3; background: rgba(7, 15, 25, .55); font-size: 12px; line-height: 1.4; }
 .trust-row .roster-open { font-family: inherit; cursor: pointer; border-color: rgba(69,214,208,.35); color: #cfeceb; }
 .trust-row .roster-open:hover { background: rgba(69,214,208,.14); border-color: var(--cyan); }
 /* 원본 저장소로 보내는 감사 문구. 지원 수와 같은 칩 모양으로 나란히 선다. */
-.trust-row .credit-link { border: 1px solid rgba(69,214,208,.3); padding: 7px 11px; background: rgba(69,214,208,.07); color: #cfeceb; font-size: 12px; text-decoration: none; }
+.trust-row .credit-link { border: 1px solid rgba(69,214,208,.3); padding: 0 11px; line-height: 1.4; background: rgba(69,214,208,.07); color: #cfeceb; font-size: 12px; text-decoration: none; }
 .trust-row .credit-link:hover { background: rgba(69,214,208,.16); border-color: var(--cyan); }
 .trust-row .credit-link:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 .hero-orbit { width: 150px; aspect-ratio: 1; border: 1px solid rgba(69,214,208,.35); border-radius: 50%; display: grid; place-items: center; position: relative; color: var(--cyan); }
@@ -1327,7 +1335,10 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
 }
 
 /* 지금 보는 사람 수 — 자랑이 아니라 «지금 살아 있는 곳»이라는 신호다. 작게 둔다. */
+/* 접속자 수는 상태 표시지 단추가 아니다 — 테두리 없이 점과 글자만 둔다. */
+.trust-row > .online-now { border: 0; background: transparent; padding: 0 2px 0 4px; }
 .online-now { display: inline-flex; align-items: center; gap: 5px; }
+.online-now > span { color: var(--muted); font: 700 11px ui-monospace, SFMono-Regular, Menlo, monospace; }
 .online-dot { width: 6px; height: 6px; border-radius: 50%; background: #7ee0a8;
   box-shadow: 0 0 0 0 rgba(126,224,168,.6); animation: online-pulse 2.4s ease-out infinite; }
 @keyframes online-pulse {
@@ -2309,17 +2320,21 @@ body.bm-open { overflow: hidden; }
 /* 언어 고르개 — 머리줄의 다른 단추들과 같은 크기로 선다.
    지구본을 왼쪽에 세우는 이유: 「한국어」라고 적힌 칸은 **한국어를 못 읽는 사람에게는
    그냥 정체 모를 드롭다운**이다. 무엇을 고르는 자리인지는 글자 말고 그림이 말해야 한다. */
-.lang-field { flex: none; align-self: center; display: inline-flex; align-items: center; gap: 5px;
-  padding: 3px 8px 3px 9px; border-radius: 999px; border: 1px solid var(--line);
-  background: rgba(146,176,201,.08); color: var(--muted);
+/* `.trust-row > span`(칩)과 전역 `select`(min-height 44px)가 둘 다 여기에 걸린다 —
+   그 둘을 이기려면 같은 줄을 짚어야 한다. 안 이기면 고르개 하나가 줄 전체를
+   두 배로 부풀린다. */
+.trust-row > .lang-field { display: inline-flex; align-items: center; gap: 5px;
+  padding: 0 10px 0 9px; border-radius: 999px; border: 1px solid var(--line);
+  background: rgba(146,176,201,.08); color: var(--muted); line-height: 1.4;
   transition: color .18s cubic-bezier(.2,.8,.2,1), border-color .18s cubic-bezier(.2,.8,.2,1); }
-.lang-field:hover { color: var(--ink); border-color: rgba(69,214,208,.4); }
-.lang-field:focus-within { border-color: var(--cyan); }
+.trust-row > .lang-field:hover { color: var(--ink); border-color: rgba(69,214,208,.4); }
+.trust-row > .lang-field:focus-within { border-color: var(--cyan); }
 .lang-globe { width: 13px; height: 13px; flex: none; fill: none; stroke: currentColor;
   stroke-width: 1.3; stroke-linecap: round; }
-.lang-pick { width: auto; padding: 1px 0; border: none; background: transparent;
-  color: inherit; font: 700 11px inherit; cursor: pointer; }
-.lang-pick:focus-visible { outline: none; }
+.trust-row .lang-pick { width: auto; min-height: 0; height: auto; padding: 0 2px 0 0;
+  border: none; background: transparent; color: inherit; font: 700 11px inherit;
+  line-height: 1.4; cursor: pointer; }
+.trust-row .lang-pick:focus-visible { outline: none; }
 /* 「미보유」 딱지는 물러난 색으로 — 값이 아니라 없음을 알리는 자리다. */
 .growth-badge:has(.growth-badge-item:only-child) { opacity: .8; }
 /* 친 글자 통째로 고치는 자리 — 칩을 지우거나 더해 그 편성을 그대로 등록한다. */
