@@ -4544,7 +4544,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     const parts: string[] = [];
     const label = SORTS.find((s) => s.key === sortKey)?.label;
     const pending = sortKey === 'power' && Object.keys(combatPower).length === 0;
-    parts.push(`${label}${pending ? ' 계산중' : sortDesc ? ' ▼' : ' ▲'}`);
+    parts.push(`${t(label!)}${pending ? ` ${t('계산중')}` : sortDesc ? ' ▼' : ' ▲'}`);
     for (const key of ['burst', ...filterGroups().map((group) => group.key)] as FilterKey[]) {
       const set = picked[key];
       if (set.size > 0) {
@@ -4586,10 +4586,10 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       chip.className = 'filter-chip' + (active ? ' is-on' : '');
       chip.dataset.sort = option.key;
       chip.dataset.sortDir = active ? (sortDesc ? 'desc' : 'asc') : '';
-      chip.append(createText('span', option.label));
+      chip.append(createText('span', t(option.label)));
       // 삼각형으로 방향을 알린다 — 켜진 항목에만 붙는다.
       if (active) chip.append(createText('b', sortDesc ? '▼' : '▲', 'sort-caret'));
-      chip.title = option.hint;
+      chip.title = t(option.hint);
       chip.addEventListener('click', () => {
         // 같은 항목을 다시 누르면 뒤집고, 다른 항목이면 그 항목의 기본 방향으로 간다.
         if (active) sortDesc = !sortDesc;
