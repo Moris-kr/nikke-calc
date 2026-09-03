@@ -307,11 +307,11 @@ function renderCharacterCards(
       image.loading = 'lazy';
       portrait.append(image);
     }
-    if (rank) portrait.append(createText('b', `${rank}위`, 'result-rank-badge'));
+    if (rank) portrait.append(createText('b', t('{n}위', { n: rank }), 'result-rank-badge'));
     card.append(portrait);
 
     card.append(createText('h3', name));
-    card.append(createText('span', `${share.toFixed(1)}% 기여`, 'result-card-share'));
+    card.append(createText('span', t('{pct}% 기여', { pct: share.toFixed(1) }), 'result-card-share'));
     card.append(createText('strong', fmt.dmg(value)));
     card.append(createText('small', fmt.dps(value / entry.result.duration)));
 
@@ -332,8 +332,8 @@ function renderCharacterCards(
       const normalPct = breakdown.normal / value * 100;
       const skillPct = breakdown.skill / value * 100;
       const summary = document.createElement('summary');
-      summary.append(createText('span', `평타 ${normalPct.toFixed(0)}%`, 'legend-normal'));
-      summary.append(createText('span', `스킬 ${skillPct.toFixed(0)}%`, 'legend-skill'));
+      summary.append(createText('span', t('평타 {pct}%', { pct: normalPct.toFixed(0) }), 'legend-normal'));
+      summary.append(createText('span', t('스킬 {pct}%', { pct: skillPct.toFixed(0) }), 'legend-skill'));
       details.append(summary);
 
       const splitTrack = document.createElement('div');
@@ -350,8 +350,8 @@ function renderCharacterCards(
       const legend = document.createElement('p');
       legend.className = 'split-legend';
       legend.append(
-        createText('span', `평타 ${fmt.dmg(breakdown.normal)}`, 'legend-normal'),
-        createText('span', `스킬 ${fmt.dmg(breakdown.skill)}`, 'legend-skill'),
+        createText('span', t('평타 {dmg}', { dmg: fmt.dmg(breakdown.normal) }), 'legend-normal'),
+        createText('span', t('스킬 {dmg}', { dmg: fmt.dmg(breakdown.skill) }), 'legend-skill'),
       );
       details.append(legend);
 
@@ -362,7 +362,11 @@ function renderCharacterCards(
           const item = document.createElement('li');
           item.append(
             createText('span', skill.name),
-            createText('span', `${fmt.dmg(skill.damage)} · ${(skill.damage / value * 100).toFixed(1)}% · ${skill.hits}히트`),
+            createText('span', t('{dmg} · {pct}% · {hits}히트', {
+              dmg: fmt.dmg(skill.damage),
+              pct: (skill.damage / value * 100).toFixed(1),
+              hits: skill.hits,
+            })),
           );
           list.append(item);
         }
@@ -914,7 +918,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           <div class="field-grid">
             <label><span>전투 시간</span><div class="input-unit"><input id="duration" type="number" min="10" max="180" step="1" value="180" /><em>초</em></div></label>
             <label><span>적 코드</span><select id="enemy-code"><option value="">없음</option><option value="풍압">풍압(작열weak)</option><option value="수냉">수냉(전격weak)</option><option value="작열">작열(수냉weak)</option><option value="전격">전격(철갑weak)</option><option value="철갑">철갑(풍압weak)</option></select></label>
-            <label><span>싱크로 레벨</span><div class="input-unit"><input id="synchro-level" type="number" min="1" max="${SYNCHRO_MAX}" step="1" value="${DEFAULT_SYNCHRO_LEVEL}" title="싱크로 디바이스 소대에 넣은 니케는 전원이 이 레벨이 됩니다. 계정 육성 상태라 전투 조건 공유 코드에는 담기지 않습니다. ${SYNCHRO_MEASURED_MAX}레벨까지는 실측값이고, 그 위는 같은 성장 곡선을 이어 붙여 계산합니다" /><em>Lv</em></div></label>
+            <label><span>싱크로 레벨</span><div class="input-unit"><input id="synchro-level" type="number" min="1" max="${SYNCHRO_MAX}" step="1" value="${DEFAULT_SYNCHRO_LEVEL}" title="${t('싱크로 디바이스 소대에 넣은 니케는 전원이 이 레벨이 됩니다. 계정 육성 상태라 전투 조건 공유 코드에는 담기지 않습니다. {n}레벨까지는 실측값이고, 그 위는 같은 성장 곡선을 이어 붙여 계산합니다', { n: SYNCHRO_MEASURED_MAX })}" /><em>Lv</em></div></label>
             <label class="toggle-field"><input id="has-core" type="checkbox" /><span class="toggle"></span><span>코어 있음</span></label>
             <label data-core-size><span>코어 직경</span><div class="input-unit"><input id="core-px" type="number" min="0" max="1000" step="1" value="52" disabled /><em>px</em></div></label>
             <label class="toggle-field"><input id="has-parts" type="checkbox" /><span class="toggle"></span><span>파괴 가능 파츠</span></label>
@@ -1377,12 +1381,12 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
    * 늘어서면 번호가 자리 이름 노릇을 한다.
    */
   const deckLabelFull = (deck: DeckState): string =>
-    (deck.name?.trim() ? `${deck.id}. ${deck.name.trim()}` : `덱 ${deck.id}`);
+    (deck.name?.trim() ? `${deck.id}. ${deck.name.trim()}` : t('덱 {n}', { n: deck.id }));
 
   /** 결과·보고서가 쓰는 이름. 결과는 덱 객체가 아니라 번호만 들고 있다. */
   const deckNameOf = (id: number): string => {
     const deck = decks.find((entry) => entry.id === id);
-    return deck ? deckLabelFull(deck) : `덱 ${id}`;
+    return deck ? deckLabelFull(deck) : t('덱 {n}', { n: id });
   };
 
   /** 탭 자리에서 이름을 고친다. Enter로 정하고, Esc로 되돌린다. */
@@ -2163,7 +2167,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       'p',
       others.length === 0
         ? '덱에 다른 니케가 없습니다.'
-        : `${others.length}명(${others.join(' · ')})의 돌파·스킬·오버로드·장비 강화·소장품을 덮어씁니다. 컨트롤·버스트 운용·큐브는 그대로 둡니다.`,
+        : t('{n}명({who})의 돌파·스킬·오버로드·장비 강화·소장품을 덮어씁니다. 컨트롤·버스트 운용·큐브는 그대로 둡니다.',
+          { n: others.length, who: others.map(tName).join(' · ') }),
       'field-note',
     ));
     return box;
@@ -2195,7 +2200,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const renderPowerInto = (host: HTMLElement, name: string) => {
     const value = squadPower.get(name);
     if (value === undefined) {
-      host.textContent = '전투력 재는 중…';
+      host.textContent = t('전투력 재는 중…');
       host.classList.add('is-pending');
       host.classList.remove('is-unknown');
       return;
@@ -2203,13 +2208,13 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     host.classList.remove('is-pending');
     if (value === null) {
       // 오버로드 옵션을 손으로 적어 단계로 풀 수 없으면 전투력이 나오지 않는다.
-      host.textContent = '전투력 계산 불가';
+      host.textContent = t('전투력 계산 불가');
       host.classList.add('is-unknown');
       host.title = '오버로드 옵션이 단계 조합으로 떨어지지 않아 인게임 전투력을 낼 수 없습니다.';
       return;
     }
     host.classList.remove('is-unknown');
-    host.textContent = `전투력 ${Math.round(value).toLocaleString('ko-KR')}`;
+    host.textContent = t('전투력 {n}', { n: Math.round(value).toLocaleString('ko-KR') });
     host.title = '인게임 전투력입니다. 딜 계산과는 별개로, 스탯만 세어 냅니다.';
   };
 
@@ -2363,7 +2368,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       choose.append(createText('strong', char ? char.name : '빈 칸'));
       choose.append(createText(
         'span',
-        char ? `B${char.burstStage} · ${char.elementCode} · ${char.weaponType}` : '눌러서 이 칸에 넣기',
+        char ? `B${char.burstStage} · ${t(char.elementCode)} · ${char.weaponType}` : '눌러서 이 칸에 넣기',
       ));
       const chooseHere = () => {
         // 같은 칸을 다시 누르면 접는다 — 켜고 끄는 자리가 한 곳이면 헷갈리지 않는다.
@@ -2851,7 +2856,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     deckRegenBox.replaceChildren();
     for (let id = 1; id <= 5; id += 1) {
       const label = document.createElement('label');
-      label.append(createText('span', `덱 ${id}`));
+      label.append(createText('span', t('덱 {n}', { n: id })));
       const wrap = document.createElement('div');
       wrap.className = 'input-unit';
       const input = document.createElement('input');
@@ -3266,7 +3271,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       })),
       conditions: `${battle.duration}초 · 방어력 ${battle.enemyDef.toLocaleString('en-US')}`
         + `${battle.enemyCode ? ` · ${battle.enemyCode}` : ' · 코드 없음'}`
-        + `${battle.coreEnabled ? ` · 코어 ${battle.corePx}px` : ''} · 시드 ${battle.seed}`,
+        + `${battle.coreEnabled ? ` · ${t('코어 {n}px', { n: battle.corePx })}` : ''} · ${t('시드 {n}', { n: battle.seed })}`,
     };
     calcHistory = [entry, ...calcHistory].slice(0, HISTORY_MAX);
     persistHistory();
@@ -3676,7 +3681,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     const header = document.createElement('div');
     header.className = 'result-header';
     const copy = document.createElement('div');
-    copy.append(createText('h2', batch.decks.length > 1 ? '5덱 전투 결과' : '전투 결과'));
+    copy.append(createText('h2', t(batch.decks.length > 1 ? '5덱 전투 결과' : '전투 결과')));
     const summary = document.createElement('div');
     summary.className = 'total-block';
     const total = createText('strong', dmg(batch.total));
@@ -3792,7 +3797,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           'p',
           rank === 1
             ? '1위 · 기준'
-            : `${rank}위 · 1위 대비 ${gap.toFixed(1)}% (${dmg(entry.result.squadTotal - best)})`,
+            : t('{n}위 · 1위 대비 {gap}% ({dmg})', {
+              n: rank, gap: gap.toFixed(1), dmg: dmg(entry.result.squadTotal - best),
+            }),
           'deck-rank',
         );
         badge.dataset.deckRank = String(rank);
@@ -3809,9 +3816,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       const facts = document.createElement('div');
       facts.className = 'result-facts';
       facts.append(
-        createText('span', `${entry.result.duration}초 전투`),
-        createText('span', `${entry.result.hitCount.toLocaleString('ko-KR')} 히트`),
-        createText('span', `시드 ${entry.request.seed}`),
+        createText('span', t('{n}초 전투', { n: entry.result.duration })),
+        createText('span', t('{n} 히트', { n: entry.result.hitCount.toLocaleString('en-US') })),
+        createText('span', t('시드 {n}', { n: entry.request.seed })),
       );
       section.append(facts, createText('pre', entry.result.deviations, 'deviations'));
       host.append(section);
@@ -3846,7 +3853,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         tab.dataset.deckRank = String(rank);
         const head = document.createElement('b');
         head.append(document.createTextNode(deckNameOf(entry.deckId)));
-        head.append(createText('em', `${rank}위`, 'deck-tab-rank'));
+        head.append(createText('em', t('{n}위', { n: rank }), 'deck-tab-rank'));
         // 덱끼리 견주는 자리라 줄이지 않고 온전한 숫자를 적는다 — «1.14억»으로는
         // 2위와의 차이가 읽히지 않는다.
         tab.append(head, createText('span', Math.round(entry.result.squadTotal).toLocaleString('ko-KR')));
@@ -6410,7 +6417,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       const meta = customToMeta(customChars[name]!);
       const row = document.createElement('div');
       row.className = 'custom-list-row';
-      row.append(createText('span', `${name} · B${meta.burstStage} · ${meta.elementCode} · ${meta.weaponType}`, 'custom-list-name'));
+      row.append(createText('span', `${tName(name)} · B${meta.burstStage} · ${t(meta.elementCode)} · ${meta.weaponType}`, 'custom-list-name'));
       const remove = document.createElement('button');
       remove.type = 'button';
       remove.className = 'custom-remove';

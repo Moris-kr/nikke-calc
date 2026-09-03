@@ -1,3 +1,4 @@
+import { t, tLabel, tName } from './i18n';
 import { rollLines } from './overload-roll';
 import type {
   BuffTargetRow,
@@ -444,7 +445,13 @@ export function renderCharacterSettings(
     box.className = 'buff-target';
     box.dataset.buffTarget = row.buff;
     const label = document.createElement('span');
-    label.textContent = `${row.label} : `;
+    // 이름표는 데이터가 주는 「<버프 이름> 대상」이다. 앞의 이름은 게임사가 정한
+    // 것이라 이름표에서 가져오고(`차분한 수심`), 「크확」처럼 우리가 줄여 쓴 말은
+    // 사전에서 가져온다 — 그래서 `tLabel`을 지난다.
+    const named = /^(.*) 대상$/.exec(row.label);
+    label.textContent = named
+      ? `${t('{name} 대상', { name: tLabel(named[1]!) })} : `
+      : `${tLabel(row.label)} : `;
     box.append(label);
     const who = document.createElement('b');
     // 대상이 전투 중 갈리면 이름을 나열해도 읽히지 않는다 — 특이케이스로 접고
@@ -452,18 +459,20 @@ export function renderCharacterSettings(
     const special = row.targets.length > 1;
     // 미리 계산은 배경에서 돈다. 빈 괄호만 보이면 기능이 꺼진 것처럼 보이므로
     // 도는 동안은 그렇다고 적는다.
-    who.textContent = row.pending ? '[계산중]'
-      : special ? '[특이케이스]'
-        : `[${row.targets.join(', ')}]`;
+    who.textContent = row.pending ? t('[계산중]')
+      : special ? t('[특이케이스]')
+        : `[${row.targets.map(tName).join(', ')}]`;
     if (row.pending) box.classList.add('is-pending');
     box.append(who);
+    const buff = tName(row.buff);
     box.title = row.pending
-      ? `${row.buff} — 대상을 계산하는 중입니다`
+      ? t('{buff} — 대상을 계산하는 중입니다', { buff })
       : row.targets.length === 0
-        ? `${row.buff} — 아직 계산하지 않았거나 발동 조건이 맞지 않습니다`
+        ? t('{buff} — 아직 계산하지 않았거나 발동 조건이 맞지 않습니다', { buff })
         : special
-          ? `${row.buff} — ${row.count}회 발동 · 대상이 ${row.targets.length}명 사이에서 갈립니다`
-          : `${row.buff} — ${row.count}회 발동`;
+          ? t('{buff} — {n}회 발동 · 대상이 {people}명 사이에서 갈립니다',
+            { buff, n: row.count, people: row.targets.length })
+          : t('{buff} — {n}회 발동', { buff, n: row.count });
 
     // 순서보기는 대상이 갈릴 때만 — 고정 대상은 이름만으로 충분하다.
     if (onShowOrder && special && (row.sequence?.length ?? 0) > 0) {

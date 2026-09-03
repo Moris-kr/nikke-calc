@@ -1,5 +1,6 @@
 import { sequenceForDeck, trimSequence } from './burst-order';
 import { hacksForRequest } from './hacks';
+import { lang, t } from './i18n';
 import type {
   BatchResult,
   BattleSettings,
@@ -311,15 +312,25 @@ export function aggregateDeckResults(decks: DeckResultEntry[]): BatchResult {
   };
 }
 
+/**
+ * 줄여 쓴 대미지.
+ *
+ * 자릿수를 끊는 자리는 말마다 다르다 — 한국어·일본어는 **네 자리마다**(억·億) 끊고
+ * 영어는 **세 자리마다**(B·M) 끊는다. 1.24억을 영어로 「1.24억」이라 적으면 그건
+ * 번역이 아니라 그냥 안 읽히는 글자다.
+ */
 export function formatDamage(value: number): string {
-  if (Math.abs(value) >= 1_000_000) {
-    return `${(value / 100_000_000).toFixed(2)}억`;
+  if (Math.abs(value) < 1_000_000) return Math.round(value).toLocaleString('en-US');
+  if (lang() === 'en') {
+    return Math.abs(value) >= 1_000_000_000
+      ? `${(value / 1_000_000_000).toFixed(2)}B`
+      : `${(value / 1_000_000).toFixed(2)}M`;
   }
-  return Math.round(value).toLocaleString('en-US');
+  return `${(value / 100_000_000).toFixed(2)}${t('억')}`;
 }
 
 export function formatDps(value: number): string {
-  return `${formatDamage(value)}/초`;
+  return t('{n}/초', { n: formatDamage(value) });
 }
 
 /**
@@ -334,4 +345,6 @@ export const formatExactDamage = (value: number): string =>
 
 /** 줄이지 않은 초당 대미지. 소수점 한 자리까지 — 정수로 자르면 덱 간 차이가 묻힌다. */
 export const formatExactDps = (value: number): string =>
-  `${(Math.round(value * 10) / 10).toLocaleString('en-US', { minimumFractionDigits: 1 })}/초`;
+  t('{n}/초', {
+    n: (Math.round(value * 10) / 10).toLocaleString('en-US', { minimumFractionDigits: 1 }),
+  });

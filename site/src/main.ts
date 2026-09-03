@@ -12,6 +12,10 @@ setLang(detectLang(
   navigator.languages ?? [navigator.language],
 ));
 
+// 탭 제목도 그 사람의 말로. `index.html`은 한국어로 박혀 있고(첫 그림·공유 미리보기가
+// 그 값을 쓴다), 화면이 뜨는 순간 고른 말로 바꾼다.
+document.title = t('NIKKE 스쿼드 계산기');
+
 const rootCandidate = document.querySelector<HTMLElement>('#app');
 if (!rootCandidate) throw new Error(t('앱을 표시할 영역이 없습니다.'));
 const root: HTMLElement = rootCandidate;

@@ -102,8 +102,23 @@ export function tName(korean: string): string {
     const base = nameIndex.get(numbered[1]!);
     if (base) return `${base} ${numbered[2]}`;
   }
+  // 「화무십일홍 · 파죽 3」처럼 이름 둘을 이어 붙인 자리도 있다 — 조각마다 찾는다.
+  if (korean.includes(' · ')) {
+    const parts = korean.split(' · ');
+    const moved = parts.map((part) => tName(part));
+    if (moved.some((part, at) => part !== parts[at])) return moved.join(' · ');
+  }
   return korean;
 }
+
+/**
+ * 게임 안 이름이면 이름표에서, 아니면 사전에서. 데이터가 주는 짧은 이름표는 둘 중
+ * 어느 쪽인지 부르는 자리에서 알 수 없다 — 이름표를 먼저 보고 없으면 사전을 본다.
+ */
+export const tLabel = (korean: string): string => {
+  const named = tName(korean);
+  return named === korean ? t(korean) : named;
+};
 
 /** `{n}` 자리를 값으로 채운다. 값이 없으면 자리 글자를 그대로 둔다(빈칸보다 낫다). */
 const fill = (text: string, vars?: Record<string, string | number>): string =>
@@ -120,7 +135,9 @@ const translatable = (text: string): string | null => {
   if (current === 'ko') return null;
   const trimmed = text.trim();
   if (!trimmed) return null;
-  const hit = DICTS[current][trimmed] ?? nameIndex.get(trimmed);
+  // 사전이 먼저고, 없으면 이름표를 본다 — 이름표는 번호가 붙거나 둘이 이어 붙은
+  // 모양까지 풀어 주므로 `tName`을 그대로 쓴다.
+  const hit = DICTS[current][trimmed] ?? tName(trimmed);
   return hit && hit !== trimmed ? hit : null;
 };
 
