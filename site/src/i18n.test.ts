@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { EN } from './locale/en';
 import { JA } from './locale/ja';
+import { ZH_TW } from './locale/zh-tw';
 import {
   detectLang, lang, localizeTree, setLang, setLocaleNames, t, tName, watchLocalize,
 } from './i18n';
@@ -17,6 +18,16 @@ describe('언어 고르기', () => {
     expect(detectLang(null, ['en-US', 'en'])).toBe('en');
     expect(detectLang(null, ['ja-JP'])).toBe('ja');
     expect(detectLang(null, ['ko-KR', 'en'])).toBe('ko');
+    expect(detectLang('zh-TW', ['en-US'])).toBe('zh-TW');
+    expect(detectLang(null, ['zh-TW', 'en'])).toBe('zh-TW');
+    expect(detectLang(null, ['zh-HK'])).toBe('zh-TW');
+    expect(detectLang(null, ['zh-Hant-TW'])).toBe('zh-TW');
+  });
+
+  it('간체 중국어는 번체로 가지 않는다', () => {
+    // 번체 사전이 간체 자리를 훔치면 대륙 사람이 읽을 수 없는 화면이 된다.
+    expect(detectLang(null, ['zh-CN', 'en'])).toBe('en');
+    expect(detectLang(null, ['zh-Hans'])).toBe('ko');
   });
 
   it('모르는 말이면 한국어로 간다', () => {
@@ -52,8 +63,12 @@ describe('글 바꾸기', () => {
 
 describe('게임 안 이름', () => {
   const names = {
-    characters: { '라피 : 레드 후드': { en: 'Rapi: Red Hood', ja: 'ラピ：レッドフード' } },
-    skills: { '버블 오더': { en: 'Bubble Order', ja: 'バブルオーダー' } },
+    characters: {
+      '라피 : 레드 후드': {
+        en: 'Rapi: Red Hood', ja: 'ラピ：レッドフード', 'zh-TW': '拉毗：小紅帽',
+      },
+    },
+    skills: { '버블 오더': { en: 'Bubble Order', ja: 'バブルオーダー', 'zh-TW': '泡沫指令' } },
   };
 
   it('표에 있으면 그 말로 부른다', () => {
@@ -72,6 +87,13 @@ describe('게임 안 이름', () => {
     setLang('ja');
     setLocaleNames(names);
     expect(tName('버블 오더 4')).toBe('バブルオーダー 4');
+  });
+
+  it('번체 중국어 이름도 같은 표에서 꺼낸다', () => {
+    setLang('zh-TW');
+    setLocaleNames(names);
+    expect(tName('라피 : 레드 후드')).toBe('拉毗：小紅帽');
+    expect(tName('버블 오더 4')).toBe('泡沫指令 4');
   });
 });
 
@@ -130,16 +152,17 @@ describe('그려진 화면 훑기', () => {
   });
 });
 
-describe('사전 두 벌', () => {
-  it('영어와 일본어가 같은 열쇠를 가진다', () => {
+describe('사전 세 벌', () => {
+  it('영어·일본어·번체가 같은 열쇠를 가진다', () => {
     // 한쪽에만 있는 열쇠는 그 말로 볼 때만 한국어가 튀어나온다는 뜻이다.
-    const onlyEn = Object.keys(EN).filter((key) => !(key in JA));
-    const onlyJa = Object.keys(JA).filter((key) => !(key in EN));
-    expect({ onlyEn, onlyJa }).toEqual({ onlyEn: [], onlyJa: [] });
+    const onlyEn = Object.keys(EN).filter((key) => !(key in JA) || !(key in ZH_TW));
+    const onlyJa = Object.keys(JA).filter((key) => !(key in EN) || !(key in ZH_TW));
+    const onlyZh = Object.keys(ZH_TW).filter((key) => !(key in EN) || !(key in JA));
+    expect({ onlyEn, onlyJa, onlyZh }).toEqual({ onlyEn: [], onlyJa: [], onlyZh: [] });
   });
 
   it('빈 번역이 없다', () => {
-    for (const [key, value] of Object.entries({ ...EN, ...JA })) {
+    for (const [key, value] of Object.entries({ ...EN, ...JA, ...ZH_TW })) {
       expect(value.length, key).toBeGreaterThan(0);
     }
   });
@@ -149,6 +172,14 @@ describe('사전 두 벌', () => {
     for (const [korean, english] of Object.entries(EN)) {
       expect(slots(english), korean).toBe(slots(korean));
       expect(slots(JA[korean] ?? ''), korean).toBe(slots(korean));
+      expect(slots(ZH_TW[korean] ?? ''), korean).toBe(slots(korean));
     }
+  });
+
+  it('번체 사전은 한국어 열쇠를 그 말로 바꾼다', () => {
+    setLang('zh-TW');
+    expect(t('전투 조건')).toBe('戰鬥條件');
+    expect(t('{n}명 지원', { n: 200 })).toBe('支援 200 位妮姬');
+    expect(t('억')).toBe('億');
   });
 });

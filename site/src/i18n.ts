@@ -1,5 +1,5 @@
 /**
- * 세 나라 말로 읽히게 하는 층.
+ * 여러 나라 말로 읽히게 하는 층.
  *
  * 이 계산기는 한국어로 지어졌다. 데이터도 한국어가 정본이고(엔진이 한국어 스킬문을
  * 읽는다), 코드에 박힌 글도 한국어다. 그래서 **한국어를 열쇠로 삼는다** — 화면에 적힌
@@ -26,13 +26,15 @@
 
 import { EN } from './locale/en';
 import { JA } from './locale/ja';
+import { ZH_TW } from './locale/zh-tw';
 
-export type Lang = 'ko' | 'en' | 'ja';
+export type Lang = 'ko' | 'en' | 'ja' | 'zh-TW';
 
 export const LANGS: Array<{ code: Lang; label: string }> = [
   { code: 'ko', label: '한국어' },
   { code: 'en', label: 'English' },
   { code: 'ja', label: '日本語' },
+  { code: 'zh-TW', label: '繁體中文' },
 ];
 
 /** 고른 말을 적어 두는 자리. 브라우저마다 따로 기억한다. */
@@ -46,7 +48,9 @@ export interface LocaleNames {
   favorites?: Record<string, Record<string, string>>;
 }
 
-const DICTS: Record<Lang, Record<string, string>> = { ko: {}, en: EN, ja: JA };
+const DICTS: Record<Lang, Record<string, string>> = { ko: {}, en: EN, ja: JA, 'zh-TW': ZH_TW };
+
+const TRADITIONAL_CHINESE = /^(zh-tw|zh-hk|zh-mo)\b|hant/;
 
 let current: Lang = 'ko';
 let names: LocaleNames = {};
@@ -58,12 +62,14 @@ let nameIndex: Map<string, string> = new Map();
  * 브라우저 설정보다 세다.
  */
 export function detectLang(stored: string | null, accepted: readonly string[]): Lang {
-  if (stored === 'ko' || stored === 'en' || stored === 'ja') return stored;
+  if (stored === 'ko' || stored === 'en' || stored === 'ja' || stored === 'zh-TW') return stored;
+  if (stored && TRADITIONAL_CHINESE.test(stored.toLowerCase().replaceAll('_', '-'))) return 'zh-TW';
   for (const raw of accepted) {
-    const tag = raw.toLowerCase();
+    const tag = raw.toLowerCase().replaceAll('_', '-');
     if (tag.startsWith('ko')) return 'ko';
     if (tag.startsWith('ja')) return 'ja';
     if (tag.startsWith('en')) return 'en';
+    if (TRADITIONAL_CHINESE.test(tag)) return 'zh-TW';
   }
   return 'ko';
 }
