@@ -9,6 +9,7 @@ import {
   PLAYER_SLOT,
   phaseAt, putDesign, scoreUntil, spreadRadius, tidyWindows, visibleAt,
   type AccuracyTable, type BossPart, type BossShape,
+  MIN_SIZE, resizeBox,
 } from './boss-maker';
 
 // 계산기 본체(`data/weapon_mechanics.json`)와 같은 표. 설정에서 그대로 받아 온다.
@@ -497,5 +498,55 @@ describe('보스 메이커', () => {
     // 빠진 칸은 빈 판의 값으로 채운다 — 옛 저장본에도 새 칸이 생긴다.
     expect(saved?.parts).toEqual([]);
     expect(saved?.canvas).toEqual({ w: 960, h: 620 });
+  });
+});
+
+describe('크기 손잡이', () => {
+  const box = { x: 100, y: 100, w: 40, h: 20 };
+
+  it('잡은 쪽만 움직이고 반대편은 제자리에 선다', () => {
+    // 오른쪽 변을 x=160까지 끈다. 왼쪽 변(x=80)은 그대로여야 한다.
+    const next = resizeBox(box, 'e', { x: 160, y: 100 });
+    expect(next.w).toBe(80);
+    expect(next.h).toBe(20);                 // 세로는 안 건드린다
+    expect(next.x - next.w / 2).toBeCloseTo(80, 6);
+    expect(next.y).toBe(100);
+  });
+
+  it('모서리를 잡으면 두 축이 함께 간다', () => {
+    const next = resizeBox(box, 'se', { x: 140, y: 130 });
+    expect(next.w).toBeCloseTo(60, 6);       // 왼쪽 80 → 140
+    expect(next.h).toBeCloseTo(40, 6);       // 위 90 → 130
+    expect(next.x - next.w / 2).toBeCloseTo(80, 6);
+    expect(next.y - next.h / 2).toBeCloseTo(90, 6);
+  });
+
+  it('북서쪽을 잡으면 남동쪽이 제자리다', () => {
+    const next = resizeBox(box, 'nw', { x: 60, y: 80 });
+    expect(next.x + next.w / 2).toBeCloseTo(120, 6);
+    expect(next.y + next.h / 2).toBeCloseTo(110, 6);
+  });
+
+  it('Alt를 누르면 중심 대칭으로 커진다', () => {
+    const next = resizeBox(box, 'e', { x: 160, y: 100 }, { symmetric: true });
+    expect(next.x).toBe(100);                // 중심은 안 움직인다
+    expect(next.w).toBe(120);                // 중심에서 60px씩 양쪽
+  });
+
+  it('아무리 줄여도 잡을 만큼은 남는다', () => {
+    const next = resizeBox(box, 'e', { x: 80, y: 100 });
+    expect(next.w).toBe(MIN_SIZE);
+    // 왼쪽 변은 여전히 제자리다 — 최소 크기에 걸려도 반대편이 밀리면 안 된다.
+    expect(next.x - next.w / 2).toBeCloseTo(80, 6);
+  });
+
+  it('기울어진 도형은 제 축에서 잰다', () => {
+    // 90° 돌아간 상자의 «오른쪽»은 화면에서 아래다.
+    const turned = { x: 100, y: 100, w: 40, h: 20, rotation: 90 };
+    const next = resizeBox(turned, 'e', { x: 100, y: 160 });
+    expect(next.w).toBeCloseTo(80, 6);
+    expect(next.h).toBeCloseTo(20, 6);
+    // 반대편 변(화면에서 위, y=80)은 그대로 선다.
+    expect(next.y - next.w / 2).toBeCloseTo(80, 6);
   });
 });

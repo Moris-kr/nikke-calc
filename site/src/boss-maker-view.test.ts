@@ -624,4 +624,55 @@ describe('보스 메이커 화면', () => {
     expect(host.querySelectorAll('.bm-shape')).toHaveLength(1);
     expect(host.querySelectorAll('.bm-part')).toHaveLength(1);
   });
+
+  it('레이어 목록에서 짚어 고르고 차례를 바꾼다', () => {
+    const handle = mount();
+    handle.open();
+    placeWith('circle');
+    placeWith('rect');
+
+    const rows = [...host.querySelectorAll<HTMLElement>('[data-bm-layer]')];
+    // 목록은 «맨 위에 그려지는 것»이 맨 위다 — 나중에 놓은 네모가 위다.
+    expect(rows).toHaveLength(2);
+    expect(rows[0]!.textContent).toContain('네모');
+    expect(rows[1]!.textContent).toContain('원');
+
+    // 짚으면 그것이 고른 것이 된다(손잡이가 붙는다).
+    rows[1]!.querySelector<HTMLButtonElement>('.bm-layer-pick')!.click();
+    expect(host.querySelector('[data-bm-layer].is-on')?.textContent).toContain('원');
+
+    // 위로 올리면 차례가 뒤집힌다.
+    host.querySelectorAll<HTMLButtonElement>('[data-bm-layer] .bm-layer-move')[2]!.click();
+    const after = [...host.querySelectorAll<HTMLElement>('[data-bm-layer]')];
+    expect(after[0]!.textContent).toContain('원');
+  });
+
+  it('격자를 켜면 눈금이 무대에 깔린다', () => {
+    const handle = mount();
+    handle.open();
+    expect(host.querySelectorAll('.bm-grid-line')).toHaveLength(0);
+
+    const grid = host.querySelector<HTMLInputElement>('[data-bm-grid]')!;
+    grid.checked = true;
+    grid.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(host.querySelectorAll('.bm-grid-line').length).toBeGreaterThan(10);
+    // 숫자도 함께 — 「구석에 기준이 될 만한 것」이 이것이다.
+    expect(host.querySelectorAll('.bm-grid-mark').length).toBeGreaterThan(0);
+  });
+
+  it('확대하면 보는 창이 좁아지고, 맞춤이 되돌린다', () => {
+    const handle = mount();
+    handle.open();
+    const stage = host.querySelector<SVGSVGElement>('[data-bm-stage]')!;
+    const box = () => stage.getAttribute('viewBox')!.split(' ').map(Number);
+    const [, , w0] = box();
+
+    host.querySelector<HTMLButtonElement>('[data-bm-zoom="in"]')!.click();
+    expect(box()[2]).toBeLessThan(w0!);
+    expect(host.querySelector('[data-bm-zoom-label]')?.textContent).not.toBe('100%');
+
+    host.querySelector<HTMLButtonElement>('[data-bm-zoom="reset"]')!.click();
+    expect(box()[2]).toBe(w0);
+    expect(host.querySelector('[data-bm-zoom-label]')?.textContent).toBe('100%');
+  });
 });

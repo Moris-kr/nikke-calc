@@ -35,6 +35,77 @@ import type { ElementCode } from './types';
 export type ShapeKind = 'circle' | 'rect' | 'triangle';
 
 /** 캔버스에 놓인 것 하나. 자리는 중심 좌표, 크기는 폭·높이(px)다. */
+/** 크기 손잡이 여덟. 방위로 부른다 — 화면에서 잡는 자리와 이름이 같다. */
+export type ResizeGrip = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
+
+/** 크기 조절이 다루는 최소한. 도형이든 파츠든 이 넷과 기울기만 있으면 된다. */
+export interface ResizeBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  rotation?: number;
+}
+
+/** 이보다 작게는 못 줄인다 — 잡을 데가 없어지면 되돌릴 수 없다. */
+export const MIN_SIZE = 12;
+
+/**
+ * 손잡이를 끌었을 때의 새 상자.
+ *
+ * **잡은 쪽만 움직이고 반대편은 제자리에 선다**(PPT·피그마와 같은 규칙). 종전에는
+ * 오른쪽 아래 하나로 중심 대칭으로만 커져서, 왼쪽 끝을 맞춰 두고 오른쪽만 늘리는
+ * 흔한 손질이 아예 안 됐다. 중심 대칭이 필요하면 Alt를 누른다(`symmetric`).
+ *
+ * 기울어진 도형은 **제 축에서** 잰다 — 화면 축으로 재면 45° 돌아간 상자를 늘릴 때
+ * 폭과 높이가 함께 변해 손이 가는 대로 안 된다. 그래서 점을 도형의 축으로 옮겨
+ * 재고, 새 중심을 다시 화면 축으로 돌려놓는다.
+ */
+export function resizeBox(
+  box: ResizeBox,
+  grip: ResizeGrip,
+  point: { x: number; y: number },
+  options: { symmetric?: boolean; min?: number } = {},
+): { x: number; y: number; w: number; h: number } {
+  const min = options.min ?? MIN_SIZE;
+  const radians = ((box.rotation ?? 0) * Math.PI) / 180;
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+  // 도형의 축으로 / 화면의 축으로. 서로의 역이다.
+  const local = {
+    x: (point.x - box.x) * cos + (point.y - box.y) * sin,
+    y: -(point.x - box.x) * sin + (point.y - box.y) * cos,
+  };
+  const signX = grip.includes('w') ? -1 : grip.includes('e') ? 1 : 0;
+  const signY = grip.startsWith('n') ? -1 : grip.startsWith('s') ? 1 : 0;
+
+  let w = box.w;
+  let h = box.h;
+  let offX = 0;
+  let offY = 0;
+  if (options.symmetric) {
+    if (signX) w = Math.max(min, Math.abs(local.x) * 2);
+    if (signY) h = Math.max(min, Math.abs(local.y) * 2);
+  } else {
+    if (signX) {
+      const anchor = -signX * box.w / 2;      // 반대편 변. 여기가 제자리에 선다
+      w = Math.max(min, (local.x - anchor) * signX);
+      offX = anchor + (signX * w) / 2;
+    }
+    if (signY) {
+      const anchor = -signY * box.h / 2;
+      h = Math.max(min, (local.y - anchor) * signY);
+      offY = anchor + (signY * h) / 2;
+    }
+  }
+  return {
+    x: box.x + offX * cos - offY * sin,
+    y: box.y + offX * sin + offY * cos,
+    w,
+    h,
+  };
+}
+
 export interface BossShape {
   id: string;
   kind: ShapeKind;

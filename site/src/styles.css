@@ -1709,8 +1709,11 @@ body.bm-open { overflow: hidden; }
   overflow: hidden; }
 /* 버프 기둥과 딜 판은 무대 **위에 겹친다** — 옆에 두면 그리는 자리가 그만큼 좁아진다. */
 .bm-stage-box { position: relative; flex: 1; min-height: 0; display: flex; }
-.bm-stage-head { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+/* 무대 머리줄. 켜고 끄는 것이 늘어 좁은 판에서는 두 줄로 접힌다 — 접히더라도
+   글자가 세로로 쌓이지는 않게 각 칸이 제 폭을 지킨다. */
+.bm-stage-head { display: flex; align-items: center; gap: 6px 10px; flex-wrap: wrap;
   min-height: 20px; }
+.bm-stage-head > * { flex: none; white-space: nowrap; }
 .bm-stage-note { color: #ffe1a8; font-size: 11px; }
 .bm-stage-note b { color: var(--amber); }
 .bm-stage-meta { margin-left: auto; color: var(--muted); font: 700 11px ui-monospace, monospace; }
@@ -2276,3 +2279,30 @@ body.bm-open { overflow: hidden; }
 .guide-what b, .guide-lead b { color: var(--ink); }
 .guide-what code, .guide-lead code { padding: 1px 5px; border-radius: 4px;
   background: rgba(146,176,201,.12); font: 700 11px ui-monospace, SFMono-Regular, Menlo, monospace; }
+/* 고른 도형의 테두리 — 손잡이 여덟이 어디에 붙는지가 이 선으로 읽힌다. */
+.bm-handle-frame { fill: none; stroke: rgba(69,214,208,.55); stroke-width: 1;
+  stroke-dasharray: 4 3; pointer-events: none; }
+/* 무대의 격자와 눈금 — 크기를 눈으로 맞출 기준이다. */
+.bm-grid-line { stroke: rgba(146,176,201,.10); stroke-width: 1; }
+.bm-grid-line.is-major { stroke: rgba(146,176,201,.22); }
+.bm-grid-mark { fill: rgba(146,176,201,.55); font: 700 9px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.bm-zoom { display: inline-flex; align-items: center; gap: 4px; }
+.bm-zoom b { min-width: 38px; text-align: center; color: var(--muted);
+  font: 700 10px ui-monospace, SFMono-Regular, Menlo, monospace; }
+/* 레이어 목록 — 겹친 것을 짚어 고르고 차례를 바꾼다. */
+.bm-layers-group { min-height: 0; }
+.bm-layers { display: grid; gap: 3px; max-height: 190px; overflow: auto; }
+.bm-layers-empty { margin: 0; color: var(--muted); font: 400 10px inherit; }
+.bm-layer { display: flex; align-items: center; gap: 2px; border-radius: 7px;
+  border: 1px solid transparent; }
+.bm-layer.is-on { border-color: rgba(69,214,208,.4); background: rgba(69,214,208,.08); }
+.bm-layer-pick { flex: 1; display: flex; align-items: center; gap: 6px; min-width: 0;
+  padding: 4px 6px; border: none; background: transparent; color: var(--ink);
+  font: 700 10.5px inherit; cursor: pointer; text-align: left; }
+.bm-layer-pick span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bm-layer-dot { width: 9px; height: 9px; border-radius: 3px; flex: none;
+  border: 1px solid rgba(0,0,0,.35); }
+.bm-layer-move { width: 18px; height: 20px; padding: 0; border: none; background: transparent;
+  color: var(--muted); font: 700 8px inherit; cursor: pointer; }
+.bm-layer-move:hover:not(:disabled) { color: var(--ink); }
+.bm-layer-move:disabled { opacity: .25; cursor: default; }

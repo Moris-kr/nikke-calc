@@ -14,10 +14,10 @@ import {
   DEFAULT_CORE_PX, derivedEnemy, derivedOptimalRange, distance,
   dropDesign, ELEMENT_COLOR, emptyDesign, emptyLibrary, encodeBossCode, hitTest, impactOffsets,
   inFullBurst, mixRangeColor, newId, parseLibrary, partBreaks, partsInBlast, phaseAt,
-  aimedPartBreaks, pierceTargets, putDesign, RANGE_COLOR, scoreUntil, spreadRadius, tidyWindows,
-  visibleAt,
+  aimedPartBreaks, pierceTargets, putDesign, RANGE_COLOR, resizeBox, scoreUntil, spreadRadius,
+  tidyWindows, visibleAt,
   type BossDesign, type BossLibrary, type BossPart, type BossShape, type PartBreak,
-  type ShapeKind,
+  type ResizeGrip, type ShapeKind,
 } from './boss-maker';
 import {
   spanTargets,
@@ -83,6 +83,9 @@ const RANGE_FILL = 0.32;
 
 /** 속저에 고를 수 있는 속성. 전투 조건 창의 목록과 같다. */
 const ELEMENT_CODES: ElementCode[] = ['풍압', '수냉', '작열', '전격', '철갑'];
+
+/** 레이어 목록에 적는 이름. 도구 단추와 같은 말을 쓴다. */
+const SHAPE_LABEL: Record<ShapeKind, string> = { circle: '원', rect: '네모', triangle: '삼각형' };
 
 const el = <K extends keyof HTMLElementTagNameMap>(
   tag: K, className = '', text = '',
@@ -265,10 +268,15 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
             <section>
               <h4>1. 보스를 그린다</h4>
               <p>왼쪽 <b>모양</b>에서 원·네모·삼각형을 고르고 무대를 눌러 놓습니다. 놓은 도형은
-                끌어 옮기고, <b>오른쪽 아래 네모</b>로 크기를, <b>위쪽 고리</b>로 기울기를 잡습니다
-                (<b>Shift</b>를 누르고 돌리면 15°씩 끊깁니다). Delete로 지웁니다.</p>
+                끌어 옮기고, <b>둘레의 네모 여덟</b>으로 크기를, <b>위쪽 고리</b>로 기울기를 잡습니다
+                (<b>Shift</b>를 누르고 돌리면 15°씩 끊깁니다). 크기는 <b>잡은 쪽만 움직이고 반대편은
+                제자리</b>이며, <b>Alt</b>를 누르면 중심 대칭으로 커집니다. Delete로 지웁니다.</p>
               <p><b>밑그림</b>으로 보스 스크린샷을 깔고 그 위에 도형을 얹으면 모양을 맞추기 쉽습니다.
                 밑그림은 이 브라우저에만 남고 공유 코드에는 담기지 않습니다.</p>
+              <p>크기를 눈으로 맞출 때는 <b>격자</b>를 켜고(50px마다 선, 200px마다 숫자)
+                <b>+ · −</b>나 휠로 확대합니다 — 확대한 뒤에는 빈 곳을 끌어 화면을 옮깁니다.
+                겹쳐 놓아 뭐가 뭔지 모르겠으면 왼쪽 <b>레이어</b> 목록에서 짚어 고르고
+                ▲▼로 앞뒤 차례를 바꿉니다.</p>
             </section>
             <section>
               <h4>2. 코어와 중앙</h4>
@@ -346,6 +354,12 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
             <button type="button" class="bm-tool" data-bm-place="core" title="코어 자리 찍기">코어</button>
             <button type="button" class="bm-tool" data-bm-place="center" title="조준 기준이 되는 보스 중앙 찍기">중앙</button>
           </div>
+          <!-- 레이어. 겹쳐 놓으면 무엇이 어디에 있는지 무대만 봐서는 알 수 없다 —
+               목록에서 짚어 고르고, 위아래로 순서를 바꾼다(나중이 위다). -->
+          <div class="bm-tool-group bm-layers-group">
+            <span class="bm-tool-label">레이어</span>
+            <div class="bm-layers" data-bm-layers></div>
+          </div>
           <div class="bm-tool-group">
             <span class="bm-tool-label">밑그림</span>
             <label class="bm-tool file">불러오기<input type="file" accept="image/*" data-bm-image hidden /></label>
@@ -374,6 +388,15 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
             <label class="bm-stage-toggle"><input type="checkbox" data-bm-show-hits checked /><span>탄착점</span></label>
             <label class="bm-stage-toggle"><input type="checkbox" data-bm-pile /><span>누적</span></label>
             <button type="button" class="bm-stage-btn" data-bm-aim-key title="지금 시각에 조준 키프레임을 찍습니다. 무대를 누르면 그 자리로 잡힙니다">조준 찍기</button>
+            <label class="bm-stage-toggle"><input type="checkbox" data-bm-grid /><span>격자</span></label>
+            <!-- 확대. 수치로만 크기를 맞추던 것을 눈으로 맞출 수 있게 한다 —
+                 확대해 두면 빈 곳을 끌어 화면을 옮긴다. -->
+            <span class="bm-zoom">
+              <button type="button" class="bm-stage-btn" data-bm-zoom="out" title="축소 (휠 아래)">−</button>
+              <b data-bm-zoom-label>100%</b>
+              <button type="button" class="bm-stage-btn" data-bm-zoom="in" title="확대 (휠 위)">+</button>
+              <button type="button" class="bm-stage-btn" data-bm-zoom="reset" title="꽉 맞추기">맞춤</button>
+            </span>
             <span class="bm-stage-meta" data-bm-stage-meta></span>
           </div>
           <div class="bm-stage-box">
@@ -413,6 +436,9 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   const tracks = q<HTMLElement>('[data-bm-tracks]');
   const hint = q<HTMLElement>('[data-bm-hint]');
   const stageMeta = q<HTMLElement>('[data-bm-stage-meta]');
+  const zoomLabel = q<HTMLElement>('[data-bm-zoom-label]');
+  const layerBox = q<HTMLElement>('[data-bm-layers]');
+  const gridToggle = q<HTMLInputElement>('[data-bm-grid]');
   const centerWarn = q<HTMLElement>('[data-bm-center-warn]');
   const nameInput = q<HTMLInputElement>('[data-bm-name]');
   const narrow = q<HTMLElement>('[data-bm-narrow]');
@@ -469,13 +495,91 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
 
   // ── 무대 그리기 ───────────────────────────────────────────────────────────
 
+  /**
+   * 무대를 들여다보는 창. `zoom`이 1이면 캔버스 전체가 보인다.
+   *
+   * 「수치 입력으로만 스케일을 맞춰야 한다」는 말이 있었다 — 눈으로 맞추려면 키워
+   * 봐야 하고, 키우면 화면을 옮길 수 있어야 한다.
+   */
+  let zoom = 1;
+  let panX = 0;
+  let panY = 0;
+  const ZOOM_MIN = 1;
+  const ZOOM_MAX = 8;
+
+  /** 확대해도 캔버스 밖이 보이지 않게 잡아 둔다. */
+  function clampPan() {
+    const w = design.canvas.w / zoom;
+    const h = design.canvas.h / zoom;
+    panX = Math.min(Math.max(0, panX), Math.max(0, design.canvas.w - w));
+    panY = Math.min(Math.max(0, panY), Math.max(0, design.canvas.h - h));
+  }
+
+  /** 무대 위 한 점을 그대로 둔 채 배율만 바꾼다(휠 확대). */
+  function setZoom(next: number, keep?: { x: number; y: number }) {
+    const clamped = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, next));
+    if (clamped === zoom) return;
+    const anchor = keep ?? {
+      x: panX + design.canvas.w / zoom / 2,
+      y: panY + design.canvas.h / zoom / 2,
+    };
+    // 잡은 점이 화면에서 차지하던 비율을 그대로 지킨다.
+    const ratioX = (anchor.x - panX) / (design.canvas.w / zoom);
+    const ratioY = (anchor.y - panY) / (design.canvas.h / zoom);
+    zoom = clamped;
+    panX = anchor.x - ratioX * (design.canvas.w / zoom);
+    panY = anchor.y - ratioY * (design.canvas.h / zoom);
+    clampPan();
+    drawStage();
+    zoomLabel.textContent = `${Math.round(zoom * 100)}%`;
+  }
+
   function drawStage() {
-    stage.setAttribute('viewBox', `0 0 ${design.canvas.w} ${design.canvas.h}`);
+    clampPan();
+    stage.setAttribute(
+      'viewBox',
+      `${round(panX)} ${round(panY)} ${round(design.canvas.w / zoom)} ${round(design.canvas.h / zoom)}`,
+    );
     stage.replaceChildren();
 
     const at = shots ? cursor : 0;
     const battle = deps.currentBattle();
     const phase = phaseAt(at, battle.immuneWindows, battle.elementWindows);
+
+    // 격자와 눈금 — 「구석에 뭐라도 기준이 될 만한 게 있으면」이라는 말에 대한 답이다.
+    // 50px마다 선, 100px마다 숫자. 밑그림보다 아래에 깔아 그림을 가리지 않는다.
+    if (gridToggle.checked) {
+      const grid = svgEl('g');
+      grid.setAttribute('class', 'bm-grid');
+      const step = 50;
+      for (let x = 0; x <= design.canvas.w; x += step) {
+        const line = svgEl('line');
+        attrs(line, { x1: x, y1: 0, x2: x, y2: design.canvas.h });
+        line.setAttribute('class', x % 200 === 0 ? 'bm-grid-line is-major' : 'bm-grid-line');
+        grid.append(line);
+        if (x % 200 === 0 && x > 0) {
+          const mark = svgEl('text');
+          attrs(mark, { x: x + 3, y: 12 });
+          mark.setAttribute('class', 'bm-grid-mark');
+          mark.textContent = String(x);
+          grid.append(mark);
+        }
+      }
+      for (let y = 0; y <= design.canvas.h; y += step) {
+        const line = svgEl('line');
+        attrs(line, { x1: 0, y1: y, x2: design.canvas.w, y2: y });
+        line.setAttribute('class', y % 200 === 0 ? 'bm-grid-line is-major' : 'bm-grid-line');
+        grid.append(line);
+        if (y % 200 === 0 && y > 0) {
+          const mark = svgEl('text');
+          attrs(mark, { x: 3, y: y - 3 });
+          mark.setAttribute('class', 'bm-grid-mark');
+          mark.textContent = String(y);
+          grid.append(mark);
+        }
+      }
+      stage.append(grid);
+    }
 
     // 밑그림 — 도형 아래에 깔고 흐리게 둔다.
     if (design.image) {
@@ -772,11 +876,26 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   }
 
   /**
-   * 고른 것 둘레의 손잡이. 오른쪽 아래로 크기를, 위쪽 고리로 기울기를 잡는다.
+   * 고른 것 둘레의 손잡이. 여덟 자리로 크기를, 위쪽 고리로 기울기를 잡는다.
    *
    * 손잡이는 도형과 **함께 돌린다** — 안 돌리면 기울어진 도형의 모서리와 손잡이가
    * 따로 놀아 어디를 잡아야 할지 알 수 없다.
+   *
+   * 여덟인 이유는 종전의 하나(오른쪽 아래)로는 «왼쪽 끝을 맞춰 두고 오른쪽만 늘리기»가
+   * 아예 안 되기 때문이다. PPT를 써 본 손이 가는 대로 — 잡은 쪽만 움직이고 반대편은
+   * 제자리에 선다(Alt는 옛 규칙인 중심 대칭).
    */
+  const GRIPS: Array<{ grip: ResizeGrip; fx: number; fy: number; cursor: string }> = [
+    { grip: 'nw', fx: -1, fy: -1, cursor: 'nwse-resize' },
+    { grip: 'n', fx: 0, fy: -1, cursor: 'ns-resize' },
+    { grip: 'ne', fx: 1, fy: -1, cursor: 'nesw-resize' },
+    { grip: 'e', fx: 1, fy: 0, cursor: 'ew-resize' },
+    { grip: 'se', fx: 1, fy: 1, cursor: 'nwse-resize' },
+    { grip: 's', fx: 0, fy: 1, cursor: 'ns-resize' },
+    { grip: 'sw', fx: -1, fy: 1, cursor: 'nesw-resize' },
+    { grip: 'w', fx: -1, fy: 0, cursor: 'ew-resize' },
+  ];
+
   function drawHandles() {
     const item = findItem(selectedId);
     if (!item) return;
@@ -785,13 +904,29 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       group.setAttribute('transform', `rotate(${item.rotation} ${item.x} ${item.y})`);
     }
 
-    const size = svgEl('rect');
-    attrs(size, {
-      x: item.x + item.w / 2 - 5, y: item.y + item.h / 2 - 5, width: 10, height: 10,
+    // 테두리 — 어디까지가 이 도형인지 먼저 보인다.
+    const frame = svgEl('rect');
+    attrs(frame, {
+      x: item.x - item.w / 2, y: item.y - item.h / 2, width: item.w, height: item.h,
     });
-    size.setAttribute('class', 'bm-handle');
-    size.dataset.bmHandle = item.id;
-    group.append(size);
+    frame.setAttribute('class', 'bm-handle-frame');
+    group.append(frame);
+
+    for (const { grip, fx, fy, cursor } of GRIPS) {
+      const size = svgEl('rect');
+      attrs(size, {
+        x: item.x + (fx * item.w) / 2 - 5, y: item.y + (fy * item.h) / 2 - 5,
+        width: 10, height: 10,
+      });
+      size.setAttribute('class', 'bm-handle');
+      size.style.cursor = cursor;
+      size.dataset.bmHandle = item.id;
+      size.dataset.bmGrip = grip;
+      const tip = svgEl('title');
+      tip.textContent = '끌어서 크기 (Alt: 중심 대칭)';
+      size.append(tip);
+      group.append(size);
+    }
 
     // 기울기 고리는 위쪽으로 뽑아 둔다. 도형 안에 두면 옮기기와 헷갈린다.
     const arm = svgEl('line');
@@ -893,8 +1028,44 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     render();
   }
 
+  gridToggle.addEventListener('change', () => drawStage());
+  for (const button of host.querySelectorAll<HTMLButtonElement>('[data-bm-zoom]')) {
+    button.addEventListener('click', () => {
+      const how = button.dataset.bmZoom;
+      if (how === 'reset') { zoom = 1; panX = 0; panY = 0; drawStage(); zoomLabel.textContent = '100%'; return; }
+      setZoom(how === 'in' ? zoom * 1.25 : zoom / 1.25);
+    });
+  }
+  // 휠은 «잡은 자리»를 그대로 두고 키운다 — 커서 아래의 것이 달아나면 못 쫓아간다.
+  stage.addEventListener('wheel', (event) => {
+    event.preventDefault();
+    setZoom(zoom * (event.deltaY < 0 ? 1.15 : 1 / 1.15), stagePoint(event));
+  }, { passive: false });
+
   stage.addEventListener('pointerdown', (event) => {
     const at = stagePoint(event);
+    // 확대한 채로 빈 곳을 끌면 화면을 옮긴다(가운데 단추는 언제나). 확대하지 않았을
+    // 때는 옮길 것이 없으므로 예전처럼 «고른 것 풀기»로 간다.
+    const onEmpty = !(event.target as SVGElement | null)?.dataset?.bmItem
+      && !(event.target as SVGElement | null)?.dataset?.bmHandle;
+    if (event.button === 1 || (zoom > 1 && onEmpty && !placing && !aimPicking)) {
+      event.preventDefault();
+      const from = { x: at.x, y: at.y, panX, panY };
+      const onMove = (moveEvent: PointerEvent) => {
+        // 끌린 만큼 창을 반대로 민다. 화면 배율은 stagePoint가 이미 걷어 냈다.
+        const now = stagePoint(moveEvent);
+        panX = from.panX - (now.x - from.x);
+        panY = from.panY - (now.y - from.y);
+        drawStage();
+      };
+      const onUp = () => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+      };
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      return;
+    }
     if (aimPicking) { putAimKey(at); return; }
     if (placing) { place(placing, at); return; }
 
@@ -905,9 +1076,16 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     if (handleId) {
       const item = findItem(handleId);
       if (!item) return;
-      startDrag(event, (point) => {
-        item.w = Math.max(12, Math.abs(point.x - item.x) * 2);
-        item.h = Math.max(12, Math.abs(point.y - item.y) * 2);
+      const grip = (target?.dataset?.bmGrip ?? 'se') as ResizeGrip;
+      // 끌기 내내 **처음 상자**를 기준으로 잰다 — 매번 방금 바꾼 상자로 재면
+      // 반대편이 조금씩 밀려 손이 멈춘 자리와 도형이 어긋난다.
+      const from = { x: item.x, y: item.y, w: item.w, h: item.h, rotation: item.rotation };
+      startDrag(event, (point, moveEvent) => {
+        const next = resizeBox(from, grip, point, { symmetric: moveEvent.altKey });
+        item.x = next.x;
+        item.y = next.y;
+        item.w = next.w;
+        item.h = next.h;
       });
       return;
     }
@@ -969,10 +1147,15 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     render();
   }
 
-  function startDrag(event: PointerEvent, move: (point: { x: number; y: number }) => void) {
+  function startDrag(
+    event: PointerEvent,
+    // 끌던 중의 이벤트를 함께 넘긴다 — Alt·Shift 같은 «누르고 있는 키»는 끌기가
+    // 시작된 순간이 아니라 **지금** 눌려 있는 것이 맞다.
+    move: (point: { x: number; y: number }, moveEvent: PointerEvent) => void,
+  ) {
     event.preventDefault();
     const onMove = (moveEvent: PointerEvent) => {
-      move(stagePoint(moveEvent));
+      move(stagePoint(moveEvent), moveEvent);
       drawStage();
     };
     const onUp = () => {
@@ -2326,12 +2509,63 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     }
   }
 
+  /**
+   * 레이어 목록. 무대에서 겹친 것을 짚어 고르고, 그리는 차례를 바꾼다.
+   *
+   * **아래에 적힌 것이 위에 그려진다**(나중에 그린 것이 위다). 목록은 그 반대로
+   * 세운다 — 사람이 「맨 위」라고 부르는 것이 목록에서도 맨 위여야 한다.
+   */
+  function renderLayers() {
+    layerBox.replaceChildren();
+    const items = allItems();
+    if (items.length === 0) {
+      layerBox.append(el('p', 'bm-layers-empty', '아직 아무것도 없습니다.'));
+      return;
+    }
+    for (let i = items.length - 1; i >= 0; i -= 1) {
+      const item = items[i]!;
+      const part = isPart(item.id);
+      const row = el('div', 'bm-layer' + (selectedId === item.id ? ' is-on' : ''));
+      row.dataset.bmLayer = item.id;
+      const pick = el('button', 'bm-layer-pick');
+      (pick as HTMLButtonElement).type = 'button';
+      const swatch = el('i', 'bm-layer-dot');
+      swatch.style.background = part ? '#ffb347' : item.color;
+      pick.append(swatch, el('span', '', part ? (item as BossPart).name : SHAPE_LABEL[item.kind]));
+      pick.addEventListener('click', () => {
+        selectedId = item.id;
+        render();
+      });
+      row.append(pick);
+      // 순서 바꾸기. 파츠와 도형은 서로 다른 목록에 살아 제 목록 안에서만 오간다.
+      for (const [delta, label] of [[1, '▲'], [-1, '▼']] as const) {
+        const move = el('button', 'bm-layer-move');
+        (move as HTMLButtonElement).type = 'button';
+        move.textContent = label;
+        (move as HTMLButtonElement).title = delta > 0 ? '위로' : '아래로';
+        const list = part ? design.parts : design.shapes;
+        const at = list.findIndex((other) => other.id === item.id);
+        const to = at + delta;
+        (move as HTMLButtonElement).disabled = to < 0 || to >= list.length;
+        move.addEventListener('click', () => {
+          const moved = list.splice(at, 1)[0]!;
+          list.splice(to, 0, moved);
+          save();
+          render();
+        });
+        row.append(move);
+      }
+      layerBox.append(row);
+    }
+  }
+
   function render() {
     renderPicker();
     renderFilter();
     nameInput.value = design.name;
     narrow.hidden = window.innerWidth >= MIN_WIDTH;
     drawStage();
+    renderLayers();
     renderInspector();
     renderBattle();
     renderTracks();
