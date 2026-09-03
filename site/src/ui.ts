@@ -1119,6 +1119,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           <p class="share-msg" data-feedback-msg hidden></p>
           <div class="feedback-admin-bar" data-feedback-admin-bar hidden>
             <button type="button" class="notice-open" data-feedback-download>진행중 목록 내려받기</button>
+            <!-- 한 판 반영하고 나면 열 몇 건을 하나씩 옮기게 된다. 그 열 번의 누름은
+                 판단이 아니라 손품이라 한 단추로 줄인다. -->
+            <button type="button" class="notice-open" data-feedback-finish title="접수·진행중인 글을 모두 「완료」로 옮깁니다">남은 것 전부 완료로</button>
             <button type="button" class="notice-open" data-feedback-logout>관리자 해제</button>
           </div>
           <div class="feedback-list" data-feedback-list></div>
@@ -5131,6 +5134,35 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       }
     };
 
+    /**
+     * 남은 것을 전부 완료로. 한 판 반영하고 나면 열 몇 건을 하나씩 옮기게 되는데,
+     * 그 열 번의 누름은 판단이 아니라 손품이다.
+     *
+     * 「불가능」으로 닫아 둔 것은 건드리지 않는다 — 그건 완료가 아니라 다른 결론이다.
+     */
+    const finishAllFeedback = async () => {
+      const left = feedbackItems.filter(
+        (item) => item.status === 'new' || item.status === 'doing',
+      );
+      if (left.length === 0) { setFeedbackMsg('옮길 것이 없습니다.', true); return; }
+      let done = 0;
+      for (const item of left) {
+        try {
+          const moved = await server.moveFeedback(item.id, 'done', adminPass);
+          feedbackItems = feedbackItems.map((entry) => (entry.id === moved.id ? moved : entry));
+          done += 1;
+        } catch (error) {
+          // 하나가 막히면 거기서 멈춘다 — 나머지를 조용히 건너뛰면 무엇이 남았는지
+          // 알 수 없게 된다.
+          renderFeedback();
+          setFeedbackMsg(`${done}건까지 옮기고 막혔습니다: ${error instanceof Error ? error.message : String(error)}`);
+          return;
+        }
+      }
+      renderFeedback();
+      setFeedbackMsg(`${done}건을 「완료」로 옮겼습니다.`, true);
+    };
+
     const sendFeedback = async () => {
       const body = feedbackText.value.trim();
       if (body === '') {
@@ -5202,6 +5234,12 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     element<HTMLButtonElement>(root, '[data-feedback-download]').addEventListener('click', () => {
       downloadImage(textBlob(doingPrompt(feedbackItems)), feedbackFileName());
     });
+    // 되돌릴 수 없는 무더기 처리라 두 번 눌러야 터진다.
+    confirmTwice(
+      element<HTMLButtonElement>(root, '[data-feedback-finish]'),
+      () => { void finishAllFeedback(); },
+      { armed: '정말 전부 완료로?' },
+    );
   }
 
   // ── 이름으로 편성 입력 ───────────────────────────────────────────────────
