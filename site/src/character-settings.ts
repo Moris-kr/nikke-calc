@@ -1,3 +1,4 @@
+import { rollLines } from './overload-roll';
 import type {
   BuffTargetRow,
   CharacterControl,
@@ -292,6 +293,12 @@ export function controlChipText(value?: CharacterOverrides): string {
  * 켜 둔 채 «수치 추가»를 누르면 고급 모드가 꺼져 보이던 게 그 탓이다.
  */
 const lastPanels = new WeakMap<HTMLElement, HTMLElement[]>();
+
+/**
+ * 소장품 목록을 전부 편 캐릭터. 「직접 고르기」를 한 번 고르면 그 화면이 살아 있는
+ * 동안 계속 펴 둔다 — 값을 하나 고칠 때마다 다시 접히면 두 번은 못 고른다.
+ */
+const collectionAllRequested = new Set<string>();
 
 export function renderCharacterSettings(
   container: HTMLElement,
@@ -747,6 +754,19 @@ export function renderCharacterSettings(
   collectionHeading.textContent = defaults.favoriteItem ? '소장품 · 애장품' : '소장품';
   const collectionSelect = document.createElement('select');
   collectionSelect.dataset.collection = '';
+  // 목록이 「없음 · R0~R15 · SR0~SR15」로 서른 줄이 넘는다. 실제로 고르는 것은 등급이
+  // 바뀌는 자리와 만렙뿐이라, 자주 쓰는 것만 세우고 나머지는 「직접 고르기」로 편다.
+  // 이미 그 사이의 값을 골라 둔 사람에게는 처음부터 전체 목록을 편다 — 안 그러면
+  // 자기가 고른 값이 목록에서 사라진다.
+  const COMMON_STAGES = ['없음', 'R0', 'R5', 'R15', 'SR0', 'SR5', 'SR10', 'SR15'];
+  const wasAll = previous<HTMLSelectElement>('[data-collection]')?.dataset.all === '1';
+  const showAllStages = wasAll
+    || !COMMON_STAGES.includes(current.collection!.stage)
+    || collectionAllRequested.has(name);
+  if (showAllStages) collectionSelect.dataset.all = '1';
+  const stageList = showAllStages
+    ? catalog.collectionStages
+    : catalog.collectionStages.filter((stage) => COMMON_STAGES.includes(stage));
   const collectionOptions: Array<{ value: string; label: string }> = [
     ...(defaults.favoriteItem
       ? [3, 2, 1].map((stage) => ({
@@ -754,7 +774,8 @@ export function renderCharacterSettings(
         label: `애장품 ${'★'.repeat(stage)}${'☆'.repeat(3 - stage)}`,
       }))
       : []),
-    ...catalog.collectionStages.map((stage) => ({ value: `stage:${stage}`, label: stage })),
+    ...stageList.map((stage) => ({ value: `stage:${stage}`, label: stage })),
+    ...(showAllStages ? [] : [{ value: 'all', label: '직접 고르기…' }]),
   ];
   for (const option of collectionOptions) {
     const node = document.createElement('option');
@@ -766,6 +787,12 @@ export function renderCharacterSettings(
     ? `favorite:${current.collection!.favorite}`
     : `stage:${current.collection!.stage}`;
   collectionSelect.addEventListener('change', () => {
+    if (collectionSelect.value === 'all') {
+      // 전체 목록으로 편다. 값은 그대로 두고 다시 그리기만 한다.
+      collectionAllRequested.add(name);
+      commit(cloneOverrides(current));
+      return;
+    }
     const [kind, raw] = collectionSelect.value.split(':');
     const next = cloneOverrides(current);
     next.collection = kind === 'favorite'
@@ -775,9 +802,10 @@ export function renderCharacterSettings(
   });
   const collectionNote = document.createElement('p');
   collectionNote.className = 'field-note';
-  collectionNote.textContent = defaults.favoriteItem
+  collectionNote.textContent = (defaults.favoriteItem
     ? `${defaults.favoriteItem.name} 보유 시 애장품을, 아니면 실제 낀 소장품 단계를 고르세요. 애장품은 소장품 슬롯을 씁니다.`
-    : '실제로 장착한 소장품 등급·레벨입니다. 안 꼈으면 «없음»을 고르세요.';
+    : '실제로 장착한 소장품 등급·레벨입니다. 안 꼈으면 «없음»을 고르세요.')
+    + (showAllStages ? '' : ' 사이 단계는 «직접 고르기»로 폅니다.');
   collectionEditor.append(collectionHeading, collectionSelect, collectionNote);
   body.append(collectionEditor);
 
@@ -789,8 +817,30 @@ export function renderCharacterSettings(
     const lines = overloadLinesOf(current.overloadLines);
     const editor = document.createElement('section');
     editor.className = 'overload-lines';
-    const heading = document.createElement('h4');
-    heading.textContent = '오버로드 옵션';
+    const heading = document.createElement('div');
+    heading.className = 'ol-head';
+    const headingLabel = document.createElement('h4');
+    headingLabel.textContent = '오버로드 옵션';
+    heading.append(headingLabel);
+    // 안 키운 서포터를 재 볼 때 열두 줄을 손으로 넣는 것이 가장 지겨운 일이다.
+    // 정확한 스펙이 필요한 자리가 아니라 «대충 이런 장비» 하나가 필요한 자리다.
+    const roll = document.createElement('button');
+    roll.type = 'button';
+    roll.className = 'ol-roll';
+    roll.dataset.overloadRoll = '';
+    roll.textContent = '랜덤 채우기';
+    roll.title = '12줄을 굴려 채웁니다. 레벨은 1~5가 각 12%, 6~10이 각 7%, 11~15가 각 1%입니다';
+    roll.addEventListener('click', () => {
+      const pool = Object.keys(catalog.overloadFields).filter((key) => steps[key]);
+      const rolled = rollLines(pool, EQUIP_PARTS.length * OVERLOAD_LINES_PER_PART);
+      if (rolled.length === 0) return;
+      let at = 0;
+      for (const part of EQUIP_PARTS) {
+        lines[part] = lines[part].map(() => ({ ...rolled[at++]! }));
+      }
+      commitLines();
+    });
+    heading.append(roll);
     editor.append(heading);
 
     /** 줄 하나를 바꾸면 합계를 다시 세어 함께 저장한다. */

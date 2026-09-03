@@ -43,6 +43,9 @@ const settings: SettingsCatalog = {
     })),
     skillLevels: { '1': 10, '2': 10, '3': 10 },
     skillLevelsLocked: false,
+    // 애장품은 일부만 가진다 — 필터가 실제로 가르는지 보려면 둘 다 있어야 한다.
+    ...(name === '리타' || name === '크라운'
+      ? { favoriteItem: { name: `${name}의 애장품`, stage: 3 as const } } : {}),
     overload: {
       element_bonus: 88.6,
       atk_pct: 22.22,
@@ -1354,12 +1357,19 @@ describe('calculator UI', () => {
     expect(rosterNames(root).length).toBe(catalog.length);
   });
 
-  it('drops the favorite-item filter', () => {
+  it('애장품 필터로 목록을 가른다', () => {
+    // 한 번 «안 쓰인다»고 뺐던 칸인데, 쓰는 사람이 달라고 해서 되살렸다.
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
-    expect(root.querySelector('[data-filter-chip^="favorite"]')).toBeNull();
     const titles = [...root.querySelectorAll('[data-filter-groups] .filter-title')]
       .map((title) => title.textContent);
-    expect(titles).toEqual(['등급', '클래스', '코드', '무기', '기업']);
+    expect(titles).toEqual(['등급', '클래스', '코드', '무기', '기업', '애장품']);
+
+    const before = root.querySelectorAll('[data-roster-cell]').length;
+    root.querySelector<HTMLButtonElement>('[data-filter-chip="item:있음"]')!.click();
+    const withItem = [...root.querySelectorAll<HTMLElement>('[data-roster-cell]')]
+      .map((cell) => cell.dataset.rosterCell!);
+    expect(withItem.length).toBeLessThan(before);
+    for (const name of withItem) expect(settings.characters[name]?.favoriteItem).toBeTruthy();
   });
 
   it('sends the synchro level from the battle panel, and keeps it out of shared codes', async () => {
@@ -2357,6 +2367,25 @@ describe('calculator UI', () => {
     root.querySelector<HTMLButtonElement>('[data-slot-card="0"] [data-spread-growth]')!.click();
     expect(saved().characters[saved().squad[1]!]?.skillLevels?.['1']).toBe(4);
     expect(saved().characters[saved().squad[4]!]?.skillLevels?.['1']).toBe(4);
+  });
+
+  it('사용 설명서를 열면 화면의 기능 설명이 나온다', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const modal = root.querySelector<HTMLElement>('[data-guide-modal]')!;
+    expect(modal.hidden).toBe(true);
+
+    root.querySelector<HTMLButtonElement>('[data-guide-open]')!.click();
+    expect(modal.hidden).toBe(false);
+    // 「이게 뭔지 모르겠다」던 그 항목이 실제로 적혀 있어야 설명서다.
+    expect(modal.textContent).toContain('설정 이어받기');
+    expect(modal.textContent).toContain('다른 덱에서 이미 만져 둔 개별 설정');
+    expect(modal.querySelectorAll('.guide-entry').length).toBeGreaterThan(10);
+
+    // 두 번 열어도 글이 두 벌 생기지 않는다.
+    const first = modal.querySelectorAll('.guide-entry').length;
+    root.querySelector<HTMLButtonElement>('[data-guide-close]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-guide-open]')!.click();
+    expect(modal.querySelectorAll('.guide-entry').length).toBe(first);
   });
 
   /** 5덱 모드로 켜고 2덱에 한 명 넣는다 — 결과 탭이 나오려면 덱이 둘이어야 한다. */

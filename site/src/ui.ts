@@ -52,6 +52,7 @@ import {
 } from './hacks';
 import type { HackSettings } from './hacks';
 import { confirmTwice } from './confirm-twice';
+import { GUIDE } from './guide';
 import { startPresence } from './presence';
 import { mountUnionRaid, type UnionHandle } from './union-raid';
 import { mountBossMaker, type BossMakerHandle } from './boss-maker-view';
@@ -559,7 +560,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           <p class="eyebrow">BROWSER SIM <span>·</span> 60 FPS TIMELINE</p>
           <h1><span>NIKKE</span> 스쿼드 계산기</h1>
           <p class="hero-lede">캐릭터별 오버로드와 큐브, 전투 조건을 반영해 프레임 단위 예상 대미지를 계산합니다.</p>
-          <div class="trust-row" aria-label="서비스 특징"><span>${catalog.length}명 지원</span><span class="online-now" data-online hidden title="최근 1~2분 사이에 이 계산기를 연 사람 수입니다. 탭을 숨기면 세지 않습니다"><b class="online-dot" aria-hidden="true"></b><span data-online-text></span></span><button type="button" class="notice-open" data-notice-open title="지금까지 무엇이 바뀌었는지 봅니다">업데이트 내역</button>${SHARE_API ? '<button type="button" class="notice-open" data-feedback-open title="불편한 점·바라는 점을 남깁니다. 올린 글은 모두에게 보입니다">피드백</button>' : ''}<a class="credit-link" href="https://github.com/Jgaram/nikke-calc" target="_blank" rel="noreferrer noopener" title="이 계산기의 원본 저장소">원본 알고리즘 개발자에게 무한한 감사를</a></div>
+          <div class="trust-row" aria-label="서비스 특징"><span>${catalog.length}명 지원</span><span class="online-now" data-online hidden title="최근 1~2분 사이에 이 계산기를 연 사람 수입니다. 탭을 숨기면 세지 않습니다"><b class="online-dot" aria-hidden="true"></b><span data-online-text></span></span><button type="button" class="notice-open" data-guide-open title="화면의 각 기능이 무엇을 하는지 봅니다">사용 설명서</button><button type="button" class="notice-open" data-notice-open title="지금까지 무엇이 바뀌었는지 봅니다">업데이트 내역</button>${SHARE_API ? '<button type="button" class="notice-open" data-feedback-open title="불편한 점·바라는 점을 남깁니다. 올린 글은 모두에게 보입니다">피드백</button>' : ''}<a class="credit-link" href="https://github.com/Jgaram/nikke-calc" target="_blank" rel="noreferrer noopener" title="이 계산기의 원본 저장소">원본 알고리즘 개발자에게 무한한 감사를</a></div>
         </div>
         <div class="hero-orbit" aria-hidden="true"><span>01</span><strong>LOCAL<br />SIM</strong></div>
       </header>
@@ -794,6 +795,11 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
                    않고 바로 누를 수 있어야 한다. -->
               <div class="filter-chips burst-chips" data-burst-group></div>
               <button type="button" class="filter-reset" data-filter-reset hidden>필터 지우기</button>
+              <!-- 초상화에 육성 상태를 겹쳐 적는다. 기본은 꺼짐 — 켜 둔 사람에게만
+                   보이면 되는 값이라 이 브라우저에 기억한다. -->
+              <label class="inline-check badge-toggle" title="초상화 위에 돌파와 소장품 단계를 겹쳐 적습니다">
+                <input type="checkbox" data-portrait-badges /><span>육성 표시</span>
+              </label>
               <span class="filter-summary" data-filter-summary></span>
             </div>
             <!-- 판은 목록을 밀어내지 않고 그 «위에» 얹힌다. 밀어내면 펼칠 때마다
@@ -1065,6 +1071,16 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             </div>
             <p class="custom-desc abbrev-collect">등록한 뜻은 <b>모두가 함께 쓰는 사전</b>으로 서버에 모입니다 — 보내는 것은 <b>친 글자와 고른 니케 이름뿐</b>이고, 편성·스펙·계정 정보는 보내지 않습니다. 같은 약어에 답이 갈리면 표가 많은 쪽이 사전이 됩니다.</p>
           </div>
+        </div>
+      </div>
+
+      <!-- 사용 설명서. 공지는 «무엇이 달라졌나»를 적는 자리라, 지금 화면에 있는 것이
+           무엇인지는 아무 데도 적혀 있지 않았다. 글은 guide.ts에 있다. -->
+      <div class="custom-modal" data-guide-modal hidden>
+        <div class="custom-card notice-card" role="dialog" aria-label="사용 설명서">
+          <div class="custom-head"><h2>사용 설명서</h2><button type="button" class="custom-close" data-guide-close aria-label="닫기">✕</button></div>
+          <p class="custom-desc">화면에 있는 것들이 각각 무엇을 하는지 적어 두었습니다. 무엇이 <b>달라졌는지</b>는 「업데이트 내역」에 있습니다.</p>
+          <div class="guide-body" data-guide-body></div>
         </div>
       </div>
 
@@ -1771,6 +1787,52 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     overloadMoveModal.hidden = false;
   };
 
+  // ── 사용 설명서 ─────────────────────────────────────────────────────────
+  const guideModal = element<HTMLElement>(root, '[data-guide-modal]');
+  const guideBody = element<HTMLElement>(root, '[data-guide-body]');
+  let guideDrawn = false;
+  const renderGuide = () => {
+    if (guideDrawn) return;          // 글은 고정이라 한 번만 그린다
+    guideDrawn = true;
+    for (const section of GUIDE) {
+      const block = document.createElement('section');
+      block.className = 'guide-section';
+      block.append(createText('h3', section.title));
+      if (section.lead) {
+        const lead = document.createElement('p');
+        lead.className = 'guide-lead';
+        lead.innerHTML = section.lead;
+        block.append(lead);
+      }
+      for (const entry of section.entries) {
+        const row = document.createElement('div');
+        row.className = 'guide-entry';
+        const head = document.createElement('p');
+        head.className = 'guide-term';
+        head.append(createText('b', entry.term), createText('em', entry.where));
+        const body = document.createElement('p');
+        body.className = 'guide-what';
+        body.innerHTML = entry.what;
+        row.append(head, body);
+        block.append(row);
+      }
+      guideBody.append(block);
+    }
+  };
+  element<HTMLButtonElement>(root, '[data-guide-open]').addEventListener('click', () => {
+    renderGuide();
+    guideModal.hidden = false;
+  });
+  element<HTMLButtonElement>(root, '[data-guide-close]').addEventListener('click', () => {
+    guideModal.hidden = true;
+  });
+  guideModal.addEventListener('click', (event) => {
+    if (hitBackdrop(event, guideModal)) guideModal.hidden = true;
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !guideModal.hidden) guideModal.hidden = true;
+  });
+
   const noticeModal = element<HTMLElement>(root, '[data-notice-modal]');
   const noticeBody = element<HTMLElement>(root, '[data-notice-body]');
 
@@ -2250,6 +2312,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         image.loading = 'lazy';
         portrait.append(image);
       }
+      // 편성 카드에도 같은 딱지를 붙인다 — 목록에서 보고 고른 그 표시가 칸에서도
+      // 보여야 «이 사람이 그 사람»이라는 것이 이어진다.
+      if (char) appendGrowthBadge(portrait, char.name, 'top');
       const identity = document.createElement('div');
       identity.className = 'slot-identity';
 
@@ -2364,6 +2429,29 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           deck.squad.filter((slot): slot is string => Boolean(slot)),
           // 불러온 프로필이 있으면 「수치 설정」 안에 되돌리기 단추를 낸다.
           restoreFor(cname));
+          // 「베껴오기」는 카드 맨 아래에 있는데, 정작 베끼고 싶어지는 자리는 오버로드
+          // 옵션 앞이다. 열두 줄을 손으로 넣기 시작한 다음에야 «남의 것을 가져오면
+          // 되겠다»는 생각이 든다 — 그 자리에도 같은 문을 하나 낸다.
+          const olHead = editor.querySelector<HTMLElement>('.overload-lines .ol-head');
+          if (olHead && !olHead.querySelector('[data-overload-copy]')) {
+            const copy = document.createElement('button');
+            copy.type = 'button';
+            copy.className = 'ol-copy';
+            copy.dataset.overloadCopy = '';
+            copy.textContent = '베껴오기';
+            copy.title = '다른 니케의 오버로드·장비·돌파를 그대로 가져옵니다';
+            copy.addEventListener('click', () => {
+              const box = card.querySelector<HTMLDetailsElement>(`[data-copy-from="${cname}"]`);
+              if (!box) return;
+              closeCharPanel();
+              box.open = true;
+              if (typeof box.scrollIntoView === 'function') {
+                box.scrollIntoView({ block: 'nearest' });
+              }
+              box.querySelector<HTMLSelectElement>('[data-copy-from-pick]')?.focus();
+            });
+            olHead.append(copy);
+          }
           syncOpenPanel();
         };
 
@@ -4287,10 +4375,12 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   // 필터는 **그룹 안에서는 OR, 그룹 사이에서는 AND**다. 무기 SG·SMG를 함께 켜면
   // 둘 중 하나면 통과하고, 거기에 클래스 화력형을 더하면 «화력형이면서 SG나 SMG»가 된다.
   // 인게임 도감이 이 방식이라 익숙하고, 하나만 고르는 것보다 훨씬 빨리 좁혀진다.
-  type FilterKey = 'burst' | 'rarity' | 'class' | 'code' | 'weapon' | 'corp';
+  // `item`은 애장품 유무다 — 다른 칸과 달리 카탈로그가 아니라 설정 표(`favoriteItem`)를
+  // 봐야 알 수 있어서 값이 「있음」·「없음」 둘뿐이다.
+  type FilterKey = 'burst' | 'rarity' | 'class' | 'code' | 'weapon' | 'corp' | 'item';
   const picked: Record<FilterKey, Set<string>> = {
     burst: new Set(), rarity: new Set(), class: new Set(),
-    code: new Set(), weapon: new Set(), corp: new Set(),
+    code: new Set(), weapon: new Set(), corp: new Set(), item: new Set(),
   };
   type SortKey = 'power' | 'name' | 'element' | 'elementAtk';
   // 처음 보이는 순서는 전투력 높은 순이다 — 목록에서 먼저 찾는 것이 «내가 키운
@@ -4358,6 +4448,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     { key: 'code', title: '코드', values: ['작열', '수냉', '풍압', '전격', '철갑'] },
     { key: 'weapon', title: '무기', values: ['AR', 'SMG', 'SG', 'SR', 'RL', 'MG'] },
     { key: 'corp', title: '기업', values: ['엘리시온', '미실리스', '테트라', '필그림', '어브노말'] },
+    { key: 'item', title: '애장품', values: ['있음', '없음'] },
   ];
 
   const labelOf = (key: FilterKey, value: string) =>
@@ -4499,6 +4590,58 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     renderRosterGrid();
   });
 
+  // ── 초상화의 육성 표시 ────────────────────────────────────────────────
+  // 인게임 목록처럼 돌파(별·코어)와 소장품 단계를 초상화 위에 겹쳐 적는다. 기본은
+  // 꺼짐이다 — 그림이 이미 빽빽해서, 필요한 사람만 켜야 목록이 읽힌다.
+  const BADGE_KEY = 'nikke-portrait-badges-v1';
+  const badgeToggle = element<HTMLInputElement>(root, '[data-portrait-badges]');
+  let showBadges = false;
+  try {
+    showBadges = resolveStorage()?.getItem(BADGE_KEY) === '1';
+  } catch { /* 못 읽으면 꺼진 채로 간다 */ }
+  badgeToggle.checked = showBadges;
+  badgeToggle.addEventListener('change', () => {
+    showBadges = badgeToggle.checked;
+    try {
+      resolveStorage()?.setItem(BADGE_KEY, showBadges ? '1' : '0');
+    } catch { /* 저장 실패는 무시한다 */ }
+    renderRosterGrid();
+    renderSquad();
+  });
+
+  /** 이 니케의 지금 육성값. 덱에 잡아 둔 것 > 불러온 프로필 > 카탈로그 기본값. */
+  const growthShownFor = (name: string): { stars: string; item: string } | null => {
+    const meta = settings.characters[name];
+    if (!meta) return null;
+    const own = activeDeck().characters[name] ?? roster[name];
+    const stage = own?.growthStage ?? meta.growthStage ?? 0;
+    const slots = Math.min(meta.maxGrowthStage, 3);
+    const core = Math.max(0, stage - 3);
+    const stars = slots > 0
+      ? '★'.repeat(Math.min(stage, slots)) + '☆'.repeat(Math.max(0, slots - stage))
+        + (core > 0 ? `+${core}` : '')
+      : '';
+    const collection = own?.collection ?? meta.collection;
+    const item = collection?.favorite
+      ? `애장 ${'★'.repeat(collection.favorite)}`
+      : (collection?.stage && collection.stage !== '없음' ? collection.stage : '');
+    return stars || item ? { stars, item } : null;
+  };
+
+  /** 초상화에 겹치는 딱지. 꺼져 있거나 적을 것이 없으면 아무것도 안 붙인다. */
+  const appendGrowthBadge = (host: HTMLElement, name: string, where: 'top' | 'bottom' = 'bottom'): void => {
+    if (!showBadges) return;
+    const shown = growthShownFor(name);
+    if (!shown) return;
+    const badge = document.createElement('div');
+    // 편성 카드는 아래쪽이 이미 전투력과 돌파 스테퍼로 차 있어 위로 올린다.
+    badge.className = where === 'top' ? 'growth-badge is-top' : 'growth-badge';
+    badge.dataset.growthBadge = name;
+    if (shown.stars) badge.append(createText('b', shown.stars, 'growth-badge-stars'));
+    if (shown.item) badge.append(createText('span', shown.item, 'growth-badge-item'));
+    host.append(badge);
+  };
+
   const renderRosterGrid = () => {
     // 직접 추가한 니케까지 포함해 지금 고를 수 있는 전체를 보여준다.
     const all = [...catalogByName.values()].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
@@ -4511,7 +4654,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         && hit('class', char.className)
         && hit('code', char.elementCode)
         && hit('weapon', char.weaponType)
-        && hit('corp', char.manufacturer);
+        && hit('corp', char.manufacturer)
+        && hit('item', meta?.favoriteItem ? '있음' : '없음');
     });
     sortRoster(narrowed);
     // 칩으로 먼저 좁히고 검색어로 세운다. 검색은 초성과 구분자까지 받아
@@ -4546,6 +4690,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       badge.className = 'roster-burst';
       badge.textContent = `B${char.burstStage}`;
       portrait.append(badge);
+      appendGrowthBadge(portrait, char.name);
       // 버스트 단계 맞은편(우상단)에 속성 아이콘.
       const codeIcon = createElementIcon(char.elementCode, 'roster-code');
       if (codeIcon) portrait.append(codeIcon);

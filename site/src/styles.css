@@ -2245,3 +2245,34 @@ body.bm-open { overflow: hidden; }
 /* 「이 육성을 덱 전원에게」 — 베껴오기와 같은 자리, 같은 무게로 선다. */
 .spread-growth { display: grid; gap: 6px; margin-top: 6px; }
 .spread-apply { justify-self: start; }
+/* 오버로드 옵션 머리 — 제목 옆에 「랜덤 채우기」와 베껴오기가 선다. */
+.ol-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ol-head h4 { margin: 0; }
+.ol-roll, .ol-copy { margin-left: auto; padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--line); background: rgba(146,176,201,.08);
+  color: var(--muted); font: 700 11px inherit; cursor: pointer; }
+.ol-copy { margin-left: 0; }
+.ol-roll:hover, .ol-copy:hover { color: var(--ink); border-color: rgba(69,214,208,.4); }
+/* 초상화 위의 육성 딱지 — 인게임 목록처럼 돌파와 소장품을 겹쳐 적는다(기본 꺼짐). */
+.growth-badge { position: absolute; left: 4px; right: 4px; bottom: 4px;
+  display: flex; align-items: center; justify-content: space-between; gap: 4px;
+  padding: 2px 5px; border-radius: 6px; background: rgba(4,10,18,.78);
+  border: 1px solid rgba(146,176,201,.22); pointer-events: none; }
+.growth-badge-stars { color: var(--amber); font: 800 9px/1.2 inherit; letter-spacing: -.02em; }
+.growth-badge-item { color: var(--muted); font: 700 9px/1.2 inherit; }
+.badge-toggle { white-space: nowrap; }
+.growth-badge.is-top { top: 4px; right: 4px; left: auto; bottom: auto;
+  flex-direction: column; align-items: flex-end; gap: 1px; }
+/* 사용 설명서 — 「무엇이 있나」를 적는 자리(공지는 「무엇이 달라졌나」다). */
+.guide-body { display: grid; gap: 20px; max-height: 62vh; overflow: auto; padding-right: 4px; }
+.guide-section h3 { margin: 0 0 6px; color: var(--amber); font: 800 13px inherit;
+  letter-spacing: .02em; }
+.guide-lead { margin: 0 0 10px; color: var(--muted); font: 400 12px/1.7 inherit; }
+.guide-entry { padding: 8px 0; border-top: 1px solid var(--line); }
+.guide-term { margin: 0 0 3px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.guide-term b { color: var(--ink); font: 800 12.5px inherit; }
+.guide-term em { color: var(--muted); font: 400 11px inherit; font-style: normal; }
+.guide-what { margin: 0; color: #b9c8d6; font: 400 12px/1.7 inherit; }
+.guide-what b, .guide-lead b { color: var(--ink); }
+.guide-what code, .guide-lead code { padding: 1px 5px; border-radius: 4px;
+  background: rgba(146,176,201,.12); font: 700 11px ui-monospace, SFMono-Regular, Menlo, monospace; }
