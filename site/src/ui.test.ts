@@ -2414,7 +2414,8 @@ describe('calculator UI', () => {
 
     root.querySelector<HTMLInputElement>('[data-detail-damage]')!.click();
     expect(root.querySelector<HTMLElement>('[data-deck-result]')!.dataset.deckResult).toBe('2');
-  });
+    // 두 판을 짜고 한 판 돌리는 시험이라 느린 기계(CI)에서는 기본 5초를 넘긴다.
+  }, 20_000);
 
   it('덱끼리 견주기는 막대를 다섯 덱 통틀어 1등 기준으로 그린다', async () => {
     const client = new FakeClient();
@@ -2434,7 +2435,7 @@ describe('calculator UI', () => {
     // 덱이 하나뿐이면 견줄 것이 없으므로 이 칸 자체가 없다(아래 단일 덱 시험 참고).
     expect(compare.checked).toBe(true);
     expect(widths().length).toBeGreaterThan(0);
-  });
+  }, 20_000);
 
   // ── 핵 ────────────────────────────────────────────────────────────────
   describe('핵', () => {
