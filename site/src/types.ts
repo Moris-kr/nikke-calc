@@ -347,6 +347,10 @@ export interface CharacterDamageBreakdown {
   normalHits: number;
   skill: number;
   skillHits: number;
+  /** 쏜 발수 — 조준 판정이 있는 히트만 센다(스킬 대미지는 빠진다). */
+  shots?: number;
+  /** 그중 코어에 맞은 몫. 기대값 모드에서는 발마다 확률이라 소수가 나온다. */
+  coreShots?: number;
   skills: Array<{ name: string; damage: number; hits: number }>;
 }
 

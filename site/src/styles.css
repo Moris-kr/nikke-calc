@@ -741,6 +741,8 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .split-legend { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 0; font-size: 9px; line-height: 1.5; }
 .split-legend .legend-normal { color: var(--cyan); }
 .split-legend .legend-skill { color: var(--amber); }
+/* 코어 명중률은 딜 분해가 아니라 «어떻게 맞혔나»라 색을 빌리지 않고 흐리게 둔다. */
+.dmg-split .legend-core { color: #7e91a2; }
 .skill-breakdown { margin-top: 6px; }
 .skill-breakdown summary { color: #7e91a2; font-size: 9px; cursor: pointer; }
 .skill-breakdown ul { margin: 6px 0 0; padding: 0; list-style: none; }
@@ -789,7 +791,7 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .result-card small { display: block; color: var(--cyan); font: 600 10px ui-monospace, monospace; }
 .result-card .share-track { margin-top: 8px; }
 .result-card .dmg-split { margin-top: 8px; }
-.result-card .dmg-split > summary { display: flex; gap: 8px; cursor: pointer;
+.result-card .dmg-split > summary { display: flex; flex-wrap: wrap; gap: 8px; cursor: pointer;
   font: 700 9.5px ui-monospace, monospace; }
 .result-card .split-legend { display: grid; gap: 2px; margin: 6px 0 0; }
 .result-card .skill-breakdown { display: grid; gap: 3px; margin: 8px 0 0; padding: 0; list-style: none; }

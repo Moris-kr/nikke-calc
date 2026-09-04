@@ -718,11 +718,16 @@ class CharState:
             # (코어 배율은 이미 이 히트의 damage에 확률로 반영돼 있다)
             tag = (f"core:pellet:{i}" if is_core else f"pellet:{i}") if hit_count > 1 \
                   else ("core" if is_core else "normal")
+            # 이 한 발이 코어를 맞은 몫. 기대값 모드는 확률 그대로, 난수 모드는 0/1이다.
+            # 아래 `core_hit` 통보와 같은 값이며, 히트에 실어 두면 결과를 읽는 쪽이
+            # «이 사람은 코어를 몇 %나 맞히나»를 태그 없이 셀 수 있다.
+            core_frac = P_core if expected else (1.0 if is_core else 0.0)
             # 변신 모드 사격은 스킬 대미지 취급이라 평타 계수를 태우지 않는다.
             shot_damage = _apply_hit_coeff(res["damage"], cfg, self.weapon_type,
                                            self._wc_is_skill_damage())
             events.append(HitEvent(t=t, caster=self.name, damage=shot_damage,
                                    is_crit=res["is_crit"], hit_tag=tag,
+                                   core_frac=core_frac,
                                    **({"skill_name": self._wc_name}
                                       if self._wc_is_skill_damage() else {})))
             events.extend(self._pierce_extra(
@@ -731,7 +736,6 @@ class CharState:
             ))
             bm.notify("pellet_hit", t, self.name)
             body_ev = "squad_part_hit" if enemy.get("has_parts", False) else "squad_body_hit"
-            core_frac = P_core if expected else (1.0 if is_core else 0.0)
             _notify_frac(bm, body_ev, self.name, 1.0 - core_frac,
                          lambda: bm.notify_team_hit(body_ev, t, self.name))
             _notify_frac(bm, "crit_hit", self.name, res["crit_frac"],
@@ -990,6 +994,9 @@ class CharState:
                                            self._wc_is_skill_damage())
             events.append(HitEvent(t=t, caster=self.name, damage=shot_damage,
                                    is_crit=res["is_crit"], hit_tag=tag,
+                                   # 코어를 맞은 몫 (`_fire`와 같은 값·같은 취지).
+                                   core_frac=(P_core if expected
+                                              else (1.0 if is_core else 0.0)),
                                    **({"skill_name": self._wc_name}
                                       if self._wc_is_skill_damage() else {})))
         if in_debug_window:

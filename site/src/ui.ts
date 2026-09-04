@@ -334,6 +334,16 @@ function renderCharacterCards(
       const summary = document.createElement('summary');
       summary.append(createText('span', t('평타 {pct}%', { pct: normalPct.toFixed(0) }), 'legend-normal'));
       summary.append(createText('span', t('스킬 {pct}%', { pct: skillPct.toFixed(0) }), 'legend-skill'));
+      // 코어 명중률. 「코어를 켰는데 이 사람만 딜이 안 오른다」는 물음이 여기서 끝난다 —
+      // 무기군마다 탄착군이 다르고, 변신 모드는 **그 모드 무기**로 따지기 때문이다.
+      // 쏜 것이 없으면(스킬로만 때리는 판) 적을 것도 없다.
+      const shots = breakdown.shots ?? 0;
+      if (shots > 0) {
+        const corePct = (breakdown.coreShots ?? 0) / shots * 100;
+        const core = createText('span', t('코어 {pct}%', { pct: corePct.toFixed(0) }), 'legend-core');
+        core.title = t('쏜 탄 가운데 코어에 맞은 비율입니다. 무기군의 탄착군 크기와 코어 크기로 정해지며, 변신 모드에서는 그 모드의 무기로 따집니다. 스킬 대미지는 조준 판정이 없어 여기 들어가지 않습니다.');
+        summary.append(core);
+      }
       details.append(summary);
 
       const splitTrack = document.createElement('div');

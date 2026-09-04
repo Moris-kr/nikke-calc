@@ -53,6 +53,24 @@ class LaplaceUltimateHeroModeTest(unittest.TestCase):
         # SMG 모드는 이 항을 아예 안 탄다.
         self.assertAlmostEqual(avg(up_smg) / avg(base_smg), 1.0, places=9)
 
+    def test_core_hits_follow_the_mode_weapon_not_the_base_one(self):
+        """코어 명중은 **지금 들고 있는 무기**의 탄착군으로 따진다.
+
+        기본 무기가 RL이라 예열을 쌓는 풀차지 5발은 코어 52px를 언제나 맞히지만,
+        SMG 모드의 연사는 탄착군이 넓어 대부분 빗나간다. 「풍라플만 코어를 켜도 딜이
+        안 오른다」는 물음의 답이 이 갈림이라, 수치를 여기에 못 박는다.
+        """
+        squad = char_spec.build_squad([NAME], {})
+        result = simulate(squad, config={"duration": 12, "rng_mode": "expected"},
+                          enemy={"def": 31784, "code": "", "core_px": 52})
+        hits = sorted((h for h in result.hits if h.core_frac is not None), key=lambda h: h.t)
+        charge = [h for h in hits if h.t < _MODE_START - 0.01]
+        smg = [h for h in hits if _MODE_START + 0.01 < h.t < 10.0]
+        self.assertEqual([h.core_frac for h in charge], [1.0] * 5)
+        # SMG 탄착군 110px · 코어 52px → (26/55)^2.55 ≈ 0.148.
+        self.assertAlmostEqual(smg[0].core_frac, 0.148, places=3)
+        self.assertTrue(all(h.core_frac == smg[0].core_frac for h in smg))
+
     def test_mode_fires_as_smg_and_ends_after_its_bullets(self):
         """모드 자체가 성립하는지도 함께 잡아 둔다 — 위 시험의 전제다."""
         _, smg = self._split(0.0)

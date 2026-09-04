@@ -48,6 +48,53 @@ class HackBridgeTest(unittest.TestCase):
             self._total({"damageMult": 0})
 
 
+class CoreShareTest(unittest.TestCase):
+    """캐릭터마다 «쏜 탄 중 몇 발이 코어에 맞았나»를 결과에 실어 보낸다.
+
+    「코어를 켰는데 이 사람만 딜이 안 오른다」는 물음이 여러 번 올라왔다. 답은 무기군마다
+    탄착군이 다르고 **변신 모드는 그 모드의 무기로 따진다**는 것인데, 화면에는 그 사실이
+    어디에도 없었다. 이 수치가 그 자리를 맡는다.
+    """
+
+    BASE = {
+        "squad": ["루주", "블랑", "라플라스 : 얼티밋 히어로"],
+        "duration": 60,
+        "enemyDef": 31_784,
+        "enemyCode": "",
+        "corePx": 52,
+        "hasParts": False,
+        "seed": 42,
+    }
+
+    def _breakdown(self, **over):
+        raw = run_request(json.dumps({**self.BASE, **over}, ensure_ascii=False))
+        return json.loads(raw)["charBreakdown"]
+
+    def test_core_share_is_per_weapon_and_per_mode(self):
+        rows = self._breakdown()
+        share = {name: row["coreShots"] / row["shots"] for name, row in rows.items()}
+        # SR은 탄착군이 코어보다 작아 언제나 코어다.
+        self.assertAlmostEqual(share["루주"], 1.0, places=6)
+        # AR은 76px 탄착군이라 절반쯤 빗나간다.
+        self.assertAlmostEqual(share["블랑"], 0.380, places=3)
+        # 기본이 RL이어도 SMG 모드로 쏘는 동안은 그 무기의 탄착군으로 따진다.
+        self.assertLess(share["라플라스 : 얼티밋 히어로"], 0.3)
+
+    def test_no_core_means_no_core_hits(self):
+        rows = self._breakdown(corePx=0)
+        for name, row in rows.items():
+            self.assertGreater(row["shots"], 0, name)
+            self.assertEqual(row["coreShots"], 0, name)
+
+    def test_skill_damage_is_not_counted_as_a_shot(self):
+        rows = self._breakdown(duration=120)
+        for name, row in rows.items():
+            skill_hits = row["skillHits"]
+            self.assertLessEqual(row["shots"], row["normalHits"] + skill_hits)
+            # 스킬로만 나가는 딜은 조준 판정이 없어 분모에 들어가지 않는다.
+            self.assertLessEqual(row["coreShots"], row["shots"])
+
+
 class BrowserBridgeTest(unittest.TestCase):
     def test_growth_stage_changes_the_engine_result(self):
         payload = {

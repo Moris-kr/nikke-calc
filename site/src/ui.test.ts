@@ -2066,6 +2066,61 @@ describe('calculator UI', () => {
     expect(splits[0]!.querySelector('.skill-breakdown li')!.textContent).toContain('버스트');
   });
 
+  it('적는다 — 쏜 탄 가운데 코어에 맞은 몫', async () => {
+    // 「코어를 켰는데 이 사람만 딜이 안 오른다」는 물음의 답이 이 한 줄이다.
+    class CoreClient extends FakeClient {
+      override async simulate(request: SimulationRequest): Promise<SimulationResult> {
+        await super.simulate(request);
+        return {
+          ...calculated,
+          charBreakdown: {
+            리타: {
+              normal: 45_000, normalHits: 300, skill: 15_000, skillHits: 12,
+              shots: 300, coreShots: 45.6,
+              skills: [{ name: '버스트', damage: 15_000, hits: 12 }],
+            },
+          },
+        };
+      }
+    }
+    const client = new CoreClient();
+    mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });
+    root.querySelector<HTMLInputElement>('#duration')!.value = '10';
+    root.querySelector<HTMLFormElement>('form')!.requestSubmit();
+    await flush();
+
+    const summary = root.querySelector<HTMLElement>('[data-dmg-split] summary')!;
+    expect(summary.textContent).toContain('코어 15%');
+    expect(summary.querySelector<HTMLElement>('.legend-core')!.title).toContain('탄착군');
+  });
+
+  it('안 쏜 사람에게는 코어 줄을 붙이지 않는다', async () => {
+    // 옛 결과에는 사격 수가 없다 — 없는 값을 0%로 적으면 «코어를 하나도 못 맞혔다»는
+    // 거짓말이 된다.
+    class OldClient extends FakeClient {
+      override async simulate(request: SimulationRequest): Promise<SimulationResult> {
+        await super.simulate(request);
+        return {
+          ...calculated,
+          charBreakdown: {
+            리타: {
+              normal: 45_000, normalHits: 300, skill: 15_000, skillHits: 12,
+              skills: [{ name: '버스트', damage: 15_000, hits: 12 }],
+            },
+          },
+        };
+      }
+    }
+    const client = new OldClient();
+    mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });
+    root.querySelector<HTMLInputElement>('#duration')!.value = '10';
+    root.querySelector<HTMLFormElement>('form')!.requestSubmit();
+    await flush();
+
+    const summary = root.querySelector<HTMLElement>('[data-dmg-split] summary')!;
+    expect(summary.textContent).not.toContain('코어');
+  });
+
   it('omits the damage split when the result has no breakdown (older cached results)', async () => {
     const client = new FakeClient();
     mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });

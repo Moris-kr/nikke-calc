@@ -333,8 +333,15 @@ def _build_breakdown(result, names: list[str]) -> dict:
         hits = [hit for hit in result.hits if hit.caster == name]
         normal_damage = skill_damage = 0
         normal_hits = skill_hits = 0
+        # 코어 명중은 **쏜 것**에만 있다. 스킬 대미지는 조준 판정이 없어 `core_frac`이
+        # 비어 있고, 그런 히트는 분모에도 들어가지 않는다.
+        shots = 0
+        core_shots = 0.0
         per_skill: dict[str, dict[str, int]] = {}
         for hit in hits:
+            if hit.core_frac is not None:
+                shots += 1
+                core_shots += hit.core_frac
             if _is_normal(hit):
                 normal_damage += hit.damage
                 normal_hits += 1
@@ -349,6 +356,10 @@ def _build_breakdown(result, names: list[str]) -> dict:
             "normalHits": normal_hits,
             "skill": int(skill_damage),
             "skillHits": skill_hits,
+            "shots": shots,
+            # 기대값 모드에서는 한 발이 «코어 0.148발»처럼 쪼개져 들어온다 —
+            # 반올림하지 않고 그대로 넘겨 화면이 비율을 그대로 적게 한다.
+            "coreShots": round(core_shots, 3),
             "skills": sorted(
                 (
                     {"name": skill, "damage": int(v["damage"]), "hits": v["hits"]}
