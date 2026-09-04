@@ -46110,6 +46110,26 @@
     },
     {
       "source": "스킬1",
+      "type": "buff",
+      "name": "오버 오버 드라이브 차지시간고정",
+      "trigger": {
+        "timing": [
+          "passive"
+        ],
+        "condition": [
+          "self_state:오버 오버 드라이브"
+        ]
+      },
+      "target": "self",
+      "stat": "charge_time_fixed",
+      "polarity": "neutral",
+      "max_stack": 1,
+      "fixed_value": 1.5,
+      "duration": -1,
+      "note": "카드 원문 「차지 시간 : 1.5초로 고정」 — **고정**이므로 차지 속도 버프가 이 모드를 단축하지 못한다. `charge_time`만 두면 그 값이 기본 차지 시간이 되어 차지속도 %가 그대로 깎는다(+60%면 1.5초가 0.62초로 줄어 딜이 14% 부풀었다). 신데렐라 : 크리스탈 웨이브 `저격 모드 차지시간고정`과 같은 스키마이고, 모드에 매다는 방식은 라플라스 : 얼티밋 히어로 `일렉트릭 파워 풀 풀 차지 3`과 같은 `passive` + `self_state` 패턴이다(모드 구간과 0프레임 오차로 일치)"
+    },
+    {
+      "source": "스킬1",
       "type": "instant",
       "name": "오버 오버 드라이브 2",
       "trigger": {

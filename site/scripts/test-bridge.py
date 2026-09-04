@@ -77,8 +77,9 @@ class CoreShareTest(unittest.TestCase):
         self.assertAlmostEqual(share["루주"], 1.0, places=6)
         # AR은 76px 탄착군이라 절반쯤 빗나간다.
         self.assertAlmostEqual(share["블랑"], 0.380, places=3)
-        # 기본이 RL이어도 SMG 모드로 쏘는 동안은 그 무기의 탄착군으로 따진다.
-        self.assertLess(share["라플라스 : 얼티밋 히어로"], 0.3)
+        # 기본이 RL이어도 모드 중에는 그 모드의 탄착군으로 따진다. 이 모드는 좁아서
+        # (유저 확인) 100%지만, 그 값은 무기군 기본값이 아니라 실측에서 온다.
+        self.assertAlmostEqual(share["라플라스 : 얼티밋 히어로"], 1.0, places=6)
 
     def test_no_core_means_no_core_hits(self):
         rows = self._breakdown(corePx=0)

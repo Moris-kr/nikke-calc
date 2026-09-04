@@ -354,6 +354,12 @@ class CharState:
         # 없으면 None. _tick_weapon_change()가 매 tick 세팅한다.
         self._wc_first_coeff: float | None = None
         self._wc_normal_coeff: float | None = None  # 같은 세션의 `일반 대미지` 계수
+        # 무기 변경 모드의 명중률 하한(%). 모드 무기는 CDN에 레코드가 없어 탄착군도
+        # 무기군 기본값으로 떨어지는데, 그 기본값이 실제와 다른 모드가 있다 —
+        # 라플라스 : 얼티밋 히어로의 SMG 모드는 탄착군이 매우 좁아 사실상 명중 100%다
+        # (유저 확인, 2026-09-04). 실측은 `weapon_delays._weapon_change`에 적고
+        # 여기로 올라온다. 0이면 종전과 같다.
+        self.accuracy_floor_pct: float = 0.0
         # 연사 무기 모드는 진입 시 self.ammo를 모드 장탄으로 덮어쓴다(원래 장탄은 버린다).
         # 모드가 끝날 때 되돌려 놓아야 그 값이 원래 무기로 새어 나가지 않는다.
         self._wc_ammo_borrowed: bool = False
@@ -663,7 +669,7 @@ class CharState:
         if enemy.get("core_px", 0) > 0:
             P_core = _core_hit_prob(
                 self.weapon_type,
-                buffs.get("accuracy_pct", 0.0),
+                max(buffs.get("accuracy_pct", 0.0), self.accuracy_floor_pct),
                 enemy.get("core_px", 50),
             )
         else:
@@ -934,7 +940,7 @@ class CharState:
         if enemy.get("core_px", 0) > 0:
             P_core = _core_hit_prob(
                 self.weapon_type,
-                buffs.get("accuracy_pct", 0.0),
+                max(buffs.get("accuracy_pct", 0.0), self.accuracy_floor_pct),
                 enemy.get("core_px", 50),
             )
         else:
@@ -1152,6 +1158,9 @@ class CharState:
         # 이 파일이 애초에 딜레이 실측을 모아 두는 곳인데 여기만 안 닿고 있었다.
         wc_post_fire_delay = _pick("post_fire_delay", wc_over, wc_eff,
                                    default=wc_mech.get("post_fire_delay", 0.0))
+        # 모드의 명중률 하한. 무기군 기본 탄착군이 실제와 다른 모드가 있어 실측을 얹는다
+        # (`weapon_delays._weapon_change`). 없으면 0이라 종전과 같다.
+        wc_accuracy_floor = float(_pick("accuracy_pct", wc_over, wc_eff, default=0.0))
 
         # 임시 무기 dict 구성 (calc_damage가 weapon["full_charge_mult"] 등을 참조)
         wc_weapon_dict = {
@@ -1182,6 +1191,7 @@ class CharState:
         orig_charge_time       = self.charge_time_base
         orig_post_delay        = self.post_fire_delay
         orig_cover_during_delay = self.cover_during_delay
+        orig_accuracy_floor    = self.accuracy_floor_pct
         orig_ammo              = self.ammo if not was_ready else None
 
         self.weapon              = wc_weapon_dict
@@ -1196,6 +1206,7 @@ class CharState:
         self.charge_time_base    = wc_charge_time
         self.post_fire_delay     = wc_post_fire_delay
         self.cover_during_delay  = wc_eff.get("cover_during_delay", self.cover_during_delay)
+        self.accuracy_floor_pct  = wc_accuracy_floor
 
         # 실효 최대 장탄. 스킬 텍스트에 `(사용 무기 변경 시 최대 장탄 수 효과 갱신)`이 있는
         # 무기 변경만 최대 장탄 수 버프를 받는다(`max_ammo_buff_applies`). 문구가 없으면 표기 고정.
@@ -1252,6 +1263,7 @@ class CharState:
         self.charge_time_base    = orig_charge_time
         self.post_fire_delay     = orig_post_delay
         self.cover_during_delay  = orig_cover_during_delay
+        self.accuracy_floor_pct  = orig_accuracy_floor
         if orig_ammo is not None and was_ready:
             # ready→charging 전환만 된 경우는 ammo 원복 불필요 (충전 중)
             pass
