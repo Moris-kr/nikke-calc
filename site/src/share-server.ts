@@ -82,6 +82,10 @@ export interface FeedbackItem {
   status: FeedbackStatus;
   /** 관리자가 상태를 옮긴 시각. 한 번도 안 옮겼으면 빈 문자열. */
   movedAt: string;
+  /** 운영자 코멘트. 없으면 빈 문자열 — 옛 서버는 이 값을 아예 안 준다. */
+  reply?: string;
+  /** 코멘트를 단 시각. 코멘트가 없으면 빈 문자열. */
+  replyAt?: string;
 }
 
 export interface FeedbackInput {
@@ -225,6 +229,17 @@ export class ShareServer {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, status, password }),
+    });
+    const result = await this.unwrapReady<{ item: FeedbackItem }>(response, '피드백');
+    return result.item;
+  }
+
+  /** 운영자 코멘트. 빈 글을 주면 뗀다 — 한 글에 하나뿐이라 고치기도 같은 길이다. */
+  async replyFeedback(id: string, reply: string, password: string): Promise<FeedbackItem> {
+    const response = await this.fetcher(`${this.base}/feedback/reply`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, reply, password }),
     });
     const result = await this.unwrapReady<{ item: FeedbackItem }>(response, '피드백');
     return result.item;

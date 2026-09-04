@@ -1642,6 +1642,16 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
 .feedback-move:hover { border-color: rgba(69,214,208,.45); color: var(--ink); }
 .feedback-move.is-on { border-color: var(--cyan); background: rgba(69,214,208,.16); color: var(--cyan); }
 .feedback-move.is-danger:hover { border-color: var(--danger); color: #ffd7de; }
+/* 운영자 코멘트 — 글쓴이의 글에 답으로 붙는다. 한 칸 들여쓰고 왼쪽에 띠를 세워
+   «누가 쓴 글인지»를 색으로 먼저 읽게 한다. */
+.feedback-reply { margin-top: 9px; padding: 8px 10px; border-left: 2px solid var(--cyan);
+  border-radius: 0 6px 6px 0; background: rgba(69,214,208,.07); }
+.feedback-reply-head { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; }
+.feedback-reply-head b { color: var(--cyan); font-size: 10px; font-weight: 800; }
+.feedback-reply .feedback-text-line { color: #a9c7cb; font-size: 11.5px; }
+.feedback-reply-edit { margin-top: 8px; display: grid; gap: 6px; }
+.feedback-reply-edit .feedback-text { min-height: 0; }
+.feedback-reply-edit .feedback-actions { justify-content: flex-end; gap: 6px; }
 
 /* ══ 보스 메이커 ═══════════════════════════════════════════════════════════
    보스를 그려 놓고 그 위에서 전투를 읽는 화면. 무대(SVG) · 조건 판 · 타임라인 띠가

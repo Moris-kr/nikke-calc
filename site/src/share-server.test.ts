@@ -58,6 +58,17 @@ describe('share server client', () => {
       .rejects.toThrow('오늘 올릴 수 있는 개수를 넘었습니다.');
   });
 
+  it('보낸다 — 코멘트 · 항목 · 비밀번호를 한 몸으로', async () => {
+    const { fetcher, calls } = fakeFetch({ item: { id: 'f1', reply: '고쳤습니다.', replyAt: '2026-09-04T00:00:00Z' } });
+    const item = await new ShareServer('https://share.example.com', fetcher)
+      .replyFeedback('f1', '고쳤습니다.', 'pw');
+
+    expect(calls[0]!.url).toBe('https://share.example.com/feedback/reply');
+    expect(JSON.parse(String(calls[0]!.init!.body)))
+      .toEqual({ id: 'f1', reply: '고쳤습니다.', password: 'pw' });
+    expect(item.reply).toBe('고쳤습니다.');
+  });
+
   it('falls back to a readable message when the body is not JSON', async () => {
     const fetcher = (async () => new Response('nope', { status: 502 })) as unknown as typeof fetch;
     await expect(new ShareServer('https://share.example.com', fetcher).list('boss'))

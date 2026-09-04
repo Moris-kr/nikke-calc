@@ -2121,6 +2121,62 @@ describe('calculator UI', () => {
     expect(summary.textContent).not.toContain('코어');
   });
 
+  it('운영자 코멘트를 달면 그 글에 붙어 모두에게 보인다', async () => {
+    // 피드백 판은 공유 서버 주소가 있을 때만 열린다 — 모듈을 다시 읽어 주소를 심는다.
+    const board = [{
+      id: 'f1', kind: 'bug', text: '풍라플 코어가 안 먹혀요', by: '', at: '2026-09-03T01:00:00Z',
+      status: 'new', movedAt: '', reply: '', replyAt: '',
+    }];
+    const sent: Array<{ url: string; body: Record<string, unknown> }> = [];
+    const fakeFetch = (async (url: string, init?: RequestInit) => {
+      const body = init?.body ? JSON.parse(String(init.body)) : {};
+      sent.push({ url, body });
+      if (url.endsWith('/feedback')) return new Response(JSON.stringify({ items: board }));
+      if (url.endsWith('/admin/check')) return new Response(JSON.stringify({ ok: true }));
+      if (url.endsWith('/feedback/reply')) {
+        board[0] = { ...board[0]!, reply: String(body.reply), replyAt: '2026-09-04T02:00:00Z' };
+        return new Response(JSON.stringify({ item: board[0] }));
+      }
+      return new Response(JSON.stringify({ error: '없는 경로입니다.' }), { status: 404 });
+    }) as unknown as typeof fetch;
+
+    vi.resetModules();
+    vi.stubEnv('VITE_SHARE_API', 'https://share.test');
+    vi.stubGlobal('fetch', fakeFetch);
+    vi.stubGlobal('prompt', () => 'let-me-in');
+    const { mountCalculator: mount } = await import('./ui');
+    mount(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+
+    root.querySelector<HTMLButtonElement>('[data-feedback-open]')!.click();
+    await flush();
+    root.querySelector<HTMLButtonElement>('[data-feedback-admin]')!.click();
+    await flush();
+
+    // 관리자로 확인되면 글마다 「코멘트」가 붙는다.
+    const open = root.querySelector<HTMLButtonElement>('[data-feedback-comment="f1"]')!;
+    expect(open.textContent).toBe('코멘트');
+    open.click();
+    const area = root.querySelector<HTMLTextAreaElement>('[data-feedback-reply-text="f1"]')!;
+    area.value = '고쳤습니다 — 모드 탄착군이 원인이었습니다.';
+    root.querySelector<HTMLButtonElement>('[data-feedback-reply-save="f1"]')!.click();
+    await flush();
+
+    expect(sent.at(-1)).toMatchObject({
+      url: 'https://share.test/feedback/reply',
+      body: { id: 'f1', reply: '고쳤습니다 — 모드 탄착군이 원인이었습니다.', password: 'let-me-in' },
+    });
+    const shown = root.querySelector<HTMLElement>('[data-feedback-reply="f1"]')!;
+    expect(shown.textContent).toContain('운영자');
+    expect(shown.textContent).toContain('모드 탄착군이 원인이었습니다');
+    // 코멘트를 단 뒤에는 단추가 «고치기»가 되고, 쓰던 칸은 접힌다.
+    expect(root.querySelector('[data-feedback-reply-text="f1"]')).toBeNull();
+    expect(root.querySelector<HTMLElement>('[data-feedback-comment="f1"]')!.textContent)
+      .toBe('코멘트 고치기');
+
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
   it('omits the damage split when the result has no breakdown (older cached results)', async () => {
     const client = new FakeClient();
     mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });

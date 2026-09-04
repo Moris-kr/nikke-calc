@@ -21,6 +21,7 @@ const LIMITS = {
   abbrevKeys: 4000,  // 사전에 담는 약어 수
   abbrevPerDay: 60,  // IP당 등록 횟수
   feedbackText: 1000, // 피드백 본문
+  feedbackReply: 1000, // 운영자 코멘트
   feedbackItems: 1000,
   feedbackPerDay: 10,
 };
@@ -336,6 +337,10 @@ const publicFeedback = (item) => ({
   status: item.status,
   /** 관리자가 옮긴 시각. 목록에서 «언제 진행중이 됐나»를 읽는다. */
   movedAt: item.movedAt ?? '',
+  // 운영자 코멘트. 상태만으로는 «왜 그렇게 됐나»를 알 수 없어서 둔다 — 재현이 안 되면
+  // 무엇이 더 필요한지, 안 고칠 것이면 왜 그런지가 글쓴이에게 닿아야 한다.
+  reply: item.reply ?? '',
+  replyAt: item.replyAt ?? '',
 });
 
 async function handleFeedbackList(env) {
@@ -390,6 +395,27 @@ async function handleFeedbackMove(env, body) {
   if (!item) throw new Fail(404, '이미 사라진 항목입니다.');
   item.status = status;
   item.movedAt = new Date().toISOString();
+  await env.SHARE.put(FEEDBACK_KEY, JSON.stringify(board));
+  return { item: publicFeedback(item) };
+}
+
+/**
+ * 운영자 코멘트 달기·고치기·지우기.
+ *
+ * 한 글에 하나만 둔다. 여러 사람이 주고받는 자리가 아니라 **운영자의 답**을 붙이는
+ * 자리라서다 — 다시 부르면 갈아 끼우고, 빈 글을 주면 뗀다.
+ */
+async function handleFeedbackReply(env, body) {
+  requireAdmin(env, body.password);
+  const id = text(body.id, 40, '항목', true);
+  const reply = multiline(body.reply, LIMITS.feedbackReply, '코멘트', false);
+
+  const board = await readJson(env, FEEDBACK_KEY, { items: [] });
+  const item = (board.items ?? []).find((entry) => entry.id === id);
+  if (!item) throw new Fail(404, '이미 사라진 항목입니다.');
+  item.reply = reply;
+  // 뗀 코멘트는 시각도 함께 지운다 — 「언제 답했나」만 남으면 읽는 쪽이 헷갈린다.
+  item.replyAt = reply === '' ? '' : new Date().toISOString();
   await env.SHARE.put(FEEDBACK_KEY, JSON.stringify(board));
   return { item: publicFeedback(item) };
 }
@@ -495,6 +521,9 @@ export default {
       }
       if (request.method === 'POST' && url.pathname === '/feedback/move') {
         return json(await handleFeedbackMove(env, await request.json()));
+      }
+      if (request.method === 'POST' && url.pathname === '/feedback/reply') {
+        return json(await handleFeedbackReply(env, await request.json()));
       }
       if (request.method === 'POST' && url.pathname === '/feedback/remove') {
         return json(await handleFeedbackRemove(env, await request.json()));

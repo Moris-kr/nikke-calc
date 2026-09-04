@@ -13,7 +13,10 @@ function fakeKv(seed = {}) {
 }
 
 const ORIGIN = 'https://moris-kr.github.io';
-const envWith = (kv) => ({ SHARE: kv, ALLOWED_ORIGINS: ORIGIN, VOTE_SALT: 'test' });
+const ADMIN = 'let-me-in';
+const envWith = (kv) => ({
+  SHARE: kv, ALLOWED_ORIGINS: ORIGIN, VOTE_SALT: 'test', ADMIN_PASSWORD: ADMIN,
+});
 
 const call = (kv, path, { method = 'GET', body, ip } = {}) => worker.fetch(
   new Request(`https://share.example${path}`, {
@@ -143,5 +146,51 @@ describe('설정 공유 서버', () => {
       { ALLOWED_ORIGINS: ORIGIN },
     );
     expect(response.status).toBe(500);
+  });
+});
+
+describe('피드백 코멘트', () => {
+  const post = (kv, text) => call(kv, '/feedback', {
+    method: 'POST', body: { kind: 'bug', text, by: '' },
+  });
+  const reply = (kv, id, body, password = ADMIN) => call(kv, '/feedback/reply', {
+    method: 'POST', body: { id, reply: body, password },
+  });
+
+  it('운영자가 단 코멘트가 목록에 함께 나온다', async () => {
+    const kv = fakeKv();
+    const { item } = await (await post(kv, '풍라플 코어가 안 먹혀요')).json();
+    // 달기 전에는 비어 있다 — 옛 글도 이 자리가 빈 문자열로 온다.
+    expect(item.reply).toBe('');
+
+    const saved = await (await reply(kv, item.id, '고쳤습니다.\n모드 탄착군이 원인이었습니다.')).json();
+    expect(saved.item.reply).toBe('고쳤습니다.\n모드 탄착군이 원인이었습니다.');
+    expect(saved.item.replyAt).not.toBe('');
+
+    const list = await (await call(kv, '/feedback')).json();
+    expect(list.items[0].reply).toContain('고쳤습니다.');
+  });
+
+  it('빈 글을 주면 코멘트를 뗀다 — 시각도 함께 지운다', async () => {
+    const kv = fakeKv();
+    const { item } = await (await post(kv, '건의합니다')).json();
+    await reply(kv, item.id, '검토하겠습니다.');
+    const cleared = await (await reply(kv, item.id, '   ')).json();
+    expect(cleared.item.reply).toBe('');
+    expect(cleared.item.replyAt).toBe('');
+  });
+
+  it('비밀번호가 틀리면 달지 못한다', async () => {
+    const kv = fakeKv();
+    const { item } = await (await post(kv, '버그요')).json();
+    const denied = await reply(kv, item.id, '아무나 답하면 안 된다', 'nope');
+    expect(denied.status).toBe(403);
+    const list = await (await call(kv, '/feedback')).json();
+    expect(list.items[0].reply).toBe('');
+  });
+
+  it('사라진 항목에는 404로 답한다', async () => {
+    const kv = fakeKv();
+    expect((await reply(kv, 'gone', '있나요')).status).toBe(404);
   });
 });
