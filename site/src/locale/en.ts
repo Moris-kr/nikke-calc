@@ -1415,6 +1415,12 @@ export const EN: Record<string, string> = {
   '{n}위 · 1위 대비 {gap}% ({dmg})': '#{n} · {gap}% vs #1 ({dmg})',
   '{n}초 전투': '{n}s fight',
   '시드 {n}': 'seed {n}',
+  '{n}명': '{n}',
+  '{shown} / {all}명': '{shown} / {all}',
+  '{n}번 칸을 {name} 대신 채웁니다 · {filled}/5명':
+    'Replacing {name} in slot {n} · {filled}/5',
+  '{n}번 빈 칸을 채웁니다 · {filled}/5명': 'Filling empty slot {n} · {filled}/5',
+  '{name} 초상화': '{name} portrait',
 
   // ── Ownership ──
   '보유': 'Owned',

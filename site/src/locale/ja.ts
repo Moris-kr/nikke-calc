@@ -1415,6 +1415,12 @@ export const JA: Record<string, string> = {
   '{n}위 · 1위 대비 {gap}% ({dmg})': '{n}位・1位比 {gap}%（{dmg}）',
   '{n}초 전투': '{n}秒の戦闘',
   '시드 {n}': 'シード {n}',
+  '{n}명': '{n}体',
+  '{shown} / {all}명': '{shown} / {all}体',
+  '{n}번 칸을 {name} 대신 채웁니다 · {filled}/5명':
+    '{n}枠を{name}の代わりに入れます · {filled}/5体',
+  '{n}번 빈 칸을 채웁니다 · {filled}/5명': '{n}枠の空きを埋めます · {filled}/5体',
+  '{name} 초상화': '{name}の立ち絵',
 
   // ── 所持 ──
   '보유': '所持',

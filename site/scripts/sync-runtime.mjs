@@ -190,8 +190,8 @@ const manifest = {
 
 writeFileSync(join(runtimeDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 writeFileSync(join(publicDir, 'catalog.json'), `${JSON.stringify(catalog, null, 2)}\n`);
-// 영어·일본어 이름표(`scraper/cdn_locale.py`가 받아 둔 것). 한국어로 보는 사람은
-// 받지 않으므로 번들이 아니라 파일로 둔다.
+// 영어·일본어·중국어 번체 이름표(`scraper/cdn_locale.py`가 받아 둔 것). 한국어로
+// 보는 사람은 받지 않으므로 번들이 아니라 파일로 둔다.
 writeFileSync(
   join(publicDir, 'locale-text.json'),
   readFileSync(join(repoRoot, 'data', 'locale_text.json'), 'utf8'),

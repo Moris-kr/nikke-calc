@@ -584,7 +584,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           <p class="eyebrow">BROWSER SIM <span>·</span> 60 FPS TIMELINE</p>
           <h1><span>NIKKE</span> 스쿼드 계산기</h1>
           <p class="hero-lede">캐릭터별 오버로드와 큐브, 전투 조건을 반영해 프레임 단위 예상 대미지를 계산합니다.</p>
-          <div class="trust-row" aria-label="서비스 특징"><span>${t('{n}명 지원', { n: catalog.length })}</span><span class="online-now" data-online hidden title="최근 1~2분 사이에 이 계산기를 연 사람 수입니다. 탭을 숨기면 세지 않습니다"><b class="online-dot" aria-hidden="true"></b><span data-online-text></span></span><span class="lang-field" title="Language · 言語 · 언어"><svg class="lang-globe" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="6.2" /><path d="M1.8 8h12.4" /><path d="M8 1.8c1.9 2.1 2.9 4.1 2.9 6.2s-1 4.1-2.9 6.2c-1.9-2.1-2.9-4.1-2.9-6.2s1-4.1 2.9-6.2z" /></svg><select class="lang-pick" data-lang-pick aria-label="Language · 言語 · 언어">${LANGS.map((entry) => `<option value="${entry.code}">${entry.label}</option>`).join('')}</select></span><button type="button" class="notice-open" data-guide-open title="화면의 각 기능이 무엇을 하는지 봅니다">사용 설명서</button><button type="button" class="notice-open" data-notice-open title="지금까지 무엇이 바뀌었는지 봅니다">업데이트 내역</button>${SHARE_API ? '<button type="button" class="notice-open" data-feedback-open title="불편한 점·바라는 점을 남깁니다. 올린 글은 모두에게 보입니다">피드백</button>' : ''}<a class="credit-link" href="https://github.com/Jgaram/nikke-calc" target="_blank" rel="noreferrer noopener" title="이 계산기의 원본 저장소">원본 알고리즘 개발자에게 무한한 감사를</a></div>
+          <div class="trust-row" aria-label="서비스 특징"><span>${t('{n}명 지원', { n: catalog.length })}</span><span class="online-now" data-online hidden title="최근 1~2분 사이에 이 계산기를 연 사람 수입니다. 탭을 숨기면 세지 않습니다"><b class="online-dot" aria-hidden="true"></b><span data-online-text></span></span><span class="lang-field" title="Language · 言語 · 언어 · 語言"><svg class="lang-globe" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="6.2" /><path d="M1.8 8h12.4" /><path d="M8 1.8c1.9 2.1 2.9 4.1 2.9 6.2s-1 4.1-2.9 6.2c-1.9-2.1-2.9-4.1-2.9-6.2s1-4.1 2.9-6.2z" /></svg><select class="lang-pick" data-lang-pick aria-label="Language · 言語 · 언어 · 語言">${LANGS.map((entry) => `<option value="${entry.code}">${entry.label}</option>`).join('')}</select></span><button type="button" class="notice-open" data-guide-open title="화면의 각 기능이 무엇을 하는지 봅니다">사용 설명서</button><button type="button" class="notice-open" data-notice-open title="지금까지 무엇이 바뀌었는지 봅니다">업데이트 내역</button>${SHARE_API ? '<button type="button" class="notice-open" data-feedback-open title="불편한 점·바라는 점을 남깁니다. 올린 글은 모두에게 보입니다">피드백</button>' : ''}<a class="credit-link" href="https://github.com/Jgaram/nikke-calc" target="_blank" rel="noreferrer noopener" title="이 계산기의 원본 저장소">원본 알고리즘 개발자에게 무한한 감사를</a></div>
         </div>
         <div class="hero-orbit" aria-hidden="true"><span>01</span><strong>LOCAL<br />SIM</strong></div>
       </header>
@@ -2364,7 +2364,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       if (char?.image) {
         const image = document.createElement('img');
         image.src = `${import.meta.env.BASE_URL}${char.image}`;
-        image.alt = `${char.name} 초상화`;
+        image.alt = t('{name} 초상화', { name: tName(char.name) });
         image.loading = 'lazy';
         portrait.append(image);
       }
@@ -4554,7 +4554,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     const parts: string[] = [];
     const label = SORTS.find((s) => s.key === sortKey)?.label;
     const pending = sortKey === 'power' && Object.keys(combatPower).length === 0;
-    parts.push(`${label}${pending ? ' 계산중' : sortDesc ? ' ▼' : ' ▲'}`);
+    parts.push(`${t(label!)}${pending ? ` ${t('계산중')}` : sortDesc ? ' ▼' : ' ▲'}`);
     for (const key of ['burst', ...filterGroups().map((group) => group.key)] as FilterKey[]) {
       const set = picked[key];
       if (set.size > 0) {
@@ -4596,10 +4596,10 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       chip.className = 'filter-chip' + (active ? ' is-on' : '');
       chip.dataset.sort = option.key;
       chip.dataset.sortDir = active ? (sortDesc ? 'desc' : 'asc') : '';
-      chip.append(createText('span', option.label));
+      chip.append(createText('span', t(option.label)));
       // 삼각형으로 방향을 알린다 — 켜진 항목에만 붙는다.
       if (active) chip.append(createText('b', sortDesc ? '▼' : '▲', 'sort-caret'));
-      chip.title = option.hint;
+      chip.title = t(option.hint);
       chip.addEventListener('click', () => {
         // 같은 항목을 다시 누르면 뒤집고, 다른 항목이면 그 항목의 기본 방향으로 간다.
         if (active) sortDesc = !sortDesc;
@@ -4736,7 +4736,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     // 「ㅋㄹㅇ」·「라피레드」가 걸리고, 친 이름이 맨 앞에 온다.
     const shown = filterByQuery(narrowed, rosterSearch.value, buildIndex);
     rosterCount.textContent = shown.length === all.length
-      ? `${all.length}명` : `${shown.length} / ${all.length}명`;
+      ? t('{n}명', { n: all.length })
+      : t('{shown} / {all}명', { shown: shown.length, all: all.length });
     const deck = activeDeck();
     rosterGrid.replaceChildren();
     for (const char of shown) {
@@ -4855,8 +4856,12 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     const filled = deck.squad.filter(Boolean).length;
     const current = deck.squad[activeSlot];
     rosterDesc.textContent = current
-      ? `${activeSlot + 1}번 칸을 ${current} 대신 채웁니다 · ${filled}/5명`
-      : `${activeSlot + 1}번 빈 칸을 채웁니다 · ${filled}/5명`;
+      ? t('{n}번 칸을 {name} 대신 채웁니다 · {filled}/5명', {
+        n: activeSlot + 1, name: tName(current), filled,
+      })
+      : t('{n}번 빈 칸을 채웁니다 · {filled}/5명', {
+        n: activeSlot + 1, filled,
+      });
   };
 
   // 접힌 채로 시작한다 — 무엇으로 재는지 한 줄은 처음부터 적혀 있어야 한다.
