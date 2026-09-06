@@ -1672,14 +1672,23 @@ class CharState:
                 ReloadLogEntry(t=t, caster=self.name, event="재장전 취소(탄충)"))
 
     def _full_ammo(self, bm: BuffManager, t: float) -> int:
-        # 무기 변경 모드 중이면 그 모드의 장탄으로 채운다
+        # 무기 변경 모드 중이면 그 모드의 장탄으로 채운다. 다만 스킬 원문에
+        # `(사용 무기 변경 시 최대 장탄 수 효과 갱신)`이 붙은 모드는 **표기 장탄을 밑값으로
+        # 삼아 장탄 버프를 그 위에 얹는다**(`max_ammo_buff_applies`, GAMEPLAY.md §무기 메카닉).
+        # 여기서 표기값으로 끊어 버리면 `_change_weapon`이 이 플래그를 보고 부르는 자리까지
+        # 같이 끊겨, 라플라스 : 얼티밋 히어로가 장탄을 아무리 올려도 모드가 120발에서
+        # 멈췄다 — 「모든 탄환 발사 = 모드 종료」라 그 발수가 곧 딜인 캐릭터다.
+        base = self.weapon["max_ammo"]
         wc_eff = bm.get_weapon_change(self.name)
         if wc_eff is not None:
             wc_max = wc_eff.get("max_ammo", -1)
             if wc_max != -1:
-                return int(wc_max)
+                if not wc_eff.get("max_ammo_buff_applies"):
+                    return int(wc_max)
+                # `self.weapon`이 모드 무기로 바뀌어 있든 아니든 같은 값이 나오게 못 박는다
+                # — 부르는 자리마다 교체 여부가 달라 밑값이 흔들리면 안 된다.
+                base = int(wc_max)
         buffs = bm.get_buffs(self.name, "__enemy__", t)
-        base = self.weapon["max_ammo"]
         # 장탄 % 버프는 소스(장비 옵션 단계·큐브·소장품·스킬 버프)마다 따로 발수로
         # 반올림한 뒤 더한다 — 합산 후 한 번 반올림하면 조합에 따라 1발씩 어긋난다.
         ammo_gain = int(_quant_sum(base, buffs, "max_ammo_pct", 1.0))

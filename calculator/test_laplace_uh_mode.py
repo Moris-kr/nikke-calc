@@ -95,5 +95,55 @@ class LaplaceUltimateHeroModeTest(unittest.TestCase):
         self.assertEqual(set(gaps), {0.05}, f"연사 간격이 고르지 않다: {sorted(set(gaps))}")
 
 
+class LaplaceUltimateHeroAmmoBuffTest(unittest.TestCase):
+    """최대 장탄 수 버프가 SMG 모드에 닿는가 (`max_ammo_buff_applies`).
+
+    스킬 원문의 `(사용 무기 변경 시 최대 장탄 수 효과 갱신)`이 이 캐릭터를 장탄
+    빌드로 만든다 — 모드의 장탄이 늘면 「모든 탄환 발사 = 모드 종료」인 지속도 같이
+    늘어, 장탄 한 줄이 곧 딜이다. 시나리오 문서의 실측이 **120발 → 168발**이다.
+
+    피드백(2026-09-06): 장탄 오버로드를 0·60·120·180·240으로 바꿔도 딜이 한 자리도
+    안 움직인다는 제보. `_full_ammo`가 모드 중이면 표기 장탄을 그대로 돌려주고 끝나
+    이 플래그를 지나치고 있었다.
+    """
+
+    def _mode_shots(self, ammo_pct: float) -> int:
+        """첫 SMG 모드가 쏜 발수. 모드는 0.05초 간격이라 그 간격이 곧 모드 구간이다."""
+        chars = {NAME: {"equip_skills": {**char_spec.DEFAULT_CHAR["equip_skills"],
+                                         "max_ammo_pct": ammo_pct}}}
+        squad = char_spec.build_squad([NAME], chars)
+        result = simulate(squad, config={"duration": 90, "rng_mode": "expected",
+                                         "enemy": {"def": 31784, "code": "", "core_px": 0}})
+        hits = sorted((h for h in result.hits if h.caster == NAME and h.hit_tag != "skill"),
+                      key=lambda h: h.t)
+        run = 1
+        for before, after in zip(hits, hits[1:]):
+            if abs((after.t - before.t) - 0.05) < 1e-6:
+                run += 1
+            elif run > 10:
+                return run
+            else:
+                run = 1
+        return run
+
+    def test_the_ammo_buff_lengthens_the_mode(self):
+        """장탄 0%면 표기 120발, +40%면 실측 168발."""
+        self.assertEqual(self._mode_shots(0.0), 120)
+        self.assertEqual(self._mode_shots(40.0), 168, "시나리오 실측 120 → 168")
+
+    def test_more_ammo_is_more_damage(self):
+        """장탄을 올릴수록 딜이 오른다 — 제보가 「전부 같다」고 한 그 자리다."""
+        totals = []
+        for ammo_pct in (0.0, 60.0, 120.0, 180.0, 240.0):
+            chars = {NAME: {"equip_skills": {**char_spec.DEFAULT_CHAR["equip_skills"],
+                                             "max_ammo_pct": ammo_pct}}}
+            squad = char_spec.build_squad([NAME], chars)
+            result = simulate(squad, config={"duration": 180, "rng_mode": "expected",
+                                             "enemy": {"def": 31784, "code": "", "core_px": 0}})
+            totals.append(sum(h.damage for h in result.hits))
+        self.assertEqual(sorted(totals), totals, f"장탄이 늘어도 딜이 안 는다: {totals}")
+        self.assertEqual(len(set(totals)), len(totals), f"장탄을 바꿔도 딜이 같다: {totals}")
+
+
 if __name__ == "__main__":
     unittest.main()
