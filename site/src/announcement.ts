@@ -58,7 +58,7 @@ export interface Countdown {
 
 /** 지금 셈하는 것. 비우면 시계가 통째로 사라진다. */
 export const COUNTDOWNS: Countdown[] = [
-  { target: '2026-09-09T18:30:00+09:00', label: '칠무해 석방까지 남은 시간' },
+  { target: '2026-09-09T06:30:00+09:00', label: '칠무해 석방까지 남은 시간' },
 ];
 
 /**

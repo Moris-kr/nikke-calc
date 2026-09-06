@@ -74,9 +74,10 @@ describe('초읽기', () => {
     }
   });
 
-  it('칠무해 석방은 한국 시간 9월 9일 18시 30분이다', () => {
-    expect(countdownToShow()!.target).toBe('2026-09-09T18:30:00+09:00');
-    expect(Date.parse(countdownToShow()!.target)).toBe(Date.parse('2026-09-09T09:30:00Z'));
+  it('칠무해 석방은 한국 시간 9월 9일 오전 6시 30분이다', () => {
+    expect(countdownToShow()!.target).toBe('2026-09-09T06:30:00+09:00');
+    // 한국이 UTC+9라 세계시로는 **하루 앞** 21:30이다 — 날짜가 밀리는 자리라 못 박는다.
+    expect(Date.parse(countdownToShow()!.target)).toBe(Date.parse('2026-09-08T21:30:00Z'));
   });
 
   it('셈할 것이 없으면 아무것도 안 띄운다 — 시계를 걷는 길이 있다', () => {
