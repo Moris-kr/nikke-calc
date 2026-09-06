@@ -17,7 +17,7 @@
  */
 
 import {
-  decodeBattleCode, decodeShareCode, decodeUnionCode, encodeUnionCode,
+  decodeBattleCode, decodeShareCode, decodeUnionCode, encodeShareCode, encodeUnionCode,
   type UnionShare,
 } from './share-code';
 import { DEFAULT_SYNCHRO_LEVEL, SYNCHRO_MAX, SYNCHRO_MEASURED_MAX } from './model';
@@ -73,7 +73,30 @@ export interface DeckSlot {
 }
 
 export const BOSS_SLOTS = 5;
+/** 보스마다 처음 나오는 덱 칸 수. 여기서 늘리고 줄일 수 있다. */
 export const DECK_SLOTS = 3;
+/**
+ * 덱 칸 상한.
+ *
+ * 판 수가 **유니온원 × 보스 × 덱**으로 곱해진다 — 32명 × 5보스 × 8덱이면 1,280판이라,
+ * 병렬로 돌려도 기기에 따라 십 분을 넘긴다. 「더 다양한 덱을 시험하고 싶다」는 요청
+ * (2026-09-06)과 그 곱셈 사이의 타협이다.
+ */
+export const MAX_DECK_SLOTS = 8;
+
+/** 덱 칸 수를 받아들일 수 있는 범위로 자른다. */
+export const clampDeckSlots = (count: number): number =>
+  Math.max(1, Math.min(MAX_DECK_SLOTS, Math.trunc(count) || DECK_SLOTS));
+
+/** 니케 다섯을 조합 코드 한 줄로. 칸에서 바로 고칠 때 코드도 같이 따라가야 한다. */
+export function deckSlotFor(squad: string[]): DeckSlot {
+  const filled = squad.map((name) => (name ?? '').trim());
+  if (filled.every((name) => name === '')) return { code: '', squad: undefined };
+  return {
+    code: encodeShareCode([{ id: 1, squad: filled, characters: {} }], false),
+    squad: filled,
+  };
+}
 
 /**
  * 명단을 뜨는 한 줄. 유니온 스퀘어에 **로그인한 채로** 콘솔에 붙여넣으면
@@ -445,7 +468,10 @@ export function applyUnionShare(
 ): BossSlot[] {
   return Array.from({ length: BOSS_SLOTS }, (_, index) => {
     const shared = share.bosses[index];
-    const decks = Array.from({ length: DECK_SLOTS }, (_, deckIndex) =>
+    // 코드가 덱을 몇 개 담았든 그대로 편다 — 셋보다 적으면 셋까지는 빈 칸으로 채워
+    // 화면이 갑자기 쪼그라들지 않게 하고, 많으면 상한까지 늘린다.
+    const count = clampDeckSlots(Math.max(DECK_SLOTS, shared?.deckCodes.length ?? 0));
+    const decks = Array.from({ length: count }, (_, deckIndex) =>
       readDeckCode({ code: shared?.deckCodes[deckIndex] ?? '' }, catalogNames));
     const slot: BossSlot = {
       name: shared?.name ?? '',
@@ -541,6 +567,41 @@ export function deckForMember(
   return { deck: { id: 1, squad: [...squad], characters }, missing };
 }
 
+/**
+ * 결과를 표 한 장으로. 유니온방에 「누가 어느 보스에 얼마」를 옮겨 적으려면 화면을
+ * 손으로 베껴야 했다(피드백 2026-09-06).
+ *
+ * 한 줄이 «지휘관 × 보스 × 덱» 한 칸이다 — 시트에서 피벗을 돌리든 정렬을 하든
+ * 그 모양이 제일 다루기 쉽다. 못 돌린 칸도 **줄을 남기고** 이유를 적는다. 빈 줄은
+ * «왜 없는지»를 못 말한다.
+ *
+ * 딜은 화면의 「1.24억」이 아니라 **정수 그대로** 넣는다(`export-csv.ts`와 같은 뜻).
+ */
+export function reportRows(results: JobResult[]): Array<Array<string | number>> {
+  const rows: Array<Array<string | number>> = [[
+    '지휘관', '싱크로', '보스', '속성', '덱',
+    '니케1', '니케2', '니케3', '니케4', '니케5', '딜량', '비고',
+  ]];
+  for (const report of groupResults(results)) {
+    for (const boss of report.bosses) {
+      for (const row of boss.rows) {
+        const squad = Array.from({ length: 5 }, (_, at) => row.job.squad[at]?.trim() ?? '');
+        rows.push([
+          report.member.name,
+          report.member.synchro,
+          boss.name,
+          row.job.battle.enemyCode || '무속성',
+          row.job.deckIndex + 1,
+          ...squad,
+          row.damage === undefined ? '' : Math.round(row.damage),
+          row.missing ? `미보유: ${row.missing.join(' · ')}` : (row.error ?? ''),
+        ]);
+      }
+    }
+  }
+  return rows;
+}
+
 /** 결과를 화면 뼈대대로 «유니온원 → 보스 → 덱»으로 접는다. */
 export interface MemberReport {
   member: MemberRow;
@@ -587,6 +648,7 @@ export type Simulate = (squad: string[], characters: DeckState['characters'],
 
 import { areaToOverrides, consoleFrom, emptyConsole, pickArea } from './blablalink';
 import type { RawProfile } from './blablalink';
+import { csvBlob, csvFileName, csvText } from './export-csv';
 import { requestForDeck } from './model';
 import { mountSharePanel, squadPreview, type SharePanel } from './share-panel';
 import { summarizeBattle, summarizeSquad, summarizeUnion, type ShareItem, type ShareKind, type ShareServer } from './share-server';
@@ -1374,14 +1436,113 @@ export function mountUnionRaid(hosts: UnionHosts, deps: UnionDeps): UnionHandle 
             open({ kind: 'squad', boss: index, deck: deckIndex }));
           row.append(fromShare);
         }
+        // 「프리바티 → 마스트」 한 명만 바꾸고 싶은데 코드를 다시 받아 와야 했다
+        // (피드백 2026-09-06). 이 칸에서 바로 고치고, 코드도 같이 따라가게 한다.
+        const edit = el('button', 'roster-import', '고치기');
+        (edit as HTMLButtonElement).type = 'button';
+        edit.title = '이 덱의 니케를 한 명씩 바꿉니다. 고치면 조합 코드도 같이 바뀝니다';
+        (edit as HTMLButtonElement).disabled = !deck.squad;
+        edit.addEventListener('click', () => {
+          editing = editing?.boss === index && editing.deck === deckIndex
+            ? null
+            : { boss: index, deck: deckIndex };
+          renderBosses();
+        });
+        row.append(edit);
         if (deck.squad) row.append(squadPreview([deck.squad.filter(Boolean)], deps.imageOf));
         if (deck.error) row.append(el('p', 'union-error', deck.error));
         deckBox.append(row);
+        if (editing?.boss === index && editing.deck === deckIndex && deck.squad) {
+          deckBox.append(squadEditor(index, deckIndex, deck.squad));
+        }
       });
+      // 덱 칸을 늘리고 줄인다. 판 수가 «유니온원 × 보스 × 덱»으로 곱해지므로 상한이 있다.
+      const deckTools = el('div', 'union-deck-tools');
+      const add = el('button', 'roster-import', '조합 추가');
+      (add as HTMLButtonElement).type = 'button';
+      (add as HTMLButtonElement).disabled = boss.decks.length >= MAX_DECK_SLOTS;
+      add.title = `이 보스에 덱 칸을 하나 더 냅니다 (최대 ${MAX_DECK_SLOTS}개)`;
+      add.addEventListener('click', () => {
+        if (boss.decks.length >= MAX_DECK_SLOTS) return;
+        boss.decks.push({ code: '' });
+        renderBosses();
+      });
+      const drop = el('button', 'roster-import', '마지막 칸 빼기');
+      (drop as HTMLButtonElement).type = 'button';
+      (drop as HTMLButtonElement).disabled = boss.decks.length <= 1;
+      drop.title = '이 보스의 마지막 덱 칸을 없앱니다';
+      drop.addEventListener('click', () => {
+        if (boss.decks.length <= 1) return;
+        boss.decks.pop();
+        if (editing?.boss === index && editing.deck >= boss.decks.length) editing = null;
+        renderBosses();
+      });
+      deckTools.append(add, drop,
+        el('span', 'union-deck-count', `${boss.decks.length}칸 / 최대 ${MAX_DECK_SLOTS}`));
+      deckBox.append(deckTools);
       card.append(deckBox);
       bossBox.append(card);
     });
     refreshRunGate();
+  }
+
+  /** 지금 펴 둔 편성 편집기. 한 번에 하나만 연다 — 여럿이 열리면 화면이 길어진다. */
+  let editing: { boss: number; deck: number } | null = null;
+
+  /**
+   * 덱 한 칸의 니케 다섯을 그 자리에서 고친다.
+   *
+   * 이름 목록은 `<datalist>`로 붙인다 — 200종을 `<select>`로 다섯 번 그리면 무겁고,
+   * 브라우저가 이미 잘 하는 «치면서 좁히기»를 우리가 다시 만들 까닭이 없다.
+   * 고치면 **조합 코드도 같이 바꾼다** — 코드가 정본이라 그것만 남으면 공유가 어긋난다.
+   */
+  function squadEditor(bossIndex: number, deckIndex: number, squad: string[]): HTMLElement {
+    const box = el('div', 'union-squad-edit');
+    box.dataset.unionSquadEdit = `${bossIndex}:${deckIndex}`;
+    const names = deps.catalogNames();
+    const listId = `union-nikke-names`;
+    if (!panel.querySelector(`#${listId}`)) {
+      const list = document.createElement('datalist');
+      list.id = listId;
+      for (const name of names) {
+        const option = document.createElement('option');
+        option.value = name;
+        list.append(option);
+      }
+      panel.append(list);
+    }
+    const known = new Set(names);
+    // 모르는 이름을 그 자리에서 알린다. 공유 창의 알림 줄은 여기서 안 보인다.
+    const warn = el('p', 'union-error');
+    warn.hidden = true;
+    const slots = Array.from({ length: 5 }, (_, at) => (squad[at] ?? '').trim());
+    slots.forEach((name, at) => {
+      const field = document.createElement('input');
+      field.type = 'text';
+      field.className = 'union-squad-slot';
+      field.dataset.unionSquadSlot = String(at);
+      field.setAttribute('list', listId);
+      field.placeholder = `${at + 1}번 자리`;
+      field.value = name;
+      field.addEventListener('change', () => {
+        const next = field.value.trim();
+        // 모르는 이름은 받지 않는다 — 코드에 넣으면 그 자리가 조용히 빈 칸이 된다.
+        if (next !== '' && !known.has(next)) {
+          field.value = name;
+          warn.textContent = `«${next}» 은(는) 목록에 없는 니케입니다.`;
+          warn.hidden = false;
+          return;
+        }
+        slots[at] = next;
+        const boss = bosses[bossIndex];
+        if (!boss) return;
+        boss.decks[deckIndex] = deckSlotFor(slots);
+        renderBosses();
+      });
+      box.append(field);
+    });
+    box.append(warn);
+    return box;
   }
 
   const battleSummary = (boss: BossSlot): string => {
@@ -1475,7 +1636,41 @@ export function mountUnionRaid(hosts: UnionHosts, deps: UnionDeps): UnionHandle 
   runButton.addEventListener('click', () => { void runAll(); });
   runStop.addEventListener('click', () => { cancelled = true; });
 
+  // ── 결과 내보내기 ────────────────────────────────────────────────────────
+  const exportBox = pick(panel, '[data-union-export]');
+  const exportNote = pick(panel, '[data-union-export-note]');
+  const exportCsv = pick<HTMLButtonElement>(panel, '[data-union-export-csv]');
+  const exportCopy = pick<HTMLButtonElement>(panel, '[data-union-export-copy]');
+
+  /** 지금 결과를 표로. 아직 없으면 null. */
+  const exportText = (): string | null =>
+    (results.length === 0 ? null : csvText(reportRows(results)));
+
+  exportCsv.addEventListener('click', () => {
+    const text = exportText();
+    if (!text) return;
+    const url = URL.createObjectURL(csvBlob(text));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = csvFileName('유니온레이드');
+    link.click();
+    URL.revokeObjectURL(url);
+    exportNote.textContent = `${results.length}줄을 내려받았습니다.`;
+  });
+
+  exportCopy.addEventListener('click', () => {
+    const text = exportText();
+    if (!text) return;
+    void navigator.clipboard?.writeText(text).then(
+      () => { exportNote.textContent = `${results.length}줄을 복사했습니다. 시트에 붙여넣으세요.`; },
+      () => { exportNote.textContent = '자동 복사가 막혔습니다. CSV로 내려받아 주세요.'; },
+    );
+  });
+
   function renderReport(): void {
+    // 돌린 것이 있어야 내보낼 것이 있다.
+    exportBox.hidden = results.length === 0;
+    exportNote.textContent = '';
     reportBox.replaceChildren();
     for (const report of groupResults(results)) {
       const card = el('div', 'union-report-card');

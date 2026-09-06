@@ -124,6 +124,37 @@ class FakeClient implements CalculatorClientLike {
   dispose(): void {}
 }
 
+/**
+ * 계산을 붙잡아 두는 대역. 취소 단추를 눌러 볼 수 있게 «아직 안 끝난 계산»을 만든다.
+ * 실제 풀처럼 `cancel()`이 돌던 요청을 «취소»로 끊는다.
+ */
+class HangingClient implements CalculatorClientLike {
+  prepareCalls = 0;
+  simulateCalls = 0;
+  private rejectAll: Array<(error: Error) => void> = [];
+
+  async prepare(): Promise<void> {
+    this.prepareCalls += 1;
+  }
+
+  simulate(): Promise<SimulationResult> {
+    this.simulateCalls += 1;
+    return new Promise<SimulationResult>((_resolve, reject) => { this.rejectAll.push(reject); });
+  }
+
+  cancel(): void {
+    const waiting = this.rejectAll;
+    this.rejectAll = [];
+    for (const reject of waiting) {
+      const error = new Error('계산을 취소했습니다.');
+      error.name = 'CalculationCancelled';
+      reject(error);
+    }
+  }
+
+  dispose(): void {}
+}
+
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 /** 판의 검색칸에 친다. 슬롯마다 있던 검색은 없어지고 덱에 하나만 남았다. */
@@ -1025,6 +1056,43 @@ describe('calculator UI', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('돌고 있을 때만 계산 취소 단추가 나온다', async () => {
+    // 「보스 조건 잘못 걸고 돌렸는데 끝날 때까지 기다려야 한다」는 제보(2026-09-06).
+    const client = new HangingClient();
+    mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });
+    const cancel = root.querySelector<HTMLButtonElement>('[data-calc-cancel]')!;
+    expect(cancel.hidden).toBe(true);
+
+    root.querySelector<HTMLInputElement>('#duration')!.value = '10';
+    root.querySelector<HTMLFormElement>('form')!.requestSubmit();
+    await flush();
+    expect(cancel.hidden).toBe(false);
+    expect(client.simulateCalls).toBe(1);
+
+    const prepares = client.prepareCalls;
+    cancel.click();
+    await flush();
+
+    expect(cancel.hidden).toBe(true);
+    // 실패가 아니다 — 자기가 누른 것이 오류로 보이면 안 된다.
+    expect(root.querySelector('[data-status]')?.textContent).toContain('취소');
+    expect(root.querySelector('[data-status]')?.textContent).not.toContain('실패');
+    expect(root.querySelector<HTMLElement>('[data-errors]')?.hidden).toBe(true);
+    // 끊은 스레드를 곧바로 데워 둔다 — 다음 계산이 준비를 기다리지 않게.
+    expect(client.prepareCalls).toBe(prepares + 1);
+    // 다시 돌릴 수 있다.
+    expect(root.querySelector<HTMLButtonElement>('button[type="submit"]')!.disabled).toBe(false);
+  });
+
+  it('취소를 못 하는 계산기 대역에서는 단추를 아예 안 낸다', async () => {
+    const client = new FakeClient();
+    mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });
+    root.querySelector<HTMLInputElement>('#duration')!.value = '10';
+    root.querySelector<HTMLFormElement>('form')!.requestSubmit();
+    await flush();
+    expect(root.querySelector<HTMLButtonElement>('[data-calc-cancel]')!.hidden).toBe(true);
   });
 
   it('유니온 탭에는 판 전체를 한 코드로 주고받는 줄이 있다', () => {

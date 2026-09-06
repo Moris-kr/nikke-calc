@@ -885,6 +885,14 @@ footer a { color: #93aabd; text-decoration: none; font-weight: 800; letter-spaci
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
 
+/* 계산 취소 — 돌고 있을 때만 실행 단추 옆에 선다. 되돌릴 수 없는 일이 아니라
+   «그만»이므로 위험색이 아니라 조용한 회색으로 둔다. */
+.calc-cancel { padding: 0 16px; min-height: 44px; border: 1px solid rgba(255,119,135,.42);
+  border-radius: 10px; background: rgba(255,119,135,.08); color: #f0c3c3;
+  font: 800 13px inherit; cursor: pointer; white-space: nowrap; }
+.calc-cancel:hover:not(:disabled) { background: rgba(255,119,135,.18); border-color: var(--danger); }
+.calc-cancel:disabled { opacity: .5; cursor: default; }
+
 /* 커뮤니티 안내 띠. 바로 아래 안내 링크와 헷갈리지 않게 호박색으로 가른다 —
    저쪽은 늘 있는 길잡이, 이쪽은 기한이 있는 알림이다. */
 .site-campaign { display: flex; align-items: center; justify-content: center; gap: 6px 12px; flex-wrap: wrap; margin: 0 0 6px; padding: 10px 40px 10px 14px; position: relative; background: rgba(255,191,60,.1); border: 1px solid rgba(255,191,60,.3); border-radius: 8px; font-size: 13px; }
@@ -1280,7 +1288,23 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
   background: rgba(3,9,16,.6); color: var(--ink); font: 400 11px ui-monospace, monospace; }
 .union-decks { margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(146,176,201,.08); }
 .union-error { flex: 1 1 100%; margin: 2px 0 0; color: var(--amber); font-size: 10.5px; }
+/* 덱 칸 늘리기·줄이기. 코드 줄과 섞이지 않게 한 줄 띄워 오른쪽에 모은다. */
+.union-deck-tools { display: flex; align-items: center; gap: 6px; margin-top: 8px;
+  padding-top: 6px; border-top: 1px dashed rgba(146,176,201,.1); }
+.union-deck-count { margin-left: auto; color: var(--muted); font: 700 10px ui-monospace, monospace; }
+/* 덱 한 칸의 니케를 그 자리에서 고치는 다섯 칸. */
+.union-squad-edit { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 2px;
+  padding: 8px; border: 1px solid rgba(69,214,208,.24); border-radius: 8px;
+  background: rgba(69,214,208,.05); }
+.union-squad-slot { flex: 1 1 120px; min-width: 0; padding: 6px 8px;
+  border: 1px solid var(--line); border-radius: 6px; background: rgba(3,9,16,.6);
+  color: var(--ink); font: inherit; font-size: 11px; }
+.union-squad-slot:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
 .union-run { border-color: var(--amber) !important; color: var(--amber) !important; }
+
+/* 결과 내보내기 — 결과가 있을 때만 결과 판 위에 선다. */
+.union-export { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.union-export-note { color: var(--muted); font-size: 11px; }
 
 /* 결과 — [이름][싱크로] 아래로 보스마다 덱 줄이 선다. */
 .union-report { margin-top: 14px; }

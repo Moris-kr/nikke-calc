@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  buildJobs, deckForMember, estimateScanSeconds, groupResults, humanSeconds,
-  DIRECT_SNIPPET, MEMBER_SNIPPET, parseDirectScan, parseMemberList, readBossCode, readDeckCode,
-  readUnionCode, remainingSeconds, unionCodeOf, unionShareOf,
+  buildJobs, clampDeckSlots, deckForMember, deckSlotFor, estimateScanSeconds, groupResults,
+  humanSeconds, DECK_SLOTS, DIRECT_SNIPPET, MAX_DECK_SLOTS, MEMBER_SNIPPET, parseDirectScan,
+  parseMemberList, readBossCode, readDeckCode, readUnionCode, remainingSeconds, reportRows,
+  unionCodeOf, unionShareOf,
 } from './union-raid';
 import type { BossSlot, JobResult, MemberRow } from './union-raid';
 import { encodeBattleCode, encodeShareCode } from './share-code';
@@ -187,6 +188,55 @@ describe('보스·덱 칸', () => {
     expect(slot.squad?.slice(0, 2)).toEqual(['리타', '라피']);
     expect(slot.error).toBeUndefined();
   });
+
+  it('칸에서 고친 편성이 코드로 되돌아간다 — 코드가 정본이라 같이 바뀌어야 한다', () => {
+    // 「프리바티 → 마스트」 한 명만 바꾸는 자리(피드백 2026-09-06).
+    const made = deckSlotFor(['리타', '라피', '', '', '']);
+    expect(made.squad).toEqual(['리타', '라피', '', '', '']);
+    expect(readDeckCode({ code: made.code }, ['리타', '라피']).squad?.slice(0, 2))
+      .toEqual(['리타', '라피']);
+  });
+
+  it('다섯 자리를 다 비우면 빈 칸으로 돌아간다', () => {
+    const empty = deckSlotFor(['', '', '', '', '']);
+    expect(empty.code).toBe('');
+    expect(empty.squad).toBeUndefined();
+  });
+});
+
+describe('덱 칸 수', () => {
+  it('상한과 하한을 지킨다', () => {
+    expect(clampDeckSlots(0)).toBe(DECK_SLOTS);   // 0은 «안 정했다»로 본다
+    expect(clampDeckSlots(1)).toBe(1);
+    expect(clampDeckSlots(99)).toBe(MAX_DECK_SLOTS);
+    expect(clampDeckSlots(Number.NaN)).toBe(DECK_SLOTS);
+  });
+
+  it('셋을 넘겨 담은 판 코드도 그대로 펴진다', () => {
+    // 「조합 3개까지만 된다」는 제보(2026-09-06). 코드는 덱 수를 바이트로 들고 있어
+    // 스키마를 안 바꾸고도 늘어난다.
+    const squads = ['리타', '라피', '크라운', '앨리스', '나가'];
+    const names = [...squads];
+    const decks = squads.map((who) =>
+      ({ code: encodeShareCode([{ id: 1, squad: [who, '', '', '', ''], characters: {} }], false) }));
+    const bosses: BossSlot[] = [{ name: '보스', code: '', enabled: true, decks }];
+
+    const back = readUnionCode(unionCodeOf(bosses), names);
+    expect(back[0]!.decks).toHaveLength(5);
+    expect(back[0]!.decks.map((deck) => deck.squad?.[0])).toEqual(squads);
+    // 나머지 보스는 여전히 기본 칸 수로 선다.
+    expect(back[1]!.decks).toHaveLength(DECK_SLOTS);
+  });
+
+  it('덱이 셋보다 적게 든 코드도 칸 셋으로 편다 — 화면이 갑자기 쪼그라들지 않게', () => {
+    const bosses: BossSlot[] = [{
+      name: '보스', code: '', enabled: true,
+      decks: [{ code: encodeShareCode([{ id: 1, squad: ['리타', '', '', '', ''], characters: {} }], false) }],
+    }];
+    const back = readUnionCode(unionCodeOf(bosses), ['리타']);
+    expect(back[0]!.decks).toHaveLength(DECK_SLOTS);
+    expect(back[0]!.decks[0]!.squad?.[0]).toBe('리타');
+  });
 });
 
 describe('돌릴 것 늘어놓기', () => {
@@ -344,5 +394,52 @@ describe('유니온 판 코드 (NK4)', () => {
 
   it('종류가 다른 코드는 거절한다', () => {
     expect(() => readUnionCode(encodeBattleCode(battle), NAMES)).toThrow(/NK4/);
+  });
+});
+
+describe('결과 내보내기', () => {
+  const rowFor = (over: Partial<JobResult> = {}, name = '지휘관1', synchro = 990): JobResult => ({
+    job: {
+      member: member({ name, synchro }),
+      bossIndex: 0,
+      bossName: '수냉 보스',
+      deckIndex: 0,
+      squad: ['리타', '라피', '', '', ''],
+      battle: { ...battle, enemyCode: '수냉' },
+    },
+    ...over,
+  });
+
+  it('한 줄이 «지휘관 × 보스 × 덱» 한 칸이다', () => {
+    const rows = reportRows([rowFor({ damage: 123_456.7 })]);
+    expect(rows[0]).toEqual([
+      '지휘관', '싱크로', '보스', '속성', '덱',
+      '니케1', '니케2', '니케3', '니케4', '니케5', '딜량', '비고',
+    ]);
+    expect(rows[1]).toEqual([
+      '지휘관1', 990, '수냉 보스', '수냉', 1, '리타', '라피', '', '', '', 123_457, '',
+    ]);
+  });
+
+  it('못 돌린 칸도 줄을 남기고 이유를 적는다 — 빈 줄은 «왜»를 못 말한다', () => {
+    const rows = reportRows([
+      rowFor({ missing: ['마스트'] }),
+      rowFor({ error: '엔진이 터졌습니다' }),
+    ]);
+    expect(rows).toHaveLength(3);
+    expect(rows[1]![10]).toBe('');                       // 딜 칸은 비운다
+    expect(rows[1]![11]).toBe('미보유: 마스트');
+    expect(rows[2]![11]).toBe('엔진이 터졌습니다');
+  });
+
+  it('돌린 것이 없으면 머리글만 남는다', () => {
+    expect(reportRows([])).toHaveLength(1);
+  });
+
+  it('속성을 안 정한 보스는 «무속성»으로 적는다', () => {
+    const rows = reportRows([rowFor({ damage: 1 })].map((row) => ({
+      ...row, job: { ...row.job, battle: { ...row.job.battle, enemyCode: '' } },
+    })));
+    expect(rows[1]![3]).toBe('무속성');
   });
 });

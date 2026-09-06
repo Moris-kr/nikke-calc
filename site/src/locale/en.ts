@@ -233,6 +233,20 @@ export const EN: Record<string, string> = {
   '. 그 니케가 없어도 짤 수 있는 조합만 남기려는 것입니다.': ' — so you keep only squads you can actually build without them.',
   '렛츠도로 CSV 불러오기': 'Load Lets-Doro CSV',
   '가나다': 'A-Z',
+  '계산 취소': 'Cancel run',
+  '돌고 있는 계산을 끊습니다. 작업 스레드를 다시 세우므로 다음 계산은 준비부터 시작합니다':
+    'Stops the run in progress. The worker thread is rebuilt, so the next run starts from setup',
+  '조합 추가': 'Add a squad',
+  '마지막 칸 빼기': 'Drop the last slot',
+  '고치기': 'Edit',
+  '이 덱의 니케를 한 명씩 바꿉니다. 고치면 조합 코드도 같이 바뀝니다':
+    'Swap the NIKKEs in this deck one at a time. The squad code changes with it',
+  '결과 CSV 내려받기': 'Download results CSV',
+  '표 복사': 'Copy table',
+  '지휘관 × 보스 × 덱 한 줄짜리 표로 내려받습니다. 엑셀·구글 시트에서 바로 열립니다':
+    'Downloads one row per commander x boss x deck. Opens straight in Excel or Google Sheets',
+  '같은 표를 클립보드에 담습니다. 시트에 그대로 붙여넣으면 칸이 나뉩니다':
+    'Puts the same table on the clipboard. Paste into a sheet and it splits into columns',
   '덱 비우기': 'Clear deck',
   '5덱 비우기': 'Clear all 5 decks',
   '현재 덱 복사': 'Copy this deck',

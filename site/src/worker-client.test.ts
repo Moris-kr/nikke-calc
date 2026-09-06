@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  CalculatorPool, CalculatorWorkerClient, defaultPoolSize, MAX_POOL, type WorkerLike,
+  CalculatorPool, CalculatorWorkerClient, defaultPoolSize, isCancelled, MAX_POOL,
+  type WorkerLike,
 } from './worker-client';
 import type { SimulationRequest, SimulationResult, WorkerResponse } from './types';
 
@@ -162,5 +163,62 @@ describe('CalculatorPool', () => {
     const { pool } = spawn();
     pool.setPoolSize(99);
     expect(pool.maxPoolSize).toBe(MAX_POOL);
+  });
+
+  it('취소하면 돌던 계산이 «취소»로 끊기고 워커가 새로 선다', async () => {
+    // 파이썬 시뮬은 한 덩어리로 돌아 협조적으로 못 멈춘다 — 스레드를 끊는 길뿐이다.
+    const { pool, made } = spawn();
+    const running = pool.simulate(request);
+    await Promise.resolve();
+
+    pool.cancel();
+
+    await expect(running).rejects.toSatisfy(isCancelled);
+    expect(made[0]!.terminated).toBe(true);
+    // 새 워커가 대신 선다 — 취소한 뒤에도 다시 돌릴 수 있어야 한다.
+    expect(made).toHaveLength(2);
+    expect(made[1]!.terminated).toBe(false);
+
+    const again = pool.simulate(request);
+    await Promise.resolve();
+    ready(made[1]!);
+    await new Promise((done) => { setTimeout(done, 0); });
+    answer(made[1]!);
+    await expect(again).resolves.toEqual(result);
+  });
+
+  it('자리를 기다리던 계산도 «취소»로 풀린다 — 안 풀면 영영 안 끝난다', async () => {
+    const { pool, made } = spawn();
+    pool.setPoolSize(1);
+    const first = pool.simulate(request);
+    const waiting = pool.simulate({ ...request, seed: 99 });
+    await Promise.resolve();
+    ready(made[0]!);
+    await new Promise((done) => { setTimeout(done, 0); });
+
+    pool.cancel();
+
+    await expect(first).rejects.toSatisfy(isCancelled);
+    await expect(waiting).rejects.toSatisfy(isCancelled);
+  });
+
+  it('취소로 죽은 워커는 다시 자리에 안 들어간다', async () => {
+    // 돌던 계산의 `finally`가 죽은 워커를 풀에 되돌리면 다음 계산이 끝난 스레드로 간다.
+    const { pool, made } = spawn();
+    const running = pool.simulate(request);
+    await Promise.resolve();
+    pool.cancel();
+    await expect(running).rejects.toSatisfy(isCancelled);
+    // 여기서 돌아온 워커가 섞였다면 새 계산이 죽은 0번으로 갔을 것이다.
+    const sims = (worker: FakeWorker) =>
+      worker.messages.filter((message) => message.type === 'simulate').length;
+    const again = pool.simulate(request);
+    await Promise.resolve();
+    ready(made[1]!);
+    await new Promise((done) => { setTimeout(done, 0); });
+    expect(sims(made[0]!)).toBe(1);   // 취소되기 전에 받은 그 한 판뿐
+    expect(sims(made[1]!)).toBe(1);   // 새 판은 새 워커로 갔다
+    answer(made[1]!);
+    await expect(again).resolves.toEqual(result);
   });
 });

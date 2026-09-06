@@ -2,6 +2,7 @@ import {
   ANNOUNCEMENT_KEY, announcementToShow, countdownClock, countdownDone, countdownToShow,
 } from './announcement';
 import { ResultCache, type StorageLike, type StorageSource } from './cache';
+import { isCancelled } from './worker-client';
 import { renderCharacterSettings, type CharPanelKind } from './character-settings';
 import {
   BLABLA_SERVERS,
@@ -120,6 +121,11 @@ export interface CalculatorClientLike {
   simulate(request: SimulationRequest): Promise<SimulationResult>;
   /** 목록 정렬용 전투력. 없는 구현(테스트 대역)도 있어 선택으로 둔다. */
   combatPower?(request: CombatPowerRequest): Promise<Record<string, number>>;
+  /**
+   * 돌고 있는 계산을 끊는다. 작업 스레드를 통째로 죽이고 새로 세우므로 **다음 계산은
+   * 준비부터** 시작한다. 풀이 아닌 구현(시험 대역)도 있어 선택으로 둔다.
+   */
+  cancel?(): void;
   /** 병렬 계산. 풀이 아닌 구현(테스트 대역·워커 하나)도 있어 전부 선택으로 둔다. */
   setPoolSize?(size: number): void;
   defaultPoolSize?(): number;
@@ -782,6 +788,13 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <span class="union-status" data-union-run-status></span>
           </div>
           <div class="union-progress" data-union-run-progress hidden><i></i></div>
+          <!-- 유니온방에 옮겨 적으려면 화면을 손으로 베껴야 했다. 한 줄이
+               «지휘관 × 보스 × 덱» 한 칸인 표로 낸다. -->
+          <div class="union-export" data-union-export hidden>
+            <button type="button" class="roster-import" data-union-export-csv title="지휘관 × 보스 × 덱 한 줄짜리 표로 내려받습니다. 엑셀·구글 시트에서 바로 열립니다">결과 CSV 내려받기</button>
+            <button type="button" class="roster-import" data-union-export-copy title="같은 표를 클립보드에 담습니다. 시트에 그대로 붙여넣으면 칸이 나뉩니다">표 복사</button>
+            <span class="union-export-note" data-union-export-note></span>
+          </div>
           <div class="union-report" data-union-report></div>
         </div>
       </section>` : ''}
@@ -964,6 +977,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
               <span class="disclosure-hint" aria-hidden="true">열기 ›</span>
             </button>
             <button class="calculate-button run-inline" type="submit"><span>시뮬레이션 실행</span><b aria-hidden="true">→</b></button>
+            <!-- 돌고 있을 때만 나온다. 파이썬 시뮬은 중간에 «그만»을 물어보는 자리가
+                 없어, 취소는 작업 스레드를 통째로 끊는 일이다(worker-client.ts). -->
+            <button type="button" class="calc-cancel" data-calc-cancel hidden title="돌고 있는 계산을 끊습니다. 작업 스레드를 다시 세우므로 다음 계산은 준비부터 시작합니다">계산 취소</button>
           </div>
           <!-- 계산이 얼마나 빨리 끝나는지를 정하는 설정이라 실행 단추 바로 아래에 둔다. -->
           <div class="parallel-row">
@@ -7039,7 +7055,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     shareModal.hidden = false;
   }
 
-  const prepared = client.prepare()
+  // 취소하면 작업 스레드가 죽고 새로 서므로 이 약속도 다시 세워야 한다 — 옛 약속은
+  // 이미 «준비됨»이라 그대로 두면 다음 계산이 안 올라온 런타임에 요청을 던진다.
+  let prepared = client.prepare()
     .then(() => {
       if (activity !== 'preparing') return;
       activity = 'ready';
@@ -7050,6 +7068,26 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       activity = 'error';
       status.textContent = `초기화 실패 · ${error instanceof Error ? error.message : String(error)}`;
     });
+
+  // ── 계산 취소 ───────────────────────────────────────────────────────────
+  // 「보스 조건을 잘못 걸어 놓고 돌렸는데 끝날 때까지 기다려야 한다」는 제보
+  // (2026-09-06). 느린 기계에서는 그 기다림이 몇 분이다.
+  //
+  // 파이썬 시뮬은 작업 스레드 안에서 **한 덩어리로** 돌아 중간에 «그만»을 물어보는
+  // 자리가 없다. 그래서 취소는 그 스레드를 끊고 새로 세우는 일이고, 그만큼 다음 계산은
+  // 준비(파이오다이드 올리기)부터 다시 한다 — 여기서 미리 걸어 두어 기다림을 줄인다.
+  const cancelButton = element<HTMLButtonElement>(root, '[data-calc-cancel]');
+  let cancelRequested = false;
+  cancelButton.addEventListener('click', () => {
+    if (!client.cancel || cancelRequested) return;
+    cancelRequested = true;
+    cancelButton.disabled = true;
+    client.cancel();
+    status.textContent = '계산을 끊는 중…';
+    // 새로 선 스레드를 곧바로 데운다. 다음 계산이 준비를 기다리지 않게.
+    prepared = client.prepare().catch(() => undefined);
+    void prepared.then(() => { cancelButton.disabled = false; });
+  });
 
   // 기본 정렬이 전투력이라 목록을 열기 전에 미리 받아 둔다. 오는 동안은 이름순으로
   // 서 있고, 도착하면 그 자리에서 다시 세운다.
@@ -7077,6 +7115,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
     submit.disabled = true;
     submit.classList.add('is-running');
+    cancelButton.hidden = client.cancel === undefined;
+    cancelRequested = false;
     activity = 'running';
     const completed: DeckResultEntry[] = [];
     let cachedCount = 0;
@@ -7126,6 +7166,16 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         : `${requests.length}개 덱 계산 완료 · 같은 조건은 이 기기에 저장됩니다.`;
     } catch (error) {
       if (completed.length > 0) renderBatchResult(aggregateDeckResults(completed));
+      // 사람이 끊은 것은 실패가 아니다 — 「계산에 실패했습니다」라고 적으면 자기가 누른
+      // 것이 오류로 보인다. 여기까지 끝난 덱은 위에서 이미 화면에 세워 뒀다.
+      if (cancelRequested || isCancelled(error)) {
+        showErrors([]);
+        activity = completed.length > 0 ? 'complete' : 'ready';
+        status.textContent = completed.length > 0
+          ? `계산을 취소했습니다 · ${completed.length}/${requests.length}덱까지 나온 결과만 남겼습니다.`
+          : '계산을 취소했습니다.';
+        return;
+      }
       const failedEntry = requests[failedIndex >= 0 ? failedIndex : completed.length];
       const failed = failedEntry?.deck.id;
       const detail = cleanEngineError(error instanceof Error ? error.message : String(error));
@@ -7142,6 +7192,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     } finally {
       submit.disabled = false;
       submit.classList.remove('is-running');
+      cancelButton.hidden = true;
     }
   });
 

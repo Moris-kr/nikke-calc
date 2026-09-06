@@ -21,6 +21,26 @@ interface PendingRequest<T> {
 
 type ProgressListener = (message: string) => void;
 
+/**
+ * 사람이 끊은 계산. **실패와 갈라야 한다** — 화면이 「계산에 실패했습니다」라고 적으면
+ * 자기가 누른 것이 오류로 보인다.
+ *
+ * 파이썬 시뮬은 워커 안에서 **한 덩어리로** 돈다. 중간에 «그만»을 물어보는 자리가 없어
+ * 협조적으로 멈출 수 없고, 유일하게 확실한 길이 워커를 통째로 끊는 것이다. 그래서
+ * 취소하면 그 워커는 죽고 새 워커가 대신 선다(파이오다이드를 다시 올려야 한다).
+ */
+export class CalculationCancelled extends Error {
+  constructor(message = '계산을 취소했습니다.') {
+    super(message);
+    this.name = 'CalculationCancelled';
+  }
+}
+
+/** 취소로 끊긴 것인가. `instanceof`는 번들이 갈리면 어긋나므로 이름으로도 본다. */
+export const isCancelled = (error: unknown): boolean =>
+  error instanceof CalculationCancelled
+  || (error instanceof Error && error.name === 'CalculationCancelled');
+
 declare const __BUILD_ID__: string;
 
 /** 워커 상한. 이 위로는 메모리만 먹고 빨라지지 않는다(코어보다 많아 봐야 서로 뺏는다). */
@@ -81,8 +101,17 @@ export class CalculatorWorkerClient {
   }
 
   dispose(): void {
+    this.kill(new Error('계산기가 종료되었습니다.'));
+  }
+
+  /** 사람이 끊었다. 죽이는 것은 같고, 기다리던 쪽에 알리는 사유만 다르다. */
+  cancel(): void {
+    this.kill(new CalculationCancelled());
+  }
+
+  private kill(error: Error): void {
     this.worker.terminate();
-    this.rejectAll(new Error('계산기가 종료되었습니다.'));
+    this.rejectAll(error);
     this.preparePromise = null;
   }
 
@@ -143,7 +172,12 @@ export class CalculatorWorkerClient {
 export class CalculatorPool {
   private readonly clients: CalculatorWorkerClient[] = [];
   private readonly idle: CalculatorWorkerClient[] = [];
-  private readonly waiting: Array<(client: CalculatorWorkerClient) => void> = [];
+  // 자리가 나기를 기다리는 쪽. **끊는 길까지 들고 있어야 한다** — 취소로 워커를 전부
+  // 죽였을 때 여기 남은 약속을 안 풀면 그 계산이 영영 안 끝난다(화면이 계속 «계산 중»).
+  private readonly waiting: Array<{
+    resolve: (client: CalculatorWorkerClient) => void;
+    reject: (error: Error) => void;
+  }> = [];
   private size = 1;
 
   constructor(
@@ -190,10 +224,30 @@ export class CalculatorPool {
   }
 
   dispose(): void {
-    for (const client of this.clients) client.dispose();
+    this.tearDown((client) => client.dispose(), new Error('계산기가 종료되었습니다.'));
+  }
+
+  /**
+   * 돌고 있는 계산을 사람이 끊는다. 워커를 전부 죽이고 **하나를 새로 세운다** —
+   * 파이썬 시뮬에는 «그만»을 물어보는 자리가 없어 이 길밖에 없다.
+   *
+   * 새 워커는 파이오다이드를 다시 올려야 하므로, 부르는 쪽이 곧바로 `prepare()`를
+   * 걸어 두면 다음 계산이 기다리지 않는다.
+   */
+  cancel(): void {
+    this.tearDown((client) => client.cancel(), new CalculationCancelled());
+    const fresh = new CalculatorWorkerClient(this.workerFactory, this.onProgress);
+    this.clients.push(fresh);
+    this.idle.push(fresh);
+  }
+
+  private tearDown(kill: (client: CalculatorWorkerClient) => void, reason: Error): void {
+    for (const client of this.clients) kill(client);
     this.clients.length = 0;
     this.idle.length = 0;
-    this.waiting.length = 0;
+    // 기다리던 쪽을 먼저 풀어 준다. 배열을 비우기만 하면 그 약속이 영영 안 끝난다.
+    const waiting = this.waiting.splice(0, this.waiting.length);
+    for (const entry of waiting) entry.reject(reason);
   }
 
   private async acquire(): Promise<CalculatorWorkerClient> {
@@ -208,12 +262,17 @@ export class CalculatorPool {
       await extra.prepare();
       return extra;
     }
-    return new Promise<CalculatorWorkerClient>((resolve) => { this.waiting.push(resolve); });
+    return new Promise<CalculatorWorkerClient>((resolve, reject) => {
+      this.waiting.push({ resolve, reject });
+    });
   }
 
   private release(client: CalculatorWorkerClient): void {
+    // 죽은 워커는 돌려받지 않는다. 취소로 판을 갈아 끼운 뒤에도 돌던 계산이 `finally`로
+    // 여기 오는데, 그것을 그대로 넣으면 다음 계산이 **끝난 워커**에게 간다.
+    if (!this.clients.includes(client)) return;
     const next = this.waiting.shift();
-    if (next) next(client);
+    if (next) next.resolve(client);
     else this.idle.push(client);
   }
 }
