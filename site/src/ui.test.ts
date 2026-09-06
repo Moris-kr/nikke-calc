@@ -1005,6 +1005,28 @@ describe('calculator UI', () => {
     }
   });
 
+  it('화면에서 떨어져 나간 시계는 스스로 멈춘다', () => {
+    // 걷는 함수를 안 부르고 판을 갈아 끼우는 자리가 있다(바로 아래 «저장된 결과»
+    // 시험이 그렇게 한다). 그때 1초마다 도는 시계가 쌓이면 뒤로 갈수록 느려진다.
+    vi.useFakeTimers();
+    try {
+      mountCalculator(root, {
+        catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+      });
+      const clock = root.querySelector<HTMLElement>('[data-countdown-clock]')!;
+      vi.advanceTimersByTime(1_000);
+      const ticking = clock.textContent;
+
+      root.replaceChildren();               // 시계가 화면에서 떨어진다
+      vi.advanceTimersByTime(5_000);        // 다음 한 번에 스스로 멈춘다
+      expect(vi.getTimerCount()).toBe(0);
+      // 떨어진 뒤로는 글자도 안 건드린다.
+      expect(clock.textContent).toBe(ticking);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('유니온 탭에는 판 전체를 한 코드로 주고받는 줄이 있다', () => {
     mountCalculator(root, {
       catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,

@@ -1941,15 +1941,21 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         element<HTMLElement>(root, '[data-countdown-label]').textContent = countdown.label;
         const clock = element<HTMLElement>(root, '[data-countdown-clock]');
         clockBand.hidden = false;
-        const tick = () => {
+        const stop = () => { if (timer !== null) clearInterval(timer); timer = null; };
+        const render = () => {
           const left = target - Date.now();
           clock.textContent = countdownClock(left);
           // 끝나면 멈춘다. 0에 붙여 둔 시계를 1초마다 다시 그릴 까닭이 없다.
-          if (countdownDone(left) && timer !== null) { clearInterval(timer); timer = null; }
+          if (countdownDone(left)) stop();
         };
+        // 화면에서 떨어져 나간 시계는 **스스로** 멈춘다. 걷는 함수를 안 부르고 판을
+        // 통째로 갈아 끼우는 자리가 있어(시험이 그렇게 한다), 그때 1초마다 도는 시계가
+        // 쌓이면 뒤로 갈수록 느려진다. 첫 그리기는 이 판정을 지나지 않는다 — 아직
+        // 붙기 전인 판에 올려도 시계는 보여야 한다.
+        const tick = () => { if (clockBand.isConnected) render(); else stop(); };
         let timer: number | null = window.setInterval(tick, 1000);
-        tick();
-        stopCountdown = () => { if (timer !== null) clearInterval(timer); timer = null; };
+        render();
+        stopCountdown = stop;
       }
     }
   }
