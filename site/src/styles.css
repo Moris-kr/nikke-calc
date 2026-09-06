@@ -487,6 +487,10 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .deck-moves[hidden] { display: none; }
 .deck-clear { padding: 6px 10px; border: 1px solid rgba(255,119,135,.42); border-radius: 6px; background: rgba(255,119,135,.07); color: var(--danger); font: 700 10px ui-monospace, monospace; cursor: pointer; }
 .deck-clear:hover { background: rgba(255,119,135,.16); border-color: var(--danger); }
+/* 덱·5덱 육성 되돌리기 — 비우기 옆에 같은 크기로 서되, 지우는 일이 아니라
+   «불러온 값으로 돌아가는» 일이라 호박색이다. */
+.deck-restore { padding: 6px 10px; border: 1px solid rgba(255,191,60,.4); border-radius: 6px; background: rgba(255,191,60,.07); color: #f3dfae; font: 700 10px ui-monospace, monospace; cursor: pointer; }
+.deck-restore:hover { background: rgba(255,191,60,.18); border-color: var(--amber); }
 .deck-move { width: 26px; min-height: 26px; padding: 0; border: 1px solid rgba(146,176,201,.28); border-radius: 6px; background: rgba(3,10,17,.6); color: #cfeceb; font: 700 13px/1 ui-monospace, monospace; cursor: pointer; }
 .deck-move:hover:not(:disabled) { background: rgba(69,214,208,.22); border-color: var(--cyan); }
 .deck-move:disabled { opacity: .3; cursor: default; }
@@ -1087,6 +1091,23 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
 .preset-remove { padding: 6px 10px; border: 1px solid rgba(233,110,110,.3); background: rgba(233,110,110,.08); color: #f0c3c3; font-size: 11px; border-radius: 7px; cursor: pointer; }
 .preset-remove:hover { background: rgba(233,110,110,.18); }
 .preset-empty { margin: 0; color: var(--muted); font-size: 11px; }
+/* 프리셋 초상화 — 이름 아래에 한 줄로 깐다. 이름만으로는 어떤 조합이었는지
+   안 떠오른다(피드백). 목록 격자의 다음 칸이라 이름 줄과 붙어 보인다. */
+.preset-preview { margin: -2px 0 4px; padding-left: 2px; }
+.preset-preview .share-portrait { width: 26px; height: 26px; }
+.preset-preview .share-deck-label { font-size: 9px; }
+
+/* 「어느 덱을 가져올까요?」 — 덱이 여럿 든 코드에서 한 덱만 꺼낼 때. */
+.share-pick { display: grid; gap: 6px; margin-top: 8px; }
+.share-pick-title { margin: 0; color: var(--muted); font-size: 11px; font-weight: 700; }
+.share-pick-deck { display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+  border: 1px solid var(--line); border-radius: 8px; background: rgba(7,15,25,.6);
+  color: var(--ink); font: inherit; cursor: pointer; text-align: left; }
+.share-pick-deck:hover { border-color: var(--cyan); background: rgba(69,214,208,.1); }
+.share-pick-deck.is-on { border-color: var(--cyan); background: rgba(69,214,208,.16); }
+.share-pick-label { flex: 0 0 auto; font-size: 11px; color: var(--cyan); }
+.share-pick-deck .share-decks { margin: 0; }
+.share-pick-deck .share-portrait { width: 26px; height: 26px; }
 
 /* 덱 비교 · 계산 기록 */
 .deck-rank { margin: 6px 0 0; color: var(--muted); font-size: 11px; font-weight: 700; }
@@ -2277,9 +2298,15 @@ body.bm-open { overflow: hidden; }
 /* 두 번 눌러야 터지는 단추 — 겨눈 동안은 스스로 붉어진다(`confirm-twice.ts`). */
 .is-armed { border-color: rgba(255,120,140,.6) !important; color: #ffb3c0 !important;
   background: rgba(255,60,90,.16) !important; }
-/* 「이 육성을 덱 전원에게」 — 베껴오기와 같은 자리, 같은 무게로 선다. */
-.spread-growth { display: grid; gap: 6px; margin-top: 6px; }
-.spread-apply { justify-self: start; }
+/* 「이 육성을 덱 전원에게」 — 베껴오기와 같은 자리, 같은 무게로 선다.
+   「불러온 값으로 되돌리기」도 바로 아래 같은 모양으로 붙는다 — 덮어쓴 바로 그 자리에서
+   물릴 수 있어야 한다. */
+.spread-growth, .restore-growth { display: grid; gap: 6px; margin-top: 6px; }
+.spread-apply, .restore-apply { justify-self: start; }
+/* 되돌리기는 «불러온 값으로》 돌아가는 일이라 덮어쓰기와 색을 가른다. */
+.restore-apply { border-color: rgba(255,191,60,.32); background: rgba(255,191,60,.08);
+  color: #f3dfae; }
+.restore-apply:hover { border-color: var(--amber); background: rgba(255,191,60,.18); }
 /* 오버로드 옵션 머리 — 제목 옆에 「랜덤 채우기」와 베껴오기가 선다. */
 .ol-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .ol-head h4 { margin: 0; }

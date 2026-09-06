@@ -181,7 +181,15 @@ function decodeLegacy(body: string): SharePayload {
  * 주고받는 일이 실제로는 더 잦은데, 예전에는 그것도 판을 통째로 덮어 2~5덱이
  * 조용히 지워졌다.
  */
-export type ApplyTarget = 'all' | number;
+/**
+ * 코드를 어디에 얹을지.
+ *
+ * * `'all'` — 코드의 덱을 순서대로 판 전체에 얹는다.
+ * * 숫자 — 코드의 **첫 덱**을 그 자리에 얹는다(예전부터 있던 모양).
+ * * `{ into, from }` — 코드의 `from`번째 덱을 `into` 자리에 얹는다. 5덱짜리 코드에서
+ *   3덱만 꺼내 쓰는 길이다 — 그전에는 첫 덱밖에 못 꺼냈다(피드백 2026-09-05).
+ */
+export type ApplyTarget = 'all' | number | { into: number; from: number };
 
 export function applyShareToDecks(
   payload: SharePayload,
@@ -220,10 +228,12 @@ export function applyShareToDecks(
   if (target === 'all') {
     decks.forEach((deck, index) => fill(deck, payload.decks[index]));
   } else {
-    // 한 칸만 받을 때는 코드의 **첫 덱**을 그 자리에 넣는다. 5덱짜리 코드를 한 칸에
-    // 떨어뜨려도 나머지 덱이 사라지지 않는다.
-    const deck = decks[target];
-    if (deck) fill(deck, payload.decks[0]);
+    // 한 칸만 받을 때는 코드에서 **한 덱만** 골라 그 자리에 넣는다. 고르지 않으면 첫 덱이다.
+    // 5덱짜리 코드를 한 칸에 떨어뜨려도 나머지 덱이 사라지지 않는다.
+    const into = typeof target === 'number' ? target : target.into;
+    const from = typeof target === 'number' ? 0 : target.from;
+    const deck = decks[into];
+    if (deck) fill(deck, payload.decks[from]);
   }
   return { applied, skipped: [...new Set(skipped)] };
 }

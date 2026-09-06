@@ -311,6 +311,51 @@ describe('덱 한 칸만 주고받기', () => {
     expect(decks[2]!.squad.every((n) => n === '')).toBe(true);
   });
 
+  it('5덱짜리 코드에서 원하는 덱 하나를 골라 꺼낸다', () => {
+    // 첫 덱밖에 못 꺼내던 자리. 「3덱만 가져오기」가 이 길이다(피드백 2026-09-05).
+    const decks = emptyDecks();
+    decks[0]!.squad = ['리타', '', '', '', ''];
+    const five = emptyDecks();
+    FIVE_DECKS.forEach((squad, i) => { five[i]!.squad = [...squad]; });
+
+    const result = applyShareToDecks(
+      decodeShareCode(encodeShareCode(five, true), allNames), decks, () => true, undefined,
+      { into: 1, from: 2 },
+    );
+
+    expect(result.applied).toBe(1);
+    expect(decks[1]!.squad).toEqual(FIVE_DECKS[2]);
+    expect(decks[0]!.squad[0]).toBe('리타');   // 나머지 칸은 그대로
+    expect(decks[2]!.squad.every((n) => n === '')).toBe(true);
+  });
+
+  it('숫자만 주면 예전처럼 첫 덱을 꺼낸다', () => {
+    // `{ into, from }`을 더하면서 옛 부름꾼이 그대로 도는지 못 박는다.
+    const decks = emptyDecks();
+    const five = emptyDecks();
+    FIVE_DECKS.forEach((squad, i) => { five[i]!.squad = [...squad]; });
+    const payload = decodeShareCode(encodeShareCode(five, true), allNames);
+
+    applyShareToDecks(payload, decks, () => true, undefined, 1);
+    expect(decks[1]!.squad).toEqual(FIVE_DECKS[0]);
+
+    const same = emptyDecks();
+    applyShareToDecks(payload, same, () => true, undefined, { into: 1, from: 0 });
+    expect(same[1]!.squad).toEqual(decks[1]!.squad);
+  });
+
+  it('코드에 없는 덱을 고르면 그 자리를 비운다', () => {
+    // 고를 수 없는 것을 고르게 두지는 않지만, 들어와도 조용히 엉뚱한 덱이 실리면 안 된다.
+    const decks = emptyDecks();
+    decks[1]!.squad = ['리타', '', '', '', ''];
+    const result = applyShareToDecks(
+      decodeShareCode(encodeShareCode([deck(1, ['크라운', '', '', '', ''])], false), allNames),
+      decks, () => true, undefined, { into: 1, from: 3 },
+    );
+    expect(result.applied).toBe(0);
+    expect(decks[1]!.squad.every((n) => n === '')).toBe(true);
+  });
+
   it('없는 칸을 겨냥하면 아무 일도 일어나지 않는다', () => {
     const decks = emptyDecks();
     decks[0]!.squad = ['리타', '', '', '', ''];

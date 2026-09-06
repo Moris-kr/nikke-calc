@@ -344,6 +344,68 @@ describe('calculator UI', () => {
     expect(root.querySelector('[data-restore-loaded]')).toBeNull();
   });
 
+  it('편성 카드에도 되돌리기가 선다 — 「덱 전원에게」 바로 옆이다', () => {
+    // 넷을 덮어쓴 **직후**가 물리고 싶어지는 자리인데, 그전에는 수치 설정을 펴야만
+    // 되돌릴 수 있었다(피드백 2026-09-05).
+    seedLoadedRoster('blabla');
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    root.querySelector<HTMLButtonElement>('[data-notice-dismiss]')?.click();
+
+    const card = root.querySelector<HTMLElement>('[data-slot-card="0"]')!;
+    const button = card.querySelector<HTMLButtonElement>('[data-restore-one="리타"]')!;
+    expect(button).not.toBeNull();
+    expect(button.textContent).toContain('블라블라링크');
+    // 덮어쓰는 단추와 같은 카드 안에 있어야 «바로 옆»이다.
+    expect(card.querySelector('[data-spread-growth="리타"]')).not.toBeNull();
+  });
+
+  it('덱·5덱 되돌리기는 운용을 남긴다 — 컨트롤까지 날리면 못 되돌린다', () => {
+    seedLoadedRoster('blabla');
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    root.querySelector<HTMLButtonElement>('[data-notice-dismiss]')?.click();
+
+    const state = () => JSON.parse(localStorage.getItem('nikke-state-v1')!)
+      .decks[0].characters['리타'];
+    // 손으로 육성을 만지고, 운용(컨트롤)도 잡아 둔다.
+    const skill = root.querySelector<HTMLSelectElement>('[data-slot-card="0"] [data-skill-level="1"]')!;
+    skill.value = '3';
+    skill.dispatchEvent(new Event('change', { bubbles: true }));
+    const saved = JSON.parse(localStorage.getItem('nikke-state-v1')!);
+    saved.decks[0].characters['리타'].control = { reloadCancel: true };
+    localStorage.setItem('nikke-state-v1', JSON.stringify(saved));
+
+    root.remove();
+    root = document.createElement('main');
+    document.body.append(root);
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    root.querySelector<HTMLButtonElement>('[data-notice-dismiss]')?.click();
+    expect(state().skillLevels['1']).toBe(3);
+
+    const deckRestore = root.querySelector<HTMLButtonElement>('[data-deck-restore]')!;
+    expect(deckRestore.hidden).toBe(false);
+    deckRestore.click();                       // 되묻기
+    expect(state().skillLevels['1']).toBe(3);
+    deckRestore.click();                       // 적용
+    expect(state().growthStage).toBe(7);
+    expect(state().skillLevels).toBeUndefined();
+    // 운용은 그대로 남는다 — 계정에서 불러오는 값이 아니라 조합마다 짜는 값이다.
+    expect(state().control).toEqual({ reloadCancel: true });
+  });
+
+  it('불러온 값이 없으면 덱 되돌리기 단추를 감춘다', () => {
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    expect(root.querySelector<HTMLButtonElement>('[data-deck-restore]')!.hidden).toBe(true);
+    expect(root.querySelector<HTMLButtonElement>('[data-deck-restore-all]')!.hidden).toBe(true);
+  });
+
   it('베껴오기가 오버로드 줄까지 가져온다 — 합계만 옮기면 드롭다운이 안 따라온다', () => {
     // 크라운에게 부위별 줄과 합계를 함께 잡아 둔다.
     localStorage.setItem('nikke-roster-v1', JSON.stringify({
@@ -780,6 +842,116 @@ describe('calculator UI', () => {
 
     const stored = JSON.parse(localStorage.getItem('nikke-presets-v1')!) as Array<{ name: string }>;
     expect(stored.map((item) => item.name).sort()).toEqual(['판 전체', '한 덱짜리']);
+  });
+
+  it('같은 이름으로 저장하면 한 번 묻는다 — 말없이 덮어쓰지 않는다', () => {
+    // 이름을 다시 쓰는 것은 «갱신»일 때도 있지만 «남의 자리인 줄 몰랐다»일 때도 있다
+    // (피드백 2026-09-05).
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    root.querySelector<HTMLButtonElement>('[data-share-open]')!.click();
+    const name = root.querySelector<HTMLInputElement>('[data-preset-name]')!;
+    const save = root.querySelector<HTMLButtonElement>('[data-preset-save]')!;
+    const stored = () => JSON.parse(localStorage.getItem('nikke-presets-v1')!) as
+      Array<{ name: string; code: string }>;
+
+    name.value = '솔레 1군';
+    save.click();
+    const first = stored()[0]!.code;
+    expect(stored()).toHaveLength(1);
+
+    // 편성을 바꾸고 같은 이름으로 저장하려 든다.
+    root.querySelector<HTMLButtonElement>('[data-share-close]')!.click();
+    clearCharacterSlot(root, 0);
+    root.querySelector<HTMLButtonElement>('[data-share-open]')!.click();
+    name.value = '솔레 1군';
+    save.click();
+    // 첫 번째 누름은 되묻기 — 저장된 것은 그대로다.
+    expect(save.textContent).toBe('덮어씁니다');
+    expect(root.querySelector('[data-share-msg]')?.textContent).toContain('이미 있습니다');
+    expect(stored()[0]!.code).toBe(first);
+
+    save.click();
+    expect(stored()).toHaveLength(1);
+    expect(stored()[0]!.code).not.toBe(first);
+    expect(root.querySelector('[data-share-msg]')?.textContent).toContain('덮어썼습니다');
+    expect(save.textContent).toBe('저장');
+  });
+
+  it('이름을 고치면 되묻기가 풀린다 — 새 이름은 새로 저장이다', () => {
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    root.querySelector<HTMLButtonElement>('[data-share-open]')!.click();
+    const name = root.querySelector<HTMLInputElement>('[data-preset-name]')!;
+    const save = root.querySelector<HTMLButtonElement>('[data-preset-save]')!;
+
+    name.value = '솔레 1군';
+    save.click();
+    name.value = '솔레 1군';
+    save.click();
+    expect(save.textContent).toBe('덮어씁니다');
+
+    name.value = '솔레 2군';
+    name.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(save.textContent).toBe('저장');
+    save.click();
+    const stored = JSON.parse(localStorage.getItem('nikke-presets-v1')!) as Array<{ name: string }>;
+    expect(stored.map((item) => item.name).sort()).toEqual(['솔레 1군', '솔레 2군']);
+  });
+
+  it('저장한 프리셋을 초상화로 알아본다', () => {
+    // 이름만 늘어놓으면 «어떤 조합이었나»가 안 떠오른다(피드백 2026-09-05).
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    root.querySelector<HTMLButtonElement>('[data-share-open]')!.click();
+    root.querySelector<HTMLInputElement>('[data-preset-name]')!.value = '솔레 1군';
+    root.querySelector<HTMLButtonElement>('[data-preset-save]')!.click();
+
+    const list = root.querySelector<HTMLElement>('[data-preset-list]')!;
+    const shots = [...list.querySelectorAll<HTMLImageElement>('.share-portrait')];
+    expect(shots.length).toBeGreaterThan(0);
+    // 초상화에는 이름이 붙어 있어야 한다 — 그림을 못 받는 사람도 읽을 수 있게.
+    expect(shots.map((image) => image.alt)).toContain('리타');
+  });
+
+  it('덱이 여럿 든 코드에서 원하는 덱을 골라 꺼낸다', () => {
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    root.querySelector<HTMLButtonElement>('[data-notice-dismiss]')?.click();
+
+    // 2덱까지 채운 판을 «5덱 전부»로 담아 코드를 만든다.
+    root.querySelector<HTMLInputElement>('#squad-mode')!.click();
+    root.querySelector<HTMLButtonElement>('[data-deck-tab="2"]')!.click();
+    chooseCharacter(root, 0, '나가');
+    root.querySelector<HTMLButtonElement>('[data-share-open]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-share-scope-pick="all"]')!.click();
+    const code = root.querySelector<HTMLTextAreaElement>('[data-share-out]')!.value;
+
+    // 판을 비우고 「이 덱만」으로 그 코드를 받는다.
+    root.querySelector<HTMLButtonElement>('[data-share-scope-pick="one"]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-deck-tab="1"]')!.click();
+    root.querySelector<HTMLTextAreaElement>('[data-share-in]')!.value = code;
+    root.querySelector<HTMLButtonElement>('[data-share-apply]')!.click();
+
+    // 첫 덱이 들어가고, 다른 덱으로 갈아 끼울 고르개가 함께 뜬다.
+    const pick = root.querySelector<HTMLElement>('[data-share-pick]')!;
+    expect(pick.hidden).toBe(false);
+    const buttons = [...pick.querySelectorAll<HTMLButtonElement>('[data-share-pick-deck]')];
+    expect(buttons.map((b) => b.dataset.sharePickDeck)).toEqual(['1', '2']);
+    expect(buttons[0]!.classList.contains('is-on')).toBe(true);
+
+    const deckOne = () => JSON.parse(localStorage.getItem('nikke-state-v1')!).decks[0].squad;
+    expect(deckOne()[0]).toBe('리타');
+
+    // 2덱을 고르면 그 덱이 지금 보고 있는 덱에 들어간다.
+    buttons[1]!.click();
+    expect(deckOne()[0]).toBe('나가');
+    const after = [...root.querySelectorAll<HTMLButtonElement>('[data-share-pick-deck]')];
+    expect(after[1]!.classList.contains('is-on')).toBe(true);
   });
 
   it('유니온 탭에는 판 전체를 한 코드로 주고받는 줄이 있다', () => {

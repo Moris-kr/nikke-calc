@@ -502,6 +502,19 @@ export const EN: Record<string, string> = {
   '블라블라링크': 'Blablalink',
   '렛츠도로 CSV': 'Lets-Doro CSV',
   '불러온 값': 'Imported values',
+  '{where}(으)로 되돌리기': 'Revert to {where}',
+  '덱 육성 되돌리기': 'Revert deck investment',
+  '5덱 육성 되돌리기': 'Revert all 5 decks',
+  '이 덱 전원의 육성을 불러온 값으로 되돌립니다. 컨트롤·버스트 운용은 그대로 둡니다':
+    'Reverts every NIKKE in this deck to the imported values. Control and burst usage stay as they are',
+  '다섯 덱 전원의 육성을 불러온 값으로 되돌립니다. 컨트롤·버스트 운용은 그대로 둡니다':
+    'Reverts every NIKKE in all five decks to the imported values. Control and burst usage stay as they are',
+  '손으로 만진 육성을 불러온 그대로 되돌립니다. 컨트롤·버스트 운용은 그대로 둡니다':
+    'Reverts what you edited back to the imported values. Control and burst usage stay as they are',
+  '돌파 · 스킬 · 오버로드 · 장비 강화 · 소장품 · 큐브를 불러온 값으로 되돌립니다. 컨트롤 · 버스트 운용은 그대로 둡니다.':
+    'Restores limit break, skills, Overload, gear enhancement, collection and cube to the imported values. Control and burst usage stay as they are.',
+  '이 코드의 어느 덱을 가져올까요?': 'Which deck from this code do you want?',
+  '덮어씁니다': 'Overwrite',
   '서버로 전송되지 않습니다.': 'Nothing is sent to a server.',
   '무엇을 바꿔 본 판인지 적어 두세요 (예: 0장 · 1장 · 2장)': 'Note what you changed in this run (e.g. 0 / 1 / 2 copies)',
   '두 번 누르면 이름을 붙일 수 있습니다. 끌어다 놓으면 순서가 바뀝니다': 'Double-click to name it. Drag to reorder',

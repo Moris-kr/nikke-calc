@@ -45,6 +45,7 @@ import {
 import { csvBlob, csvFileName, csvText, damageCsv } from './export-csv';
 import {
   applyShareToDecks, decodeBattleCode, decodeShareCode, encodeBattleCode, encodeShareCode,
+  type ApplyTarget,
 } from './share-code';
 import { LATEST_NOTICE_ID, NOTICES, noticeFragment, noticeToShow } from './notices';
 import { mountSharePanel, squadPreview, type SharePanel } from './share-panel';
@@ -499,13 +500,61 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       /* 저장 실패는 무시 — 이번 화면에는 그대로 쓴다 */
     }
   };
-  /** 되돌리기 단추에 적을 말. 불러온 값이 없으면 단추 자체를 안 낸다. */
-  const restoreFor = (name: string): { label: string; value: CharacterOverrides } | null => {
+  /** 되돌리기 단추에 적을 곳 이름. 「불러온 값」이라고만 적으면 어디 것인지 몰라 망설여진다. */
+  const rosterWhere = (): string => t(rosterSource === 'blabla' ? '블라블라링크'
+    : rosterSource === 'csv' ? '렛츠도로 CSV' : '불러온 값');
+  /** 「블라블라링크(으)로 되돌리기」. 곳 이름이 끼므로 통째로 사전을 지난다. */
+  const restoreLabel = (): string => t('{where}(으)로 되돌리기', { where: rosterWhere() });
+
+  /**
+   * 불러온 값으로 되돌린 육성 한 벌. 불러온 적이 없는 니케면 null.
+   *
+   * **운용은 그대로 남긴다** — 컨트롤·버스트 운용·수동 스탯·무기 모드 전환 시각은
+   * 계정 상태가 아니라 그 조합에서 어떻게 굴릴지의 문제라, 블라블라링크도 CSV도 담지
+   * 않는다. 통째로 갈아 끼우면 손으로 짜 둔 운용이 조용히 사라진다 — 덱 전체·다섯 덱을
+   * 한 번에 되돌리는 단추가 생기면서 그 사고가 다섯 배가 된다.
+   */
+  const restoredOverride = (name: string, deck: DeckState): CharacterOverrides | null => {
     const loaded = roster[name];
     if (!loaded) return null;
-    const where = rosterSource === 'blabla' ? '블라블라링크'
-      : rosterSource === 'csv' ? '렛츠도로 CSV' : '불러온 값';
-    return { label: `${where}(으)로 되돌리기`, value: loaded };
+    const kept = deck.characters[name] ?? {};
+    const carried = cloneOverride({
+      ...(kept.control !== undefined ? { control: kept.control } : {}),
+      ...(kept.burst !== undefined ? { burst: kept.burst } : {}),
+      ...(kept.manualStats !== undefined ? { manualStats: kept.manualStats } : {}),
+      ...(kept.weaponModeSwapAt !== undefined ? { weaponModeSwapAt: kept.weaponModeSwapAt } : {}),
+    });
+    return { ...cloneOverride(loaded), ...carried };
+  };
+
+  /** 되돌리기 단추에 적을 말. 불러온 값이 없으면 단추 자체를 안 낸다. */
+  const restoreFor = (name: string): { label: string; value: CharacterOverrides } | null => {
+    const value = restoredOverride(name, activeDeck());
+    if (!value) return null;
+    return { label: restoreLabel(), value };
+  };
+
+  /** 되돌릴 것이 하나라도 있는가. 없으면 되돌리기 단추를 아예 안 낸다. */
+  const anyRestorable = (): boolean => Object.keys(roster).length > 0;
+
+  // 덱 단위 되돌리기 단추의 보임·숨김. 실제 구현은 단추를 만든 뒤 꽂는다
+  // (`renderSquad`가 이 이름을 먼저 부른다 — 그전 호출은 no-op).
+  let syncRestoreButtons: () => void = () => undefined;
+
+  /**
+   * 덱 하나를 통째로 불러온 값으로 되돌린다. 되돌린 니케 이름을 준다.
+   * 불러온 적 없는 니케는 손대지 않는다 — 되돌릴 «불러온 값»이 없기 때문이다.
+   */
+  const restoreDeck = (deck: DeckState): string[] => {
+    const done: string[] = [];
+    for (const name of deck.squad) {
+      if (!name) continue;
+      const next = restoredOverride(name, deck);
+      if (!next) continue;
+      deck.characters[name] = next;
+      done.push(name);
+    }
+    return done;
   };
 
   // 임의 니케(커스텀). localStorage에만 저장되고 요청마다 엔진에 주입된다.
@@ -788,6 +837,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <button type="button" class="burst-order-open" data-burst-order-open title="사이클마다 1버·2버·3버를 누가 쓸지 직접 정합니다. 정한 만큼만 따르고 그 뒤는 평소 순서로 돌아갑니다"><span class="burst-order-mark" aria-hidden="true">1·2·3</span><span>버스트 순서</span><b class="burst-order-badge" data-burst-order-badge hidden></b></button>
             <button type="button" class="burst-order-open" data-abbrev-open title="각 니케의 앞글자를 이어 적어 한 번에 편성합니다 (예: 리센홍모라)"><span class="burst-order-mark" aria-hidden="true">가나다</span><span>이름으로 편성입력</span></button>
             <span class="deck-moves" data-deck-moves hidden></span>
+            <button type="button" class="deck-restore" data-deck-restore hidden title="이 덱 전원의 육성을 불러온 값으로 되돌립니다. 컨트롤·버스트 운용은 그대로 둡니다">덱 육성 되돌리기</button>
+            <button type="button" class="deck-restore" data-deck-restore-all hidden title="다섯 덱 전원의 육성을 불러온 값으로 되돌립니다. 컨트롤·버스트 운용은 그대로 둡니다">5덱 육성 되돌리기</button>
             <button type="button" class="deck-clear" data-deck-clear title="지금 보고 있는 덱의 편성과 개별 설정을 비웁니다">덱 비우기</button>
             <button type="button" class="deck-clear" data-deck-clear-all hidden title="다섯 덱의 편성·개별 설정·이름을 한 번에 비웁니다">5덱 비우기</button>
           <div class="deck-copy" data-deck-copy hidden>
@@ -1242,6 +1293,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <h4>받은 코드 적용</h4>
             <textarea class="custom-json" data-share-in rows="3" placeholder="받은 조합 코드나 공유 링크를 붙여넣으세요"></textarea>
             <div class="deck-copy-actions"><button type="button" class="deck-copy-apply" data-share-apply>이 조합 적용</button></div>
+            <!-- 여러 덱이 든 코드를 「이 덱만」으로 받았을 때 나오는 고르개.
+                 어느 덱을 꺼낼지 초상화를 보고 고른다 (renderDeckPick). -->
+            <div class="share-pick" data-share-pick hidden></div>
           </div>
           <div class="squad-code-block">
             <h4>이 브라우저에 저장</h4>
@@ -2226,6 +2280,39 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     return box;
   };
 
+  /**
+   * 「불러온 값으로 되돌리기」 — 편성 카드에도 낸다.
+   *
+   * 지금까지 이 단추는 「수치 설정」을 펴야만 나왔다(`character-settings.ts`). 그런데
+   * 손으로 만져 본 값을 물리고 싶어지는 자리는 대개 카드 바깥 — 「이 육성을 덱 전원에게」로
+   * 넷을 덮어쓴 **직후**다. 되돌릴 문이 그 옆에 없으면 다섯 명을 하나씩 열어야 한다
+   * (피드백 2026-09-05).
+   */
+  const restoreControl = (name: string): HTMLElement | null => {
+    const deck = activeDeck();
+    if (!restoredOverride(name, deck)) return null;
+    const box = document.createElement('div');
+    box.className = 'copy-from restore-growth';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'copy-from-apply restore-apply';
+    button.dataset.restoreOne = name;
+    button.textContent = restoreLabel();
+    button.title = '손으로 만진 육성을 불러온 그대로 되돌립니다. 컨트롤·버스트 운용은 그대로 둡니다';
+    confirmTwice(button, () => {
+      const next = restoredOverride(name, activeDeck());
+      if (!next) return;
+      activeDeck().characters[name] = next;
+      saveState();
+      renderSquad();
+      status.textContent = `${name}의 육성을 ${rosterWhere()} 값으로 되돌렸습니다.`;
+    }, { armed: '정말 되돌립니다' });
+    box.append(button, createText(
+      'p', '돌파 · 스킬 · 오버로드 · 장비 강화 · 소장품 · 큐브를 불러온 값으로 되돌립니다. 컨트롤 · 버스트 운용은 그대로 둡니다.', 'field-note',
+    ));
+    return box;
+  };
+
   // ── 편성 전투력 ─────────────────────────────────────────────────────────
   // 인게임 전투력을 초상화 아래에 적는다. 딜과 달리 시뮬을 돌리지 않고 스탯만 세므로
   // 가볍다 — 육성을 만질 때마다 다시 잰다.
@@ -2619,6 +2706,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         renderEditor();
         card.append(editor);
         card.append(copyFromControl(cname), spreadControl(cname));
+        const restore = restoreControl(cname);
+        if (restore) card.append(restore);
       }
       squadGrid.append(card);
     }
@@ -2626,6 +2715,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     // 편성·개별 설정·덱 전환이 모두 이 함수를 지난다 — 미리 계산 예약은 여기 한 곳.
     prefetchBuffTargets();
     scheduleSquadPower();
+    // 로스터를 불러오거나 5덱 모드를 켜고 끄는 길이 전부 여기를 지난다.
+    syncRestoreButtons();
   };
 
   // ── 콘솔 ────────────────────────────────────────────────────────────────
@@ -3196,6 +3287,31 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     shareMsg.textContent = message;
     shareMsg.classList.toggle('is-ok', ok);
   };
+  /** 공유 코드가 담은 덱들(빈 덱은 뺀다). 못 풀면 빈 배열. */
+  const decksOfCode = (code: string): string[][] => {
+    try {
+      const payload = decodeShareCode(shareCodeFrom(code), catalog.map((char) => char.name));
+      return payload.decks
+        .map((deck) => deck.squad.filter((name) => name.trim() !== ''))
+        .filter((squad) => squad.length > 0);
+    } catch {
+      return [];
+    }
+  };
+
+  /**
+   * 코드 하나를 초상화 줄로. 이름을 늘어놓는 것보다 «누가 들었나»가 빠르게 읽힌다.
+   * 서버 목록과 이 브라우저에 저장한 프리셋이 같은 그림을 쓴다.
+   */
+  const previewOfCode = (code: string): HTMLElement | null => {
+    const squads = decksOfCode(code);
+    if (squads.length === 0) return null;
+    return squadPreview(squads, (name) => {
+      const image = catalogByName.get(name)?.image;
+      return image ? `${import.meta.env.BASE_URL}${image}` : undefined;
+    });
+  };
+
   // 편성 프리셋 — 자주 쓰는 조합을 이름 붙여 이 브라우저에 둔다. 담는 건 공유 코드
   // 하나뿐이라(=편성만) 스펙이 바뀌어도 그대로 쓸 수 있고, 저장 용량도 거의 안 든다.
   const PRESET_KEY = 'nikke-presets-v1';
@@ -3233,7 +3349,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       load.type = 'button';
       load.className = 'preset-load';
       load.textContent = preset.name;
-      load.title = `${preset.at.slice(0, 10)} 저장 · 눌러서 불러오기`;
+      const squads = decksOfCode(preset.code);
+      const many = squads.length > 1 ? ` · ${squads.length}덱` : '';
+      load.title = `${preset.at.slice(0, 10)} 저장${many} · 눌러서 불러오기`;
       load.addEventListener('click', () => {
         applyShareText(preset.code);
         refreshShareFields();
@@ -3252,9 +3370,29 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       });
       row.append(load, remove);
       presetList.append(row);
+      // 이름만으로는 «어떤 조합이었나»가 안 떠오른다 — 이름 아래에 초상화를 깐다
+      // (피드백 2026-09-05). 서버 목록이 이미 쓰는 그림 그대로다.
+      const preview = previewOfCode(preset.code);
+      if (preview) {
+        preview.classList.add('preset-preview');
+        presetList.append(preview);
+      }
     }
   };
-  element<HTMLButtonElement>(root, '[data-preset-save]').addEventListener('click', () => {
+  // 같은 이름으로 저장하면 예전 것이 **말없이** 사라졌다. 이름을 다시 쓰는 것은
+  // «갱신»일 때도 있지만 «남의 자리인 줄 몰랐다»일 때도 있어, 한 번 묻는다
+  // (피드백 2026-09-05). 삭제 단추와 같은 «한 번 더 누르면» 방식이다.
+  const saveButton = element<HTMLButtonElement>(root, '[data-preset-save]');
+  let overwriteArmed = '';
+  const disarmOverwrite = () => {
+    if (!overwriteArmed) return;
+    overwriteArmed = '';
+    saveButton.textContent = '저장';
+    saveButton.classList.remove('is-armed');
+  };
+  presetName.addEventListener('input', disarmOverwrite);
+  saveButton.addEventListener('blur', disarmOverwrite);
+  saveButton.addEventListener('click', () => {
     const name = presetName.value.trim();
     if (!name) {
       showShareMsg('프리셋 이름을 적어 주세요.');
@@ -3271,13 +3409,23 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       showShareMsg(`프리셋은 ${PRESET_MAX}개까지 저장합니다. 쓰지 않는 것을 지워 주세요.`);
       return;
     }
+    const old = presets.find((item) => item.name === name);
+    if (old && overwriteArmed !== name) {
+      overwriteArmed = name;
+      saveButton.textContent = '덮어씁니다';
+      saveButton.classList.add('is-armed');
+      showShareMsg(`«${name}» 은(는) 이미 있습니다 (${old.at.slice(0, 10)} 저장).`
+        + ' 한 번 더 누르면 덮어쓰고, 이름을 고치면 새로 저장합니다.');
+      return;
+    }
     const code = shareScopeCode();
     presets = [{ name, code, at: new Date().toISOString() },
       ...presets.filter((item) => item.name !== name)];
     savePresets();
     renderPresets();
     presetName.value = '';
-    showShareMsg(`«${name}» 으로 저장했습니다`
+    disarmOverwrite();
+    showShareMsg(`«${name}» ${old ? '을(를) 덮어썼습니다' : '으로 저장했습니다'}`
       + `(${shareScope === 'all' ? '5덱 전부' : `덱 ${activeDeckId}만`}).`
       + ' 편성만 담기므로 스펙이 바뀌어도 그대로 씁니다.', true);
   });
@@ -3433,6 +3581,42 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     });
   }
 
+  /**
+   * 「어느 덱을 가져올까요?」 고르개.
+   *
+   * 덱이 여럿 든 코드를 「이 덱만」으로 받으면 지금까지 **첫 덱밖에** 못 꺼냈다. 코드는
+   * 이미 다섯 덱을 다 담고 있는데 3덱만 쓰고 싶으면 판을 통째로 받은 뒤 나머지를
+   * 지우는 수밖에 없었다(피드백 2026-09-05).
+   *
+   * `null`을 주면 고르개를 걷는다 — 고를 것이 없는 상황(판 전체 받기·한 덱짜리 코드)에서
+   * 남아 있으면 다음에 받은 것과 헷갈린다.
+   */
+  const deckPickBox = element<HTMLElement>(root, '[data-share-pick]');
+  const renderDeckPick = (source: { text: string; at: number } | null) => {
+    deckPickBox.replaceChildren();
+    deckPickBox.hidden = source === null;
+    if (!source) return;
+    const squads = decksOfCode(source.text);
+    if (squads.length < 2) { deckPickBox.hidden = true; return; }
+    deckPickBox.append(createText('p', '이 코드의 어느 덱을 가져올까요?', 'share-pick-title'));
+    squads.forEach((squad, at) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'share-pick-deck';
+      button.dataset.sharePickDeck = String(at + 1);
+      button.classList.toggle('is-on', at === source.at);
+      button.setAttribute('aria-pressed', String(at === source.at));
+      button.append(createText('b', `${at + 1}덱`, 'share-pick-label'));
+      const preview = squadPreview([squad], (name) => {
+        const image = catalogByName.get(name)?.image;
+        return image ? `${import.meta.env.BASE_URL}${image}` : undefined;
+      });
+      button.append(preview);
+      button.addEventListener('click', () => applyShareText(source.text, 'one', at));
+      deckPickBox.append(button);
+    });
+  };
+
   const refreshShareFields = () => {
     const code = shareScopeCode();
     shareOut.value = code;
@@ -3482,12 +3666,14 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
    * `scope`를 안 주면 모달의 범위 고르개를 따른다. 공유 링크와 계산 기록은 «그때 그
    * 판을 통째로»라는 뜻이므로 `'all'`을 못 박아 넘긴다 — 링크를 연 사람이 덱 하나만
    * 받으면 판을 잃는다.
+   *
+   * `from`은 코드 안에서 **몇 번째 덱**을 꺼낼지다(「이 덱만」일 때만 쓴다).
    */
-  const applyShareText = (text: string, scope: ShareScope = shareScope) => {
+  const applyShareText = (text: string, scope: ShareScope = shareScope, from = 0) => {
     try {
       // 카탈로그 이름을 넘겨야 해시에서 캐릭터를 되찾는다(커스텀 니케도 카탈로그에 있다).
       const payload = decodeShareCode(shareCodeFrom(text), catalog.map((char) => char.name));
-      const into = scope === 'all' ? 'all' : activeDeckIndex();
+      const into: ApplyTarget = scope === 'all' ? 'all' : { into: activeDeckIndex(), from };
       const landed = scope === 'all' ? 1 : activeDeckId;
       // 스펙은 내 것을 쓴다 — CSV 로스터를 넣어 뒀으면 그대로 얹힌다.
       const { applied, skipped } = applyShareToDecks(
@@ -3515,11 +3701,16 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       // 5덱짜리를 한 칸에 받았으면 나머지가 어디 갔는지 반드시 말해 준다.
       const carried = payload.decks.filter((deck) => deck.squad.some((n) => n.trim() !== '')).length;
       if (scope === 'all') {
+        renderDeckPick(null);
         showShareMsg(`덱 ${applied}개를 적용했습니다${missing}.`, skipped.length === 0);
       } else if (carried > 1) {
-        showShareMsg(`코드에 덱이 ${carried}개 들어 있어 첫 덱만 덱 ${landed}에 넣었습니다`
-          + `${missing}. 판 전체를 받으려면 위에서 «5덱 전부»를 고르세요.`);
+        // 첫 덱을 넣어 두고 **다른 덱으로 갈아 끼울 문을 함께 낸다** — 그전에는 첫 덱
+        // 말고는 꺼낼 길이 없었다(피드백 2026-09-05).
+        renderDeckPick({ text, at: from });
+        showShareMsg(`코드에 덱이 ${carried}개 들어 있어 ${from + 1}번째 덱을 덱 ${landed}에 넣었습니다`
+          + `${missing}. 아래에서 다른 덱을 고를 수 있고, 판 전체를 받으려면 위에서 «5덱 전부»를 고르세요.`);
       } else {
+        renderDeckPick(null);
         showShareMsg(`덱 ${landed}에 적용했습니다${missing}. 다른 덱은 그대로입니다.`,
           skipped.length === 0);
       }
@@ -3547,21 +3738,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       notify: showShareMsg,
       // 조합은 이름을 늘어놓는 것보다 초상화가 빠르다. 코드를 그 자리에서 풀어
       // 덱마다 한 줄씩 세운다 — 못 풀면 설명 줄로 물러난다.
-      preview: (item) => {
-        try {
-          const payload = decodeShareCode(item.code, catalog.map((char) => char.name));
-          const decks = payload.decks
-            .map((deck) => deck.squad.filter((name) => name.trim() !== ''))
-            .filter((squad) => squad.length > 0);
-          if (decks.length === 0) return null;
-          return squadPreview(decks, (name) => {
-            const image = catalogByName.get(name)?.image;
-            return image ? `${import.meta.env.BASE_URL}${image}` : undefined;
-          });
-        } catch {
-          return null;
-        }
-      },
+      preview: (item) => previewOfCode(item.code),
     },
   );
   element<HTMLButtonElement>(root, '[data-share-url-copy]').addEventListener('click', async () => {
@@ -4298,6 +4475,35 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     status.textContent = '다섯 덱을 모두 비웠습니다.';
   });
   clearAllButton.addEventListener('blur', disarmClearAll);
+
+  // 덱 통째로 되돌리기 — 「한 명씩 다섯 번」을 없앤다(피드백 2026-09-05).
+  // 5덱 비우기와 같은 자리·같은 «한 번 더 누르면» 방식으로 둔다: 손이 이미 그 규칙을
+  // 알고 있고, 되돌리기도 만져 둔 값을 통째로 물리는 일이라 값이 같다.
+  const restoreDeckButton = element<HTMLButtonElement>(root, '[data-deck-restore]');
+  const restoreAllButton = element<HTMLButtonElement>(root, '[data-deck-restore-all]');
+  /** 불러온 값이 있어야 되돌릴 수 있다. 5덱 쪽은 5덱 모드에서만. */
+  syncRestoreButtons = () => {
+    const can = anyRestorable();
+    restoreDeckButton.hidden = !can;
+    restoreAllButton.hidden = !can || !fiveDeckMode;
+  };
+  syncRestoreButtons();
+  confirmTwice(restoreDeckButton, () => {
+    const done = restoreDeck(activeDeck());
+    saveState();
+    renderSquad();
+    status.textContent = done.length
+      ? `${done.join(' · ')}의 육성을 ${rosterWhere()} 값으로 되돌렸습니다.`
+      : '이 덱에는 불러온 값이 있는 니케가 없습니다.';
+  }, { armed: '정말 되돌립니다' });
+  confirmTwice(restoreAllButton, () => {
+    const done = decks.reduce((sum, deck) => sum + restoreDeck(deck).length, 0);
+    saveState();
+    renderSquad();
+    status.textContent = done > 0
+      ? `다섯 덱에서 ${done}자리의 육성을 ${rosterWhere()} 값으로 되돌렸습니다.`
+      : '다섯 덱에 불러온 값이 있는 니케가 없습니다.';
+  }, { armed: '정말 되돌립니다' });
 
   element<HTMLInputElement>(root, '#squad-mode').addEventListener('change', (event) => {
     fiveDeckMode = (event.currentTarget as HTMLInputElement).checked;
