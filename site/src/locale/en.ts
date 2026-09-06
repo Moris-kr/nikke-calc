@@ -18,6 +18,9 @@ export const EN: Record<string, string> = {
   '업데이트 내역': 'Changelog',
   '피드백': 'Feedback',
   '원본 알고리즘 개발자에게 무한한 감사를': 'Endless thanks to the original algorithm author',
+  '니케 마이너 갤러리에서 경쟁 콘텐츠 공정성 회복을 위한 이용자 공동성명을 모집중입니다. 많은 참여 부탁드립니다.':
+    'A joint user statement calling for fairness in competitive content is gathering signatures at the NIKKE minor gallery on DCInside (in Korean). Everyone is welcome to take part.',
+  '성명 보러 가기 →': 'Read the statement →',
   '설명서 확인, 문의, 피드백, 착한말 등은 여기로 →': 'Guide, questions, feedback and kind words → here',
   '계산기': 'Calculator',
   '유니온 레이드': 'Union Raid',

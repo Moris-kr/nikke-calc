@@ -881,6 +881,15 @@ footer a { color: #93aabd; text-decoration: none; font-weight: 800; letter-spaci
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
 
+/* 커뮤니티 안내 띠. 바로 아래 안내 링크와 헷갈리지 않게 호박색으로 가른다 —
+   저쪽은 늘 있는 길잡이, 이쪽은 기한이 있는 알림이다. */
+.site-campaign { display: flex; align-items: center; justify-content: center; gap: 6px 12px; flex-wrap: wrap; margin: 0 0 6px; padding: 10px 40px 10px 14px; position: relative; background: rgba(255,191,60,.1); border: 1px solid rgba(255,191,60,.3); border-radius: 8px; font-size: 13px; }
+.site-campaign-text { margin: 0; font-weight: 700; text-align: center; line-height: 1.5; }
+.site-campaign-link { color: var(--amber); font-weight: 800; white-space: nowrap; text-decoration: none; }
+.site-campaign-link:hover { color: var(--amber-hot); text-decoration: underline; }
+.site-campaign-close { position: absolute; top: 6px; right: 8px; width: 24px; height: 24px; padding: 0; border: 0; background: none; color: var(--muted); font-size: 14px; line-height: 1; cursor: pointer; border-radius: 6px; }
+.site-campaign-close:hover { background: rgba(255,191,60,.16); color: var(--ink); }
+
 /* 상단 안내 링크 */
 .site-notice { margin: 0 0 4px; padding: 10px 14px; background: rgba(69,214,208,.08); border: 1px solid rgba(69,214,208,.24); border-radius: 8px; text-align: center; font-size: 13px; font-weight: 700; }
 .site-notice a { color: #cfeceb; text-decoration: none; }

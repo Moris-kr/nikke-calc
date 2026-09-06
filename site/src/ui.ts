@@ -1,3 +1,4 @@
+import { ANNOUNCEMENT_KEY, announcementToShow } from './announcement';
 import { ResultCache, type StorageLike, type StorageSource } from './cache';
 import { renderCharacterSettings, type CharPanelKind } from './character-settings';
 import {
@@ -578,6 +579,13 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
   root.innerHTML = `
     <div class="site-shell">
+      <!-- 커뮤니티 안내 띠(announcement.ts). 글과 주소는 스크립트가 넣는다 —
+           HTML 문자열에 끼우면 따옴표·앰퍼샌드를 손으로 막아야 한다. -->
+      <div class="site-campaign" data-campaign hidden>
+        <p class="site-campaign-text" data-campaign-text></p>
+        <a class="site-campaign-link" data-campaign-link target="_blank" rel="noreferrer noopener"></a>
+        <button type="button" class="site-campaign-close" data-campaign-close aria-label="닫기">✕</button>
+      </div>
       <p class="site-notice"><a href="https://gall.dcinside.com/mgallery/board/view/?id=gov&amp;no=6038781" target="_blank" rel="noreferrer">설명서 확인, 문의, 피드백, 착한말 등은 여기로 →</a></p>
       <header class="hero">
         <div class="hero-copy">
@@ -1836,6 +1844,31 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     if (reload) reload();
     else window.location.reload();
   });
+  // ── 커뮤니티 안내 띠 ───────────────────────────────────────────────────
+  // 계산기 밖의 일을 알리는 자리라 업데이트 공지와 갈라 뒀다(`announcement.ts`).
+  // 글을 **여기서** 꽂아야 아래 `watchLocalize`의 첫 훑기에 같이 걸린다.
+  {
+    let dismissed: string | null = null;
+    try {
+      dismissed = resolveStorage()?.getItem(ANNOUNCEMENT_KEY) ?? null;
+    } catch {
+      /* 못 읽으면 아직 안 닫은 것으로 본다 — 안 보이는 쪽보다 낫다 */
+    }
+    const campaign = announcementToShow(dismissed);
+    const band = element<HTMLElement>(root, '[data-campaign]');
+    if (campaign) {
+      element<HTMLElement>(root, '[data-campaign-text]').textContent = campaign.text;
+      const link = element<HTMLAnchorElement>(root, '[data-campaign-link]');
+      link.textContent = campaign.linkLabel;
+      link.href = campaign.href;
+      band.hidden = false;
+      element<HTMLButtonElement>(root, '[data-campaign-close]').addEventListener('click', () => {
+        band.hidden = true;
+        try { resolveStorage()?.setItem(ANNOUNCEMENT_KEY, campaign.id); } catch { /* 무시 */ }
+      });
+    }
+  }
+
   // 이미 그려진 것과 앞으로 그려질 것을 그 나라 말로 바꾼다(`i18n.ts`).
   const stopLocalize = watchLocalize(root);
 

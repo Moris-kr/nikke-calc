@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { StorageLike } from './cache';
+import { ANNOUNCEMENTS } from './announcement';
 import { LATEST_NOTICE_ID } from './notices';
 import { mountCalculator, type CalculatorClientLike } from './ui';
 import { decodeBattleCode, encodeBattleCode } from './share-code';
@@ -1394,6 +1395,43 @@ describe('calculator UI', () => {
     root.querySelector<HTMLButtonElement>('[data-battle-share-apply]')!.click();
     // 남의 조건을 얹어도 내 레벨은 그대로다.
     expect(root.querySelector<HTMLInputElement>('#synchro-level')!.value).toBe('700');
+  });
+
+  it('커뮤니티 안내 띠는 닫을 때까지 올 때마다 보인다', () => {
+    // 업데이트 공지와 달리 **모달이 아니다** — 지나쳐도 다시 보여야 하는 알림이라
+    // 머리에 붙여 두고, 닫은 사람에게만 걷는다.
+    const campaign = ANNOUNCEMENTS[0]!;
+    const remount = () => {
+      root.remove();
+      root = document.createElement('main');
+      document.body.append(root);
+      mountCalculator(root, {
+        catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+      });
+      return root.querySelector<HTMLElement>('[data-campaign]')!;
+    };
+
+    let band = remount();
+    expect(band.hidden).toBe(false);
+    expect(band.querySelector('[data-campaign-text]')!.textContent).toBe(campaign.text);
+    const link = band.querySelector<HTMLAnchorElement>('[data-campaign-link]')!;
+    expect(link.href).toBe(campaign.href);
+    // 새 창으로 열고 우리 쪽을 넘겨주지 않는다.
+    expect(link.target).toBe('_blank');
+    expect(link.rel).toContain('noopener');
+
+    // 업데이트 공지를 닫아도 띠는 남는다 — 서로 다른 알림이다.
+    root.querySelector<HTMLButtonElement>('[data-notice-dismiss]')!.click();
+    expect(band.hidden).toBe(false);
+
+    band = remount();
+    expect(band.hidden).toBe(false);
+
+    band.querySelector<HTMLButtonElement>('[data-campaign-close]')!.click();
+    expect(band.hidden).toBe(true);
+    expect(localStorage.getItem('nikke-announcement-seen')).toBe(campaign.id);
+
+    expect(remount().hidden).toBe(true);
   });
 
   it('shows the update notice once, and not again after it is closed', () => {
