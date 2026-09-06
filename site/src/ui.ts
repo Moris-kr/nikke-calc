@@ -1,4 +1,6 @@
-import { ANNOUNCEMENT_KEY, announcementToShow } from './announcement';
+import {
+  ANNOUNCEMENT_KEY, announcementToShow, countdownClock, countdownDone, countdownToShow,
+} from './announcement';
 import { ResultCache, type StorageLike, type StorageSource } from './cache';
 import { renderCharacterSettings, type CharPanelKind } from './character-settings';
 import {
@@ -635,6 +637,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         <a class="site-campaign-link" data-campaign-link target="_blank" rel="noreferrer noopener"></a>
         <button type="button" class="site-campaign-close" data-campaign-close aria-label="닫기">✕</button>
       </div>
+      <!-- 초읽기. 안내 띠를 닫아도 남는다 — 닫는 것은 «읽었다»는 뜻이지
+           «시계도 필요 없다»는 뜻이 아니다. 말은 스크립트가 넣는다. -->
+      <p class="site-countdown" data-countdown hidden>[<span data-countdown-label></span> <b data-countdown-clock>00:00:00</b>]</p>
       <p class="site-notice"><a href="https://gall.dcinside.com/mgallery/board/view/?id=gov&amp;no=6038781" target="_blank" rel="noreferrer">설명서 확인, 문의, 피드백, 착한말 등은 여기로 →</a></p>
       <header class="hero">
         <div class="hero-copy">
@@ -1901,6 +1906,10 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   // ── 커뮤니티 안내 띠 ───────────────────────────────────────────────────
   // 계산기 밖의 일을 알리는 자리라 업데이트 공지와 갈라 뒀다(`announcement.ts`).
   // 글을 **여기서** 꽂아야 아래 `watchLocalize`의 첫 훑기에 같이 걸린다.
+  //
+  // 초읽기 시계는 1초마다 도므로 화면을 걷을 때 반드시 멈춰야 한다 — 안 멈추면
+  // 시험이 서로의 시계를 물려받는다.
+  let stopCountdown: () => void = () => undefined;
   {
     let dismissed: string | null = null;
     try {
@@ -1920,6 +1929,28 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         band.hidden = true;
         try { resolveStorage()?.setItem(ANNOUNCEMENT_KEY, campaign.id); } catch { /* 무시 */ }
       });
+    }
+
+    // 초읽기. 목표 시각은 시간대를 못 박아 뒀으므로 보는 사람이 어디 있든 같은 순간이다.
+    const countdown = countdownToShow();
+    const clockBand = element<HTMLElement>(root, '[data-countdown]');
+    if (countdown) {
+      const target = Date.parse(countdown.target);
+      // 못 읽는 목표 시각으로 «00:00:00»을 띄우면 끝난 것처럼 보인다 — 아예 안 낸다.
+      if (Number.isFinite(target)) {
+        element<HTMLElement>(root, '[data-countdown-label]').textContent = countdown.label;
+        const clock = element<HTMLElement>(root, '[data-countdown-clock]');
+        clockBand.hidden = false;
+        const tick = () => {
+          const left = target - Date.now();
+          clock.textContent = countdownClock(left);
+          // 끝나면 멈춘다. 0에 붙여 둔 시계를 1초마다 다시 그릴 까닭이 없다.
+          if (countdownDone(left) && timer !== null) { clearInterval(timer); timer = null; }
+        };
+        let timer: number | null = window.setInterval(tick, 1000);
+        tick();
+        stopCountdown = () => { if (timer !== null) clearInterval(timer); timer = null; };
+      }
     }
   }
 
@@ -7108,5 +7139,5 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     }
   });
 
-  return () => { stopLocalize(); client.dispose(); };
+  return () => { stopCountdown(); stopLocalize(); client.dispose(); };
 }

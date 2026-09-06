@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { StorageLike } from './cache';
-import { ANNOUNCEMENTS } from './announcement';
+import { ANNOUNCEMENTS, countdownToShow } from './announcement';
 import { LATEST_NOTICE_ID } from './notices';
 import { mountCalculator, type CalculatorClientLike } from './ui';
 import { decodeBattleCode, encodeBattleCode } from './share-code';
@@ -952,6 +952,57 @@ describe('calculator UI', () => {
     expect(deckOne()[0]).toBe('나가');
     const after = [...root.querySelectorAll<HTMLButtonElement>('[data-share-pick-deck]')];
     expect(after[1]!.classList.contains('is-on')).toBe(true);
+  });
+
+  it('안내 띠 아래에 초읽기가 hh:mm:ss로 돈다', () => {
+    const target = Date.parse(countdownToShow()!.target);
+    // 남은 시간이 정확히 1시간 2분 3초인 순간으로 시계를 맞춘다.
+    vi.useFakeTimers();
+    vi.setSystemTime(target - (3_600_000 + 2 * 60_000 + 3_000));
+    try {
+      mountCalculator(root, {
+        catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+      });
+      const band = root.querySelector<HTMLElement>('[data-countdown]')!;
+      expect(band.hidden).toBe(false);
+      expect(band.querySelector('[data-countdown-label]')!.textContent)
+        .toBe('칠무해 석방까지 남은 시간');
+      const clock = () => band.querySelector('[data-countdown-clock]')!.textContent;
+      expect(clock()).toBe('01:02:03');
+      // 대괄호는 화면에 그대로 나온다.
+      expect(band.textContent).toBe('[칠무해 석방까지 남은 시간 01:02:03]');
+
+      vi.advanceTimersByTime(4_000);
+      expect(clock()).toBe('01:01:59');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('초읽기는 안내 띠를 닫아도 남는다 — 닫는 것은 「읽었다」는 뜻이다', () => {
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    root.querySelector<HTMLButtonElement>('[data-campaign-close]')!.click();
+    expect(root.querySelector<HTMLElement>('[data-campaign]')!.hidden).toBe(true);
+    expect(root.querySelector<HTMLElement>('[data-countdown]')!.hidden).toBe(false);
+  });
+
+  it('시각이 지나면 00:00:00에서 멈춘다', () => {
+    const target = Date.parse(countdownToShow()!.target);
+    vi.useFakeTimers();
+    vi.setSystemTime(target + 5_000);
+    try {
+      mountCalculator(root, {
+        catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+      });
+      const clock = () => root.querySelector('[data-countdown-clock]')!.textContent;
+      expect(clock()).toBe('00:00:00');
+      vi.advanceTimersByTime(10_000);
+      expect(clock()).toBe('00:00:00');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('유니온 탭에는 판 전체를 한 코드로 주고받는 줄이 있다', () => {

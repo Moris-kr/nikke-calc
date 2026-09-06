@@ -893,6 +893,12 @@ footer a { color: #93aabd; text-decoration: none; font-weight: 800; letter-spaci
 .site-campaign-link:hover { color: var(--amber-hot); text-decoration: underline; }
 .site-campaign-close { position: absolute; top: 6px; right: 8px; width: 24px; height: 24px; padding: 0; border: 0; background: none; color: var(--muted); font-size: 14px; line-height: 1; cursor: pointer; border-radius: 6px; }
 .site-campaign-close:hover { background: rgba(255,191,60,.16); color: var(--ink); }
+/* 초읽기 — 안내 띠 바로 아래 한 줄. 숫자는 고정폭이라 1초마다 글자가 안 흔들린다. */
+.site-countdown { margin: 0 0 6px; padding: 7px 14px; text-align: center;
+  border: 1px solid rgba(255,191,60,.22); border-radius: 8px;
+  background: rgba(255,191,60,.06); color: #f3dfae; font-size: 13px; font-weight: 700; }
+.site-countdown b { font: 800 14px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums; color: var(--amber); letter-spacing: .5px; }
 
 /* 상단 안내 링크 */
 .site-notice { margin: 0 0 4px; padding: 10px 14px; background: rgba(69,214,208,.08); border: 1px solid rgba(69,214,208,.24); border-radius: 8px; text-align: center; font-size: 13px; font-weight: 700; }

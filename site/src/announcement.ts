@@ -44,3 +44,40 @@ export function announcementToShow(dismissed: string | null): Announcement | nul
   if (!first) return null;
   return dismissed === first.id ? null : first;
 }
+
+// ── 초읽기 ────────────────────────────────────────────────────────────────
+// 안내 띠 바로 아래에 붙는 시계. 안내와 **생사를 같이하지 않는다** — 안내를 닫아도
+// 남는다. 닫는 것은 «읽었다»는 뜻이지 «시계도 필요 없다»는 뜻이 아니다.
+
+export interface Countdown {
+  /** 셈이 끝나는 순간. **시간대를 못 박은 문자열**이라 보는 사람이 어디 있든 같은 순간이다. */
+  target: string;
+  /** 시계 앞에 적을 말. 한국어 정본이자 사전 열쇠. */
+  label: string;
+}
+
+/** 지금 셈하는 것. 비우면 시계가 통째로 사라진다. */
+export const COUNTDOWNS: Countdown[] = [
+  { target: '2026-09-09T18:30:00+09:00', label: '칠무해 석방까지 남은 시간' },
+];
+
+/**
+ * 남은 시간을 `hh:mm:ss`로. **시는 넘겨 세지 않는다** — 사흘 남았으면 `71:59:59`다.
+ * 「며칠 몇 시간」보다 이쪽이 한눈에 급한 정도를 준다.
+ *
+ * 이미 지났으면 `00:00:00`에서 멈춘다. 음수 시계는 읽는 사람을 헷갈리게 한다.
+ */
+export function countdownClock(msLeft: number): string {
+  const total = Math.max(0, Math.floor((Number.isFinite(msLeft) ? msLeft : 0) / 1000));
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(Math.floor(total / 3600))}:${pad(Math.floor(total / 60) % 60)}:${pad(total % 60)}`;
+}
+
+/** 셈이 끝났나. 끝난 뒤에는 1초마다 다시 그릴 까닭이 없다. */
+export const countdownDone = (msLeft: number): boolean =>
+  !Number.isFinite(msLeft) || msLeft <= 0;
+
+/** 지금 띄울 초읽기. 없으면 null. */
+export function countdownToShow(): Countdown | null {
+  return COUNTDOWNS[0] ?? null;
+}
