@@ -2528,7 +2528,9 @@ describe('calculator UI', () => {
 
     expect(secondClient.simulateCalls).toBe(0);
     expect(root.querySelector('[data-status]')?.textContent).toContain('저장된 결과');
-  });
+    // 한 시험 안에서 판을 **두 번** 세우고 두 번 돌린다 — 느린 기계(CI)에서는 5초를
+    // 넘긴다. 바로 위 보고서 시험과 같은 몫이다.
+  }, 20_000);
 
   it('renders a successful result when persistent storage rejects writes', async () => {
     const client = new FakeClient();
