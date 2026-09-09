@@ -74,10 +74,14 @@ describe('초읽기', () => {
     }
   });
 
-  it('칠무해 석방은 한국 시간 9월 9일 오전 6시 30분이다', () => {
-    expect(countdownToShow()!.target).toBe('2026-09-09T06:30:00+09:00');
-    // 한국이 UTC+9라 세계시로는 **하루 앞** 21:30이다 — 날짜가 밀리는 자리라 못 박는다.
-    expect(Date.parse(countdownToShow()!.target)).toBe(Date.parse('2026-09-08T21:30:00Z'));
+  it('칠무해 석방은 UTC+8로 9월 9일 18:51:01 — 한국 시간 19:51:01이다', () => {
+    // 받은 값이 UTC+8이라 그대로 적어 둔다. 옮겨 적는 사이에 시간이 어긋나는 것이
+    // 이 자리에서 이미 한 번 난 사고다(오전·오후를 뒤집어 적었다).
+    expect(countdownToShow()!.target).toBe('2026-09-09T18:51:01+08:00');
+    // 같은 순간을 다른 시간대로 적어도 값이 같아야 한다 — 환산이 틀어지면 여기서 갈린다.
+    const at = Date.parse(countdownToShow()!.target);
+    expect(at).toBe(Date.parse('2026-09-09T19:51:01+09:00'));
+    expect(at).toBe(Date.parse('2026-09-09T10:51:01Z'));
   });
 
   it('셈할 것이 없으면 아무것도 안 띄운다 — 시계를 걷는 길이 있다', () => {
