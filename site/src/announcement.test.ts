@@ -74,22 +74,18 @@ describe('초읽기', () => {
     }
   });
 
-  it('칠무해 석방은 UTC+8로 9월 9일 18:51:01 — 한국 시간 19:51:01이다', () => {
-    // 받은 값이 UTC+8이라 그대로 적어 둔다. 옮겨 적는 사이에 시간이 어긋나는 것이
-    // 이 자리에서 이미 한 번 난 사고다(오전·오후를 뒤집어 적었다).
-    expect(countdownToShow()!.target).toBe('2026-09-09T18:51:01+08:00');
-    // 같은 순간을 다른 시간대로 적어도 값이 같아야 한다 — 환산이 틀어지면 여기서 갈린다.
-    const at = Date.parse(countdownToShow()!.target);
-    expect(at).toBe(Date.parse('2026-09-09T19:51:01+09:00'));
-    expect(at).toBe(Date.parse('2026-09-09T10:51:01Z'));
+  it('지금은 셈할 것이 없다 — 시계가 통째로 사라진 상태다', () => {
+    expect(COUNTDOWNS).toEqual([]);
+    expect(countdownToShow()).toBeNull();
   });
 
-  it('셈할 것이 없으면 아무것도 안 띄운다 — 시계를 걷는 길이 있다', () => {
-    const kept = COUNTDOWNS.splice(0, COUNTDOWNS.length);
+  it('한 줄을 더하면 그것을 띄운다 — 시계를 다시 세우는 길이 있다', () => {
+    // 셈이 끝나 비워 둔 자리라, 다음에 쓸 때 살아 있는지를 여기서 지킨다.
+    COUNTDOWNS.push({ target: '2026-12-31T23:59:59+09:00', label: '아무개까지 남은 시간' });
     try {
-      expect(countdownToShow()).toBeNull();
+      expect(countdownToShow()!.label).toBe('아무개까지 남은 시간');
     } finally {
-      COUNTDOWNS.push(...kept);
+      COUNTDOWNS.length = 0;
     }
   });
 

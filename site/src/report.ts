@@ -30,10 +30,6 @@ const COLOR = {
 const SCALE = 2;
 
 export interface ReportMeta {
-  enemyDef: number;
-  enemyCode: string;
-  corePx: number;
-  hasParts: boolean;
   siteUrl: string;
   /** 덱 번호 → 화면에 붙인 이름. 없으면 「덱 N」으로 적는다. */
   deckNames?: Record<number, string>;
@@ -193,15 +189,21 @@ const factChips = (ctx: CanvasRenderingContext2D, chips: string[], x: number, y:
   return y + height;
 };
 
-const conditionChips = (meta: ReportMeta, entry: DeckResultEntry): string[] => {
+/**
+ * 이 판을 잰 조건. **화면이 아니라 `request`에서 읽는다** — 화면의 지금 값은 이 숫자를
+ * 만든 조건이 아닐 수 있다. 조건을 바꾸고 다시 계산하지 않은 채 보고서를 뽑으면
+ * 대미지는 옛것인데 조건만 새것으로 찍혀 나갔다 (피드백 2026-09-10).
+ */
+export const conditionChips = (entry: DeckResultEntry): string[] => {
+  const { request } = entry;
   const chips = [
     `${entry.result.duration}초 전투`,
-    `방어력 ${meta.enemyDef.toLocaleString('en-US')}`,
-    meta.enemyCode ? `${meta.enemyCode} 코드` : '코드 없음',
-    meta.corePx > 0 ? `코어 ${meta.corePx}px` : '코어 없음',
+    `방어력 ${request.enemyDef.toLocaleString('en-US')}`,
+    request.enemyCode ? `${request.enemyCode} 코드` : '코드 없음',
+    request.corePx > 0 ? `코어 ${request.corePx}px` : '코어 없음',
   ];
-  if (meta.hasParts) chips.push('파괴 가능 파츠');
-  chips.push(`시드 ${entry.request.seed}`);
+  if (request.hasParts) chips.push('파괴 가능 파츠');
+  chips.push(`시드 ${request.seed}`);
   return chips;
 };
 
@@ -276,7 +278,7 @@ function drawSingle(
   }
 
   y += 2;
-  y = factChips(ctx, conditionChips(meta, entry), PAD, y);
+  y = factChips(ctx, conditionChips(entry), PAD, y);
   y += 26;
   text(ctx, meta.siteUrl, PAD, y, 11, COLOR.muted, 500);
   text(ctx, `${entry.result.hitCount.toLocaleString('en-US')} 히트`, CARD_W - PAD, y, 11, COLOR.muted, 500, 'right');
@@ -350,7 +352,7 @@ function drawBatch(
   y += 22;
 
   const first = decks[0];
-  y = factChips(ctx, first ? conditionChips(meta, first) : [`${duration}초 전투`], PAD, y);
+  y = factChips(ctx, first ? conditionChips(first) : [`${duration}초 전투`], PAD, y);
   y += 26;
   const hits = decks.reduce((sum, entry) => sum + entry.result.hitCount, 0);
   text(ctx, meta.siteUrl, PAD, y, 11, COLOR.muted, 500);

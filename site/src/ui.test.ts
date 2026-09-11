@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { StorageLike } from './cache';
-import { ANNOUNCEMENTS, countdownToShow } from './announcement';
+import { ANNOUNCEMENTS, COUNTDOWNS, countdownToShow } from './announcement';
 import { LATEST_NOTICE_ID } from './notices';
 import { mountCalculator, type CalculatorClientLike } from './ui';
 import { decodeBattleCode, encodeBattleCode } from './share-code';
@@ -156,6 +156,18 @@ class HangingClient implements CalculatorClientLike {
 }
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+/**
+ * 시험용 초읽기 한 줄을 세운다. `COUNTDOWNS`는 평소 **비어 있다**(셈할 것이 생길 때만
+ * 한 줄을 넣는 자리다) — 시계 자체가 도는지 보려면 쓰는 쪽이 세워야 한다.
+ * 세운 뒤에는 반드시 `COUNTDOWNS.length = 0`으로 걷는다.
+ */
+function seedCountdown() {
+  const entry = { target: '2026-12-31T23:59:59+09:00', label: '아무개까지 남은 시간' };
+  COUNTDOWNS.length = 0;
+  COUNTDOWNS.push(entry);
+  return entry;
+}
 
 /** 판의 검색칸에 친다. 슬롯마다 있던 검색은 없어지고 덱에 하나만 남았다. */
 function searchRoster(root: HTMLElement, query: string): void {
@@ -496,6 +508,97 @@ describe('calculator UI', () => {
     copyFrom('앨리스');
     expect(target().overload.atk_pct).toBe(30);
     expect(target().overloadLines).toBeUndefined();
+  });
+
+  it('베껴오기는 돌파를 두고 온다 — 켜야만 함께 온다', () => {
+    // 장비·스킬은 「이만큼 키운 니케」를 옮기는 것이지만 돌파는 뽑기로 정해지는 값이라
+    // 남의 것이 따라올 까닭이 없다 (피드백 2026-09-10).
+    localStorage.setItem('nikke-roster-v1', JSON.stringify({
+      크라운: { growthStage: 9, overload: { atk_pct: 12.5 } },
+    }));
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    root.querySelector<HTMLButtonElement>('[data-notice-dismiss]')?.click();
+
+    const card = () => root.querySelector<HTMLElement>('[data-slot-card="0"]')!;
+    card().querySelector<HTMLInputElement>('[data-custom-toggle]')!.click();
+    const copy = () => {
+      card().querySelector<HTMLSelectElement>('[data-copy-from-pick]')!.value = '크라운';
+      card().querySelector<HTMLButtonElement>('[data-copy-from-apply]')!.click();
+    };
+    const target = () =>
+      JSON.parse(localStorage.getItem('nikke-state-v1')!).decks[0].characters['리타'];
+
+    copy();
+    expect(target().overload.atk_pct).toBe(12.5);
+    // 제 돌파(기본 3돌)를 그대로 지킨다 — 크라운의 9가 넘어오지 않는다.
+    expect(target().growthStage).toBe(3);
+
+    card().querySelector<HTMLInputElement>('[data-copy-growth]')!.click();
+    copy();
+    expect(target().growthStage).toBe(9);
+  });
+
+  it('베껴오기 후보를 초성으로 좁힌다', () => {
+    localStorage.setItem('nikke-roster-v1', JSON.stringify({
+      크라운: { overload: { atk_pct: 1 } },
+      앨리스: { overload: { atk_pct: 2 } },
+      나가: { overload: { atk_pct: 3 } },
+    }));
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    root.querySelector<HTMLButtonElement>('[data-notice-dismiss]')?.click();
+
+    const card = root.querySelector<HTMLElement>('[data-slot-card="0"]')!;
+    card.querySelector<HTMLInputElement>('[data-custom-toggle]')!.click();
+    const pick = () => [...card.querySelectorAll<HTMLOptionElement>('[data-copy-from-pick] option')]
+      .map((option) => option.value);
+    expect(pick()).toEqual(['나가', '앨리스', '크라운']);
+
+    const search = card.querySelector<HTMLInputElement>('[data-copy-from-search]')!;
+    search.value = 'ㅋㄹㅇ';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(pick()).toEqual(['크라운']);
+
+    search.value = '';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(pick()).toHaveLength(3);
+  });
+
+  it('「다른 덱에도」를 켜면 같은 니케가 선 덱마다 함께 바뀐다', () => {
+    localStorage.setItem('nikke-roster-v1', JSON.stringify({
+      크라운: { overload: { atk_pct: 12.5 } },
+    }));
+    // 1덱과 2덱 모두 리타를 세워 둔다.
+    localStorage.setItem('nikke-state-v1', JSON.stringify({
+      decks: [
+        { id: 1, squad: ['리타', '', '', '', ''], characters: {} },
+        { id: 2, squad: ['리타', '앨리스', '', '', ''], characters: {} },
+        { id: 3, squad: ['', '', '', '', ''], characters: {} },
+        { id: 4, squad: ['', '', '', '', ''], characters: {} },
+        { id: 5, squad: ['', '', '', '', ''], characters: {} },
+      ],
+      fiveDeckMode: true,
+      activeDeckId: 1,
+    }));
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    root.querySelector<HTMLButtonElement>('[data-notice-dismiss]')?.click();
+
+    const card = root.querySelector<HTMLElement>('[data-slot-card="0"]')!;
+    card.querySelector<HTMLInputElement>('[data-custom-toggle]')!.click();
+    card.querySelector<HTMLInputElement>('[data-copy-all-decks]')!.click();
+    card.querySelector<HTMLSelectElement>('[data-copy-from-pick]')!.value = '크라운';
+    card.querySelector<HTMLButtonElement>('[data-copy-from-apply]')!.click();
+
+    const decks = JSON.parse(localStorage.getItem('nikke-state-v1')!).decks;
+    expect(decks[0].characters['리타'].overload.atk_pct).toBe(12.5);
+    expect(decks[1].characters['리타'].overload.atk_pct).toBe(12.5);
+    // 리타가 없는 덱은 건드리지 않는다.
+    expect(decks[2].characters['리타']).toBeUndefined();
   });
 
   it('덱 이름 연필은 덱 단추 칸 안에 들어간다 — 줄을 넘기지 않는다', () => {
@@ -985,8 +1088,57 @@ describe('calculator UI', () => {
     expect(after[1]!.classList.contains('is-on')).toBe(true);
   });
 
+  it('코어 유무를 덱마다 따로 잡으면 덱별로 다르게 계산한다', async () => {
+    // 같은 편성을 코어 있는 판과 없는 판으로 나란히 재려고 조건을 두 번 바꿔 돌리던
+    // 것을 한 번에 끝낸다 (피드백 2026-09-08).
+    const client = new FakeClient();
+    mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });
+    root.querySelector<HTMLInputElement>('#squad-mode')!.click();
+    // 2덱에도 편성을 채운다 — 빈 덱은 계산에 들어가지 않는다.
+    root.querySelector<HTMLButtonElement>('[data-deck-tab="2"]')!.click();
+    searchRoster(root, '크라운');
+    root.querySelector<HTMLButtonElement>('[data-roster-cell="크라운"]')!.click();
+
+    root.querySelector<HTMLButtonElement>('[data-battle-open]')!.click();
+    const coreOn = root.querySelector<HTMLInputElement>('#has-core')!;
+    coreOn.checked = true;
+    coreOn.dispatchEvent(new Event('change', { bubbles: true }));
+    root.querySelector<HTMLInputElement>('#core-per-deck')!.click();
+    // 1덱만 코어를 끈다.
+    const first = root.querySelector<HTMLInputElement>('[data-deck-core-input="1"]')!;
+    first.checked = false;
+    first.dispatchEvent(new Event('change', { bubbles: true }));
+
+    root.querySelector<HTMLFormElement>('form')!.requestSubmit();
+    await flush();
+
+    const byDeck = new Map(client.requests.map((request, index) => [index, request.corePx]));
+    expect([...byDeck.values()]).toEqual([0, 52]);
+  });
+
+  it('전투 조건 창에서 엔터는 계산이 아니라 창을 닫는다', () => {
+    // 값이 판(form) 안에 있어 엔터 한 번이 그대로 제출이었다 — 코어 크기를 고치고
+    // 엔터를 치면 그 자리에서 계산이 돌았다 (피드백 2026-09-10).
+    const client = new FakeClient();
+    mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });
+    root.querySelector<HTMLButtonElement>('[data-battle-open]')!.click();
+    const modal = root.querySelector<HTMLElement>('[data-battle-modal]')!;
+    expect(modal.hidden).toBe(false);
+
+    const core = root.querySelector<HTMLInputElement>('#core-px')!;
+    core.value = '70';
+    const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    core.dispatchEvent(enter);
+
+    expect(enter.defaultPrevented).toBe(true);
+    expect(modal.hidden).toBe(true);
+    expect(client.simulateCalls).toBe(0);
+    // 고친 값은 그대로 남는다 — 닫는 것이 되돌리는 것은 아니다.
+    expect(root.querySelector<HTMLInputElement>('#core-px')!.value).toBe('70');
+  });
+
   it('안내 띠 아래에 초읽기가 hh:mm:ss로 돈다', () => {
-    const target = Date.parse(countdownToShow()!.target);
+    const target = Date.parse(seedCountdown().target);
     // 남은 시간이 정확히 1시간 2분 3초인 순간으로 시계를 맞춘다.
     vi.useFakeTimers();
     vi.setSystemTime(target - (3_600_000 + 2 * 60_000 + 3_000));
@@ -997,30 +1149,45 @@ describe('calculator UI', () => {
       const band = root.querySelector<HTMLElement>('[data-countdown]')!;
       expect(band.hidden).toBe(false);
       expect(band.querySelector('[data-countdown-label]')!.textContent)
-        .toBe('칠무해 석방까지 남은 시간');
+        .toBe('아무개까지 남은 시간');
       const clock = () => band.querySelector('[data-countdown-clock]')!.textContent;
       expect(clock()).toBe('01:02:03');
       // 대괄호는 화면에 그대로 나온다.
-      expect(band.textContent).toBe('[칠무해 석방까지 남은 시간 01:02:03]');
+      expect(band.textContent).toBe('[아무개까지 남은 시간 01:02:03]');
 
       vi.advanceTimersByTime(4_000);
       expect(clock()).toBe('01:01:59');
     } finally {
       vi.useRealTimers();
+      COUNTDOWNS.length = 0;
     }
   });
 
-  it('초읽기는 안내 띠를 닫아도 남는다 — 닫는 것은 「읽었다」는 뜻이다', () => {
+  it('셈할 것이 없으면 초읽기 줄이 아예 안 보인다', () => {
+    // 지금이 그 상태다 — 칠무해 석방 초읽기가 끝나 `COUNTDOWNS`를 비워 두었다.
+    expect(countdownToShow()).toBeNull();
     mountCalculator(root, {
       catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
     });
-    root.querySelector<HTMLButtonElement>('[data-campaign-close]')!.click();
-    expect(root.querySelector<HTMLElement>('[data-campaign]')!.hidden).toBe(true);
-    expect(root.querySelector<HTMLElement>('[data-countdown]')!.hidden).toBe(false);
+    expect(root.querySelector<HTMLElement>('[data-countdown]')!.hidden).toBe(true);
+  });
+
+  it('초읽기는 안내 띠를 닫아도 남는다 — 닫는 것은 「읽었다」는 뜻이다', () => {
+    seedCountdown();
+    try {
+      mountCalculator(root, {
+        catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+      });
+      root.querySelector<HTMLButtonElement>('[data-campaign-close]')!.click();
+      expect(root.querySelector<HTMLElement>('[data-campaign]')!.hidden).toBe(true);
+      expect(root.querySelector<HTMLElement>('[data-countdown]')!.hidden).toBe(false);
+    } finally {
+      COUNTDOWNS.length = 0;
+    }
   });
 
   it('시각이 지나면 00:00:00에서 멈춘다', () => {
-    const target = Date.parse(countdownToShow()!.target);
+    const target = Date.parse(seedCountdown().target);
     vi.useFakeTimers();
     vi.setSystemTime(target + 5_000);
     try {
@@ -1033,12 +1200,14 @@ describe('calculator UI', () => {
       expect(clock()).toBe('00:00:00');
     } finally {
       vi.useRealTimers();
+      COUNTDOWNS.length = 0;
     }
   });
 
   it('화면에서 떨어져 나간 시계는 스스로 멈춘다', () => {
     // 걷는 함수를 안 부르고 판을 갈아 끼우는 자리가 있다(바로 아래 «저장된 결과»
     // 시험이 그렇게 한다). 그때 1초마다 도는 시계가 쌓이면 뒤로 갈수록 느려진다.
+    seedCountdown();
     vi.useFakeTimers();
     try {
       mountCalculator(root, {
@@ -1055,6 +1224,7 @@ describe('calculator UI', () => {
       expect(clock.textContent).toBe(ticking);
     } finally {
       vi.useRealTimers();
+      COUNTDOWNS.length = 0;
     }
   });
 

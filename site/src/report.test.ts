@@ -2,7 +2,10 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { copyImage, loadPortraits, renderReport, reportFilename, reportRows, type ReportMeta } from './report';
+import {
+  conditionChips, copyImage, loadPortraits, renderReport, reportFilename, reportRows,
+  type ReportMeta,
+} from './report';
 import type { BatchResult, DeckResultEntry, SimulationRequest, SimulationResult } from './types';
 
 const request = (squad: string[]): SimulationRequest => ({
@@ -32,10 +35,6 @@ const entry = (deckId: number, squad: string[], total: number): DeckResultEntry 
 });
 
 const meta: ReportMeta = {
-  enemyDef: 31_784,
-  enemyCode: '',
-  corePx: 0,
-  hasParts: false,
   siteUrl: 'moris-kr.github.io/nikke-calc',
 };
 
@@ -68,6 +67,24 @@ describe('report image', () => {
     };
 
     expect(reportRows(deck, new Map()).map((row) => row.name)).toEqual(['리타', '크라운']);
+  });
+
+  it('조건은 화면이 아니라 그 판을 잰 요청에서 읽는다', () => {
+    // 조건을 바꿔 놓고 다시 계산하지 않은 채 보고서를 뽑으면, 대미지는 옛것인데
+    // 조건만 새것으로 찍혀 나갔다 (피드백 2026-09-10). 이제 둘 다 요청에서 온다.
+    const measured: DeckResultEntry = {
+      deckId: 1,
+      request: {
+        ...request(['리타']), enemyCode: '작열', corePx: 52, hasParts: true, seed: 7,
+      },
+      result: result(1000, { 리타: 1000 }),
+    };
+
+    expect(conditionChips(measured)).toEqual([
+      '30초 전투', '방어력 31,784', '작열 코드', '코어 52px', '파괴 가능 파츠', '시드 7',
+    ]);
+    // 코어를 끈 판은 끈 대로 적힌다 — 요청에 0이면 「코어 없음」이다.
+    expect(conditionChips(entry(1, ['리타'], 100))).toContain('코어 없음');
   });
 
   it('names the file by deck count so saved reports stay distinguishable', () => {

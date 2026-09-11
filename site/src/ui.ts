@@ -1028,12 +1028,21 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
               <label><span>적 방어력</span><input id="enemy-def" type="number" min="0" max="999999" step="1" value="31784" /></label>
               <label><span>난수 시드</span><input id="seed" type="number" min="0" max="2147483647" step="1" value="42" /></label>
               <label title="게이지 충전만의 시간입니다. 여기에 단계 전환 0.3초와 버스트 쿨 여유가 더해져 실제 공백은 더 깁니다."><span>버스트 게이지 충전</span><div class="input-unit"><input id="burst-regen" type="number" min="0" max="20" step="0.1" value="2" /><em>초</em></div></label>
-              <label class="toggle-field deck-regen-toggle" title="버스트 쿨이 밀리는 덱만 다른 값으로 재고 싶을 때 켭니다"><input id="burst-regen-per-deck" type="checkbox" /><span class="toggle"></span><span>버스트 충전을 덱마다 따로</span></label>
               <label title="조건이 갖춰진 뒤 실제로 버스트를 누르기까지 걸리는 시간입니다. 버스트 하나하나마다 더해지므로 3단계까지 쓰면 그 세 배만큼 늦어집니다."><span>버스트 반응속도</span><div class="input-unit"><input id="burst-reaction" type="number" min="0" max="3" step="0.01" value="${DEFAULT_BURST_REACTION}" /><em>초</em></div></label>
               <label><span>난수 처리</span><select id="rng-mode"><option value="expected">기대값 (권장)</option><option value="random">난수</option></select></label>
               <label class="toggle-field" title="족자 구간에는 평타가 빗나가므로 게이지도 차지 않는 것으로 계산합니다. 켜면 그만큼 버스트가 밀립니다."><input id="immune-blocks-burst" type="checkbox" checked /><span class="toggle"></span><span>족자 중 버스트 충전 정지</span></label>
             </div>
-            <div class="deck-regen-grid" data-deck-regen hidden></div>
+            <!-- 덱마다 따로 잡는 값들. **스위치 바로 아래에 그 칸이 선다** — 칸이
+                 격자 저 아래에 떨어져 있어 켜고도 어디에 적는지 못 찾았다
+                 (피드백 2026-09-08). -->
+            <div class="deck-split">
+              <label class="toggle-field deck-regen-toggle" title="버스트 쿨이 밀리는 덱만 다른 값으로 재고 싶을 때 켭니다"><input id="burst-regen-per-deck" type="checkbox" /><span class="toggle"></span><span>버스트 충전을 덱마다 따로</span></label>
+              <div class="deck-regen-grid" data-deck-regen hidden></div>
+            </div>
+            <div class="deck-split">
+              <label class="toggle-field deck-regen-toggle" title="같은 편성을 코어 있는 판과 없는 판으로 나란히 재고 싶을 때 켭니다. 코어 크기는 위에서 정한 하나를 함께 씁니다"><input id="core-per-deck" type="checkbox" /><span class="toggle"></span><span>코어 유무를 덱마다 따로</span></label>
+              <div class="deck-regen-grid deck-core-grid" data-deck-core hidden></div>
+            </div>
             <p class="field-note">기대값은 확률 대신 기대치를 태워 <b>같은 설정이면 언제나 같은 값</b>이 나옵니다. 난수는 인게임과 같은 분산을 재현하며 시드에 따라 결과가 흔들립니다.</p>
 
             <fieldset class="range-field">
@@ -2200,14 +2209,42 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       return box;
     }
 
+    const names = [...sources.keys()].sort((a, b) => a.localeCompare(b, 'ko'));
     const pick = document.createElement('select');
     pick.dataset.copyFromPick = '';
-    for (const who of [...sources.keys()].sort((a, b) => a.localeCompare(b, 'ko'))) {
-      const option = document.createElement('option');
-      option.value = who;
-      option.textContent = who;
-      pick.append(option);
-    }
+    // 이름·초성으로 좁힌다. 후보가 스무 명을 넘으면 드롭다운을 훑는 것보다 치는 것이
+    // 빠르다 — 니케 고르기와 **같은 검색**(초성·별칭·구분자 무시)을 쓴다.
+    const search = document.createElement('input');
+    search.type = 'search';
+    search.className = 'copy-from-search';
+    search.dataset.copyFromSearch = '';
+    search.placeholder = '이름 · 초성';
+    search.title = '이름과 초성으로 좁힙니다 (ㄹㅍ · 라피)';
+    const fillOptions = () => {
+      const query = search.value.trim();
+      // 카탈로그에 없는 이름(직접 만든 니케)도 후보라, 없는 것은 이름만으로 센다.
+      const shown = filterByQuery(names, query, (who) => {
+        const meta = catalogByName.get(who);
+        return meta ? buildIndex(meta) : buildIndex({
+          name: who, aliases: [], elementCode: '', weaponType: '',
+          className: '', manufacturer: '', burstStage: '',
+        } as unknown as CharacterMeta);
+      });
+      const keep = pick.value;
+      pick.replaceChildren();
+      for (const who of shown) {
+        const option = document.createElement('option');
+        option.value = who;
+        option.textContent = who;
+        pick.append(option);
+      }
+      if (shown.includes(keep)) pick.value = keep;
+      // 한 명만 남으면 그 사람이 고른 사람이다 — 한 번 더 누르게 하지 않는다.
+      pick.disabled = shown.length === 0;
+    };
+    search.addEventListener('input', fillOptions);
+    fillOptions();
+
     const apply = document.createElement('button');
     apply.type = 'button';
     apply.className = 'copy-from-apply';
@@ -2216,21 +2253,59 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     apply.addEventListener('click', () => {
       const from = sources.get(pick.value);
       if (!from) return;
-      const deck = activeDeck();
-      const moved = carryGrowth(from, name);
+      const moved = carryGrowth(from, name, { withGrowth: copyGrowth.checked });
       if (!moved) {
         status.textContent = `${pick.value}에게는 베껴올 육성값이 없습니다.`;
         return;
       }
-      deck.characters[name] = moved.next;
+      // 「다른 덱에도」를 켜면 이 니케가 선 덱마다 같은 값을 넣는다. 다섯 덱에
+      // 같은 니케를 세워 두고 조건만 달리 보는 쓰임이 흔한데, 그때 다섯 번 베끼는
+      // 것은 판단이 아니라 손품이다 (피드백 2026-09-10).
+      const targets = copyAllDecks.checked
+        ? decks.filter((entry) => entry.squad.includes(name))
+        : [activeDeck()];
+      for (const deck of targets) deck.characters[name] = cloneOverride(moved.next);
       saveState();
       renderSquad();
-      status.textContent = `${pick.value}의 ${moved.carried.join(' · ')}을(를) ${name}에게 베꼈습니다.`;
+      const where = targets.length > 1 ? ` (덱 ${targets.map((deck) => deck.id).join('·')})` : '';
+      status.textContent = `${pick.value}의 ${moved.carried.join(' · ')}을(를) ${name}에게 베꼈습니다${where}.`;
     });
     const row = document.createElement('div');
     row.className = 'copy-from-row';
-    row.append(pick, apply);
-    box.append(row, createText('p', '돌파 · 스킬 · 오버로드 · 장비 강화 · 소장품을 가져옵니다. 컨트롤·버스트 운용·큐브는 그대로 둡니다.', 'field-note'));
+    row.append(search, pick, apply);
+
+    // 돌파는 기본으로 **안** 베낀다. 장비·스킬은 「이만큼 키운 니케」를 통째로 옮기는
+    // 것이지만, 돌파는 뽑기로 정해지는 값이라 남의 것을 가져올 까닭이 거의 없다
+    // (피드백 2026-09-10). 픽업을 재 보려고 일부러 옮기는 사람을 위해 칸은 남긴다.
+    const copyGrowth = optionBox('copy-growth', '돌파도 함께',
+      '기본은 꺼짐입니다. 장비·스킬만 가져오고 돌파 단계는 지금 값을 지킵니다');
+    const copyAllDecks = optionBox('copy-all-decks', '다른 덱의 같은 니케에도',
+      '이 니케가 편성된 덱 전부에 같은 값을 넣습니다');
+    const options = document.createElement('div');
+    options.className = 'copy-from-options';
+    options.append(copyGrowth.parentElement!, copyAllDecks.parentElement!);
+
+    box.append(row, options, createText('p', '스킬 · 오버로드 · 장비 강화 · 소장품을 가져옵니다. 컨트롤·버스트 운용·큐브는 그대로 둡니다.', 'field-note'));
+    return box;
+  };
+
+  /**
+   * 베껴오기 곁의 체크칸 하나. 켠 것은 **이 브라우저에 남는다** — 매번 같은 것을
+   * 다시 켜게 하지 않으려는 것으로, 육성 표시·병렬 계산과 같은 규칙이다.
+   */
+  const optionBox = (key: string, label: string, title: string): HTMLInputElement => {
+    const wrap = document.createElement('label');
+    wrap.className = 'inline-check';
+    wrap.title = title;
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.setAttribute(`data-${key}`, '');
+    const storeKey = `nikke-${key}-v1`;
+    try { box.checked = resolveStorage()?.getItem(storeKey) === '1'; } catch { /* 무시 */ }
+    box.addEventListener('change', () => {
+      try { resolveStorage()?.setItem(storeKey, box.checked ? '1' : '0'); } catch { /* 무시 */ }
+    });
+    wrap.append(box, createText('span', label));
     return box;
   };
 
@@ -2242,13 +2317,16 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
    * 등급마다 상한이 다른 값(돌파)과 애장품 유무는 **받는 쪽에 맞춰** 깎는다.
    */
   const carryGrowth = (
-    from: CharacterOverrides, name: string,
+    from: CharacterOverrides, name: string, options: { withGrowth?: boolean } = {},
   ): { next: CharacterOverrides; carried: string[] } | null => {
       const deck = activeDeck();
       const target = settings.characters[name];
       const next: CharacterOverrides = { ...cloneOverride(deck.characters[name] ?? {}) };
       const carried: string[] = [];
-      if (from.growthStage !== undefined && target) {
+      // 돌파는 부르는 쪽이 정한다. 「이 육성을 덱 전원에게」는 스펙업을 재는 자리라
+      // 통째로 맞추는 것이 맞고, 「다른 니케에서 베껴오기」는 장비를 옮기는 자리라
+      // 뽑기로 정해지는 돌파까지 따라갈 까닭이 없다 (피드백 2026-09-10).
+      if (options.withGrowth !== false && from.growthStage !== undefined && target) {
         // 돌파 상한은 등급마다 다르다 — SSR 값을 SR에 그대로 부으면 안 된다.
         next.growthStage = Math.min(from.growthStage, target.maxGrowthStage);
         carried.push('돌파');
@@ -3083,6 +3161,50 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     refreshBattleSummary();
   });
 
+  // ── 덱마다 다른 코어 유무 ───────────────────────────────────────────────
+  // 같은 편성을 코어 있는 판과 없는 판으로 나란히 재려고 조건을 바꿔 가며 두 번 돌리는
+  // 일이 잦았다 (피드백 2026-09-08). 크기는 나누지 않는다 — 한 보스의 코어를 켜고 끄는
+  // 문제라 크기까지 갈라 둘 까닭이 없다.
+  const deckCoreBox = element<HTMLElement>(root, '[data-deck-core]');
+  const deckCoreToggle = element<HTMLInputElement>(root, '#core-per-deck');
+  const readDeckCore = (): Record<number, boolean> => {
+    const out: Record<number, boolean> = {};
+    for (const box of deckCoreBox.querySelectorAll<HTMLInputElement>('[data-deck-core-input]')) {
+      out[Number(box.dataset.deckCoreInput)] = box.checked;
+    }
+    return out;
+  };
+  const renderDeckCore = (values: Record<number, boolean>) => {
+    deckCoreBox.replaceChildren();
+    for (let id = 1; id <= 5; id += 1) {
+      const label = document.createElement('label');
+      label.className = 'inline-check';
+      const box = document.createElement('input');
+      box.type = 'checkbox';
+      box.checked = values[id] ?? false;
+      box.dataset.deckCoreInput = String(id);
+      box.addEventListener('change', () => { saveState(); refreshBattleSummary(); });
+      label.append(box, createText('span', t('덱 {n}', { n: id })));
+      deckCoreBox.append(label);
+    }
+  };
+  const writeDeckCore = (values: Record<number, boolean> | undefined, fallback: boolean) => {
+    const on = values !== undefined && Object.keys(values).length > 0;
+    deckCoreToggle.checked = on;
+    deckCoreBox.hidden = !on;
+    renderDeckCore(values ?? { 1: fallback, 2: fallback, 3: fallback, 4: fallback, 5: fallback });
+  };
+  deckCoreToggle.addEventListener('change', () => {
+    // 켜는 순간 지금 값으로 다섯을 채운다 — 「켰더니 값이 사라졌다」가 없게.
+    if (deckCoreToggle.checked) {
+      const now = coreToggle.checked;
+      renderDeckCore({ 1: now, 2: now, 3: now, 4: now, 5: now });
+    }
+    deckCoreBox.hidden = !deckCoreToggle.checked;
+    saveState();
+    refreshBattleSummary();
+  });
+
   // ── 핵 ────────────────────────────────────────────────────────────────
   // 인게임에 없는 값을 억지로 켜는 스위치(`site/src/hacks.ts`). 전투 조건 창의 다른
   // 탭에 살고, 켜져 있으면 실행 줄 위에서 화면이 크게 떠든다.
@@ -3125,6 +3247,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     burstRegenTime: Number(element<HTMLInputElement>(root, '#burst-regen').value),
     ...(element<HTMLInputElement>(root, '#burst-regen-per-deck').checked
       ? { burstRegenPerDeck: readDeckRegen() } : {}),
+    ...(element<HTMLInputElement>(root, '#core-per-deck').checked
+      ? { corePerDeck: readDeckCore() } : {}),
     burstReaction: Number(element<HTMLInputElement>(root, '#burst-reaction').value),
     hacks: readHacks(),
     console: {
@@ -3161,6 +3285,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       String(battle.burstReaction ?? DEFAULT_BURST_REACTION);
     writeHacks(battle.hacks);
     writeDeckRegen(battle.burstRegenPerDeck, battle.burstRegenTime);
+    writeDeckCore(battle.corePerDeck, battle.coreEnabled);
     if (battle.console) {
       consoleCommon.value = String(battle.console.common_level);
       writeConsoleBuckets('class', battle.console.class_level);
@@ -3201,7 +3326,11 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   };
   const refreshBattleSummary = () => {
     const battle = readBattle();
-    battleSummary.textContent = summarizeBattle(battle);
+    // 덱마다 코어를 달리 잡아 두면 요약 한 줄이 거짓이 된다 — 「코어 52px」이라고만
+    // 적혀 있는데 어떤 덱은 코어가 없다. 그 사실을 뒤에 붙인다.
+    const perDeckCore = battle.corePerDeck
+      ? ` · ${t('코어는 덱마다')}` : '';
+    battleSummary.textContent = summarizeBattle(battle) + perDeckCore;
     quickCode.value = battle.enemyCode;
     quickCore.checked = battle.coreEnabled;
     refreshHacks(battle.hacks ?? NO_HACKS);
@@ -3264,6 +3393,23 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   });
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && !battleModal.hidden) setBattleOpen(false);
+  });
+  /**
+   * 창 안에서 엔터는 **계산이 아니라 「다 골랐다」**다.
+   *
+   * 값이 판(form) 안에 있어 엔터 한 번이 그대로 제출이었다 — 코어 크기를 고치고
+   * 엔터를 치면 그 자리에서 3분짜리 계산이 돌았다(피드백 2026-09-10). 숫자를
+   * 다듬는 창에서 그 동작은 놀랍기만 하다. 창을 닫는 것으로 바꾼다 — 값은 이미
+   * 화면에 들어가 있으므로 잃는 것이 없고, 닫힌 판 아래 실행 단추가 바로 보인다.
+   *
+   * 단추는 건드리지 않는다. 엔터로 누르는 것이 그 자리의 제 뜻이다.
+   */
+  battleModal.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' || event.isComposing) return;
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLSelectElement)) return;
+    event.preventDefault();
+    setBattleOpen(false);
   });
 
   const validateCharacterValues = (deck: DeckState): string[] => {
@@ -3866,12 +4012,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     try {
       const names = batch.decks.flatMap((entry) => entry.request.squad);
       const portraits = await loadPortraits(names, catalogByName, import.meta.env.BASE_URL);
-      const battle = readBattle();
+      // 전투 조건은 **결과에 붙은 요청**에서 읽는다(`report.ts` §conditionChips) —
+      // 여기서 화면을 다시 읽으면 «바꿔 놓고 아직 안 돌린» 조건이 옛 대미지 위에 찍힌다.
       const meta: ReportMeta = {
-        enemyDef: battle.enemyDef,
-        enemyCode: battle.enemyCode,
-        corePx: battle.coreEnabled ? battle.corePx : 0,
-        hasParts: battle.hasParts,
         siteUrl: 'moris-kr.github.io/nikke-calc',
         // 덱에 붙인 이름을 이미지에도 잇는다 — 자료를 모을 때 한 장으로 끝나게.
         deckNames: Object.fromEntries(decks.map((deck) => [deck.id, deckLabelFull(deck)])),

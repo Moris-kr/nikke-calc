@@ -275,7 +275,8 @@ export function requestForDeck(
     synchroLevel: battle.synchroLevel,
     enemyDef: battle.enemyDef,
     enemyCode: battle.enemyCode,
-    corePx: battle.coreEnabled ? battle.corePx : 0,
+    // 덱마다 코어 유무를 따로 잡아 뒀으면 그 값이 이긴다.
+    corePx: (battle.corePerDeck?.[deck.id] ?? battle.coreEnabled) ? battle.corePx : 0,
     hasParts: battle.hasParts,
     seed: battle.seed,
     optimalRangeWeapons: battle.optimalRangeWeapons,
