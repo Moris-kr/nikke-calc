@@ -523,8 +523,6 @@ export const EN: Record<string, string> = {
     'Reverts every NIKKE in this deck to the imported values. Control and burst usage stay as they are',
   '다섯 덱 전원의 육성을 불러온 값으로 되돌립니다. 컨트롤·버스트 운용은 그대로 둡니다':
     'Reverts every NIKKE in all five decks to the imported values. Control and burst usage stay as they are',
-  '손으로 만진 육성을 불러온 그대로 되돌립니다. 컨트롤·버스트 운용은 그대로 둡니다':
-    'Reverts what you edited back to the imported values. Control and burst usage stay as they are',
   '돌파 · 스킬 · 오버로드 · 장비 강화 · 소장품 · 큐브를 불러온 값으로 되돌립니다. 컨트롤 · 버스트 운용은 그대로 둡니다.':
     'Restores limit break, skills, Overload, gear enhancement, collection and cube to the imported values. Control and burst usage stay as they are.',
   '이 코드의 어느 덱을 가져올까요?': 'Which deck from this code do you want?',

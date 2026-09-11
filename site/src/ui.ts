@@ -2387,7 +2387,12 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     button.className = 'copy-from-apply spread-apply';
     button.dataset.spreadGrowth = name;
     button.textContent = '이 육성을 덱 전원에게';
-    button.title = '돌파·스킬·오버로드·장비 강화·소장품을 이 덱의 다른 니케에게 그대로 입힙니다';
+    // 무엇을 누구에게 덮어쓰는지는 **마우스를 올렸을 때** 나온다. 카드마다 서너 줄짜리
+    // 설명이 단추 아래 붙어 있어 편성 판이 그 설명으로 길어졌다 (피드백 2026-09-11).
+    button.title = others.length === 0
+      ? '덱에 다른 니케가 없습니다.'
+      : t('{n}명({who})의 돌파·스킬·오버로드·장비 강화·소장품을 덮어씁니다. 컨트롤·버스트 운용·큐브는 그대로 둡니다.',
+        { n: others.length, who: others.map(tName).join(' · ') });
     button.disabled = others.length === 0;
     confirmTwice(button, () => {
       const from = activeDeck().characters[name];
@@ -2406,14 +2411,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         ? `${name}의 육성을 ${done.join(' · ')}에게 입혔습니다.`
         : '입힐 니케가 없습니다.';
     }, { armed: '정말 덮어쓸까요?' });
-    box.append(button, createText(
-      'p',
-      others.length === 0
-        ? '덱에 다른 니케가 없습니다.'
-        : t('{n}명({who})의 돌파·스킬·오버로드·장비 강화·소장품을 덮어씁니다. 컨트롤·버스트 운용·큐브는 그대로 둡니다.',
-          { n: others.length, who: others.map(tName).join(' · ') }),
-      'field-note',
-    ));
+    box.append(button);
     return box;
   };
 
@@ -2435,7 +2433,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     button.className = 'copy-from-apply restore-apply';
     button.dataset.restoreOne = name;
     button.textContent = restoreLabel();
-    button.title = '손으로 만진 육성을 불러온 그대로 되돌립니다. 컨트롤·버스트 운용은 그대로 둡니다';
+    button.title = '돌파 · 스킬 · 오버로드 · 장비 강화 · 소장품 · 큐브를 불러온 값으로 되돌립니다. 컨트롤 · 버스트 운용은 그대로 둡니다.';
     confirmTwice(button, () => {
       const next = restoredOverride(name, activeDeck());
       if (!next) return;
@@ -2444,9 +2442,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       renderSquad();
       status.textContent = `${name}의 육성을 ${rosterWhere()} 값으로 되돌렸습니다.`;
     }, { armed: '정말 되돌립니다' });
-    box.append(button, createText(
-      'p', '돌파 · 스킬 · 오버로드 · 장비 강화 · 소장품 · 큐브를 불러온 값으로 되돌립니다. 컨트롤 · 버스트 운용은 그대로 둡니다.', 'field-note',
-    ));
+    box.append(button);
     return box;
   };
 
