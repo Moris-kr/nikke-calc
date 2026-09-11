@@ -2872,7 +2872,15 @@ describe('calculator UI', () => {
   });
 
   it('runs non-empty decks sequentially and allows cross-deck duplicates', async () => {
-    const client = new FakeClient();
+    // 결과에 버프 대상을 실어 준다. 안 실으면 계산이 끝난 뒤 «미리 계산»이 한 판 더
+    // 도는데(리타가 감시 대상이다), 그건 가짜 결과에만 있는 일이라 판 수를 흐린다.
+    class DeckClient extends FakeClient {
+      override async simulate(request: SimulationRequest): Promise<SimulationResult> {
+        await super.simulate(request);
+        return { ...calculated, buffTargets: { 리타: [] } };
+      }
+    }
+    const client = new DeckClient();
     mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });
     root.querySelector<HTMLInputElement>('#duration')!.value = '10';
     let toggle = root.querySelector<HTMLInputElement>('[data-slot-card="0"] [data-custom-toggle]')!;
