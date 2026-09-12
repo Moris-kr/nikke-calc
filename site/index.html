@@ -3,24 +3,85 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="브라우저에서 실행되는 비공식 NIKKE 5인 스쿼드 대미지 계산기" />
+    <!-- 검색 결과에 그대로 실리는 줄이다. 사람들이 실제로 치는 말(니케 계산기 · 딜
+         계산기 · 시뮬레이터)과 이 계산기만 하는 일(오버로드·큐브·유니온 레이드)을
+         함께 담는다 — 둘 중 하나만 있으면 안 걸리거나, 걸려도 안 눌린다. -->
+    <meta name="description" content="승리의 여신 니케(NIKKE) 대미지 계산기. 5인 스쿼드 편성·오버로드·큐브·돌파·소장품과 전투 조건을 넣으면 프레임 단위로 예상 딜을 시뮬레이션합니다. 유니온 레이드 기여도 비교, 블라블라링크 프로필 연동, 덱끼리 견주기까지 브라우저에서 바로 — 설치도 로그인도 없습니다." />
     <meta name="theme-color" content="#07111f" />
+    <link rel="canonical" href="https://moris-kr.github.io/nikke-calc/" />
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="NIKKE 스쿼드 계산기" />
     <meta property="og:locale" content="ko_KR" />
+    <!-- 화면 글자는 네 나라 말로 나온다(주소는 하나다) — 검색엔진에 그 사실을 알린다. -->
+    <meta property="og:locale:alternate" content="en_US" />
+    <meta property="og:locale:alternate" content="ja_JP" />
     <meta property="og:locale:alternate" content="zh_TW" />
     <meta property="og:url" content="https://moris-kr.github.io/nikke-calc/" />
-    <meta property="og:title" content="NIKKE 스쿼드 계산기" />
-    <meta property="og:description" content="AI 없이, 브라우저에서 바로 계산하는 5인 스쿼드 대미지 시뮬레이터" />
+    <meta property="og:title" content="NIKKE 스쿼드 계산기 — 니케 대미지 시뮬레이터" />
+    <meta property="og:description" content="편성·오버로드·큐브·전투 조건을 넣으면 프레임 단위로 예상 딜을 계산합니다. 유니온 레이드 기여도 비교까지, 브라우저에서 바로." />
     <meta property="og:image" content="https://moris-kr.github.io/nikke-calc/og.png" />
+    <meta property="og:image:alt" content="NIKKE 스쿼드 계산기 화면" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="NIKKE 스쿼드 계산기" />
-    <meta name="twitter:description" content="AI 없이, 브라우저에서 바로 계산" />
+    <meta name="twitter:title" content="NIKKE 스쿼드 계산기 — 니케 대미지 시뮬레이터" />
+    <meta name="twitter:description" content="편성·오버로드·큐브·전투 조건으로 프레임 단위 예상 딜을 계산합니다. 브라우저에서 바로." />
     <meta name="twitter:image" content="https://moris-kr.github.io/nikke-calc/og.png" />
     <link rel="icon" type="image/webp" href="/nikke-calc/favicon.webp" />
-    <title>NIKKE 스쿼드 계산기</title>
+    <title>NIKKE 스쿼드 계산기 — 니케 대미지 시뮬레이터</title>
+    <!--
+      구조화 데이터. 검색엔진이 «이게 무슨 페이지인가»를 글에서 짐작하는 대신 읽게 한다.
+      값을 지어내지 않는다 — 무료이고, 브라우저에서 돌고, 한국어가 정본이라는 사실만 적는다.
+    -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "NIKKE 스쿼드 계산기",
+        "alternateName": ["니케 계산기", "NIKKE Squad Calculator", "니케 대미지 시뮬레이터"],
+        "url": "https://moris-kr.github.io/nikke-calc/",
+        "applicationCategory": "GameApplication",
+        "operatingSystem": "웹 브라우저",
+        "inLanguage": ["ko", "en", "ja", "zh-TW"],
+        "isAccessibleForFree": true,
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "KRW" },
+        "description": "승리의 여신 니케(NIKKE)의 5인 스쿼드 대미지를 프레임 단위로 시뮬레이션하는 비공식 계산기. 오버로드·큐브·돌파·소장품과 전투 조건을 반영하고, 유니온 레이드 기여도도 견준다.",
+        "featureList": [
+          "5인 스쿼드 프레임 단위 대미지 시뮬레이션",
+          "오버로드 옵션·큐브·돌파·소장품 반영",
+          "유니온 레이드 유니온원 기여도 비교",
+          "블라블라링크 프로필 연동",
+          "덱끼리 견주기와 조합 공유 코드"
+        ]
+      }
+    </script>
   </head>
   <body>
-    <main id="app"></main>
+    <!--
+      화면은 전부 자바스크립트가 그린다. 그 말은 **자바스크립트를 안 돌리는 크롤러에게는
+      이 페이지가 빈 종이**라는 뜻이라, 무엇을 하는 곳인지 글로 한 번 적어 둔다.
+      계산기가 뜨면 `mountCalculator`가 `#app`의 안쪽을 통째로 갈아 끼우므로 이 글은
+      사라진다 — 사람에게는 «로딩 중» 한 줄로만 보인다.
+    -->
+    <main id="app">
+      <section class="site-boot">
+        <noscript>
+          <p><b>이 계산기는 자바스크립트로 돕니다.</b> 브라우저에서 자바스크립트를 켜 주세요.</p>
+        </noscript>
+        <h1>NIKKE 스쿼드 계산기</h1>
+        <p>
+          승리의 여신 니케(NIKKE)의 <strong>5인 스쿼드 대미지</strong>를 프레임 단위로
+          시뮬레이션하는 비공식 계산기입니다. 계산은 <strong>방문자의 브라우저 안에서</strong>
+          돌며, 설치도 로그인도 필요 없습니다.
+        </p>
+        <ul>
+          <li>편성한 다섯 니케의 <strong>돌파 · 스킬 레벨 · 오버로드 옵션 · 큐브 · 소장품</strong>을 반영</li>
+          <li>전투 시간 · 적 방어력 · 속성 코드 · 코어 · 족자/속저 구간 등 <strong>전투 조건</strong> 설정</li>
+          <li><strong>유니온 레이드</strong> — 유니온원 각자의 스펙으로 같은 보스를 돌려 기여도 비교</li>
+          <li><strong>블라블라링크 연동</strong>과 렛츠도로 CSV로 내 육성 상태 불러오기</li>
+          <li>덱끼리 견주기 · 조합 공유 코드 · 결과 CSV 내보내기</li>
+        </ul>
+        <p>한국어 · English · 日本語 · 繁體中文로 볼 수 있습니다. 잠시만 기다려 주세요 — 계산기를 불러오는 중입니다.</p>
+      </section>
+    </main>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

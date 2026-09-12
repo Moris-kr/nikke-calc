@@ -896,6 +896,13 @@ footer a { color: #93aabd; text-decoration: none; font-weight: 800; letter-spaci
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
 
+/* 불러오는 동안 잠깐 보이는 글(index.html). 계산기가 뜨면 통째로 갈린다 —
+   자바스크립트를 안 돌리는 크롤러에게는 이것이 이 페이지의 본문이다. */
+.site-boot { max-width: 720px; margin: 0 auto; padding: 48px 20px; color: var(--muted); }
+.site-boot h1 { margin: 0 0 14px; color: var(--ink); font-size: 26px; }
+.site-boot ul { margin: 14px 0; padding-left: 18px; line-height: 1.9; }
+.site-boot strong { color: #cfeceb; }
+
 /* 계산 취소 — 돌고 있을 때만 실행 단추 옆에 선다. 되돌릴 수 없는 일이 아니라
    «그만»이므로 위험색이 아니라 조용한 회색으로 둔다. */
 .calc-cancel { padding: 0 16px; min-height: 44px; border: 1px solid rgba(255,119,135,.42);

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  주소가 하나뿐인 사이트다(화면 전환도 언어 전환도 같은 주소 안에서 일어난다).
+  그래도 사이트맵을 두는 까닭은 robots.txt가 여기를 가리켜 «이 사이트는 이 주소가
+  정본»이라고 한 번 더 말해 주기 때문이다.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://moris-kr.github.io/nikke-calc/</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>
