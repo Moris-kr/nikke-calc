@@ -1265,6 +1265,47 @@ describe('calculator UI', () => {
     expect(root.querySelector<HTMLButtonElement>('[data-calc-cancel]')!.hidden).toBe(true);
   });
 
+  it('백업 창이 열리고, 저장된 것이 없으면 그렇게 말한다', () => {
+    // 서버에 아무것도 안 남기는 계산기라 브라우저를 갈아타면 통째로 사라진다.
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    root.querySelector<HTMLButtonElement>('[data-notice-dismiss]')?.click();
+    const modal = root.querySelector<HTMLElement>('[data-backup-modal]')!;
+    expect(modal.hidden).toBe(true);
+    root.querySelector<HTMLButtonElement>('[data-backup-open]')!.click();
+    expect(modal.hidden).toBe(false);
+    // 이 창은 무엇이 담기고 무엇이 안 담기는지 적어 둬야 한다.
+    expect(modal.textContent).toContain('안 담기는 것');
+  });
+
+  it('백업을 뜨면 지금 저장된 것이 파일에 담긴다', () => {
+    localStorage.setItem('nikke-presets-v1', '[{"name":"솔레 1군","code":"NK2-x","at":"2026-01-01"}]');
+    mountCalculator(root, {
+      catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
+    });
+    root.querySelector<HTMLButtonElement>('[data-notice-dismiss]')?.click();
+
+    // jsdom에는 다운로드가 없다 — 링크를 가로채 담긴 내용만 본다.
+    let saved = '';
+    const realCreate = URL.createObjectURL;
+    const realClick = HTMLAnchorElement.prototype.click;
+    URL.createObjectURL = ((blob: Blob) => { void blob; return 'blob:x'; }) as typeof URL.createObjectURL;
+    URL.revokeObjectURL = (() => undefined) as typeof URL.revokeObjectURL;
+    HTMLAnchorElement.prototype.click = function click(this: HTMLAnchorElement) {
+      saved = this.download;
+    };
+    try {
+      root.querySelector<HTMLButtonElement>('[data-backup-open]')!.click();
+      root.querySelector<HTMLButtonElement>('[data-backup-save]')!.click();
+    } finally {
+      URL.createObjectURL = realCreate;
+      HTMLAnchorElement.prototype.click = realClick;
+    }
+    expect(saved).toMatch(/^니케계산기_백업_\d{8}\.json$/);
+    expect(root.querySelector('[data-backup-msg]')?.textContent).toContain('떴습니다');
+  });
+
   it('유니온 탭에는 판 전체를 한 코드로 주고받는 줄이 있다', () => {
     mountCalculator(root, {
       catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,

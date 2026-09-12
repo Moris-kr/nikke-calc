@@ -2,6 +2,7 @@ import {
   ANNOUNCEMENT_KEY, announcementToShow, countdownClock, countdownDone, countdownToShow,
 } from './announcement';
 import { ResultCache, type StorageLike, type StorageSource } from './cache';
+import { applyBackup, backupFileName, buildBackup, readBackup } from './backup';
 import { isCancelled } from './worker-client';
 import { renderCharacterSettings, type CharPanelKind } from './character-settings';
 import {
@@ -850,6 +851,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
               </span>` : ''}
               <button type="button" class="roster-import" data-add-nikke title="미출시·미등록 니케를 직접 추가">새 니케 추가</button>
               <button type="button" class="roster-import" data-share-open title="편성을 이 브라우저에 이름 붙여 저장하거나, 코드·링크로 주고받습니다. 개인 스펙과 전투 조건은 담기지 않습니다">프리셋 / 조합 공유</button>
+              <button type="button" class="roster-import" data-backup-open title="이 브라우저에 쌓인 편성·육성·프리셋을 파일 한 장으로 뜨고, 다시 부어 되살립니다. 기기를 옮길 때 씁니다">백업</button>
               <button type="button" class="roster-import danger" data-reset-all title="편성·설정·CSV 로스터·추가한 니케·저장된 결과를 모두 지우고 처음 상태로 되돌립니다">완전 초기화</button>
               <label class="toggle-field mode-toggle" title="다른 덱에서 이미 만져 둔 개별 설정을 편성할 때 그대로 가져옵니다"><input id="carry-settings" type="checkbox" checked /><span class="toggle"></span><span>설정 이어받기</span></label>
               <label class="toggle-field mode-toggle"><input id="squad-mode" type="checkbox" /><span class="toggle"></span><span>5덱 모드</span></label>
@@ -1339,6 +1341,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
               <input type="text" class="preset-name" data-preset-name placeholder="프리셋 이름 (예: 수냉 솔레 1덱)" maxlength="40" />
               <button type="button" class="deck-copy-apply" data-preset-save>저장</button>
             </div>
+            <input type="text" class="preset-name preset-memo-in" data-preset-memo placeholder="메모 (선택) — 무엇을 바꿔 본 판인지" maxlength="100" />
             <div class="preset-list" data-preset-list></div>
           </div>
           </div>
@@ -1356,6 +1359,26 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <button type="button" class="deck-copy-apply" data-report-copy>이미지 복사</button>
             <button type="button" class="deck-copy-cancel" data-report-save>PNG 저장</button>
           </div>
+        </div>
+      </div>
+
+      <div class="custom-modal" data-backup-modal hidden>
+        <div class="custom-card reset-card" role="dialog" aria-label="백업">
+          <div class="custom-head"><h2>백업</h2><button type="button" class="custom-close" data-backup-close aria-label="닫기">✕</button></div>
+          <p class="custom-desc">이 계산기는 <b>서버에 아무것도 남기지 않습니다.</b> 편성도 육성도 프리셋도 전부 이 브라우저 안에 있어서, 브라우저를 갈아타거나 저장소를 지우면 그대로 사라집니다. 파일 한 장으로 떠 두면 다른 기기에서 그대로 되살릴 수 있습니다.</p>
+          <ul class="reset-list">
+            <li>담기는 것 — 편성 · 불러온 육성 · 직접 추가한 니케 · 프리셋 · 계산 기록 · 보스 메이커 · 약어 · 고른 언어</li>
+            <li>안 담기는 것 — 저장된 계산 결과(다시 돌리면 나옵니다) · 이 브라우저에서만 뜻이 있는 표식</li>
+          </ul>
+          <div class="deck-copy-actions">
+            <button type="button" class="deck-copy-apply" data-backup-save>파일로 내려받기</button>
+            <label class="roster-import backup-load" title="백업 파일을 골라 이 브라우저에 되살립니다">
+              <input type="file" accept="application/json,.json" data-backup-file hidden />
+              <span>백업 파일 불러오기</span>
+            </label>
+          </div>
+          <p class="custom-desc backup-warn">불러오면 <b>지금 이 브라우저의 편성·육성·프리셋을 덮어씁니다.</b> 적용한 뒤 화면을 다시 불러옵니다.</p>
+          <p class="custom-msg" data-backup-msg hidden></p>
         </div>
       </div>
 
@@ -3517,8 +3540,10 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   // 하나뿐이라(=편성만) 스펙이 바뀌어도 그대로 쓸 수 있고, 저장 용량도 거의 안 든다.
   const PRESET_KEY = 'nikke-presets-v1';
   const PRESET_MAX = 50;
-  interface Preset { name: string; code: string; at: string; }
+  // 이름만으로는 「무엇을 시험해 본 판인지」가 안 남는다 — 한 줄 메모를 같이 둔다.
+  interface Preset { name: string; code: string; at: string; memo?: string; }
   const presetName = element<HTMLInputElement>(root, '[data-preset-name]');
+  const presetMemo = element<HTMLInputElement>(root, '[data-preset-memo]');
   const presetList = element<HTMLElement>(root, '[data-preset-list]');
   let presets: Preset[] = (() => {
     try {
@@ -3552,7 +3577,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       load.textContent = preset.name;
       const squads = decksOfCode(preset.code);
       const many = squads.length > 1 ? ` · ${squads.length}덱` : '';
-      load.title = `${preset.at.slice(0, 10)} 저장${many} · 눌러서 불러오기`;
+      const memo = (preset.memo ?? '').trim();
+      load.title = `${preset.at.slice(0, 10)} 저장${many}${memo ? ` · ${memo}` : ''} · 눌러서 불러오기`;
+      if (memo) load.append(createText('em', memo, 'preset-memo'));
       load.addEventListener('click', () => {
         applyShareText(preset.code);
         refreshShareFields();
@@ -3620,11 +3647,13 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       return;
     }
     const code = shareScopeCode();
-    presets = [{ name, code, at: new Date().toISOString() },
+    const memo = presetMemo.value.trim().slice(0, 100);
+    presets = [{ name, code, at: new Date().toISOString(), ...(memo ? { memo } : {}) },
       ...presets.filter((item) => item.name !== name)];
     savePresets();
     renderPresets();
     presetName.value = '';
+    presetMemo.value = '';
     disarmOverwrite();
     showShareMsg(`«${name}» ${old ? '을(를) 덮어썼습니다' : '으로 저장했습니다'}`
       + `(${shareScope === 'all' ? '5덱 전부' : `덱 ${activeDeckId}만`}).`
@@ -5306,6 +5335,60 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   renderFilterPanel();
   renderFilterState();
   rosterSearch.addEventListener('input', renderRosterGrid);
+
+  // ── 백업 ────────────────────────────────────────────────────────────────
+  // 서버에 아무것도 안 남기는 계산기라, 브라우저를 갈아타면 쌓아 둔 것이 통째로
+  // 사라진다 — 그 길을 낸다(`backup.ts`).
+  const backupModal = element<HTMLElement>(root, '[data-backup-modal]');
+  const backupMsg = element<HTMLElement>(root, '[data-backup-msg]');
+  const showBackupMsg = (message: string, ok = false) => {
+    backupMsg.hidden = message === '';
+    backupMsg.textContent = message;
+    backupMsg.classList.toggle('is-ok', ok);
+  };
+  const closeBackupModal = () => { backupModal.hidden = true; };
+  element<HTMLButtonElement>(root, '[data-backup-open]').addEventListener('click', () => {
+    showBackupMsg('');
+    backupModal.hidden = false;
+  });
+  element<HTMLButtonElement>(root, '[data-backup-close]').addEventListener('click', closeBackupModal);
+  backupModal.addEventListener('click', (event) => {
+    if (hitBackdrop(event, backupModal)) closeBackupModal();
+  });
+  element<HTMLButtonElement>(root, '[data-backup-save]').addEventListener('click', () => {
+    const store = resolveStorage();
+    const file = buildBackup((key) => store?.getItem(key) ?? null);
+    const count = Object.keys(file.data).length;
+    if (count === 0) { showBackupMsg('아직 저장된 것이 없습니다.'); return; }
+    const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = backupFileName();
+    link.click();
+    URL.revokeObjectURL(url);
+    showBackupMsg(`${count}가지를 파일로 떴습니다.`, true);
+  });
+  const backupFile = element<HTMLInputElement>(root, '[data-backup-file]');
+  backupFile.addEventListener('change', async () => {
+    const picked = backupFile.files?.[0];
+    if (!picked) return;
+    try {
+      const { data, skipped } = readBackup(await picked.text());
+      const store = resolveStorage();
+      if (!store) { showBackupMsg('이 브라우저는 저장소를 쓸 수 없어 되살릴 수 없습니다.'); return; }
+      // 되살린 것과 지금 메모리에 있는 것이 섞이면 어느 쪽이 진짜인지 알 수 없다 —
+      // 저장소에 부은 뒤 화면을 통째로 다시 띄운다(완전 초기화와 같은 방식).
+      const done = applyBackup(data, (key, value) => { store.setItem(key, value); });
+      const stray = skipped.length > 0 ? ` · 모르는 항목 ${skipped.length}개는 건너뛰었습니다` : '';
+      showBackupMsg(`${done}가지를 되살렸습니다${stray}. 화면을 다시 불러옵니다…`, true);
+      setTimeout(() => { (reload ?? (() => window.location.reload()))(); }, 600);
+    } catch (error) {
+      showBackupMsg(error instanceof Error ? error.message : String(error));
+    } finally {
+      backupFile.value = '';
+    }
+  });
 
   // 완전 초기화 — 이 브라우저에 쌓인 저장 상태를 전부 버린다. 메모리 변수까지
   // 하나씩 되돌리는 대신 저장소를 비우고 페이지를 다시 띄워, 새로 방문한 것과

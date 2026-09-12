@@ -24,6 +24,12 @@ const TAP_FIRE_HARD_LIMIT = 4.5;
 const WEAPON_MODE_SWAP_DEFAULT = 6;
 
 const EQUIP_PARTS: EquipPart[] = ['머리', '몸통', '팔', '다리'];
+
+/**
+ * 「복사」로 기억해 둔 부위 한 벌. **모듈에 둔다** — 카드가 다시 그려질 때마다 사라지면
+ * 머리에서 복사해 다리에 붙이는 일이 애초에 안 되고, 카드를 옮겨 다니며 붙일 수도 있다.
+ */
+let copiedPart: OverloadLine[] | null = null;
 // 내부 부위 키는 '팔'이지만 UI·CSV 표기는 '장갑'이다.
 const EQUIP_PART_LABELS: Record<EquipPart, string> = {
   머리: '머리', 몸통: '몸통', 팔: '장갑', 다리: '다리',
@@ -824,6 +830,11 @@ export function renderCharacterSettings(
   const steps = catalog.overloadSteps;
   if (steps) {
     const lines = overloadLinesOf(current.overloadLines);
+    // 「붙이기」 단추들은 만들어진 뒤에 켜고 꺼야 한다 — 복사하는 순간 전부 살아난다.
+    const partMoveButtons: HTMLButtonElement[] = [];
+    const paintPartMoves = () => {
+      for (const button of partMoveButtons) button.disabled = copiedPart === null;
+    };
     const editor = document.createElement('section');
     editor.className = 'overload-lines';
     const heading = document.createElement('div');
@@ -876,6 +887,32 @@ export function renderCharacterSettings(
       head.append(textSpan(EQUIP_PART_LABELS[part], 'ol-part-name'));
       const sum = textSpan('', 'ol-part-sum');
       head.append(sum);
+      // 부위 하나를 통째로 옮긴다. 네 부위에 같은 세 줄을 넣어 보는 일이 잦은데
+      // 지금은 열두 번을 고른다 — 「머리에서 베껴 다리에 붙이기」가 한 번이면 끝난다.
+      const partCopy = document.createElement('button');
+      partCopy.type = 'button';
+      partCopy.className = 'ol-part-move';
+      partCopy.dataset.overloadPartCopy = part;
+      partCopy.textContent = '복사';
+      partCopy.title = `${EQUIP_PART_LABELS[part]}의 세 줄을 기억해 둡니다`;
+      partCopy.addEventListener('click', () => {
+        copiedPart = lines[part].map((line) => ({ ...line }));
+        paintPartMoves();
+      });
+      const partPaste = document.createElement('button');
+      partPaste.type = 'button';
+      partPaste.className = 'ol-part-move';
+      partPaste.dataset.overloadPartPaste = part;
+      partPaste.textContent = '붙이기';
+      partPaste.disabled = copiedPart === null;
+      partPaste.title = '기억해 둔 세 줄을 이 부위에 그대로 넣습니다';
+      partPaste.addEventListener('click', () => {
+        if (!copiedPart) return;
+        lines[part] = copiedPart.map((line) => ({ ...line }));
+        commitLines();
+      });
+      partMoveButtons.push(partPaste);
+      head.append(partCopy, partPaste);
       card.append(head);
 
       let partTotal = 0;
@@ -1397,6 +1434,59 @@ export function renderCharacterSettings(
   });
   body.append(advanced);
   const bodyFold = panelOpener('돌파 · 스킬 · 오버로드 · 큐브', 'settings', '수치 설정');
+
+  // 「이만큼 더 키우면 얼마나 오르나」를 보려면 양 끝을 한 번씩 눌러 봐야 하는데,
+  // 지금은 돌파·스킬·장비·소장품·큐브를 하나씩 열 번 넘게 만져야 한다. 그 양 끝을
+  // 단추 둘로 둔다. **운용(컨트롤·버스트)은 건드리지 않는다** — 육성이 아니다.
+  {
+    const extremes = document.createElement('div');
+    extremes.className = 'growth-extremes';
+    const maxCubeLevel = (name: string): number => {
+      const levels = Object.keys(catalog.cubes[name]?.levels ?? {})
+        .map(Number).filter(Number.isFinite);
+      return levels.length > 0 ? Math.max(...levels) : 15;
+    };
+    /** 육성 칸만 양 끝으로. 운용 칸은 손대지 않는다. */
+    const extreme = (top: boolean): CharacterOverrides => {
+      const next = cloneOverrides(current);
+      next.growthStage = top ? defaults.maxGrowthStage : 0;
+      // 수치 미공개(프리뷰) 캐릭터는 Lv10 고정이라 스킬을 건드리지 않는다.
+      if (!defaults.skillLevelsLocked) {
+        next.skillLevels = top ? { 1: 10, 2: 10, 3: 10 } : { 1: 1, 2: 1, 3: 1 };
+      }
+      next.equipLevels = Object.fromEntries(
+        EQUIP_PARTS.map((part) => [part, top ? 5 : '없음']),
+      ) as CharacterOverrides['equipLevels'];
+      next.collection = top
+        ? { stage: 'SR15', favorite: defaults.favoriteItem ? 3 : 0 }
+        : { stage: '없음', favorite: 0 };
+      const cubeName = next.cube?.name ?? defaults.cube.name;
+      next.cube = top && cubeName !== NO_CUBE
+        ? { name: cubeName, level: maxCubeLevel(cubeName) }
+        : { name: NO_CUBE, level: 0 };
+      // 오버로드 «옵션»은 굴려서 얻는 것이라 양 끝이 없다 — 없애기만 한다.
+      if (!top) { delete next.overload; delete next.overloadLines; }
+      return next;
+    };
+    const endButton = (label: string, armedLabel: string, title: string, top: boolean) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'growth-extreme';
+      button.dataset.growthExtreme = top ? 'max' : 'none';
+      button.textContent = label;
+      button.title = title;
+      let armed = false;
+      button.addEventListener('click', () => {
+        if (!armed) { armed = true; button.textContent = armedLabel; button.classList.add('is-armed'); return; }
+        commit(extreme(top));
+      });
+      extremes.append(button);
+    };
+    endButton('무육성으로', '정말 무육성으로', '돌파 · 스킬 · 장비 · 소장품 · 큐브 · 오버로드를 아무것도 안 키운 상태로 둡니다. 컨트롤·버스트 운용은 그대로입니다. 한 번 더 누르면 적용됩니다', false);
+    endButton('육성 MAX로', '정말 MAX로', '돌파 · 스킬 · 장비 · 소장품 · 큐브를 이 캐릭터가 갈 수 있는 끝까지 올립니다. 오버로드 옵션과 컨트롤·버스트 운용은 그대로입니다. 한 번 더 누르면 적용됩니다', true);
+    bodyFold.panel.append(extremes);
+  }
+
   if (restore) {
     // 손으로 만진 값을 불러온 프로필로 되돌린다. **두 번 눌러야 적용된다** —
     // 한 번에 나가면 잘못 눌러 만져 둔 값을 통째로 잃고, 되돌릴 길이 없다

@@ -933,3 +933,92 @@ describe('character settings editor', () => {
     expect(value?.overload?.atk_pct).toBe(40);
   });
 });
+
+describe('육성 양 끝', () => {
+  // 개별 설정이 **켜져 있어야** 수치 판이 그려진다(`if (!value) return`).
+  const panel = (value: CharacterOverrides = {}) => {
+    const host = document.createElement('div');
+    document.body.append(host);
+    let last: CharacterOverrides | null = null;
+    renderCharacterSettings(host, '리타', settings, value, (next) => { last = next ?? null; });
+    return { host, got: () => last };
+  };
+
+  it('두 번 눌러야 적용된다 — 한 번은 되묻기다', () => {
+    const { host, got } = panel();
+    const button = host.querySelector<HTMLButtonElement>('[data-growth-extreme="max"]')!;
+    button.click();
+    expect(got()).toBeNull();
+    expect(button.textContent).toBe('정말 MAX로');
+    button.click();
+    expect(got()).not.toBeNull();
+  });
+
+  it('MAX는 돌파·스킬·장비·소장품·큐브를 끝까지 올린다', () => {
+    const { host, got } = panel();
+    const button = () => host.querySelector<HTMLButtonElement>('[data-growth-extreme="max"]')!;
+    button().click();
+    button().click();
+    const next = got()!;
+    expect(next.growthStage).toBe(settings.characters['리타']!.maxGrowthStage);
+    expect(next.skillLevels).toEqual({ 1: 10, 2: 10, 3: 10 });
+    expect(Object.values(next.equipLevels!)).toEqual([5, 5, 5, 5]);
+    expect(next.collection!.stage).toBe('SR15');
+    expect(next.cube!.level).toBeGreaterThan(0);
+  });
+
+  it('무육성은 아무것도 안 키운 상태로 두고 오버로드도 지운다', () => {
+    const { host, got } = panel();
+    const button = () => host.querySelector<HTMLButtonElement>('[data-growth-extreme="none"]')!;
+    button().click();
+    button().click();
+    const next = got()!;
+    expect(next.growthStage).toBe(0);
+    expect(next.skillLevels).toEqual({ 1: 1, 2: 1, 3: 1 });
+    expect(Object.values(next.equipLevels!)).toEqual(['없음', '없음', '없음', '없음']);
+    expect(next.collection).toEqual({ stage: '없음', favorite: 0 });
+    expect(next.cube!.name).toBe('없음');
+    expect(next.overload).toBeUndefined();
+    expect(next.overloadLines).toBeUndefined();
+  });
+
+  it('운용은 양 끝에서도 그대로 남는다 — 육성이 아니다', () => {
+    const { host, got } = panel({ control: { cover: { policy: 'own_full_burst' } } });
+    const button = () => host.querySelector<HTMLButtonElement>('[data-growth-extreme="max"]')!;
+    button().click();
+    button().click();
+    expect(got()!.control).toEqual({ cover: { policy: 'own_full_burst' } });
+  });
+});
+
+describe('부위 단위 오버로드 옮기기', () => {
+  // 부위 3줄 입력은 레벨별 값표(`overloadSteps`)가 있어야 그려진다.
+  const withSteps: SettingsCatalog = {
+    ...settings,
+    overloadSteps: { atk_pct: Array.from({ length: 15 }, (_, at) => (at + 1) * 1.5) },
+  };
+
+  it('한 부위를 복사해 다른 부위에 통째로 붙인다', () => {
+    // 네 부위에 같은 세 줄을 넣으려면 열두 번을 골라야 했다.
+    const host = document.createElement('div');
+    document.body.append(host);
+    let last: CharacterOverrides | null = null;
+    renderCharacterSettings(host, '리타', withSteps, {
+      overloadLines: { 머리: [{ option: 'atk_pct', level: 5 }] },
+    }, (next) => { last = next ?? null; });
+
+    const paste = () => host.querySelector<HTMLButtonElement>('[data-overload-part-paste="다리"]')!;
+    // 복사하기 전에는 붙일 것이 없다.
+    expect(paste().disabled).toBe(true);
+
+    host.querySelector<HTMLButtonElement>('[data-overload-part-copy="머리"]')!.click();
+    expect(paste().disabled).toBe(false);
+    paste().click();
+
+    const lines = last!.overloadLines!;
+    expect(lines['다리']![0]).toEqual(lines['머리']![0]);
+    expect(lines['다리']![0]!.option).toBe('atk_pct');
+    // 합계도 줄에서 다시 세어진다 — 붙였는데 계산이 안 따라가면 안 된다.
+    expect(last!.overload!.atk_pct).toBeGreaterThan(0);
+  });
+});
