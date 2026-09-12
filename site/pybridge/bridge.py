@@ -43,6 +43,12 @@ FINE_BUCKET = 0.1
 # 칸마다 «몇 발 · 그중 코어 몇 발»로 접어 보낸다. 그림에 필요한 것은 그 밀도뿐이다.
 SHOT_BUCKET = 0.1
 
+#: 장탄 레인(계산기 타임라인)이 쓰는 칸. 보스 메이커(0.1초)보다 성기게 잡는다 —
+#: 이쪽은 **모든 계산**에 실려 결과 캐시에도 그대로 쌓이므로 크기가 그만큼 값이다.
+#: 0.25초면 제일 짧은 재장전(0.65초)도 세 칸에 걸려 톱니가 읽힌다. 재장전 구간
+#: 자체는 칸과 무관하게 초 단위 그대로 실어 보내므로 경계가 뭉개지지 않는다.
+STATE_BUCKET = 0.25
+
 # 무한 장탄의 센티널. 엔진이 `max_ammo`를 999999로 두므로(`timeline.py`) 그 언저리
 # 값은 «무한»이라는 뜻이지 탄창 크기가 아니다.
 AMMO_SENTINEL = 99_999
@@ -646,4 +652,8 @@ def run_request(raw: str) -> str:
         response["shots"] = _build_shots(result, names)
         # 사격 트랙을 볼 때는 탄환·재장전도 같이 본다 — 둘이 한 화면에서 읽힌다.
         response["states"] = _build_states(result, names)
+    elif bool(payload.get("stateTrack")):
+        # 계산기 타임라인의 장탄 레인. 「왜 여기서 딜이 끊기나」가 대개 탄이 떨어져서라,
+        # 초당 대미지와 같은 축에 깔면 재장전인지 버프가 꺼진 것인지가 갈린다.
+        response["states"] = _build_states(result, names, STATE_BUCKET)
     return json.dumps(response, ensure_ascii=False, separators=(",", ":"))

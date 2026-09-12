@@ -334,3 +334,40 @@ describe('보스 페이즈 밴드', () => {
     expect(series.elementWindows).toEqual([]);
   });
 });
+
+describe('장탄 레인', () => {
+  // 엔진은 이미 「그때 탄이 몇 발이었나」를 세고 있었다(`result.states`) — 화면만 없었다.
+  const entryWith = (states: unknown): DeckResultEntry => ({
+    deckId: 1,
+    request: { squad: ['리타'], duration: 10 } as DeckResultEntry['request'],
+    result: {
+      squadTotal: 100, duration: 10, hitCount: 1, charTotals: { 리타: 100 },
+      previewNote: '', deviations: '',
+      timeline: {
+        bucket: 1, buckets: 10, damage: { 리타: Array.from({ length: 10 }, () => 10) },
+        bursts: {}, fullBurst: [],
+      },
+      ...(states ? { states } : {}),
+    } as DeckResultEntry['result'],
+  });
+
+  it('기록이 없으면 「장탄 표시」 단추를 아예 안 낸다', () => {
+    const block = createTimelineBlock(entryWith(null));
+    expect(block).not.toBeNull();
+    expect(block!.querySelector('[data-timeline-ammo]')).toBeNull();
+  });
+
+  it('기록이 있으면 단추가 서고, 눌러야 켜진다', () => {
+    const block = createTimelineBlock(entryWith({
+      bucket: 1, buckets: 10,
+      chars: { 리타: { ammo: [9, 8, 7, 6, 5, 4, 3, 2, 1, 0], reload: [[9, 10]], maxAmmo: 9 } },
+    }))!;
+    const toggle = block.querySelector<HTMLButtonElement>('[data-timeline-ammo]')!;
+    expect(toggle).not.toBeNull();
+    // 기본은 꺼짐 — 켜 두면 줄이 다섯 늘어 무엇을 보는 화면인지 흐려진다.
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    toggle.click();
+    expect(toggle.getAttribute('aria-pressed')).toBe('true');
+    expect(toggle.classList.contains('is-on')).toBe(true);
+  });
+});

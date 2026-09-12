@@ -525,7 +525,7 @@ export const EN: Record<string, string> = {
   '블라블라링크': 'Blablalink',
   '렛츠도로 CSV': 'Lets-Doro CSV',
   '불러온 값': 'Imported values',
-  '{where}(으)로 되돌리기': 'Revert to {where}',
+  '{where} 되돌리기': 'Revert to {where}',
   '덱 육성 되돌리기': 'Revert deck investment',
   '5덱 육성 되돌리기': 'Revert all 5 decks',
   '이 덱 전원의 육성을 불러온 값으로 되돌립니다. 컨트롤·버스트 운용은 그대로 둡니다':

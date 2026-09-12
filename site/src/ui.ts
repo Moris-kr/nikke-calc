@@ -4,7 +4,7 @@ import {
 import { ResultCache, type StorageLike, type StorageSource } from './cache';
 import { applyBackup, backupFileName, buildBackup, readBackup } from './backup';
 import { isCancelled } from './worker-client';
-import { renderCharacterSettings, type CharPanelKind } from './character-settings';
+import { renderCharacterSettings, withParticle, type CharPanelKind } from './character-settings';
 import {
   BLABLA_SERVERS,
   areaToOverrides,
@@ -513,8 +513,18 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   /** 되돌리기 단추에 적을 곳 이름. 「불러온 값」이라고만 적으면 어디 것인지 몰라 망설여진다. */
   const rosterWhere = (): string => t(rosterSource === 'blabla' ? '블라블라링크'
     : rosterSource === 'csv' ? '렛츠도로 CSV' : '불러온 값');
-  /** 「블라블라링크(으)로 되돌리기」. 곳 이름이 끼므로 통째로 사전을 지난다. */
-  const restoreLabel = (): string => t('{where}(으)로 되돌리기', { where: rosterWhere() });
+  /**
+   * 「블라블라링크로 되돌리기」. 곳 이름이 끼므로 통째로 사전을 지난다.
+   *
+   * 조사는 **한국어일 때만** 붙인다 — 「(으)로」를 글자로 적으면 괄호가 그대로 보이고,
+   * 다른 나라 말에서는 붙일 조사가 아예 없다(`Revert to Blablalink`).
+   */
+  const restoreLabel = (): string => {
+    const where = rosterWhere();
+    return t('{where} 되돌리기', {
+      where: lang() === 'ko' ? withParticle(where, '으로', '로') : where,
+    });
+  };
 
   /**
    * 불러온 값으로 되돌린 육성 한 벌. 불러온 적이 없는 니케면 null.

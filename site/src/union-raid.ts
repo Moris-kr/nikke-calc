@@ -1603,7 +1603,9 @@ export function mountUnionRaid(hosts: UnionHosts, deps: UnionDeps): UnionHandle 
             synchroLevel: job.member.synchro > 0 ? job.member.synchro : job.battle.synchroLevel,
             console: consoles.get(job.member.openid) ?? job.battle.console,
           };
-          const result = await deps.simulate(requestForDeck(deck, battle));
+          // 총딜만 읽는다 — 장탄 트랙은 안 만든다(판이 수백 개다).
+          const result = await deps.simulate(requestForDeck(deck, battle, undefined,
+            { stateTrack: false }));
           results.push({ job, damage: result.squadTotal });
         } catch (error) {
           results.push({ job, error: lastLine(error instanceof Error ? error.message : String(error)) });

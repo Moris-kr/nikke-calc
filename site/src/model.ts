@@ -94,6 +94,7 @@ export function normalizeRequest(request: SimulationRequest): SimulationRequest 
     // 갈리지 않게 하려는 것으로, 다른 필드와 같은 규칙이다.
     ...(request.partBreakInterval ? { partBreakInterval: request.partBreakInterval } : {}),
     ...(request.shotTrack ? { shotTrack: true } : {}),
+    ...(request.stateTrack ? { stateTrack: true } : {}),
     ...(request.piercePass && (request.piercePass.shapes > 1 || request.piercePass.parts > 0)
       ? { piercePass: request.piercePass } : {}),
     ...(request.console ? { console: {
@@ -266,6 +267,12 @@ export function requestForDeck(
   deck: DeckState,
   battle: BattleSettings,
   customCharacters?: SimulationRequest['customCharacters'],
+  /**
+   * 장탄·재장전 트랙을 함께 받을지. 기본은 받는다 — 계산기 타임라인이 쓴다.
+   * **총딜만 읽는 자리는 꺼야 한다**(유니온 레이드는 판이 수백 개라, 안 읽을 트랙을
+   * 판마다 만들어 실어 나르는 값이 그대로 기다림이 된다).
+   */
+  options: { stateTrack?: boolean } = {},
 ): SimulationRequest {
   return normalizeRequest({
     squad: deck.squad,
@@ -292,6 +299,9 @@ export function requestForDeck(
     burstReaction: battle.burstReaction,
     // 편성이 바뀌었으면 없는 이름을 떨궈서 싣는다 — 조용히 틀린 순서로 돌지 않게.
     ...(sequenceForDeck(deck) ? { burstSequence: sequenceForDeck(deck)! } : {}),
+    // 장탄·재장전 트랙. 타임라인의 「장탄 표시」가 쓴다 — 딜이 끊긴 자리가 재장전인지
+    // 버프가 꺼진 것인지는 이 줄이 없으면 못 가른다.
+    ...(options.stateTrack === false ? {} : { stateTrack: true }),
   });
 }
 

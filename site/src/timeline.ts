@@ -1,7 +1,9 @@
 import { formatDamage } from './model';
 import { statText } from './stat-names';
 import { spanTargets } from './types';
-import type { BattleTimeline, BuffSpan, BuffTrack, DeckResultEntry } from './types';
+import type {
+  BattleTimeline, BuffSpan, BuffTrack, DeckResultEntry, StateTrack,
+} from './types';
 
 const LINE_COLORS = ['#45d6d0', '#ffbf3c', '#9b8cff', '#5fd08a', '#ff7db0'];
 const MIN_SPAN = 4; // 최대 확대: 화면에 4초까지
@@ -24,6 +26,17 @@ const BUFF_PAD = 8;         // 레인과 그래프 사이 여백
 const BUFF_STACK_W = 20;    // 막대 오른쪽 «중첩 수» 자리 — 이름보다 이쪽이 우선이다
 const BUFF_MIN_W = 6;       // 이보다 좁으면 글자를 넣지 않는다
 const BASE_H = 424;         // 그래프만 있을 때 높이(CSS와 같은 값) — 레인은 이 위로 더 붙는다
+
+// 장탄 레인 — 그래프 **아래**, 버스트 핀 위에 눕는다. 한 줄이 캐릭터 하나다.
+//
+// 「왜 이 니케가 중간에 딜이 끊기나」는 대개 탄이 떨어져서다. 초당 대미지 곡선만으로는
+// 그 골이 재장전인지 버프가 꺼진 것인지 구분되지 않는데, 같은 시간축에 탄을 깔면
+// 한눈에 갈린다. 엔진은 이미 세고 있었고(`result.states`) 화면만 없었다.
+const AMMO_ROW_H = 14;
+const AMMO_GAP = 3;
+const AMMO_PAD = 8;
+/** 무한 장탄 센티널. 파이썬 쪽 `AMMO_SENTINEL`과 같은 값이다. */
+const AMMO_INFINITE = 99_999;
 
 export interface TimelineSeries {
   names: string[];
@@ -210,11 +223,15 @@ class TimelineChart {
 
   private portraits = new Map<string, HTMLImageElement>();
 
+  /** 「장탄 표시」를 켰는가. 껐을 때는 레인을 아예 만들지 않는다. */
+  private showAmmo = false;
+
   constructor(
     private canvas: HTMLCanvasElement,
     private tooltip: HTMLElement,
     private series: TimelineSeries,
     portraitUrls: Record<string, string> = {},
+    private states: StateTrack | null = null,
   ) {
     this.ctx = canvas.getContext('2d');
     this.view0 = 0;
@@ -265,14 +282,93 @@ class TimelineChart {
     return this.buffRows.length * (BUFF_H + BUFF_GAP) + BUFF_PAD;
   }
 
+  /** 장탄 레인에 그릴 캐릭터. 범례에서 끈 사람과 기록이 없는 사람은 뺀다. */
+  private ammoRows(): string[] {
+    if (!this.showAmmo || !this.states) return [];
+    return this.series.names.filter((name) =>
+      !this.hidden.has(name) && (this.states!.chars[name]?.ammo.length ?? 0) > 0);
+  }
+
+  /** 장탄 레인이 차지하는 높이. 꺼져 있거나 그릴 게 없으면 0이다. */
+  private ammoLaneHeight(): number {
+    const rows = this.ammoRows().length;
+    return rows === 0 ? 0 : rows * (AMMO_ROW_H + AMMO_GAP) + AMMO_PAD;
+  }
+
   private layout(): Rect {
     const rect = this.canvas.getBoundingClientRect();
     const width = rect.width || this.canvas.width;
     const height = rect.height || this.canvas.height;
-    // 위쪽에 버프 레인, 아래쪽에 축(34) + 핀 레인을 비워 둔다.
+    // 위쪽에 버프 레인, 아래쪽에 장탄 레인 + 축(34) + 핀 레인을 비워 둔다.
     const lane = this.buffLaneHeight();
+    const ammo = this.ammoLaneHeight();
     return { left: 58, top: 12 + lane, width: Math.max(1, width - 58 - 14),
-             height: Math.max(1, height - 12 - lane - 34 - PIN_LANE) };
+             height: Math.max(1, height - 12 - lane - ammo - 34 - PIN_LANE) };
+  }
+
+  /** 기록이 있는가 — 없으면 「장탄 표시」 단추를 아예 안 낸다. */
+  get hasAmmo(): boolean {
+    return this.states !== null
+      && this.series.names.some((name) => (this.states!.chars[name]?.ammo.length ?? 0) > 0);
+  }
+
+  setShowAmmo(on: boolean): void {
+    this.showAmmo = on;
+    this.resize();
+  }
+
+  /**
+   * 장탄 레인을 그린다. 한 줄이 캐릭터 하나 — 남은 탄이 높이가 되고, 재장전 구간은
+   * 붉게 깐다. 무한 장탄(변신 모드)은 채운 채로 두고 색만 달리한다.
+   */
+  private drawAmmo(ctx: CanvasRenderingContext2D, y0: number): void {
+    const rows = this.ammoRows();
+    if (rows.length === 0 || !this.states) return;
+    const { left, width } = this.plot;
+    const bucket = this.states.bucket || 1;
+    rows.forEach((name, index) => {
+      const row = this.states!.chars[name]!;
+      const top = y0 + index * (AMMO_ROW_H + AMMO_GAP);
+      ctx.fillStyle = 'rgba(146,176,201,0.07)';
+      ctx.fillRect(left, top, width, AMMO_ROW_H);
+
+      // 남은 탄 — 칸마다 세로 막대. 최대 장탄을 모르면(0) 채우지 않는다.
+      const max = row.maxAmmo;
+      const color = this.series.colors[name] ?? '#45d6d0';
+      for (let at = 0; at < this.states!.buckets; at += 1) {
+        const t0 = at * bucket;
+        if (t0 + bucket < this.view0 || t0 > this.view1) continue;
+        const ammo = row.ammo[at] ?? 0;
+        if (ammo <= 0) continue;
+        const x0 = Math.max(left, this.xFor(t0));
+        const x1 = Math.min(left + width, this.xFor(t0 + bucket));
+        const w = Math.max(0.6, x1 - x0);
+        const infinite = ammo >= AMMO_INFINITE;
+        const frac = infinite ? 1 : (max > 0 ? Math.min(1, ammo / max) : 0);
+        if (frac <= 0) continue;
+        ctx.fillStyle = infinite ? 'rgba(255,191,60,0.55)' : color;
+        ctx.globalAlpha = infinite ? 1 : 0.55;
+        ctx.fillRect(x0, top + AMMO_ROW_H * (1 - frac), w, AMMO_ROW_H * frac);
+        ctx.globalAlpha = 1;
+      }
+
+      // 재장전 — 탄이 0인 구간과 겹치므로 위에 얇게 깐다.
+      for (const [from, to] of row.reload) {
+        if (to < this.view0 || from > this.view1) continue;
+        const x0 = Math.max(left, this.xFor(from));
+        const x1 = Math.min(left + width, this.xFor(to));
+        const w = Math.max(1, x1 - x0);
+        ctx.fillStyle = 'rgba(255,119,135,0.35)';
+        ctx.fillRect(x0, top, w, AMMO_ROW_H);
+      }
+
+      ctx.fillStyle = 'rgba(234,242,248,0.75)';
+      ctx.font = '700 9px Pretendard, system-ui, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(fitText(ctx, name, 52), left - 6, top + AMMO_ROW_H / 2);
+      ctx.textAlign = 'left';
+    });
   }
 
   /**
@@ -337,7 +433,7 @@ class TimelineChart {
   private syncHeight(): boolean {
     const wrap = this.canvas.parentElement;
     if (!wrap) return false;
-    const want = `${BASE_H + this.buffLaneHeight()}px`;
+    const want = `${BASE_H + this.buffLaneHeight() + this.ammoLaneHeight()}px`;
     if (wrap.style.height === want) return false;
     wrap.style.height = want;
     return true;
@@ -352,6 +448,8 @@ class TimelineChart {
     const dpr = window.devicePixelRatio || 1;
     ctx.clearRect(0, 0, this.canvas.width / dpr, this.canvas.height / dpr);
 
+    // 장탄 레인이 먹는 높이 — 축 글자와 버스트 핀은 그만큼 아래로 밀린다.
+    const ammoLane = this.ammoLaneHeight();
     const yMax = niceMax(this.series.peak);
     const yFor = (v: number) => top + height - (v / yMax) * height;
 
@@ -422,7 +520,7 @@ class TimelineChart {
       ctx.lineTo(x, top + height);
       ctx.stroke();
       ctx.fillStyle = '#8394a6';
-      ctx.fillText(`${Math.round(t)}s`, x, top + height + 8);
+      ctx.fillText(`${Math.round(t)}s`, x, top + height + ammoLane + 8);
     }
 
     // 버프 막대 — 그래프 위쪽 레인. 색은 «건 사람»의 색이다.
@@ -530,6 +628,9 @@ class TimelineChart {
     }
     ctx.restore();
 
+    // 장탄 레인 — 그래프와 축 사이. 켰을 때만 자리를 차지한다.
+    if (this.showAmmo) this.drawAmmo(ctx, top + height + AMMO_PAD);
+
     // 버스트 핀 — 플롯 아래 레인에 **얼굴**을 꽂는다.
     // 시각순으로 모아 두고, 서로 가까우면 계단식으로 어긋내 겹치지 않게 한다.
     const pins: Array<{ t: number; name: string; stage: string }> = [];
@@ -542,7 +643,7 @@ class TimelineChart {
     }
     pins.sort((a, b) => a.t - b.t);
 
-    const laneTop = top + height + 8;
+    const laneTop = top + height + ammoLane + 8;
     const tierLastX = Array<number>(PIN_STEPS).fill(-Infinity);
     for (const pin of pins) {
       const x = this.xFor(pin.t);
@@ -822,10 +923,10 @@ export function createTimelineBlock(
 
   const note = document.createElement('p');
   note.className = 'timeline-legend';
-  note.textContent = '드래그 이동 · 휠/버튼 확대·축소 · 노란 밴드 = 풀버스트 · 붉은 밴드 = 족자 · 푸른 밴드 = 속저 · 아래 초상화 = 버스트 사용(배지는 단계)';
+  note.textContent = '드래그 이동 · 휠/버튼 확대·축소 · 노란 밴드 = 풀버스트 · 붉은 밴드 = 족자 · 푸른 밴드 = 속저 · 아래 초상화 = 버스트 사용(배지는 단계) · 「장탄 표시」를 켜면 남은 탄과 재장전이 같은 축에 깔립니다';
   block.append(note);
 
-  const chart = new TimelineChart(canvas, tooltip, series, portraitUrls);
+  const chart = new TimelineChart(canvas, tooltip, series, portraitUrls, entry.result.states ?? null);
   // 버프 표시 — 켜면 그래프 위에 막대가 쌓이고 그만큼 그래프가 낮아진다. 기본은 끔이다
   // (막대가 수십 개라 처음부터 켜 두면 무엇을 보는 화면인지 흐려진다).
   if (chart.hasBuffs) {
@@ -847,6 +948,26 @@ export function createTimelineBlock(
       chart.setShowBuffs(on);
     });
     controls.prepend(buffToggle);
+  }
+  // 장탄 표시 — 「왜 여기서 딜이 끊기나」가 대개 탄이 떨어져서다. 초당 대미지만으로는
+  // 그 골이 재장전인지 버프가 꺼진 것인지 안 갈린다. 기본은 끔이다(줄이 다섯 늘어난다).
+  if (chart.hasAmmo) {
+    const ammoToggle = document.createElement('button');
+    ammoToggle.type = 'button';
+    ammoToggle.className = 'timeline-buff-toggle';
+    ammoToggle.dataset.timelineAmmo = '';
+    ammoToggle.setAttribute('aria-pressed', 'false');
+    ammoToggle.title = '캐릭터마다 남은 탄과 재장전 구간을 같은 시간축에 깝니다. 붉은 칸이 재장전입니다';
+    const mark = textSpan('', 'tl-ammo-mark');
+    mark.setAttribute('aria-hidden', 'true');
+    ammoToggle.append(mark, textSpan('장탄 표시', ''));
+    ammoToggle.addEventListener('click', () => {
+      const on = ammoToggle.getAttribute('aria-pressed') !== 'true';
+      ammoToggle.setAttribute('aria-pressed', String(on));
+      ammoToggle.classList.toggle('is-on', on);
+      chart.setShowAmmo(on);
+    });
+    controls.prepend(ammoToggle);
   }
   zoomIn.addEventListener('click', () => chart.zoomBy(0.6));
   zoomOut.addEventListener('click', () => chart.zoomBy(1.8));
