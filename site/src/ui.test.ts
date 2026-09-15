@@ -1897,6 +1897,31 @@ describe('calculator UI', () => {
     for (const name of withItem) expect(settings.characters[name]?.favoriteItem).toBeTruthy();
   });
 
+  it('여러 덱 타임라인을 견주고 개별 상세로 돌아간다', async () => {
+    const client = new FakeClient();
+    client.simulate = async () => ({ ...calculated, timeline: {
+      bucket: 1, buckets: 2, damage: { 리타: [100, 200] }, bursts: {}, fullBurst: [],
+    } });
+    mountCalculator(root, { catalog, settings: { ...settings, buffTargetWatch: {} }, version: 'v1', client, storage: localStorage });
+    const mode = root.querySelector<HTMLInputElement>('#squad-mode')!;
+    mode.checked = true;
+    mode.dispatchEvent(new Event('change'));
+    root.querySelector<HTMLButtonElement>('[data-deck-tab="2"]')!.click();
+    chooseCharacter(root, 0, '리타');
+    root.querySelector<HTMLFormElement>('form')!.requestSubmit();
+    await flush();
+    await flush();
+    const compare = root.querySelector<HTMLButtonElement>('[data-timeline-tab="0"]')!;
+    expect(compare.textContent).toContain('덱끼리 견주기');
+    compare.click();
+    expect(compare.getAttribute('aria-pressed')).toBe('true');
+    expect(root.querySelector('[data-timeline-stage] [data-timeline-comparison]')).not.toBeNull();
+    expect(root.querySelectorAll('[data-timeline-stage] [data-series]')).toHaveLength(2);
+    root.querySelector<HTMLButtonElement>('[data-timeline-tab="2"]')!.click();
+    expect(root.querySelector('[data-timeline-stage] [data-timeline="2"]')).not.toBeNull();
+    expect(root.querySelector('[data-timeline-stage] [data-timeline-comparison]')).toBeNull();
+  });
+
   it('0.1초 버킷에서도 고정 Y축 상한은 그래프와 같은 단위를 쓴다', async () => {
     const client = new FakeClient();
     client.simulate = async () => ({ ...calculated, timeline: {

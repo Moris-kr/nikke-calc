@@ -894,9 +894,57 @@ export function createTimelineBlock(
   });
   if (!series) return null;
 
+  return createSeriesBlock(series, entry.deckId, portraitUrls, entry.result.states ?? null, sharedYMax);
+}
+
+/** 덱별 합산을 1초 이상 공통 구간으로 모아 비교한다. 짧은 전투 뒤는 0으로 채운다. */
+export function buildDeckComparisonSeries(entries: DeckResultEntry[]): TimelineSeries | null {
+  const usable = entries.filter((entry) => entry.result.timeline && buildSeries(
+    entry.result.timeline, entry.request.squad.filter(Boolean), entry.result.duration,
+  ));
+  if (usable.length < 2) return null;
+  const duration = Math.max(...usable.map((entry) => entry.result.duration));
+  const bucket = Math.max(1, ...usable.map((entry) => entry.result.timeline!.bucket || 1));
+  const buckets = Math.ceil(duration / bucket);
+  const damage: Record<string, number[]> = {};
+  for (const entry of usable) {
+    const timeline = entry.result.timeline!;
+    const sourceBucket = timeline.bucket > 0 ? timeline.bucket : 1;
+    const row = Array<number>(buckets).fill(0);
+    for (const name of new Set(entry.request.squad.filter(Boolean))) {
+      for (const [index, value] of (timeline.damage[name] ?? []).entries()) {
+        const from = index * sourceBucket;
+        const to = Math.min(from + sourceBucket, entry.result.duration);
+        if (from >= to) continue;
+        for (let at = Math.floor(from / bucket); at < Math.ceil(to / bucket); at += 1) {
+          const overlap = Math.max(0, Math.min(to, (at + 1) * bucket) - Math.max(from, at * bucket));
+          row[at] = (row[at] ?? 0) + value * overlap / (to - from);
+        }
+      }
+    }
+    damage[`덱 ${entry.deckId}`] = row;
+  }
+  return buildSeries({ bucket, buckets, damage, bursts: {}, fullBurst: [] }, Object.keys(damage), duration);
+}
+
+export function createTimelineComparison(entries: DeckResultEntry[]): HTMLElement | null {
+  const series = buildDeckComparisonSeries(entries);
+  if (!series) return null;
+  const block = createSeriesBlock(series, 0, {}, null);
+  block.dataset.timelineComparison = '';
+  block.querySelector('.timeline-heading')!.textContent = '전투 타임라인 · 덱끼리 견주기';
+  block.querySelector('canvas')!.setAttribute('aria-label', '덱별 합산 대미지를 같은 시간축과 Y축에 겹쳐 비교하는 그래프');
+  block.querySelector('.timeline-legend')!.textContent = `덱별 합산 · ${series.bucket}초 구간 대미지 · 범례를 눌러 덱 표시/숨기기 · 드래그 이동 · 휠/버튼 확대·축소 · 짧은 전투가 끝난 뒤는 0으로 표시합니다. 버스트·버프는 각 덱 탭에서 확인하세요.`;
+  return block;
+}
+
+function createSeriesBlock(
+  series: TimelineSeries, deckId: number, portraitUrls: Record<string, string>,
+  states: StateTrack | null, sharedYMax?: number,
+): HTMLElement {
   const block = document.createElement('div');
   block.className = 'timeline-block';
-  block.dataset.timeline = String(entry.deckId);
+  block.dataset.timeline = String(deckId);
 
   const head = document.createElement('div');
   head.className = 'timeline-head';
@@ -933,7 +981,7 @@ export function createTimelineBlock(
   note.textContent = '드래그 이동 · 휠/버튼 확대·축소 · 노란 밴드 = 풀버스트 · 붉은 밴드 = 족자 · 푸른 밴드 = 속저 · 아래 초상화 = 버스트 사용(배지는 단계) · 「장탄 표시」를 켜면 남은 탄과 재장전이 같은 축에 깔립니다';
   block.append(note);
 
-  const chart = new TimelineChart(canvas, tooltip, series, portraitUrls, entry.result.states ?? null);
+  const chart = new TimelineChart(canvas, tooltip, series, portraitUrls, states);
   const autoY = button('Y축 자동 조절', 'Y축 자동 조절');
   autoY.dataset.timelineAutoY = '';
   autoY.setAttribute('aria-pressed', 'true');

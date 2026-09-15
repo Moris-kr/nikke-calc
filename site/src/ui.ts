@@ -81,7 +81,7 @@ import {
   buildCandidates, mergeRules, normalizeAbbrev, parseAbbrev, SEED_RULES,
   type AbbrevParse, type AbbrevRule,
 } from './squad-abbrev';
-import { createTimelineBlock, niceMax } from './timeline';
+import { createTimelineBlock, createTimelineComparison, niceMax } from './timeline';
 import {
   aggregateDeckResults,
   cacheKey,
@@ -4371,8 +4371,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     }
     resultPanel.append(detail);
 
-    // 타임라인도 한 번에 하나만 본다 — 다섯을 세로로 쌓으면 어느 덱을 보고 있는지
-    // 스크롤 중에 놓친다. 탭은 결과와 같이 **덱 번호 순서 그대로** 선다.
+    // 덱별 상세와 같은 축에 겹친 덱 비교를 탭으로 전환한다.
     timelineBody.replaceChildren();
     const blocks = new Map<number, HTMLElement>();
     let sharedPeak = 0;
@@ -4395,6 +4394,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       if (timelineBlock) blocks.set(entry.deckId, timelineBlock);
     }
     if (blocks.size > 1) {
+      const comparison = createTimelineComparison(batch.decks);
+      if (comparison) blocks.set(0, comparison);
       const tabs = document.createElement('div');
       tabs.className = 'deck-result-tabs timeline-tabs';
       tabs.dataset.timelineTabs = '';
@@ -4413,7 +4414,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         tab.type = 'button';
         tab.className = 'deck-result-tab';
         tab.dataset.timelineTab = String(deckId);
-        tab.append(createText('b', `덱 ${deckId}`));
+        tab.append(createText('b', deckId === 0 ? '덱끼리 견주기' : `덱 ${deckId}`));
         tab.addEventListener('click', () => show(deckId));
         buttons.set(deckId, tab);
         tabs.append(tab);

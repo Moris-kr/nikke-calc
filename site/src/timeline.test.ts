@@ -2,7 +2,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { buildSeries, createTimelineBlock, formatSpan, niceMax, buffRuns, buffTextPlan } from './timeline';
+import { buildDeckComparisonSeries, createTimelineComparison, buildSeries, createTimelineBlock, formatSpan, niceMax, buffRuns, buffTextPlan } from './timeline';
 import { spanTargets } from './types';
 import type { BattleTimeline, BuffTrack, DeckResultEntry } from './types';
 
@@ -392,5 +392,46 @@ describe('타임라인 Y축', () => {
       expect(input.value).toBe('1000');
       expect(toggle.getAttribute('aria-pressed')).toBe('false');
     } finally { vi.restoreAllMocks(); }
+  });
+});
+
+describe('deck timeline comparison', () => {
+  it('adds squad damage on a common time axis and keeps deck identities', () => {
+    const second: DeckResultEntry = { ...entry, deckId: 3, result: { ...entry.result, duration: 2,
+      timeline: { bucket: 0.5, buckets: 4, damage: { 라피: [10, 20, 30, 40], 크라운: [1, 2, 3, 4] }, bursts: {}, fullBurst: [] } } };
+    const series = buildDeckComparisonSeries([entry, second])!;
+    expect(series.names).toEqual(['덱 1', '덱 3']);
+    expect(series.bucket).toBe(1);
+    expect(series.damage['덱 1']).toEqual([0, 100, 200, 50]);
+    expect(series.damage['덱 3']).toEqual([33, 77, 0, 0]);
+    expect(series.totals['덱 3']).toBe(110);
+    expect(series.duration).toBe(4);
+    expect(series.fullBurst).toEqual([]);
+  });
+
+  it('preserves damage across overlapping bins and a partial final interval', () => {
+    const second: DeckResultEntry = { ...entry, deckId: 2, result: { ...entry.result, duration: 1.3,
+      timeline: { bucket: 0.6, buckets: 3, damage: { 라피: [60, 60, 10] }, bursts: {}, fullBurst: [] } } };
+    const series = buildDeckComparisonSeries([entry, second])!;
+    expect(series.damage['덱 2']![0]).toBeCloseTo(100);
+    expect(series.damage['덱 2']![1]).toBeCloseTo(30);
+    expect(series.totals['덱 2']).toBeCloseTo(130);
+  });
+
+  it('requires two decks with usable timelines', () => {
+    expect(createTimelineComparison([entry])).toBeNull();
+    expect(createTimelineComparison([entry, { ...entry, deckId: 2, result: { ...entry.result, timeline: undefined } }])).toBeNull();
+  });
+
+  it('offers deck toggles, shared Y controls and zoom without character-only controls', () => {
+    const block = createTimelineComparison([entry, { ...entry, deckId: 2 }])!;
+    expect(block.dataset.timelineComparison).toBe('');
+    expect(block.querySelector('.timeline-heading')?.textContent).toContain('덱끼리 견주기');
+    const toggle = block.querySelector<HTMLButtonElement>('[data-series="덱 2"]')!;
+    toggle.click();
+    expect(toggle.classList.contains('is-off')).toBe(true);
+    expect(block.querySelector('[data-timeline-y-max]')).not.toBeNull();
+    expect(block.querySelector('[data-timeline-buffs]')).toBeNull();
+    expect(block.querySelector('[data-timeline-ammo]')).toBeNull();
   });
 });
