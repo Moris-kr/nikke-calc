@@ -12,6 +12,7 @@
 export const BACKUP_KEYS = [
   'nikke-state-v1',                  // 편성·개별 설정·전투 조건
   'nikke-roster-v1',                 // 불러온 육성(블라블라링크·CSV)
+  'nikke-account-synchro-v1',        // 계정 싱크로와 적용 여부
   'nikke-roster-source-v1',          // 그 육성을 어디서 불러왔나
   'nikke-custom-v1',                 // 직접 추가한 니케
   'nikke-presets-v1',                // 이름 붙여 저장한 편성

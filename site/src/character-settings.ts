@@ -622,7 +622,7 @@ export function renderCharacterSettings(
   const burstLast = current.burst?.mode === 'endgame' ? current.burst.seconds : ENDGAME_DEFAULT;
 
   const burstRow = document.createElement('div');
-  burstRow.className = 'burst-row';
+  burstRow.className = 'burst-settings-row';
   const burstSelect = document.createElement('select');
   burstSelect.dataset.burstAssignment = '';
   for (const [optionValue, optionLabel] of [

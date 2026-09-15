@@ -21,14 +21,7 @@ export interface Announcement {
 }
 
 /** 지금 띄울 안내. 하나만 띄운다 — 머리에 두 줄이 쌓이면 둘 다 안 읽힌다. */
-export const ANNOUNCEMENTS: Announcement[] = [
-  {
-    id: '2026-09-05-gov-statement',
-    text: '니케 마이너 갤러리에서 경쟁 콘텐츠 공정성 회복을 위한 이용자 공동성명을 모집중입니다. 많은 참여 부탁드립니다.',
-    linkLabel: '성명 보러 가기 →',
-    href: 'https://gall.dcinside.com/mgallery/board/view/?id=gov&no=6116829&exception_mode=recommend&page=1',
-  },
-];
+export const ANNOUNCEMENTS: Announcement[] = [];
 
 /** 닫은 id를 적어 두는 자리. 브라우저마다 따로 기억한다. */
 export const ANNOUNCEMENT_KEY = 'nikke-announcement-seen';

@@ -81,7 +81,7 @@ import {
   buildCandidates, mergeRules, normalizeAbbrev, parseAbbrev, SEED_RULES,
   type AbbrevParse, type AbbrevRule,
 } from './squad-abbrev';
-import { createTimelineBlock } from './timeline';
+import { createTimelineBlock, niceMax } from './timeline';
 import {
   aggregateDeckResults,
   cacheKey,
@@ -448,6 +448,22 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const resolveStorage = (): StorageLike | null => {
     const source = typeof storage === 'function' ? storage() : storage;
     return source ?? null;
+  };
+  const ACCOUNT_SYNCHRO_KEY = 'nikke-account-synchro-v1';
+  let accountSynchro: number | null = null;
+  let useAccountSynchro = true;
+  try {
+    const raw = resolveStorage()?.getItem(ACCOUNT_SYNCHRO_KEY);
+    const stored = raw ? JSON.parse(raw) : null;
+    if (stored && typeof stored.enabled === 'boolean') useAccountSynchro = stored.enabled;
+    if (stored && Number.isInteger(stored.level) && stored.level >= 1 && stored.level <= SYNCHRO_MAX) {
+      accountSynchro = stored.level;
+    }
+  } catch { /* 저장소가 없으면 첫 동기화에서 채운다. */ }
+  const saveAccountSynchro = () => {
+    try {
+      resolveStorage()?.setItem(ACCOUNT_SYNCHRO_KEY, JSON.stringify({ level: accountSynchro, enabled: useAccountSynchro }));
+    } catch { /* 이번 화면에서는 계속 쓸 수 있다. */ }
   };
   // jsdom에는 scrollIntoView가 없다. 화면을 끌어오는 건 편의라, 없는 환경에서는
   // 건너뛰어도 렌더가 깨지지 않는다 — 직접 부르면 테스트가 처리되지 않은 오류로 끊긴다.
@@ -978,6 +994,10 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             </label>
             <label class="toggle-field mode-toggle quick-core" title="코어가 있으면 그 자리를 맞힌 탄이 코어 배율을 받습니다">
               <input type="checkbox" data-quick-core /><span class="toggle"></span><span>코어 있음</span>
+            </label>
+            <label class="toggle-field mode-toggle quick-synchro" title="블라블라링크에서 받아 온 싱크로를 적용합니다. 끄면 솔로레이드 기준 400으로 계산합니다">
+              <input type="checkbox" data-account-synchro disabled /><span class="toggle"></span><span>내 싱크로 적용</span>
+              <small data-account-synchro-label></small>
             </label>
           </div>
           <!-- 핵을 켜 두면 결과가 인게임과 다르다. 그 사실은 결과를 보기 전에,
@@ -3343,6 +3363,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   // 만져도 반대쪽이 따라온다 — 두 벌로 두면 무엇이 진짜인지 알 수 없게 된다.
   const quickCode = element<HTMLSelectElement>(root, '[data-quick-enemy-code]');
   const quickCore = element<HTMLInputElement>(root, '[data-quick-core]');
+  const quickSynchro = element<HTMLInputElement>(root, '[data-account-synchro]');
+  const quickSynchroLabel = element<HTMLElement>(root, '[data-account-synchro-label]');
   const hackBanner = element<HTMLElement>(root, '[data-hack-banner]');
   const hackBannerList = element<HTMLElement>(root, '[data-hack-banner-list]');
   const settingsPanel = element<HTMLElement>(root, '.settings-panel');
@@ -3368,8 +3390,21 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     battleSummary.textContent = summarizeBattle(battle) + perDeckCore;
     quickCode.value = battle.enemyCode;
     quickCore.checked = battle.coreEnabled;
+    quickSynchro.disabled = accountSynchro === null;
+    quickSynchro.checked = accountSynchro !== null && useAccountSynchro && battle.synchroLevel === accountSynchro;
+    quickSynchroLabel.textContent = accountSynchro === null
+      ? t('연동 후 사용') : t('계정 {n} · 현재 {level}', { n: accountSynchro, level: battle.synchroLevel });
     refreshHacks(battle.hacks ?? NO_HACKS);
   };
+  quickSynchro.addEventListener('change', () => {
+    if (accountSynchro === null) return;
+    useAccountSynchro = quickSynchro.checked;
+    saveAccountSynchro();
+    element<HTMLInputElement>(root, '#synchro-level').value = String(useAccountSynchro ? accountSynchro : DEFAULT_SYNCHRO_LEVEL);
+    saveState();
+    refreshBattleSummary();
+    scheduleSquadPower();
+  });
   quickCode.addEventListener('change', () => {
     element<HTMLSelectElement>(root, '#enemy-code').value = quickCode.value;
     element<HTMLSelectElement>(root, '#enemy-code').dispatchEvent(new Event('change', { bubbles: true }));
@@ -4340,6 +4375,15 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     // 스크롤 중에 놓친다. 탭은 결과와 같이 **덱 번호 순서 그대로** 선다.
     timelineBody.replaceChildren();
     const blocks = new Map<number, HTMLElement>();
+    let sharedPeak = 0;
+    for (const { result } of batch.decks) {
+      const timeline = result.timeline;
+      if (!timeline) continue;
+      for (const row of Object.values(timeline.damage)) {
+        for (const damage of row) sharedPeak = Math.max(sharedPeak, damage);
+      }
+    }
+    const sharedYMax = niceMax(sharedPeak);
     for (const entry of batch.decks) {
       // 버스트 핀에 쓸 초상화. 캔버스가 직접 그리므로 URL만 넘긴다.
       const portraitUrls: Record<string, string> = {};
@@ -4347,7 +4391,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         const image = catalogByName.get(name)?.image;
         if (image) portraitUrls[name] = `${import.meta.env.BASE_URL}${image}`;
       }
-      const timelineBlock = createTimelineBlock(entry, portraitUrls);
+      const timelineBlock = createTimelineBlock(entry, portraitUrls, sharedYMax);
       if (timelineBlock) blocks.set(entry.deckId, timelineBlock);
     }
     if (blocks.size > 1) {
@@ -4773,6 +4817,10 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   form.addEventListener('change', (event) => {
     const target = event.target as HTMLElement | null;
     if (target?.closest('.settings-panel')) {
+      if (target.id === 'synchro-level' && accountSynchro !== null) {
+        useAccountSynchro = Number((target as HTMLInputElement).value) === accountSynchro;
+        saveAccountSynchro();
+      }
       saveState();
       refreshBattleSummary();
       // 싱크로·콘솔은 전투력을 통째로 바꾼다 — 편성 카드의 숫자도 따라가야 한다.
@@ -5416,7 +5464,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   element<HTMLButtonElement>(root, '[data-reset-confirm]').addEventListener('click', () => {
     cache.clear();
     const store = resolveStorage();
-    for (const key of [STATE_KEY, ROSTER_KEY, CUSTOM_KEY]) {
+    for (const key of [STATE_KEY, ROSTER_KEY, CUSTOM_KEY, ACCOUNT_SYNCHRO_KEY]) {
       try {
         store?.removeItem(key);
       } catch {
@@ -5567,14 +5615,15 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         // 콘솔은 계정 단위라 전투 설정 쪽에 있다. 전초기지가 비공개면 안 오고, 그때는
         // 손대지 않는 게 맞다 — 0으로 덮으면 멀쩡하던 값이 사라진다.
         const consoleLevels = consoleFrom(area);
-        // 싱크로도 계정 값으로 맞춘다. 기본값 400은 «솔로레이드 기준» 자리채움이라,
-        // 내 계정으로 재려면 실제 레벨이어야 한다 — 소대에 든 니케는 전원이 이 레벨이다.
-        const accountSynchro = synchroFrom(area);
+        // 계정 레벨과 이번 계산의 레벨은 따로 보관한다. 재동기화해도 400 선택을 지킨다.
+        const syncedLevel = synchroFrom(area);
+        accountSynchro = syncedLevel !== null && syncedLevel <= SYNCHRO_MAX ? syncedLevel : null;
+        saveAccountSynchro();
         if (consoleLevels || accountSynchro !== null) {
           writeBattle({
             ...readBattle(),
             ...(consoleLevels ? { console: consoleLevels } : {}),
-            ...(accountSynchro !== null ? { synchroLevel: accountSynchro } : {}),
+            ...(accountSynchro !== null && useAccountSynchro ? { synchroLevel: accountSynchro } : {}),
           });
         }
 
@@ -5585,7 +5634,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         const parts = [`블라블라링크 ${serverLabel} ${matched.length}명 적용`];
         if (unmatched.length > 0) parts.push(`미지원 ${unmatched.length}명 제외`);
         if (consoleLevels) parts.push('콘솔 레벨 함께 적용');
-        if (accountSynchro !== null) parts.push(`싱크로 ${accountSynchro} 적용`);
+        if (accountSynchro !== null) parts.push(useAccountSynchro ? `싱크로 ${accountSynchro} 적용` : `계정 싱크로 ${accountSynchro} 저장`);
+        refreshBattleSummary();
         updateRosterNote(parts.join(' · '));
         setStatus([`${serverLabel} 서버에서 ${matched.length}명을 불러왔습니다.`, ...notes].join(' '));
       } catch (error) {

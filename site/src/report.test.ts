@@ -46,6 +46,23 @@ const batchOf = (decks: DeckResultEntry[]): BatchResult => ({
 describe('report image', () => {
   afterEach(() => { vi.unstubAllGlobals(); });
 
+  it('1덱과 5덱은 같은 크기로 내보내고 1덱 초상화를 크게 그린다', () => {
+    const portraitsDrawn: number[] = [];
+    const ctx = new Proxy({ measureText: () => ({ width: 30 }),
+      drawImage: (...args: number[]) => { portraitsDrawn.push(args[7]!); } },
+      { get: (target, key) => Reflect.get(target, key) ?? (() => {}) });
+    const createCanvas = () => ({ width: 0, height: 0, getContext: () => ctx }) as unknown as HTMLCanvasElement;
+    const squad = ['리타', '크라운', '라피 : 레드 후드', '앨리스', '나가'];
+    const portraits = new Map(squad.map(name => [name, { naturalWidth: 100, naturalHeight: 100 } as HTMLImageElement]));
+    const single = renderReport(batchOf([entry(1, squad, 1000)]), meta, portraits, createCanvas);
+    const largePortrait = Math.max(...portraitsDrawn);
+    portraitsDrawn.length = 0;
+    const five = renderReport(batchOf([1, 2, 3, 4, 5].map(id => entry(id, squad, 1000))), meta, portraits, createCanvas);
+    expect([single.width, single.height]).toEqual([five.width, five.height]);
+    expect(largePortrait).toBeGreaterThanOrEqual(80);
+    expect(largePortrait).toBeGreaterThan(Math.max(...portraitsDrawn));
+  });
+
   it('keeps the squad slot order instead of ranking by damage', () => {
     // 니케는 배치 순서가 전투에 영향을 준다. 딜 순으로 재정렬하면 보고서가 실제
     // 편성과 다른 그림이 되므로, 좌→우 편성을 위→아래로 그대로 옮겨야 한다.

@@ -225,6 +225,12 @@ class TimelineChart {
 
   /** 「장탄 표시」를 켰는가. 껐을 때는 레인을 아예 만들지 않는다. */
   private showAmmo = false;
+  private fixedYMax: number | null = null;
+
+  setYMax(value: number | null): void {
+    this.fixedYMax = value;
+    this.draw();
+  }
 
   constructor(
     private canvas: HTMLCanvasElement,
@@ -450,7 +456,7 @@ class TimelineChart {
 
     // 장탄 레인이 먹는 높이 — 축 글자와 버스트 핀은 그만큼 아래로 밀린다.
     const ammoLane = this.ammoLaneHeight();
-    const yMax = niceMax(this.series.peak);
+    const yMax = this.fixedYMax ?? niceMax(this.series.peak);
     const yFor = (v: number) => top + height - (v / yMax) * height;
 
     // 풀버스트 밴드
@@ -877,6 +883,7 @@ class TimelineChart {
 export function createTimelineBlock(
   entry: DeckResultEntry,
   portraitUrls: Record<string, string> = {},
+  sharedYMax?: number,
 ): HTMLElement | null {
   const timeline = entry.result.timeline;
   if (!timeline) return null;
@@ -927,6 +934,34 @@ export function createTimelineBlock(
   block.append(note);
 
   const chart = new TimelineChart(canvas, tooltip, series, portraitUrls, entry.result.states ?? null);
+  const autoY = button('Y축 자동 조절', 'Y축 자동 조절');
+  autoY.dataset.timelineAutoY = '';
+  autoY.setAttribute('aria-pressed', 'true');
+  const yLabel = document.createElement('label');
+  yLabel.className = 'timeline-y-limit';
+  const yInput = document.createElement('input');
+  yInput.type = 'number';
+  yInput.min = '1';
+  yInput.step = 'any';
+  yInput.dataset.timelineYMax = '';
+  yInput.disabled = true;
+  let fixedMax = sharedYMax && Number.isFinite(sharedYMax) && sharedYMax > 0
+    ? sharedYMax : niceMax(series.peak);
+  yInput.value = String(fixedMax);
+  yLabel.append(textSpan('Y축 상한', ''), yInput);
+  autoY.addEventListener('click', () => {
+    const automatic = autoY.getAttribute('aria-pressed') !== 'true';
+    autoY.setAttribute('aria-pressed', String(automatic));
+    yInput.disabled = automatic;
+    chart.setYMax(automatic ? null : fixedMax);
+  });
+  yInput.addEventListener('change', () => {
+    const value = Number(yInput.value);
+    if (Number.isFinite(value) && value >= 1) fixedMax = value;
+    yInput.value = String(fixedMax);
+    if (!yInput.disabled) chart.setYMax(fixedMax);
+  });
+  controls.prepend(autoY, yLabel);
   // 버프 표시 — 켜면 그래프 위에 막대가 쌓이고 그만큼 그래프가 낮아진다. 기본은 끔이다
   // (막대가 수십 개라 처음부터 켜 두면 무엇을 보는 화면인지 흐려진다).
   if (chart.hasBuffs) {

@@ -5,7 +5,7 @@
 // 않아 `toBlob`으로 뽑아낼 수 있다.
 //
 // 레이아웃은 두 가지다.
-//   1덱  → 세로 카드: 총딜을 머리에 세우고 캐릭터별 기여도와 평타/스킬 분해
+//   1덱  → 5덱과 같은 가로 카드: 큰 초상화·개별딜과 작은 평타/스킬 막대
 //   5덱  → 합계 헤드라인 + 덱 5열: 전체 합계가 주인공이고 25명 개별딜을 모두 싣는다
 
 import { formatDamage, formatDps } from './model';
@@ -207,10 +207,11 @@ export const conditionChips = (entry: DeckResultEntry): string[] => {
   return chips;
 };
 
-// ── A · 1덱 세로 카드 ──────────────────────────────────────────────────────
+// ── A · 1덱 가로 카드 ──────────────────────────────────────────────────────
 
-const CARD_W = 760;
+const CARD_W = 1200;
 const PAD = 34;
+const SINGLE_H = 442;
 
 function drawSingle(
   ctx: CanvasRenderingContext2D,
@@ -218,71 +219,38 @@ function drawSingle(
   meta: ReportMeta,
   portraits: Map<string, HTMLImageElement>,
 ): number {
-  const rows = reportRows(entry, portraits);
-  let y = PAD + 16;
+  text(ctx, `NIKKE SQUAD SIM · ${entry.result.duration}s`, PAD, 50, 11, COLOR.cyan, 800);
+  text(ctx, meta.deckNames?.[entry.deckId] ?? '1덱 전투 결과', PAD, 80, 26, COLOR.ink, 800);
+  text(ctx, '스쿼드 총 대미지', CARD_W - PAD, 50, 12, COLOR.muted, 500, 'right');
+  text(ctx, formatDamage(entry.result.squadTotal), CARD_W - PAD, 88, 44, COLOR.ink, 800, 'right');
+  text(ctx, formatDps(entry.result.squadTotal / entry.result.duration), CARD_W - PAD, 110, 12, COLOR.muted, 500, 'right');
+  line(ctx, PAD, 126, CARD_W - PAD * 2);
 
-  text(ctx, `NIKKE SQUAD SIM · ${entry.result.duration}s`, PAD, y, 11, COLOR.cyan, 800);
-  y += 26;
-  ctx.font = `800 26px ${FONT}`;
-  ctx.fillStyle = COLOR.ink;
-  ctx.textAlign = 'left';
-  ctx.fillText('전투 결과 ', PAD, y);
-  const titleWidth = ctx.measureText('전투 결과 ').width;
-  text(ctx, '리포트', PAD + titleWidth, y, 26, COLOR.amber, 800);
-
-  y += 22;
-  line(ctx, PAD, y, CARD_W - PAD * 2);
-  y += 30;
-
-  text(ctx, '스쿼드 총 대미지', PAD, y, 12, COLOR.muted, 500);
-  text(ctx, formatDamage(entry.result.squadTotal), CARD_W - PAD, y + 4, 40, COLOR.ink, 800, 'right');
-  y += 26;
-  text(ctx, formatDps(entry.result.squadTotal / entry.result.duration), CARD_W - PAD, y, 12, COLOR.muted, 500, 'right');
-
-  y += 20;
-  line(ctx, PAD, y, CARD_W - PAD * 2);
-  y += 24;
-
-  for (const row of rows) {
-    portrait(ctx, row.portrait, PAD, y, 40, 7);
-    const nameX = PAD + 52;
-    text(ctx, ellipsis(ctx, row.name, 15, 700, 300), nameX, y + 17, 15, COLOR.ink, 700);
-    text(ctx, `${row.share.toFixed(1)}% 기여`, nameX, y + 34, 11, COLOR.muted, 500);
-    text(ctx, formatDamage(row.damage), CARD_W - PAD, y + 18, 19, COLOR.cyan, 800, 'right');
-    text(ctx, formatDps(row.damage / entry.result.duration), CARD_W - PAD, y + 34, 11, COLOR.muted, 500, 'right');
-
-    // 평타/스킬 2색 막대. 분해 정보가 없으면(구버전 캐시) 기여도 단색 막대로 둔다.
-    const barY = y + 46;
-    const barW = CARD_W - PAD * 2;
-    ctx.fillStyle = COLOR.track;
-    ctx.fillRect(PAD, barY, barW, 4);
+  const colW = (CARD_W - PAD * 2 - 16 * 4) / 5;
+  reportRows(entry, portraits).forEach((row, index) => {
+    const x = PAD + index * (colW + 16);
+    portrait(ctx, row.portrait, x, 145, 88, 10);
+    text(ctx, `${row.share.toFixed(1)}%`, x + colW, 222, 16, COLOR.muted, 600, 'right');
+    text(ctx, ellipsis(ctx, row.name, 16, 700, colW), x, 259, 16, COLOR.ink, 700);
+    text(ctx, formatDamage(row.damage), x, 290, 28, COLOR.cyan, 800);
+    text(ctx, formatDps(row.damage / entry.result.duration), x, 312, 12, COLOR.muted, 500);
     const split = row.normal + row.skill;
+    ctx.fillStyle = COLOR.track;
+    ctx.fillRect(x, 326, colW, 4);
+    ctx.fillStyle = COLOR.cyan;
+    ctx.fillRect(x, 326, colW * row.share / 100, 4);
     if (split > 0) {
-      const normalW = barW * (row.normal / split) * (row.share / 100);
-      const skillW = barW * (row.skill / split) * (row.share / 100);
-      ctx.fillStyle = COLOR.cyan;
-      ctx.fillRect(PAD, barY, normalW, 4);
+      const normalW = colW * row.share / 100 * row.normal / split;
       ctx.fillStyle = COLOR.amber;
-      ctx.fillRect(PAD + normalW, barY, skillW, 4);
-      const pct = (part: number) => (part / split * 100).toFixed(1);
-      text(ctx, `평타 ${formatDamage(row.normal)} (${pct(row.normal)}%)`, PAD, barY + 20, 11, COLOR.cyan, 600);
-      text(ctx, `스킬 ${formatDamage(row.skill)} (${pct(row.skill)}%)`, PAD + 172, barY + 20, 11, COLOR.amber, 600);
-      y = barY + 34;
-    } else {
-      ctx.fillStyle = COLOR.cyan;
-      ctx.fillRect(PAD, barY, barW * (row.share / 100), 4);
-      y = barY + 18;
+      ctx.fillRect(x + normalW, 326, colW * row.share / 100 - normalW, 4);
+      text(ctx, `평타 ${formatDamage(row.normal)}`, x, 350, 11, COLOR.cyan, 500);
+      text(ctx, `스킬 ${formatDamage(row.skill)}`, x + colW, 350, 11, COLOR.amber, 500, 'right');
     }
-    line(ctx, PAD, y, barW, COLOR.lineSoft);
-    y += 18;
-  }
-
-  y += 2;
-  y = factChips(ctx, conditionChips(entry), PAD, y);
-  y += 26;
-  text(ctx, meta.siteUrl, PAD, y, 11, COLOR.muted, 500);
-  text(ctx, `${entry.result.hitCount.toLocaleString('en-US')} 히트`, CARD_W - PAD, y, 11, COLOR.muted, 500, 'right');
-  return y + PAD - 6;
+  });
+  factChips(ctx, conditionChips(entry), PAD, 366);
+  text(ctx, meta.siteUrl, PAD, 414, 11, COLOR.muted, 500);
+  text(ctx, `${entry.result.hitCount.toLocaleString('en-US')} 히트`, CARD_W - PAD, 414, 11, COLOR.muted, 500, 'right');
+  return SINGLE_H;
 }
 
 // ── K · 5덱 합계 헤드라인 + 덱 5열 ─────────────────────────────────────────

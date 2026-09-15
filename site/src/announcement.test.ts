@@ -9,10 +9,12 @@ import { ZH_TW } from './locale/zh-tw';
 
 describe('커뮤니티 안내 띠', () => {
   it('닫기 전에는 올 때마다 보이고, 닫으면 안 보인다', () => {
-    const first = ANNOUNCEMENTS[0]!;
+    const first = { id: 'test-notice', text: '안내', linkLabel: '보기', href: 'https://example.com/' };
+    ANNOUNCEMENTS.push(first);
     expect(announcementToShow(null)?.id).toBe(first.id);
     expect(announcementToShow('옛-안내')?.id).toBe(first.id);
     expect(announcementToShow(first.id)).toBeNull();
+    ANNOUNCEMENTS.pop();
   });
 
   it('안내가 없으면 아무것도 안 띄운다 — 띠를 걷는 길이 있다', () => {

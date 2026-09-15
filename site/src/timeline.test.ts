@@ -105,9 +105,9 @@ function renderOnClippingCanvas(target: DeckResultEntry) {
     });
 
   try {
-    createTimelineBlock(target);
+    const block = createTimelineBlock(target)!;
     vi.runAllTimers();
-    return surface;
+    return { ...surface, block };
   } finally {
     getBoundingClientRect.mockRestore();
     getContext.mockRestore();
@@ -246,7 +246,9 @@ describe('createTimelineBlock', () => {
     const block = createTimelineBlock(entry);
     expect(block).not.toBeNull();
     expect(block?.querySelector('canvas.timeline-canvas')).not.toBeNull();
-    expect(block?.querySelectorAll('.timeline-btn').length).toBe(3);
+    expect(block?.querySelector('[aria-label="확대"]')).not.toBeNull();
+    expect(block?.querySelector('[aria-label="축소"]')).not.toBeNull();
+    expect(block?.querySelector('[aria-label="전체 보기"]')).not.toBeNull();
     expect(block?.querySelectorAll('.timeline-legend-item').length).toBe(2);
     expect(block?.querySelector('.timeline-heading')?.textContent).toContain('초당 대미지');
   });
@@ -369,5 +371,26 @@ describe('장탄 레인', () => {
     toggle.click();
     expect(toggle.getAttribute('aria-pressed')).toBe('true');
     expect(toggle.classList.contains('is-on')).toBe(true);
+  });
+});
+
+
+describe('타임라인 Y축', () => {
+  it('자동 조절을 끄면 지정 상한을 유지하고 잘못된 값은 무시한다', () => {
+    const view = renderOnClippingCanvas(entry);
+    try {
+      const toggle = view.block.querySelector<HTMLButtonElement>('[data-timeline-auto-y]')!;
+      expect(toggle).not.toBeNull();
+      const input = view.block.querySelector<HTMLInputElement>('[data-timeline-y-max]')!;
+      expect(input.disabled).toBe(true);
+      toggle.click();
+      input.value = '1000';
+      input.dispatchEvent(new Event('change'));
+      expect(view.visibleText).toContain('1,000');
+      input.value = '0';
+      input.dispatchEvent(new Event('change'));
+      expect(input.value).toBe('1000');
+      expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    } finally { vi.restoreAllMocks(); }
   });
 });
