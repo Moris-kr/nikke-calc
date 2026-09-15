@@ -545,8 +545,8 @@ python calculator/damage.py
 | `gauge_below:게이지명:N` | 양쪽 모두 | ✅ | `state["gauges"][caster][gauge_id]` |
 | `gauge_eq:게이지명:N` | 양쪽 모두 | ✅ | `state["gauges"][caster][gauge_id]` |
 | `has_burst1_ally` | `_condition_ok` 전용 | ✅ | `state["burst_stages"]` |
-| `no_defender_ally` | `_condition_ok` 전용 | ❌ | 미구현. 분기 없음 |
-| `has_defender_ally` | `_condition_ok` 전용 | ❌ | 미구현. 분기 없음 |
+| `no_defender_ally` | `_condition_ok` 전용 | ✅ | 자신을 제외한 편성에 방어형 아군이 없을 때 |
+| `has_defender_ally` | `_condition_ok` 전용 | ✅ | 자신을 제외한 편성에 방어형 아군이 있을 때 |
 | `no_burst1_ally` | `_condition_ok` 전용 | ✅ | `state["burst_stages"]` |
 | `enemy_count_below:N` | 양쪽 모두 | ✅ | 랩쳐/적 N기 이하. 단일 보스 count=1 → 1<=N 항상 True. 마르차나 : 마린 스터디 |
 | `enemy_count_above:N` | 양쪽 모두 | ✅ | 랩쳐/적 N기 이상. 단일 보스 count=1 → N>=2면 False, 무발동. **`_RUNTIME_COND_PREFIXES`에도 등록**(2026-08-08) — `passive` 버프는 조건 미충족이어도 등록된 뒤 게이팅을 runtime 재평가에만 의존하므로, 여기 없으면 보스전에서 그대로 적용된다(맥스웰 `일렉트릭 샷`). 마르차나 : 마린 스터디, 맥스웰 |

@@ -1967,9 +1967,11 @@ class BurstController:
             for n in self.squad_names:
                 bm.notify(f"burst_enter:{r_stage}", t, n)
             # 해당 단계 후보 중 쿨타임이 풀린 캐릭터를 재선출 (reenter 발동자는 이미 쿨)
-            ev, advanced, _ = self._try_use_stage(r_stage, t, bm, state)
+            ev, advanced, reenter_info = self._try_use_stage(r_stage, t, bm, state)
             events.extend(ev)
-            if not advanced:
+            # 같은 단계 재진입은 사이클당 한 번. 재진입 슬롯에서 스킬을 썼으면
+            # 그 캐릭터도 재진입 효과를 가졌더라도 다음 단계로 진행한다.
+            if not advanced and reenter_info is None:
                 # 전원 쿨타임 중이면 대기 (이미 _next_action_t가 갱신됨)
                 pass
             elif r_stage == "3":

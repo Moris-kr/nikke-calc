@@ -349,20 +349,19 @@ _RUNTIME_COND_PREFIXES = frozenset([
 ])
 
 
-def _has_runtime_cond(conditions: list, expires: float) -> bool:
+def _has_runtime_cond(conditions: list, expires: float, duration_bullets: int = -1) -> bool:
     """
     이 버프가 get_buffs 시점마다 조건을 재평가해야 하는지.
 
     스킬 텍스트 문법상 조건은 **발동 시점 게이트**이고 `[N초 유지]`는 버프 자체의
     지속시간이다 (예: "■ ... 시 소드 코인 상태라면 ... [10초 유지]" → 발동 순간
     소드 코인이면 그때부터 10초. 도중에 소드 코인이 풀려도 10초는 끝까지 간다).
-    따라서 유한 duration 버프는 재평가 대상이 아니다.
+    따라서 유한 duration 또는 N발 유지 버프는 재평가 대상이 아니다.
 
-    재평가는 duration -1 / null (지속·영구) 버프에만 적용한다. 그쪽은 만료 시각이
-    없으므로 조건이 곧 유효 구간이다 (조건부 passive와 같은 기준 — tick()의
-    `ab.expires_at < math.inf: continue` 참고).
+    재평가는 시간·발수 제한이 없는 duration -1 / null (지속·영구) 버프에만
+    적용한다. 그쪽은 조건이 곧 유효 구간이다 (tick()의 조건부 passive와 같은 기준).
     """
-    if expires != math.inf:
+    if expires != math.inf or duration_bullets != -1:
         return False
     for c in conditions:
         for prefix in _RUNTIME_COND_PREFIXES:
@@ -1116,7 +1115,7 @@ class BuffManager:
                         activated_at=t,
                         expires_at=expires,
                         stack=init_stack,
-                        has_runtime_conditions=_has_runtime_cond(target_eff["trigger"].get("condition", []), expires),
+                        has_runtime_conditions=_has_runtime_cond(target_eff["trigger"].get("condition", []), expires, target_eff.get("duration_bullets", -1)),
                         scaling_stack=self._capture_scaling_stack(target_eff, caster),
                     )
                     self._active.append(ab_new)
@@ -1557,8 +1556,8 @@ class BuffManager:
         if timing.startswith("squad_burst_cast:") and event.startswith("squad_burst_cast:"):
             return timing == event
 
-        # core_hit:N  (trigger_count_reduce 버프로 N 감소 가능)
-        if timing.startswith("core_hit:") and event == "core_hit":
+        # core_hit:N / core_hit_count:N (trigger_count_reduce 버프로 N 감소 가능)
+        if timing.startswith(("core_hit:", "core_hit_count:")) and event == "core_hit":
             raw = timing.split(":")[1]
             if not raw.lstrip("-").isdigit(): return False
             n = int(raw)
@@ -1769,6 +1768,13 @@ class BuffManager:
                 burst_stages = self.state.get("burst_stages", {})
                 has = any(burst_stages.get(n) == "1" for n in self.squad_names if n != caster)
                 if has:
+                    return False
+            elif cond in ("has_defender_ally", "no_defender_ally"):
+                has = any(
+                    _NIKKE.get(n, {}).get("class") == "방어형"
+                    for n in self.squad_names if n != caster
+                )
+                if has != (cond == "has_defender_ally"):
                     return False
             elif cond.startswith("gauge_above:"):
                 parts = cond.split(":")
@@ -2236,7 +2242,7 @@ class BuffManager:
                     self._active.append(ActiveBuff(
                         effect=eff, caster=caster, target_chars=targets,
                         activated_at=t, expires_at=expires, stack=init_stack,
-                        has_runtime_conditions=_has_runtime_cond(eff["trigger"].get("condition", []), expires),
+                        has_runtime_conditions=_has_runtime_cond(eff["trigger"].get("condition", []), expires, eff.get("duration_bullets", -1)),
                     ))
                     if self._buff_event_handler and eff.get("name") and targets:
                         for tgt in targets:
@@ -2419,7 +2425,7 @@ class BuffManager:
                 bullets_left=-1 if use_per_target else duration_bullets,
                 bullets_per_target={c: duration_bullets for c in (targets or [])} if use_per_target else {},
                 per_char_stacks={c: 1 for c in (targets or [])} if (use_per_target and max_stack != 1) else {},
-                has_runtime_conditions=_has_runtime_cond(eff["trigger"].get("condition", []), expires),
+                has_runtime_conditions=_has_runtime_cond(eff["trigger"].get("condition", []), expires, eff.get("duration_bullets", -1)),
                 scaling_stack=self._capture_scaling_stack(eff, caster),
             ))
             name = eff.get("name", "")
@@ -2632,8 +2638,8 @@ class BuffManager:
         # 조건부 passive 버프: 조건 충족 여부 변화 감지 → buff_event_handler 발생
         if self._buff_event_handler:
             for ab in self._active:
-                if ab.expires_at < math.inf:
-                    continue  # 영구 passive만 대상
+                if ab.expires_at < math.inf or ab.effect.get("duration_bullets", -1) != -1:
+                    continue  # 영구 passive만 대상; N발 유지 조건은 발동 시 고정
                 conditions = ab.effect["trigger"].get("condition", [])
                 if not conditions:
                     continue  # 무조건 passive는 이미 t=0에 등록됨

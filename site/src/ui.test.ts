@@ -2782,8 +2782,17 @@ describe('calculator UI', () => {
   }, 20_000);
 
   it('reuses a cached result instead of recalculating', async () => {
+    // 캐시 재사용만 검증한다. 700ms 뒤 버프 대상 미리 계산이 실행 횟수에 끼어들지 않게 한다.
+    const cacheSettings = { ...settings, buffTargetWatch: {} };
+    // 다른 시험에서 예약된 비동기 저장과 공유하지 않되, 두 화면은 같은 저장소를 쓴다.
+    const entries = new Map<string, string>();
+    const storage: StorageLike = {
+      getItem: (key) => entries.get(key) ?? null,
+      setItem: (key, value) => { entries.set(key, value); },
+      removeItem: (key) => { entries.delete(key); },
+    };
     const firstClient = new FakeClient();
-    mountCalculator(root, { catalog, settings, version: 'v1', client: firstClient, storage: localStorage });
+    mountCalculator(root, { catalog, settings: cacheSettings, version: 'v1', client: firstClient, storage });
     root.querySelector<HTMLInputElement>('#duration')!.value = '10';
     root.querySelector<HTMLFormElement>('form')!.requestSubmit();
     await flush();
@@ -2791,7 +2800,7 @@ describe('calculator UI', () => {
 
     root.replaceChildren();
     const secondClient = new FakeClient();
-    mountCalculator(root, { catalog, settings, version: 'v1', client: secondClient, storage: localStorage });
+    mountCalculator(root, { catalog, settings: cacheSettings, version: 'v1', client: secondClient, storage });
     root.querySelector<HTMLInputElement>('#duration')!.value = '10';
     root.querySelector<HTMLFormElement>('form')!.requestSubmit();
     await flush();
