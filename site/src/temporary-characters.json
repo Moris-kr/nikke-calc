@@ -1,7 +1,7 @@
 [
   {
     "name": "신 : 스위프트 바니",
-    "image": "temporary-characters/sin-swift-bunny-card.png",
+    "image": "temporary-characters/sin-swift-bunny-portrait.png",
     "nikke": {
       "rarity": "SSR",
       "element_code": "수냉",
@@ -124,7 +124,7 @@
   },
   {
     "name": "길티 : 마이티 바니",
-    "image": "temporary-characters/guilty-mighty-bunny-card.png",
+    "image": "temporary-characters/guilty-mighty-bunny-portrait.png",
     "nikke": {
       "rarity": "SSR",
       "element_code": "수냉",

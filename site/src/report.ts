@@ -163,7 +163,7 @@ const portrait = (
   ctx.fillStyle = 'rgba(146,176,201,.10)';
   ctx.fillRect(x, y, size, size);
   if (image && image.naturalWidth > 0) {
-    if (image.src?.includes('/temporary-characters/')) {
+    if (image.src?.includes('/temporary-characters/') && image.src.endsWith('-card.png')) {
       const ratio = size / Math.max(image.naturalWidth, image.naturalHeight);
       const width = image.naturalWidth * ratio;
       const height = image.naturalHeight * ratio;

@@ -14,7 +14,7 @@ describe('bundled temporary characters', () => {
       expect(c).toMatchObject({ manufacturer: '미실리스', weaponType: 'SR', elementCode: '수냉', className: '화력형', burstStage: '3', preview: true });
       expect(custom[c.name]?.nikke).toMatchObject({ rarity: 'SSR', preview: true, fabricated: true });
       expect(settings.characters[c.name]?.skillLevelsLocked).toBe(true);
-      expect(c.image).toMatch(/^temporary-characters\/.+-card\.png$/);
+      expect(c.image).toMatch(/^temporary-characters\/.+-portrait\.png$/);
       expect(existsSync(new URL(`../public/${c.image}`, import.meta.url))).toBe(true);
       expect(unsupportedEffects(custom[c.name]!.skills)).toEqual([]);
     }
