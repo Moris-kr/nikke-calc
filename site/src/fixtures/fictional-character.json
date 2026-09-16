@@ -1,0 +1,123 @@
+{
+  "name": "테스트 창작 니케",
+  "image": "temporary-characters/sin-swift-bunny-portrait.png",
+  "nikke": {
+    "rarity": "SSR",
+    "element_code": "수냉",
+    "manufacturer": "미실리스",
+    "weapon_type": "SR",
+    "max_ammo": 6,
+    "reload_time": 2.0,
+    "fire_rate": 1.0,
+    "pellets": 1,
+    "muzzles": 1,
+    "damage_coeff": 69.04,
+    "core_dmg_mult": 200.0,
+    "charge_time": 1.0,
+    "full_charge_mult": 250.0,
+    "squad": "",
+    "squad_name": "리얼 카인드니스",
+    "preview": true,
+    "fabricated": true,
+    "class": "화력형",
+    "burst_stage": 3,
+    "burst_cooldown": 40
+  },
+  "skills": [
+    {
+      "source": "스킬1",
+      "name": "[창작] 스위프트 시그널",
+      "type": "buff",
+      "trigger": {
+        "timing": [
+          "passive"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "atk_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "10": 70
+      },
+      "duration": -1
+    },
+    {
+      "source": "스킬1",
+      "name": "[창작] 스위프트 시그널",
+      "type": "buff",
+      "trigger": {
+        "timing": [
+          "passive"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "charge_speed_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "10": 35
+      },
+      "duration": -1
+    },
+    {
+      "source": "스킬2",
+      "name": "[창작] 콜드 링크",
+      "type": "damage",
+      "trigger": {
+        "timing": [
+          "full_charge_hit"
+        ],
+        "condition": []
+      },
+      "target": "target",
+      "stat": "bonus_damage",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "10": 350
+      },
+      "duration": -1
+    },
+    {
+      "source": "버스트스킬",
+      "name": "[창작] 블링크 캐럿",
+      "type": "buff",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "charge_speed_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "10": 45
+      },
+      "duration": 10
+    },
+    {
+      "source": "버스트스킬",
+      "name": "[창작] 블링크 캐럿",
+      "type": "buff",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "atk_dmg_pct",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "values": {
+        "10": 70
+      },
+      "duration": 10
+    }
+  ]
+}

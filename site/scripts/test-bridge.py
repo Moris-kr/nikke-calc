@@ -635,7 +635,7 @@ class BrowserBridgeTest(unittest.TestCase):
         )
 
     def test_bundled_temporary_characters_simulate_with_fiction_warning(self):
-        entries = json.loads((SITE_DIR / "src/temporary-characters.json").read_text())
+        entries = [json.loads((SITE_DIR / "src/fixtures/fictional-character.json").read_text())]
         names = [entry["name"] for entry in entries]
         custom = {entry["name"]: {"nikke": entry["nikke"], "skills": entry["skills"]}
                   for entry in entries}
@@ -981,6 +981,10 @@ class GuiltyBunnyPreviewBridgeTest(unittest.TestCase):
         payload["characters"][self.NAME]["skillLevels"] = {"1": 9, "2": 10, "3": 10}
         with self.assertRaises(ValueError):
             run_request(json.dumps(payload, ensure_ascii=False))
+
+
+class SinBunnyPreviewBridgeTest(GuiltyBunnyPreviewBridgeTest):
+    NAME = "신 : 스위프트 바니"
 
 
 if __name__ == "__main__":

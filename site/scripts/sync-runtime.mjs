@@ -156,7 +156,8 @@ const catalog = names.map((name, index) => {
   const meta = nikke[name];
   const sourceImage = imageIndex.get(normalizeImageName(name));
   let image = meta.preview && name === '길티 : 마이티 바니'
-    ? 'temporary-characters/guilty-mighty-bunny-portrait.png' : null;
+    ? 'temporary-characters/guilty-mighty-bunny-portrait.png'
+    : meta.preview && name === '신 : 스위프트 바니' ? 'temporary-characters/sin-swift-bunny-portrait.png' : null;
   if (sourceImage) {
     const outputName = `${String(index + 1).padStart(3, '0')}.webp`;
     copyFileSync(join(repoRoot, 'image', sourceImage), join(characterDir, outputName));

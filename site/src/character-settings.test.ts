@@ -1023,8 +1023,7 @@ describe('부위 단위 오버로드 옮기기', () => {
   });
 });
 
-describe('바니 모드 특수 조작', () => {
-  const name = '길티 : 마이티 바니';
+describe.each(['길티 : 마이티 바니', '신 : 스위프트 바니'])('%s 바니 모드 특수 조작', (name) => {
   const catalog: SettingsCatalog = { ...settings, characters: { ...settings.characters,
     [name]: { ...settings.characters['리타']!, weaponType: 'SR', recommendedControl: { bunny_mode: 'engage' } },
   } };

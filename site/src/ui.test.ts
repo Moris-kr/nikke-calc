@@ -6,8 +6,8 @@ import { join } from 'node:path';
 
 import type { StorageLike } from './cache';
 import { ANNOUNCEMENTS, COUNTDOWNS, countdownToShow } from './announcement';
-import { installTemporaryCharacters } from './temporary-characters';
-import temporaryDefinitions from './temporary-characters.json';
+import fictionalCharacter from './fixtures/fictional-character.json';
+import { customToMeta, customToSettings } from './custom-nikke';
 import { LATEST_NOTICE_ID } from './notices';
 import { mountCalculator, type CalculatorClientLike } from './ui';
 import { decodeBattleCode, encodeBattleCode, encodeShareCode } from './share-code';
@@ -215,8 +215,10 @@ describe('calculator UI', () => {
   it('preserves bundled temporary settings when a same-name local character exists', () => {
     const testCatalog = structuredClone(catalog);
     const testSettings = structuredClone(settings);
-    const bundledCharacters = installTemporaryCharacters(testCatalog, testSettings);
-    const custom = temporaryDefinitions[0]!;
+    const custom = fictionalCharacter;
+    testCatalog.push(customToMeta(custom));
+    testSettings.characters[custom.name] = { ...customToSettings(custom), skillLevelsLocked: true };
+    const bundledCharacters = { [custom.name]: { nikke: custom.nikke, skills: custom.skills } };
     const stored = JSON.stringify({ [custom.name]: custom });
     localStorage.setItem('nikke-custom-v1', stored);
     mountCalculator(root, { catalog: testCatalog, settings: testSettings, bundledCharacters,

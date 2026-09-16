@@ -868,7 +868,7 @@ class CharState:
             # 톡톡이로 쏘다가 **본인 버스트 동안만** 풀차지를 들고 있는 조작이
             # 실제로 쓰인다(아인 + 에이다). 톡톡이가 늘 이기게 두면 홀드가 통째로
             # 죽어, 홀드를 얹은 조합이 톡톡이만 켠 것과 한 자리도 다르지 않았다.
-            bunny_switch = (not self._in_weapon_change
+            bunny_switch = (bm.weapon_change_name(self.name) != "마이티 스톰프"
                             and self.name in bm.state.get("bunny_modes", {})
                             and bm.state["bunny_modes"][self.name] != self.bunny_mode)
             if self.tap_fire and not self._force_full_charge and self._hold_release_t < 0 and not bunny_switch:
@@ -923,6 +923,10 @@ class CharState:
         `_charge_hold_fired`는 차지를 새로 시작할 때 비워진다.
         """
         if self._charge_full_t < 0:
+            return
+        # An ally can satisfy the requested mode earlier in this same frame.
+        # Release the held shot instead of toggling the whole pair back again.
+        if bm.state.get("bunny_modes", {}).get(self.name) == self.bunny_mode:
             return
         held = t - self._charge_full_t
         for value, raw in bm.charge_hold_thresholds(self.name):
@@ -1191,8 +1195,8 @@ class CharState:
 
         # 발사 전 charge_phase가 ready인 경우 ammo를 weapon_change 장탄으로 세팅
         # (이미 charging 중이거나 post_delay 중이면 그대로 진행)
-        if self._wc_new_session and wc_eff.get("fixed_bullets"):
-            # A fixed one-shot replacement starts a fresh charge, even if the old SR
+        if self._wc_new_session and (wc_eff.get("fixed_bullets") or wc_eff.get("fresh_charge")):
+            # An explicitly fresh replacement starts a new charge, even if the old SR
             # was in post-delay or had already latched a full charge for a mode switch.
             self._charge_phase = "ready"
             self._charge_full_t = -1.0

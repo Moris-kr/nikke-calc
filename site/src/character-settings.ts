@@ -1182,7 +1182,7 @@ export function renderCharacterSettings(
     return label;
   };
 
-  if (name === '길티 : 마이티 바니') {
+  if (name === '길티 : 마이티 바니' || name === '신 : 스위프트 바니') {
     const modes = document.createElement('fieldset');
     modes.className = 'bunny-mode-control';
     const legend = document.createElement('legend');
@@ -1207,7 +1207,7 @@ export function renderCharacterSettings(
     }
     const help = document.createElement('p');
     help.className = 'field-note';
-    help.textContent = '기본은 인게이지입니다. 인게이지는 풀 차지를 1초 더 유지해 전환하며, 버스트 중에는 모드를 유지합니다.';
+    help.textContent = '기본은 인게이지입니다. 인게이지는 풀 차지를 1초 더 유지해 전환하며, 선택한 모드를 유지하도록 조작합니다.';
     modes.append(help);
     controlGrid.append(modes);
   }
@@ -1244,7 +1244,7 @@ export function renderCharacterSettings(
       emitNumericChange(next);
     });
     tapLabel.append(makeInputUnit(tapRate, '발/초'), tapHint);
-    if (name !== '길티 : 마이티 바니') {
+    if (name !== '길티 : 마이티 바니' && name !== '신 : 스위프트 바니') {
     const holdLabel = addControlToggle('hold', '홀드 컨트롤', {
       policy: 'own_full_burst', lead: 0.5,
     });

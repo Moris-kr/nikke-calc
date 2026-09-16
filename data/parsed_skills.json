@@ -46499,5 +46499,279 @@
       "max_stack": 1,
       "duration": 10
     }
+  ],
+  "신 : 스위프트 바니": [
+    {
+      "source": "스킬1",
+      "type": "buff",
+      "name": "바니 시프트",
+      "trigger": {
+        "timing": [
+          "battle_start"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "atk_pct",
+      "values": {
+        "10": 15.35
+      },
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "duration": -1
+    },
+    {
+      "source": "스킬1",
+      "type": "buff",
+      "name": "바니 시프트 2",
+      "trigger": {
+        "timing": [
+          "full_charge"
+        ],
+        "condition": [
+          "not_self_state:스위프트 캐럿"
+        ]
+      },
+      "target": "self",
+      "stat": "normal_atk_dmg_pct",
+      "values": {
+        "10": 100
+      },
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "duration": -1,
+      "duration_bullets": 1
+    },
+    {
+      "source": "스킬1",
+      "type": "buff",
+      "name": "바니 시프트 3",
+      "trigger": {
+        "timing": [
+          "full_charge"
+        ],
+        "condition": [
+          "not_self_state:스위프트 캐럿"
+        ]
+      },
+      "target": "self",
+      "stat": "charge_dmg_pct",
+      "values": {
+        "10": 52.12
+      },
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "duration": -1,
+      "duration_bullets": 1
+    },
+    {
+      "source": "스킬1",
+      "type": "instant",
+      "name": "바니 모드 초기화",
+      "trigger": {
+        "timing": [
+          "battle_start"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "bunny_mode_switch",
+      "values": {
+        "10": 0
+      },
+      "mode": "stance"
+    },
+    {
+      "source": "스킬1",
+      "type": "instant",
+      "name": "바니 모드 전환",
+      "trigger": {
+        "timing": [
+          "charge_hold:1"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "bunny_mode_switch",
+      "values": {
+        "10": 0
+      },
+      "mode": "toggle"
+    },
+    {
+      "source": "스킬2",
+      "type": "buff",
+      "name": "노이즈 불렛",
+      "trigger": {
+        "timing": [
+          "passive"
+        ],
+        "condition": [
+          "self_state:바니 모드 : 인게이지"
+        ]
+      },
+      "target": "self",
+      "stat": "armor_break_enabled",
+      "values": {
+        "10": 1
+      },
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "duration": -1
+    },
+    {
+      "source": "스킬2",
+      "type": "buff",
+      "name": "인헨스 불렛",
+      "trigger": {
+        "timing": [
+          "passive"
+        ],
+        "condition": [
+          "self_state:바니 모드 : 스탠스"
+        ]
+      },
+      "target": "self",
+      "stat": "crit_rate",
+      "values": {
+        "10": 35.14
+      },
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "duration": -1
+    },
+    {
+      "source": "스킬2",
+      "type": "buff",
+      "name": "인헨스 불렛 2",
+      "trigger": {
+        "timing": [
+          "passive"
+        ],
+        "condition": [
+          "self_state:바니 모드 : 스탠스"
+        ]
+      },
+      "target": "self",
+      "stat": "crit_dmg",
+      "values": {
+        "10": 75.12
+      },
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "duration": -1
+    },
+    {
+      "source": "스킬2",
+      "type": "weapon_change",
+      "name": "스위프트 캐럿",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "weapon_type": "SR",
+      "damage_coeff": {
+        "10": 73.22
+      },
+      "max_ammo": 6,
+      "reload_time": 2,
+      "charge_time": 0.5,
+      "full_charge_mult": 300,
+      "duration": 5,
+      "fresh_charge": true
+    },
+    {
+      "source": "스킬2",
+      "type": "buff",
+      "name": "스위프트 캐럿 고정 차지",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": [
+          "self_state:스위프트 캐럿"
+        ]
+      },
+      "target": "self",
+      "stat": "charge_time_fixed",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "duration": 5,
+      "fixed_value": 0.5
+    },
+    {
+      "source": "스킬3",
+      "type": "buff",
+      "name": "스위프트 피어싱",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "atk_pct",
+      "values": {
+        "10": 110
+      },
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "duration": 5
+    },
+    {
+      "source": "스킬3",
+      "type": "damage",
+      "name": "스위프트 피어싱 2",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "all_enemies",
+      "stat": "burst_damage",
+      "values": {
+        "10": 516.6
+      }
+    },
+    {
+      "source": "스킬3",
+      "type": "damage",
+      "name": "스위프트 피어싱 3",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": [
+          "self_state:바니 모드 : 스탠스"
+        ]
+      },
+      "target": "all_enemies",
+      "stat": "bonus_damage",
+      "values": {
+        "10": 958.9
+      }
+    },
+    {
+      "source": "스킬3",
+      "type": "damage",
+      "name": "스위프트 피어싱 4",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": [
+          "self_state:바니 모드 : 인게이지"
+        ]
+      },
+      "target": "all_enemies",
+      "stat": "armor_break_damage",
+      "values": {
+        "10": 854.6
+      }
+    }
   ]
 }

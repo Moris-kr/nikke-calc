@@ -121,6 +121,9 @@
   "프리바티": { "equip_skills": { "max_ammo_pct": 0 } },
   "아니스 : 스파클링 서머": { "equip_skills": { "max_ammo_pct": 0 } },
   "헬름": { "equip_skills": { "max_ammo_pct": 0 } },
+  "신 : 스위프트 바니": {
+    "control": {"bunny_mode": "engage"}
+  },
   "길티 : 마이티 바니": {
     "control": {"bunny_mode": "engage"}
   }
