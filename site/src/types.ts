@@ -276,6 +276,7 @@ export interface DeckState {
 }
 
 export interface CharacterMeta {
+  info?: import('./character-info').CharacterInfo;
   name: string;
   burstStage: string;
   /**

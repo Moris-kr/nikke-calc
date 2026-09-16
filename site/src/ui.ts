@@ -1,3 +1,4 @@
+import { openCharacterInfo, customSkillInfo } from './character-info';
 import {
   ANNOUNCEMENT_KEY, announcementToShow, countdownClock, countdownDone, countdownToShow,
 } from './announcement';
@@ -2665,6 +2666,36 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     }, 60);
   };
 
+  const infoButton = (char: CharacterMeta) => {
+    const button = document.createElement('button');
+    button.type = 'button'; button.className = 'character-info-button';
+    button.textContent = 'i'; button.ariaLabel = `${char.name} 정보`;
+    button.dataset.characterInfo = char.name;
+    button.addEventListener('pointerdown', e => e.stopPropagation());
+    button.addEventListener('click', e => {
+      e.stopPropagation();
+      const deck = activeDeck();
+      const defaults = settings.characters[char.name];
+      const own = deck.characters[char.name] ?? roster[char.name];
+      const custom = customPayload()[char.name];
+      openCharacterInfo({ host: root, char, info: char.info ?? (custom ? customSkillInfo(custom.skills, custom.nikke) : undefined),
+        favorite: own?.collection?.favorite ?? defaults?.collection.favorite ?? 0,
+        fictional: Boolean(custom?.nikke.fabricated),
+        rarity: defaults?.rarity, levels: own?.skillLevels ?? defaults?.skillLevels ?? { '1': 10, '2': 10, '3': 10 },
+        locked: Boolean(defaults?.skillLevelsLocked), inDeck: deck.squad.includes(char.name),
+        onChange: levels => {
+          deck.characters[char.name] = { ...deck.characters[char.name], skillLevels: levels };
+          saveState(); renderSquad();
+        },
+        onClose: () => {
+          const target = button.isConnected ? button : [...root.querySelectorAll<HTMLButtonElement>('[data-character-info]')].find(b => b.dataset.characterInfo === char.name);
+          target?.focus({ preventScroll: true });
+        },
+      });
+    });
+    return button;
+  };
+
   const renderSquad = () => {
     const deck = activeDeck();
     // 버스트 순서는 편성에 매여 있다 — 편성이 바뀌면 배지도 따라간다.
@@ -2742,7 +2773,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       }
       // 편성 카드에도 같은 딱지를 붙인다 — 목록에서 보고 고른 그 표시가 칸에서도
       // 보여야 «이 사람이 그 사람»이라는 것이 이어진다.
-      if (char) appendGrowthBadge(portrait, char.name, 'top');
+      if (char) { appendGrowthBadge(portrait, char.name, 'top'); portrait.append(infoButton(char)); }
       const identity = document.createElement('div');
       identity.className = 'slot-identity';
 
@@ -5094,7 +5125,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   root.addEventListener('click', (event) => {
     const startedInside = pressedInside;
     pressedInside = false;   // 이 click 한 번에만 쓴다
-    if (!pickerOpen || startedInside) return;
+    if (!pickerOpen || startedInside || root.querySelector('.character-info-dialog[open]')) return;
     const hit = event.target as HTMLElement | null;
     if (!hit || hit.closest(KEEP_OPEN)) return;
     setPickerOpen(false);
@@ -5482,7 +5513,13 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         });
         cell.addEventListener('dragend', () => cell.classList.remove('is-dragging'));
       }
-      rosterGrid.append(cell);
+      const entry = document.createElement('div');
+      entry.className = 'roster-entry';
+      const infoAnchor = document.createElement('div');
+      infoAnchor.className = 'roster-info-anchor';
+      infoAnchor.append(infoButton(char));
+      entry.append(cell, infoAnchor);
+      rosterGrid.append(entry);
     }
     rosterEmpty.hidden = shown.length > 0;
     updatePickerTarget();

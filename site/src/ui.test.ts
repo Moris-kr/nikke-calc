@@ -231,6 +231,43 @@ describe('calculator UI', () => {
     expect(localStorage.getItem('nikke-custom-v1')).toBe(stored);
   });
 
+  it('opens info independently of selection and saves skill changes only to the active deck', async () => {
+    Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) { this.open = true; } });
+    Object.defineProperty(HTMLDialogElement.prototype, 'close', { configurable: true, value: function (this: HTMLDialogElement) { this.open = false; this.dispatchEvent(new Event('close')); } });
+    const testCatalog = structuredClone(catalog);
+    testCatalog[0]!.info = { skills: [{ key: '1', name: '레벨 확인', template: '공격력 {0}%', values: { '1': ['10'], '10': ['50'] } }] };
+    testCatalog[5]!.info = { skills: [{ key: '1', name: '보유 레벨', template: '보유 {0}', values: { '1': ['10'], '10': ['50'] } }], favorite: { name: '시험 애장품', skills: [{ key: '1', stage: 1, name: '애장품 스킬', template: '강화 {0}', values: { '1': ['20'], '10': ['100'] } }] } };
+    localStorage.setItem('nikke-roster-v1', JSON.stringify({ '프리바티': { skillLevels: { '1': 1, '2': 1, '3': 1 }, collection: { stage: 'SR15', favorite: 0 } } }));
+    const client = new FakeClient();
+    mountCalculator(root, { catalog: testCatalog, settings, version: 'v1', client, storage: localStorage });
+    await flush();
+    const cell = root.querySelector<HTMLButtonElement>('[data-roster-cell="리타"]')!;
+    const before = [...root.querySelectorAll('[data-slot-card]')].map(node => node.textContent);
+    const info = cell.parentElement!.querySelector<HTMLButtonElement>('[data-character-info]')!;
+    expect(info.closest('button.roster-cell')).toBeNull();
+    info.click();
+    expect(root.querySelector('dialog')!.textContent).toContain('레벨 확인');
+    expect([...root.querySelectorAll('[data-slot-card]')].map(node => node.textContent)).toEqual(before);
+    const select = root.querySelector<HTMLSelectElement>('[data-info-skill="1"]')!;
+    select.value = '1'; select.dispatchEvent(new Event('change'));
+    expect(root.querySelector('dialog')!.textContent).toContain('공격력 10%');
+    root.querySelector<HTMLButtonElement>('dialog button')!.click();
+    root.querySelector<HTMLButtonElement>('[data-slot-card] [data-character-info="리타"]')!.click();
+    expect(root.querySelector<HTMLSelectElement>('[data-info-skill="1"]')!.value).toBe('1');
+    root.querySelector<HTMLButtonElement>('dialog button')!.click();
+    root.querySelector<HTMLButtonElement>('.calculate-button.run-inline')!.click();
+    await flush(); await flush();
+    expect(client.lastRequest?.characters?.['리타']?.skillLevels?.['1']).toBe(1);
+    const savedRoster = localStorage.getItem('nikke-roster-v1');
+    root.querySelector<HTMLButtonElement>('.roster-entry [data-character-info="프리바티"]')!.click();
+    expect(root.querySelector<HTMLSelectElement>('[data-info-skill="1"]')!.value).toBe('1');
+    expect(root.querySelector('dialog')!.textContent).toContain('애장품 미적용');
+    const preview = root.querySelector<HTMLSelectElement>('[data-info-skill="1"]')!;
+    preview.value = '10'; preview.dispatchEvent(new Event('change'));
+    expect(localStorage.getItem('nikke-roster-v1')).toBe(savedRoster);
+    root.querySelector<HTMLButtonElement>('dialog button')!.click();
+  });
+
   /** jsdom에는 DragEvent가 없다 — 필요한 부분(dataTransfer)만 흉내 낸다. */
   const dragEvent = (type: string, data: Record<string, string>) => {
     const event = new Event(type, { bubbles: true, cancelable: true });

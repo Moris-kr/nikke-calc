@@ -403,13 +403,19 @@ def _inject_custom_characters(custom: dict) -> None:
     for name, data in custom.items():
         if not isinstance(data, dict) or "nikke" not in data or "skills" not in data:
             raise ValueError(f"커스텀 니케 '{name}': nikke와 skills가 필요합니다")
-        nikke = data["nikke"]
+        nikke = dict(data["nikke"])
         skills = data["skills"]
         missing = [f for f in _REQUIRED_NIKKE_FIELDS if f not in nikke]
         if missing:
             raise ValueError(f"커스텀 니케 '{name}': 누락된 스탯 {missing}")
         if not isinstance(skills, list):
             raise ValueError(f"커스텀 니케 '{name}': skills는 배열이어야 합니다")
+        # 사용자 JSON은 숫자 단계와 "버스트스킬" 표기를 허용한다.
+        # 엔진의 단계 키와 스킬 레벨/타임라인 이름 조회 규약으로 정규화한다.
+        nikke["burst_stage"] = str(nikke["burst_stage"])
+        skills = [{**effect, "source": "스킬3"}
+                  if isinstance(effect, dict) and effect.get("source") == "버스트스킬"
+                  else effect for effect in skills]
         for store in nikke_stores:
             store[name] = nikke
         for store in skill_stores:

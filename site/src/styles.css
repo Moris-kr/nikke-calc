@@ -2572,3 +2572,30 @@ body.bm-open { overflow: hidden; }
 
 /* 스탠딩 대신 쓰는 원본 안내 카드는 얼굴만 자르지 않고 카드 전체를 보여 준다. */
 img[src*="/temporary-characters/"] { object-fit: contain; object-position: center; }
+
+/* 정보 버튼은 선택 버튼과 형제여서 이미 편성된 니케도 정보를 열 수 있다. */
+.roster-entry { position: relative; min-width: 0; display: grid; }
+.roster-entry > .roster-cell { width: 100%; min-width: 0; height: 100%; }
+.roster-info-anchor { position: absolute; top: 9px; left: 9px; right: 9px; aspect-ratio: 1; pointer-events: none; }
+.character-info-button { position: absolute; bottom: 4px; left: 4px; z-index: 5; width: 28px; height: 28px; padding: 0; border-radius: 50%; border: 1px solid var(--cyan); background: #102333; color: #e8ffff; font: 700 16px Georgia, serif; cursor: pointer; pointer-events: auto; }
+.character-info-button:hover, .character-info-button:focus-visible { background: #20505a; outline: 2px solid var(--cyan); outline-offset: 2px; }
+.portrait-wrap > .character-info-button { bottom: 6px; left: 6px; }
+.portrait-wrap:has(.character-info-button) .slot-power { padding-left: 38px; }
+.roster-portrait .growth-badge { left: 36px; }
+.roster-portrait .roster-temp { left: auto; right: 4px; bottom: 20px; }
+.character-info-dialog { box-sizing: border-box; width: min(620px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); margin: auto; padding: 22px; overflow-y: auto; border: 1px solid var(--line); border-radius: 16px; color: var(--ink); background: #0c1725; box-shadow: 0 20px 80px #0009; }
+.character-info-dialog::backdrop { background: #02060cbc; }
+.character-info-header { display: flex; align-items: start; gap: 16px; justify-content: space-between; }
+.character-info-header h2 { margin: 0; font-size: 20px; overflow-wrap: anywhere; }
+.character-info-header button { flex-shrink: 0; padding: 7px 12px; color: var(--ink); background: #1a2c40; border: 1px solid var(--line); border-radius: 7px; cursor: pointer; }
+.character-info-meta, .character-info-help { color: var(--muted); font-size: 12px; line-height: 1.6; }
+.character-info-warning { color: var(--amber); font-size: 13px; line-height: 1.6; }
+.character-info-skill { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 18px; }
+.character-info-dialog h3 { font-size: 15px; line-height: 1.5; }
+.character-info-description { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.85; }
+.character-info-skill label { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.character-info-skill select { color: var(--ink); background: #14283c; border: 1px solid var(--line); border-radius: 6px; padding: 7px; }
+@media (max-width: 480px) { .character-info-dialog { padding: 16px; } .character-info-header h2 { font-size: 18px; } }
+.character-info-header { position: sticky; top: 0; z-index: 1; padding-block: 8px; background: #0c1725; }
+.character-info-skill label { white-space: nowrap; }
+.character-info-skill select { width: auto; min-width: 100px; flex: 0 0 auto; }

@@ -86,6 +86,7 @@ const skills = readJson(join(repoRoot, 'data', 'parsed_skills.json'));
 // enikk은 캐릭터를 resource_id로 부른다 — 우리 스크랩 데이터의 `id`와 같은 체계다.
 // 영문 표기(`Liter`=리타)로 맞추면 반드시 틀리므로 이 번호로 잇는다.
 const scrapedRaw = readJson(join(repoRoot, 'scraper', 'nikke_scraped.json'));
+const previewRaw = readJson(join(repoRoot, 'scraper', 'preview_skills.json'));
 const resourceByCharacter = new Map(
   Object.entries(scrapedRaw)
     .filter(([, value]) => value && typeof value === 'object' && 'id' in value)
@@ -162,6 +163,23 @@ const catalog = names.map((name, index) => {
   }
   return {
     name,
+    info: (() => {
+      const raw = scrapedRaw[name] ?? previewRaw[name];
+      if (!raw) return undefined;
+      return {
+        squad: raw['스쿼드명'], weapon: raw['무기상세']?.['무기스킬'],
+        favorite: raw['애장품'] ? { name: raw['애장품']['아이템명'],
+          skills: (raw['애장품']['단계별'] ?? []).map(skill => ({
+            stage: skill['단계'], key: String(skill['교체슬롯']), name: skill['스킬명'],
+            template: skill.template ?? '', values: skill.values ?? {},
+          })),
+        } : undefined,
+        skills: Object.entries(raw['스킬'] ?? {}).map(([name, skill], index) => ({
+          key: String(index + 1), name, template: skill.template ?? '',
+          values: skill.values ?? {}, cooldown: skill['쿨타임'],
+        })),
+      };
+    })(),
     burstStage: String(meta.burst_stage ?? ''),
     // 그 단계의 다른 아군이 없을 때만 설 수 있는 자리. 없으면 null.
     altBurstStage: altBurstStageOf(name),
