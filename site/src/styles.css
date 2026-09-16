@@ -2569,3 +2569,6 @@ body.bm-open { overflow: hidden; }
 }
 
 [data-quick-decks-slots] { max-height: 28vh; overflow-y: auto; }
+
+/* 스탠딩 대신 쓰는 원본 안내 카드는 얼굴만 자르지 않고 카드 전체를 보여 준다. */
+img[src*="/temporary-characters/"] { object-fit: contain; object-position: center; }

@@ -634,6 +634,25 @@ class BrowserBridgeTest(unittest.TestCase):
             real_run["charTotals"]["크라운"],
         )
 
+    def test_bundled_temporary_characters_simulate_with_fiction_warning(self):
+        entries = json.loads((SITE_DIR / "src/temporary-characters.json").read_text())
+        names = [entry["name"] for entry in entries]
+        custom = {entry["name"]: {"nikke": entry["nikke"], "skills": entry["skills"]}
+                  for entry in entries}
+        payload = {
+            "squad": [names[0], "크라운", names[1]], "customCharacters": custom,
+            "duration": 10, "enemyDef": 31_784, "enemyCode": "",
+            "corePx": 0, "hasParts": False, "seed": 42,
+        }
+        result = json.loads(run_request(json.dumps(payload, ensure_ascii=False)))
+        self.assertIn("[임시 · 창작]", result["previewNote"])
+        for name in names:
+            self.assertIn(name, result["previewNote"])
+            self.assertGreater(result["charTotals"][name], 0)
+        payload["characters"] = {names[0]: {"skillLevels": {"1": 1, "2": 10, "3": 10}}}
+        with self.assertRaises(ValueError):
+            run_request(json.dumps(payload, ensure_ascii=False))
+
     def test_custom_character_missing_stats_is_rejected(self):
         payload = {
             "squad": ["엉터리"],

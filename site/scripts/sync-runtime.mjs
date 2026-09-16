@@ -60,6 +60,8 @@ mkdirSync(runtimeDir, { recursive: true });
 mkdirSync(characterDir, { recursive: true });
 
 const hash = createHash('sha256');
+// 창작 임시 스킬이 바뀌면 이전 계산 결과 캐시도 무효화한다.
+hash.update(readFileSync(join(siteDir, 'src', 'temporary-characters.json')));
 for (const relativePath of runtimeFiles) {
   const source = join(repoRoot, relativePath);
   const target = join(runtimeDir, relativePath);

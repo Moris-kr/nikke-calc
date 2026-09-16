@@ -137,6 +137,7 @@ export interface CalculatorClientLike {
 
 interface CalculatorDependencies {
   catalog: CharacterMeta[];
+  bundledCharacters?: SimulationRequest['customCharacters'];
   settings: SettingsCatalog;
   version: string;
   client: CalculatorClientLike;
@@ -605,6 +606,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     }
   };
   const registerCustom = (name: string) => {
+    if (deps.bundledCharacters?.[name]) return;
     const custom = customChars[name];
     if (!custom) return;
     if (!catalogByName.has(name)) {
@@ -615,7 +617,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     settings.characters[name] = customToSettings(custom);
   };
   const customPayload = (): Record<string, { nikke: Record<string, unknown>; skills: unknown[] }> =>
-    Object.fromEntries(Object.entries(customChars).map(([n, c]) => [n, { nikke: c.nikke, skills: c.skills }]));
+    ({ ...Object.fromEntries(Object.entries(customChars).map(([n, c]) => [n, { nikke: c.nikke, skills: c.skills }])),
+      ...deps.bundledCharacters });
 
   // 편성·설정·전투 조건을 localStorage에 저장해 새로고침해도 마지막 상태로 복원한다.
   const STATE_KEY = 'nikke-state-v1';
@@ -7374,7 +7377,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   };
   const renderCustomList = () => {
     customList.replaceChildren();
-    const names = Object.keys(customChars);
+    const names = Object.keys(customChars).filter(name => !deps.bundledCharacters?.[name]);
     if (names.length === 0) return;
     customList.append(createText('p', '추가된 니케', 'custom-list-title'));
     for (const name of names) {
@@ -7428,6 +7431,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   element<HTMLButtonElement>(root, '[data-custom-submit]').addEventListener('click', () => {
     try {
       const custom = parseCustomInput(customJson.value);
+      if (deps.bundledCharacters?.[custom.name]) {
+        throw new Error("이미 기본 목록에 등록된 임시 캐릭터입니다. 다른 이름으로 등록해 주세요.");
+      }
       customChars[custom.name] = custom;
       saveCustom();
       registerCustom(custom.name);

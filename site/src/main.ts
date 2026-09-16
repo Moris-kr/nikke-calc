@@ -3,6 +3,7 @@ import './styles.css';
 import { CalculatorPool } from './worker-client';
 import { detectLang, LANG_KEY, setLang, setLocaleNames, t, type LocaleNames } from './i18n';
 import { mountCalculator } from './ui';
+import { installTemporaryCharacters } from './temporary-characters';
 import type { CharacterMeta, RuntimeManifest, SettingsCatalog } from './types';
 
 // 말을 먼저 정한다 — 첫 글자(「불러오는 중」)부터 그 사람의 말이어야 한다.
@@ -42,10 +43,12 @@ async function start(): Promise<void> {
   const catalog = await catalogResponse.json() as CharacterMeta[];
   const manifest = await manifestResponse.json() as RuntimeManifest;
   const settings = await settingsResponse.json() as SettingsCatalog;
+  const bundledCharacters = installTemporaryCharacters(catalog, settings);
   const client = new CalculatorPool();
   const cleanup = mountCalculator(root, {
     catalog,
     settings,
+    bundledCharacters,
     version: manifest.version,
     client,
     storage: () => window.localStorage,

@@ -163,6 +163,15 @@ const portrait = (
   ctx.fillStyle = 'rgba(146,176,201,.10)';
   ctx.fillRect(x, y, size, size);
   if (image && image.naturalWidth > 0) {
+    if (image.src?.includes('/temporary-characters/')) {
+      const ratio = size / Math.max(image.naturalWidth, image.naturalHeight);
+      const width = image.naturalWidth * ratio;
+      const height = image.naturalHeight * ratio;
+      ctx.drawImage(image, 0, 0, image.naturalWidth, image.naturalHeight,
+        x + (size - width) / 2, y + (size - height) / 2, width, height);
+      ctx.restore();
+      return;
+    }
     const side = Math.min(image.naturalWidth, image.naturalHeight);
     ctx.drawImage(
       image,
@@ -352,9 +361,14 @@ export function renderReport(
   const measureCtx = measure.getContext('2d');
   if (!measureCtx) throw new Error('캔버스를 사용할 수 없는 브라우저입니다.');
   const single = batch.decks[0];
-  const height = multi
+  const warning = batch.decks.some(deck => deck.result.previewNote?.includes('[임시 · 창작]'))
+    ? '[임시 · 창작] 캐릭터 포함 — 창작 스킬로 계산한 결과이며 실제 성능과 무관합니다.'
+    : batch.decks.some(deck => deck.result.previewNote)
+      ? '[프리뷰 · 미검증] 캐릭터 포함 — 출시 전 정보 기준입니다.' : '';
+  const contentHeight = multi
     ? drawBatch(measureCtx, batch, meta, portraits, width)
     : (single ? drawSingle(measureCtx, single, meta, portraits) : PAD * 2);
+  const height = contentHeight + (warning ? 36 : 0);
 
   const canvas = createCanvas();
   canvas.width = Math.round(width * SCALE);
@@ -371,6 +385,7 @@ export function renderReport(
 
   if (multi) drawBatch(ctx, batch, meta, portraits, width);
   else if (single) drawSingle(ctx, single, meta, portraits);
+  if (warning) text(ctx, warning, PAD, height - 14, 13, COLOR.amber, 700);
 
   return canvas;
 }

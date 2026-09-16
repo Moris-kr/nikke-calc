@@ -6,6 +6,8 @@ import { join } from 'node:path';
 
 import type { StorageLike } from './cache';
 import { ANNOUNCEMENTS, COUNTDOWNS, countdownToShow } from './announcement';
+import { installTemporaryCharacters } from './temporary-characters';
+import temporaryDefinitions from './temporary-characters.json';
 import { LATEST_NOTICE_ID } from './notices';
 import { mountCalculator, type CalculatorClientLike } from './ui';
 import { decodeBattleCode, encodeBattleCode, encodeShareCode } from './share-code';
@@ -208,6 +210,25 @@ describe('calculator UI', () => {
     root = document.createElement('main');
     document.body.append(root);
     localStorage.clear();
+  });
+
+  it('preserves bundled temporary settings when a same-name local character exists', () => {
+    const testCatalog = structuredClone(catalog);
+    const testSettings = structuredClone(settings);
+    const bundledCharacters = installTemporaryCharacters(testCatalog, testSettings);
+    const custom = temporaryDefinitions[0]!;
+    const stored = JSON.stringify({ [custom.name]: custom });
+    localStorage.setItem('nikke-custom-v1', stored);
+    mountCalculator(root, { catalog: testCatalog, settings: testSettings, bundledCharacters,
+      version: 'v1', client: new FakeClient(), storage: localStorage });
+    expect(testSettings.characters[custom.name]!.skillLevelsLocked).toBe(true);
+    root.querySelector<HTMLButtonElement>('[data-add-nikke]')!.click();
+    expect(root.querySelector('[data-custom-list]')!.textContent).not.toContain(custom.name);
+    root.querySelector<HTMLTextAreaElement>('[data-custom-json]')!.value = JSON.stringify(custom);
+    root.querySelector<HTMLButtonElement>('[data-custom-submit]')!.click();
+    expect(root.querySelector('[data-custom-msg]')!.textContent).toContain('기본 목록에 등록된 임시 캐릭터');
+    expect(testSettings.characters[custom.name]!.skillLevelsLocked).toBe(true);
+    expect(localStorage.getItem('nikke-custom-v1')).toBe(stored);
   });
 
   /** jsdom에는 DragEvent가 없다 — 필요한 부분(dataTransfer)만 흉내 낸다. */

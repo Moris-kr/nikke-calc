@@ -46,6 +46,18 @@ const batchOf = (decks: DeckResultEntry[]): BatchResult => ({
 describe('report image', () => {
   afterEach(() => { vi.unstubAllGlobals(); });
 
+  it('keeps the temporary character warning in exported images', () => {
+    const drawn: string[] = [];
+    const ctx = new Proxy({ measureText: () => ({ width: 30 }),
+      fillText: (value: string) => drawn.push(value) },
+      { get: (target, key) => Reflect.get(target, key) ?? (() => {}) });
+    const createCanvas = () => ({ width: 0, height: 0, getContext: () => ctx }) as unknown as HTMLCanvasElement;
+    const deck = entry(1, ['신 : 스위프트 바니'], 1000);
+    deck.result.previewNote = '[임시 · 창작] 신 : 스위프트 바니';
+    renderReport(batchOf([deck]), meta, new Map(), createCanvas);
+    expect(drawn.some(s => s.includes('[임시 · 창작]'))).toBe(true);
+  });
+
   it('1덱과 5덱은 같은 크기로 내보내고 1덱 초상화를 크게 그린다', () => {
     const portraitsDrawn: number[] = [];
     const ctx = new Proxy({ measureText: () => ({ width: 30 }),
