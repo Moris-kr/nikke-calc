@@ -1,4 +1,5 @@
 import { readdirSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -17,6 +18,26 @@ describe('generated browser runtime', () => {
     expect(catalog.every((char) => !char.name.startsWith('test_'))).toBe(true);
     // 공개 카드로 등록한 프리뷰는 출시 후 정식 원문과 대조한다.
     expect(catalog.filter((char) => char.preview).map((char) => char.name)).toEqual(['길티 : 마이티 바니', '신 : 스위프트 바니']);
+  });
+
+  it('binds every portrait URL to its character and source bytes, never a roster position', () => {
+    const catalog = JSON.parse(readFileSync(join(publicDir, 'catalog.json'), 'utf8')) as CharacterMeta[];
+    const sourceDir = join(publicDir, '..', '..', 'image');
+    const normalize = (name: string) => name.replaceAll(' ', '').replaceAll(':', '').replaceAll('_', '').toLocaleLowerCase('ko');
+    const sources = new Map(readdirSync(sourceDir).filter(name => name.endsWith('.webp'))
+      .map(name => [normalize(name.slice(0, -5)), name]));
+    let checked = 0;
+    for (const character of catalog) {
+      const source = sources.get(normalize(character.name));
+      if (!source) continue;
+      const bytes = readFileSync(join(sourceDir, source));
+      const identity = createHash('sha256').update(character.name).update('\0').update(bytes).digest('hex').slice(0, 20);
+      expect(character.image, character.name).toBe(`characters/${identity}.webp`);
+      expect(readFileSync(join(publicDir, character.image!)).equals(bytes), character.name).toBe(true);
+      checked++;
+    }
+    expect(checked).toBe(200);
+    expect(catalog.find(c => c.name === '플로라')!.image).not.toBe(catalog.find(c => c.name === '하란')!.image);
   });
 
   it('lists only runtime files that exist and have content', () => {

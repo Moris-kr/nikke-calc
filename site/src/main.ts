@@ -1,5 +1,7 @@
 import './styles.css';
 
+declare const __BUILD_ID__: string;
+
 import { CalculatorPool } from './worker-client';
 import { detectLang, LANG_KEY, setLang, setLocaleNames, t, type LocaleNames } from './i18n';
 import { mountCalculator } from './ui';
@@ -24,10 +26,12 @@ const root: HTMLElement = rootCandidate;
 root.innerHTML = `<div class="boot-screen"><span></span><p>${t('계산기 데이터를 불러오는 중…')}</p></div>`;
 
 async function start(): Promise<void> {
+  // 배포 직후에도 이전 순번 이미지 URL을 담은 목록을 캐시에서 가져오지 않는다.
+  const dataUrl = (path: string) => `${import.meta.env.BASE_URL}${path}?v=${__BUILD_ID__}`;
   const [catalogResponse, manifestResponse, settingsResponse] = await Promise.all([
-    fetch(`${import.meta.env.BASE_URL}catalog.json`),
-    fetch(`${import.meta.env.BASE_URL}runtime/manifest.json`),
-    fetch(`${import.meta.env.BASE_URL}settings.json`),
+    fetch(dataUrl('catalog.json'), { cache: 'no-cache' }),
+    fetch(dataUrl('runtime/manifest.json'), { cache: 'no-cache' }),
+    fetch(dataUrl('settings.json'), { cache: 'no-cache' }),
   ]);
   if (!catalogResponse.ok || !manifestResponse.ok || !settingsResponse.ok) {
     throw new Error(t('캐릭터 데이터를 불러오지 못했습니다.'));
