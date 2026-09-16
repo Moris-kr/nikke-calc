@@ -2577,7 +2577,7 @@ img[src*="/temporary-characters/"] { object-fit: contain; object-position: cente
 .roster-entry { position: relative; min-width: 0; display: grid; }
 .roster-entry > .roster-cell { width: 100%; min-width: 0; height: 100%; }
 .roster-info-anchor { position: absolute; top: 9px; left: 9px; right: 9px; aspect-ratio: 1; pointer-events: none; }
-.character-info-button { position: absolute; bottom: 4px; left: 4px; z-index: 5; width: 28px; height: 28px; padding: 0; border-radius: 50%; border: 1px solid var(--cyan); background: #102333; color: #e8ffff; font: 700 16px Georgia, serif; cursor: pointer; pointer-events: auto; }
+.character-info-button { position: absolute; bottom: 4px; left: 4px; z-index: 5; width: 14px; height: 14px; padding: 0; border-radius: 50%; border: 1px solid var(--cyan); background: #102333; color: #e8ffff; font: 700 8px/1 Georgia, serif; cursor: pointer; pointer-events: auto; }
 .character-info-button:hover, .character-info-button:focus-visible { background: #20505a; outline: 2px solid var(--cyan); outline-offset: 2px; }
 .portrait-wrap > .character-info-button { bottom: 6px; left: 6px; }
 .portrait-wrap:has(.character-info-button) .slot-power { padding-left: 38px; }
