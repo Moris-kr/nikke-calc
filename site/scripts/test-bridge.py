@@ -640,7 +640,7 @@ class BrowserBridgeTest(unittest.TestCase):
         custom = {entry["name"]: {"nikke": entry["nikke"], "skills": entry["skills"]}
                   for entry in entries}
         payload = {
-            "squad": ["리타", "크라운", names[0], names[1]], "customCharacters": custom,
+            "squad": ["리타", "크라운", *names, "test_B3"], "customCharacters": custom,
             "duration": 60, "enemyDef": 31_784, "enemyCode": "",
             "corePx": 0, "hasParts": False, "seed": 42,
         }
@@ -950,6 +950,36 @@ class BrowserBridgeTest(unittest.TestCase):
         }
 
         with self.assertRaisesRegex(ValueError, "스쿼드에 없는 캐릭터"):
+            run_request(json.dumps(payload, ensure_ascii=False))
+
+
+
+class GuiltyBunnyPreviewBridgeTest(unittest.TestCase):
+    NAME = "길티 : 마이티 바니"
+
+    def payload(self, mode=None):
+        result = {"squad": [self.NAME], "duration": 8, "enemyDef": 31_784,
+                  "enemyCode": "", "corePx": 0, "hasParts": False, "seed": 42}
+        if mode is not None:
+            result["characters"] = {self.NAME: {"control": {"bunny_mode": mode}}}
+        return result
+
+    def test_default_engage_and_selected_stance_use_published_preview(self):
+        default = json.loads(run_request(json.dumps(self.payload(), ensure_ascii=False)))
+        stance = json.loads(run_request(json.dumps(self.payload("stance"), ensure_ascii=False)))
+        engage = json.loads(run_request(json.dumps(self.payload("engage"), ensure_ascii=False)))
+        self.assertEqual(default["charTotals"], engage["charTotals"])
+        self.assertGreater(engage["charTotals"][self.NAME], 0)
+        self.assertNotEqual(stance["charTotals"], engage["charTotals"])
+        self.assertIn("[프리뷰 · 미검증]", engage["previewNote"])
+        self.assertNotIn("창작", engage["previewNote"])
+
+    def test_invalid_mode_and_unknown_skill_levels_are_rejected(self):
+        with self.assertRaises(ValueError):
+            run_request(json.dumps(self.payload("both"), ensure_ascii=False))
+        payload = self.payload("stance")
+        payload["characters"][self.NAME]["skillLevels"] = {"1": 9, "2": 10, "3": 10}
+        with self.assertRaises(ValueError):
             run_request(json.dumps(payload, ensure_ascii=False))
 
 

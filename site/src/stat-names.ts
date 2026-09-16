@@ -19,6 +19,7 @@ const SECONDS = new Set([
 const PERCENT = new Set(['crit_rate', 'crit_dmg', 'normal_atk_crit_rate', 'received_dmg']);
 
 export const STAT_NAMES: Record<string, string> = {
+  bunny_mode_switch: '바니 모드 전환',
   accumulate_max_scale_pct: '누적 상한 배율',
   accuracy_pct: '명중률',
   ammo_charge_flat: '장탄 충전',

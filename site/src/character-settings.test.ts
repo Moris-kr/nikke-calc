@@ -1022,3 +1022,42 @@ describe('부위 단위 오버로드 옮기기', () => {
     expect(last!.overload!.atk_pct).toBeGreaterThan(0);
   });
 });
+
+describe('바니 모드 특수 조작', () => {
+  const name = '길티 : 마이티 바니';
+  const catalog: SettingsCatalog = { ...settings, characters: { ...settings.characters,
+    [name]: { ...settings.characters['리타']!, weaponType: 'SR', recommendedControl: { bunny_mode: 'engage' } },
+  } };
+  function setup(initial: CharacterOverrides = {}) {
+    const host = document.createElement('div');
+    document.body.append(host);
+    let value = initial;
+    const render = () => renderCharacterSettings(host, name, catalog, value, next => { value = next ?? {}; render(); });
+    render();
+    return { host, value: () => value };
+  }
+  it('스탠스에서 인게이지를 선택하고 다른 설정 변경 후에도 유지한다', () => {
+    const { host, value } = setup({ control: { bunny_mode: 'stance' } });
+    expect(host.querySelector<HTMLInputElement>('[data-bunny-mode="stance"]')!.checked).toBe(true);
+    host.querySelector<HTMLInputElement>('[data-bunny-mode="engage"]')!.click();
+    expect(value().control?.bunny_mode).toBe('engage');
+    expect(host.querySelector<HTMLInputElement>('[data-bunny-mode="stance"]')!.checked).toBe(false);
+    host.querySelector<HTMLInputElement>('[data-control="cover"]')!.click();
+    expect(value().control).toEqual({ bunny_mode: 'engage', cover: { policy: 'own_full_burst' } });
+    host.querySelector<HTMLInputElement>('[data-bunny-mode="stance"]')!.click();
+    expect(value().control?.bunny_mode).toBe('stance');
+    expect(host.querySelector<HTMLInputElement>('[data-bunny-mode="engage"]')!.checked).toBe(false);
+  });
+  it('저장된 스탠스를 복원하고 추천 자동으로 돌아가면 인게이지가 된다', () => {
+    const { host, value } = setup({ control: { bunny_mode: 'stance' } });
+    expect(host.querySelector<HTMLInputElement>('[data-bunny-mode="stance"]')!.checked).toBe(true);
+    host.querySelector<HTMLInputElement>('[data-control-mode="auto"]')!.click();
+    expect(value().control).toBeUndefined();
+    expect(host.querySelector<HTMLInputElement>('[data-bunny-mode="engage"]')!.checked).toBe(true);
+  });
+  it('다른 캐릭터에는 표시하지 않는다', () => {
+    const host = document.createElement('div');
+    renderCharacterSettings(host, '리타', settings, {}, () => {});
+    expect(host.querySelector('[data-bunny-mode]')).toBeNull();
+  });
+});

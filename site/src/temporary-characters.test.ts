@@ -9,7 +9,7 @@ describe('bundled temporary characters', () => {
     const catalog: CharacterMeta[] = [];
     const settings = { characters: {} } as SettingsCatalog;
     const custom = installTemporaryCharacters(catalog, settings);
-    expect(catalog.map(c => c.name)).toEqual(['신 : 스위프트 바니', '길티 : 마이티 바니']);
+    expect(catalog.map(c => c.name)).toEqual(['신 : 스위프트 바니']);
     for (const c of catalog) {
       expect(c).toMatchObject({ manufacturer: '미실리스', weaponType: 'SR', elementCode: '수냉', className: '화력형', burstStage: '3', preview: true });
       expect(custom[c.name]?.nikke).toMatchObject({ rarity: 'SSR', preview: true, fabricated: true });

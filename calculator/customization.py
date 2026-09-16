@@ -153,10 +153,15 @@ def _control_number(value: Any, field: str, minimum: float, maximum: float) -> f
 def _normalize_control(raw: Any) -> dict[str, Any]:
     if not isinstance(raw, dict):
         raise ValueError("컨트롤 설정은 객체여야 합니다")
-    unknown = set(raw) - {"tap_fire", "reload", "cover", "hold"}
+    unknown = set(raw) - {"tap_fire", "reload", "cover", "hold", "bunny_mode"}
     if unknown:
         raise ValueError(f"지원하지 않는 컨트롤: {sorted(unknown)}")
     result: dict[str, Any] = {}
+
+    if "bunny_mode" in raw:
+        if raw["bunny_mode"] not in ("stance", "engage"):
+            raise ValueError("바니 모드는 stance 또는 engage여야 합니다")
+        result["bunny_mode"] = raw["bunny_mode"]
 
     tap = raw.get("tap_fire")
     if tap is not None:

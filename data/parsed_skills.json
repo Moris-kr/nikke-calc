@@ -46263,5 +46263,241 @@
         "10": 1350.0
       }
     }
+  ],
+  "길티 : 마이티 바니": [
+    {
+      "source": "스킬1",
+      "type": "buff",
+      "name": "어떻게 하는 게 좋아…?",
+      "trigger": {
+        "timing": [
+          "battle_start"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "atk_pct",
+      "values": {
+        "10": 20.1
+      },
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "duration": -1
+    },
+    {
+      "source": "스킬1",
+      "type": "instant",
+      "name": "바니 모드 초기화",
+      "trigger": {
+        "timing": [
+          "battle_start"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "bunny_mode_switch",
+      "values": {
+        "10": 0
+      },
+      "mode": "stance"
+    },
+    {
+      "source": "스킬1",
+      "type": "instant",
+      "name": "바니 모드 전환",
+      "trigger": {
+        "timing": [
+          "charge_hold:1"
+        ],
+        "condition": [
+          "not_self_state:마이티 스톰프"
+        ]
+      },
+      "target": "self",
+      "stat": "bunny_mode_switch",
+      "values": {
+        "10": 0
+      },
+      "mode": "toggle"
+    },
+    {
+      "source": "스킬2",
+      "type": "buff",
+      "name": "체인 릴리즈",
+      "trigger": {
+        "timing": [
+          "passive"
+        ],
+        "condition": [
+          "self_state:바니 모드 : 인게이지"
+        ]
+      },
+      "target": "self",
+      "stat": "armor_break_enabled",
+      "values": {
+        "10": 1
+      },
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "duration": -1
+    },
+    {
+      "source": "스킬2",
+      "type": "damage",
+      "name": "체인 릴리즈 2",
+      "trigger": {
+        "timing": [
+          "full_charge_hit"
+        ],
+        "condition": [
+          "self_state:바니 모드 : 인게이지"
+        ]
+      },
+      "target": "target",
+      "stat": "armor_break_damage",
+      "values": {
+        "10": 370.08
+      }
+    },
+    {
+      "source": "스킬2",
+      "type": "buff",
+      "name": "체인 인헨스",
+      "trigger": {
+        "timing": [
+          "passive"
+        ],
+        "condition": [
+          "self_state:바니 모드 : 스탠스"
+        ]
+      },
+      "target": "self",
+      "stat": "atk_dmg_pct",
+      "values": {
+        "10": 20.45
+      },
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "duration": -1
+    },
+    {
+      "source": "스킬2",
+      "type": "buff",
+      "name": "체인 인헨스 2",
+      "trigger": {
+        "timing": [
+          "passive"
+        ],
+        "condition": [
+          "self_state:바니 모드 : 스탠스"
+        ]
+      },
+      "target": "self",
+      "stat": "charge_dmg_pct",
+      "values": {
+        "10": 40
+      },
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "duration": -1
+    },
+    {
+      "source": "스킬2",
+      "type": "damage",
+      "name": "체인 인헨스 3",
+      "trigger": {
+        "timing": [
+          "full_charge_hit"
+        ],
+        "condition": [
+          "self_state:바니 모드 : 스탠스"
+        ]
+      },
+      "target": "target",
+      "stat": "bonus_damage",
+      "values": {
+        "10": 450.89
+      }
+    },
+    {
+      "source": "스킬3",
+      "type": "weapon_change",
+      "name": "마이티 스톰프",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "weapon_type": "SR",
+      "damage_coeff": {
+        "10": 101.3
+      },
+      "max_ammo": 1,
+      "charge_time": 1.5,
+      "full_charge_mult": 250,
+      "duration_bullets": 1,
+      "fixed_bullets": true
+    },
+    {
+      "source": "스킬3",
+      "type": "buff",
+      "name": "마이티 스톰프 고정 차지",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": [
+          "self_state:마이티 스톰프"
+        ]
+      },
+      "target": "self",
+      "stat": "charge_time_fixed",
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "duration": -1,
+      "duration_bullets": 1,
+      "fixed_value": 1.5
+    },
+    {
+      "source": "스킬3",
+      "type": "buff",
+      "name": "드디어 풀려났어…!",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "charge_dmg_pct",
+      "values": {
+        "10": 1400
+      },
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "duration": -1,
+      "duration_bullets": 1
+    },
+    {
+      "source": "스킬3",
+      "type": "buff",
+      "name": "드디어 풀려났어…! 2",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": []
+      },
+      "target": "self",
+      "stat": "atk_dmg_pct",
+      "values": {
+        "10": 77.35
+      },
+      "polarity": "beneficial",
+      "max_stack": 1,
+      "duration": 10
+    }
   ]
 }

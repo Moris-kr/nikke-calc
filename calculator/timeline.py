@@ -378,6 +378,7 @@ class CharState:
 
         # ── 컨트롤 (유저 조작 재현). 정본: context/CONTROL.md ─────────────
         control = char.get("control") or {}
+        self.bunny_mode = control.get("bunny_mode", "engage")
 
         # 톡톡이: 차지를 끝까지 하지 않고 짧게 눌렀다 떼기를 반복 (차지형 전용).
         # hold(누름) + release(뗌)로 주기를 만들고, hold가 유효 차지 시간 이상이면
@@ -867,7 +868,10 @@ class CharState:
             # 톡톡이로 쏘다가 **본인 버스트 동안만** 풀차지를 들고 있는 조작이
             # 실제로 쓰인다(아인 + 에이다). 톡톡이가 늘 이기게 두면 홀드가 통째로
             # 죽어, 홀드를 얹은 조합이 톡톡이만 켠 것과 한 자리도 다르지 않았다.
-            if self.tap_fire and not self._force_full_charge and self._hold_release_t < 0:
+            bunny_switch = (not self._in_weapon_change
+                            and self.name in bm.state.get("bunny_modes", {})
+                            and bm.state["bunny_modes"][self.name] != self.bunny_mode)
+            if self.tap_fire and not self._force_full_charge and self._hold_release_t < 0 and not bunny_switch:
                 # 톡톡이: 누르는 시간이 고정이고, 그중 사격 전 딜레이를 뺀 만큼만 차지된다.
                 # 차지속도 버프로 유효 차지 시간이 그 아래로 내려가면 풀차지 샷이 된다.
                 self._charge_end_t = self._charge_start_t + self._tap_hold
@@ -893,6 +897,8 @@ class CharState:
                 # 판정과 무관하게 이미 재장전 중이던 경우는 종전 동작을 그대로 둔다.
                 if (self._charge_phase != _phase_before
                         or self.reloading_until != _reload_before):
+                    return events
+                if (bunny_switch and bm.state["bunny_modes"][self.name] != self.bunny_mode):
                     return events
                 # 홀드: 풀차지가 끝나도 시퀀스가 지정한 시각까지 떼지 않는다.
                 # 대기 중에도 charging=True라 "차지 중" 조건 버프가 유지된다 (실제 게임과 동일).
@@ -1185,6 +1191,13 @@ class CharState:
 
         # 발사 전 charge_phase가 ready인 경우 ammo를 weapon_change 장탄으로 세팅
         # (이미 charging 중이거나 post_delay 중이면 그대로 진행)
+        if self._wc_new_session and wc_eff.get("fixed_bullets"):
+            # A fixed one-shot replacement starts a fresh charge, even if the old SR
+            # was in post-delay or had already latched a full charge for a mode switch.
+            self._charge_phase = "ready"
+            self._charge_full_t = -1.0
+            self._hold_release_t = -1.0
+            self._pending_auto_reload = False
         was_ready = (self._charge_phase == "ready")
 
         # CharState 필드 임시 교체
@@ -1286,7 +1299,8 @@ class CharState:
             duration_bullets = int(duration_bullets)
             if gauge_ref:
                 duration_bullets = wc_ammo_full
-            elif wc_max_ammo != -1 and duration_bullets == wc_max_ammo:
+            elif (not wc_eff.get("fixed_bullets") and wc_max_ammo != -1
+                  and duration_bullets == wc_max_ammo):
                 # "모든 탄환 발사 시 제거" 형태 — 장탄 버프로 장탄이 늘면 발수도 함께 늘어난다
                 duration_bullets = wc_ammo_full
         if duration_bullets is not None and self._wc_shots >= duration_bullets:
@@ -1470,6 +1484,8 @@ class CharState:
         """
         if self.fire_mode != "charge":
             return
+        if self.name in bm.state.get("bunny_modes", {}):
+            return  # Explicit bunny mode control owns the hold; avoid conflicting toggles.
         if self.hold_policy not in ("own_full_burst", "charge_hold_after_fb"):
             return
         if not bm.state.get("full_burst", False):

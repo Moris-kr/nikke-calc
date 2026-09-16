@@ -4,11 +4,12 @@
 맞지 않으면 조건이 영원히 거짓**이 된다. 조용히 죽으므로 딜만 낮게 나오고 아무도
 모른다 — 실제로 목단 애장품 「다 덤벼!」의 5타 추가 대미지가 그렇게 죽어 있었다.
 
-`buff_manager._has_self_state`가 이름을 푸는 길은 둘뿐이다:
+`buff_manager._has_self_state`가 이름을 푸는 경로:
 
   1. `_by_name(X)` — **누가 걸었든** 이름이 X인 활성 효과에 이 캐릭터가 들어 있나.
      아군이 걸어 주는 상태도 여기서 풀리므로, 자기 효과 목록에 없어도 된다.
   2. `weapon_change_name(caster) == X` — 무기 변경 모드 이름.
+  3. `bunny_modes` — 바니 모드 전환 효과가 관리하는 영속 상태.
 
 그래서 X는 **데이터 어딘가에 효과 이름으로 존재해야** 한다. 원문의 대괄호 이름
 (`[평정심 : …]`)을 그대로 쓰면 안 되고, 그 상태를 **거는 효과의 이름**을 써야 한다.
@@ -34,6 +35,8 @@ def _all_effect_names() -> set[str]:
             name = effect.get("name")
             if name:
                 names.add(name)
+            if effect.get("stat") == "bunny_mode_switch":
+                names.update({"바니 모드 : 스탠스", "바니 모드 : 인게이지"})
     return names
 
 

@@ -2708,6 +2708,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       card.className = 'squad-slot';
       card.dataset.slotCard = String(index);
       card.classList.toggle('is-preview', Boolean(char?.preview));
+      card.classList.toggle('is-fictional', Boolean(customPayload()[name]?.nikke.fabricated));
       makeDropTarget(card, index);
       if (name) {
         // 채워진 칸은 집어서 다른 칸에 놓을 수 있다 — ‹ › 단추와 같은 «자리 맞바꾸기»다.
@@ -5476,9 +5477,10 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       const codeIcon = createElementIcon(char.elementCode, 'roster-code');
       if (codeIcon) portrait.append(codeIcon);
       if (char.preview) {
-        // (임시) — 스킬 미공개라 창작한 값으로 도는 캐릭터. 고르기 전에 보여야 한다.
-        const temp = createText('i', '임시', 'roster-temp');
-        temp.title = '스킬이 공개되지 않아 임의로 창작한 값으로 계산합니다';
+        const fictional = Boolean(customPayload()[char.name]?.nikke.fabricated);
+        const temp = createText('i', fictional ? '임시' : '프리뷰', 'roster-temp');
+        temp.title = fictional ? '스킬이 공개되지 않아 임의로 창작한 값으로 계산합니다'
+          : '공개 카드 Lv10 기준 · 출시 전 정보이며 실제 성능은 미검증입니다';
         portrait.append(temp);
       }
       if (quickDeckOpen) {
@@ -5576,8 +5578,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     if (quickDeckOpen) rosterSearch.focus({ preventScroll: true });
     // (임시) 캐릭터는 넣는 순간 바로 알린다 — 결과까지 가서야 알면 이미 늦다.
     if (catalogByName.get(name)?.preview) {
-      status.textContent = `${name}은(는) 아직 (임시) 등록입니다 — 스킬이 공개되지 않아 `
-        + '임의로 창작한 값으로 계산합니다. 실제 성능과 무관하니 참고용으로만 봐 주세요.';
+      status.textContent = customPayload()[name]?.nikke.fabricated
+        ? `${name}은(는) 아직 (임시) 등록입니다 — 스킬이 공개되지 않아 임의로 창작한 값으로 계산합니다. 실제 성능과 무관하니 참고용으로만 봐 주세요.`
+        : `[프리뷰 · 미검증] ${name} — 공개 카드 Lv10 기준이며 실제 성능은 검증되지 않았습니다.`;
     }
   };
 

@@ -388,7 +388,7 @@ input:where([type="checkbox"], [type="radio"]) {
 .slot-choose[aria-pressed="true"] span { color: #cfeceb; }
 .slot-clear { position: absolute; top: 7px; right: 6px; width: 20px; height: 20px; padding: 0; display: grid; place-items: center; border: 0; background: none; color: var(--muted); font-size: 12px; line-height: 1; cursor: pointer; border-radius: 4px; }
 .slot-clear:hover { background: rgba(255,119,135,.16); color: var(--danger); }
-.squad-slot.is-preview::after { content: "임시 · 창작 스킬"; position: absolute; top: 8px; right: 8px; z-index: 3; padding: 3px 5px; background: var(--danger); color: #21050a; font-size: 8px; font-weight: 900; }
+.squad-slot.is-preview::after { content: "프리뷰 · 미검증"; position: absolute; top: 8px; right: 8px; z-index: 3; padding: 3px 5px; background: var(--danger); color: #21050a; font-size: 8px; font-weight: 900; }
 /* 목록 칸의 (임시) 딱지 — 초상화 좌하단, 버스트 배지 맞은편. */
 .roster-temp { position: absolute; left: 4px; bottom: 4px; z-index: 2; padding: 2px 4px;
   background: var(--danger); color: #21050a; font-size: 8px; font-style: normal; font-weight: 900;
@@ -2599,3 +2599,9 @@ img[src*="/temporary-characters/"][src$="-card.png"] { object-fit: contain; obje
 .character-info-header { position: sticky; top: 0; z-index: 1; padding-block: 8px; background: #0c1725; }
 .character-info-skill label { white-space: nowrap; }
 .character-info-skill select { width: auto; min-width: 100px; flex: 0 0 auto; }
+
+.bunny-mode-control { grid-column: 1 / -1; min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 10px; display: flex; flex-wrap: wrap; gap: 10px 16px; }
+.bunny-mode-control legend { color: var(--accent); font-size: 12px; padding: 0 4px; }
+.bunny-mode-control .field-note { flex-basis: 100%; margin: 0; }
+
+.squad-slot.is-preview.is-fictional::after { content: "임시 · 창작 스킬"; }

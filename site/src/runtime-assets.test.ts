@@ -13,11 +13,10 @@ describe('generated browser runtime', () => {
       readFileSync(join(publicDir, 'catalog.json'), 'utf8'),
     ) as CharacterMeta[];
 
-    expect(catalog).toHaveLength(200);
+    expect(catalog).toHaveLength(201);
     expect(catalog.every((char) => !char.name.startsWith('test_'))).toBe(true);
-    // 프리뷰(출시 전) 항목은 출시되면 정식 등록되며 사라진다. 지금은 없다
-    // (PARSING-CHARS §프리뷰). 남아 있으면 화면에 (임시) 경고가 붙는다.
-    expect(catalog.filter((char) => char.preview).map((char) => char.name)).toEqual([]);
+    // 공개 카드로 등록한 프리뷰는 출시 후 정식 원문과 대조한다.
+    expect(catalog.filter((char) => char.preview).map((char) => char.name)).toEqual(['길티 : 마이티 바니']);
   });
 
   it('lists only runtime files that exist and have content', () => {
@@ -133,7 +132,7 @@ describe('generated browser runtime', () => {
     // 정식 명칭으로, `드레이크 : 그레이트 빌런`은 출시 원문으로 등록되며 잠금이 풀렸다.
     expect(Object.entries(settings.characters)
       .filter(([, meta]) => meta.skillLevelsLocked)
-      .map(([name]) => name)).toEqual([]);
+      .map(([name]) => name)).toEqual(['길티 : 마이티 바니']);
     for (const name of ['퀸(마코토)', '유키코', '드레이크 : 그레이트 빌런']) {
       expect(settings.characters[name]).toMatchObject({ skillLevelsLocked: false });
     }

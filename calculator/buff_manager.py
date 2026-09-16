@@ -966,6 +966,31 @@ class BuffManager:
             self._instant_timers[id(eff)] = (caster, t + tick_interval, expires)
             return
 
+        if stat == "bunny_mode_switch":
+            modes = self.state.setdefault("bunny_modes", {})
+            old = modes.get(caster)
+            mode = eff.get("mode", "toggle")
+            if mode == "toggle":
+                mode = "engage" if old == "stance" else "stance"
+            opposite = "stance" if mode == "engage" else "engage"
+            recipients = [caster] + [n for n in self.squad_names
+                                      if n != caster and modes.get(n) == opposite]
+            labels = {"stance": "바니 모드 : 스탠스", "engage": "바니 모드 : 인게이지"}
+            # Snapshot recipients before changing anything; propagation sets, never toggles.
+            for name in recipients:
+                previous = modes.get(name)
+                if previous == mode:
+                    continue
+                modes[name] = mode
+                if self._buff_event_handler:
+                    if previous:
+                        self._buff_event_handler("expire", labels[previous], caster, name, t, t)
+                    self._buff_event_handler("activate", labels[mode], caster, name, t, math.inf)
+            self._invalidate_buffs_cache()
+            for name in recipients:
+                self.notify(f"event:{labels[mode]}", t, name)
+            return
+
         # ── 내장 처리 ──────────────────────────────────────────────────────
 
         # force_skill_use — `[스킬 N 강제 사용]`
@@ -1882,6 +1907,9 @@ class BuffManager:
         weapon_change는 _active에 등록되지 않으므로 여기서 같이 봐야
         `self_state:저격 모드`처럼 모드 자체를 가리키는 조건이 성립한다.
         """
+        bunny = {"바니 모드 : 스탠스": "stance", "바니 모드 : 인게이지": "engage"}
+        if state_name in bunny:
+            return self.state.get("bunny_modes", {}).get(caster) == bunny[state_name]
         if any(caster in (ab.target_chars or []) for ab in self._by_name(state_name)):
             return True
         return self.weapon_change_name(caster) == state_name

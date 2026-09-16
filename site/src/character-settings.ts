@@ -59,7 +59,7 @@ const cloneOverrides = (value: CharacterOverrides): CharacterOverrides => ({
   ...(value.collection ? { collection: { ...value.collection } } : {}),
   ...(value.control !== undefined ? {
     control: Object.fromEntries(
-      Object.entries(value.control).map(([key, entry]) => [key, { ...entry }]),
+      Object.entries(value.control).map(([key, entry]) => [key, typeof entry === 'string' ? entry : { ...entry }]),
     ) as CharacterControl,
   } : {}),
   ...(value.manualStats ? { manualStats: { ...value.manualStats } } : {}),
@@ -135,6 +135,7 @@ export const CONTROL_NAMES: Record<string, string> = {
   hold: '홀드 컨트롤',
   reload: '재장전 컨트롤',
   cover: '버스트 엄폐 컨트롤',
+  bunny_mode: '바니 모드',
 };
 
 /** 컨트롤 키 → 한글. 모르는 키는 그대로 둔다(새 컨트롤이 생겨도 빈칸이 되지 않는다). */
@@ -291,7 +292,8 @@ export function controlChipText(value?: CharacterOverrides): string {
     : burst.mode === 'priority' ? `버스트 ${burst.every}의 배수`
     : burst.mode === 'endgame' ? `버스트 막바지 ${burst.seconds}초`
     : '버스트 안 씀';
-  return `${control} · ${burstText}`;
+  const bunny = value?.control?.bunny_mode;
+  return `${control}${bunny ? ` · ${bunny === 'engage' ? '인게이지' : '스탠스'}` : ''} · ${burstText}`;
 }
 
 /**
@@ -1180,6 +1182,36 @@ export function renderCharacterSettings(
     return label;
   };
 
+  if (name === '길티 : 마이티 바니') {
+    const modes = document.createElement('fieldset');
+    modes.className = 'bunny-mode-control';
+    const legend = document.createElement('legend');
+    legend.textContent = '특수 조작 · 바니 모드';
+    modes.append(legend);
+    for (const [mode, text] of [['engage', '인게이지 사용'], ['stance', '스탠스 사용']] as const) {
+      const label = document.createElement('label');
+      label.className = 'inline-check';
+      const radio = document.createElement('input');
+      radio.type = 'radio';
+      radio.name = `bunny-mode-${name}`;
+      radio.dataset.bunnyMode = mode;
+      radio.checked = (displayedControl.bunny_mode ?? 'engage') === mode;
+      radio.addEventListener('change', () => {
+        if (!radio.checked) return;
+        const next = cloneOverrides(current);
+        next.control = { ...displayedControl, bunny_mode: mode };
+        commit(next);
+      });
+      label.append(radio, document.createTextNode(text));
+      modes.append(label);
+    }
+    const help = document.createElement('p');
+    help.className = 'field-note';
+    help.textContent = '기본은 인게이지입니다. 인게이지는 풀 차지를 1초 더 유지해 전환하며, 버스트 중에는 모드를 유지합니다.';
+    modes.append(help);
+    controlGrid.append(modes);
+  }
+
   if (defaults.weaponType === 'SR' || defaults.weaponType === 'RL') {
     const tapLabel = addControlToggle('tap_fire', '톡톡이', { rate: TAP_FIRE_DEFAULT, release: 0.03 });
     // 발사 속도는 사람마다 다르다. 커뮤니티는 10초당 발수(«N톡톡이»)로 부르므로
@@ -1212,6 +1244,7 @@ export function renderCharacterSettings(
       emitNumericChange(next);
     });
     tapLabel.append(makeInputUnit(tapRate, '발/초'), tapHint);
+    if (name !== '길티 : 마이티 바니') {
     const holdLabel = addControlToggle('hold', '홀드 컨트롤', {
       policy: 'own_full_burst', lead: 0.5,
     });
@@ -1235,6 +1268,7 @@ export function renderCharacterSettings(
       });
     });
     holdLabel.append(holdPolicy);
+    }
   }
 
   const reloadLabel = addControlToggle('reload', '재장전 컨트롤', {

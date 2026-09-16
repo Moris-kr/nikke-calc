@@ -19,6 +19,7 @@ export interface SkillLevels {
 }
 
 export interface CharacterControl {
+  bunny_mode?: 'stance' | 'engage';
   tap_fire?: { rate: number; release?: number; full_charge_interval?: number };
   reload?: {
     policy: 'before_fb_end' | 'into_fb';
