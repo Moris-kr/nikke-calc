@@ -23,6 +23,34 @@ const FIVE_DECKS = [
 const allNames = [...new Set(FIVE_DECKS.flat())];
 
 describe('share code round trip', () => {
+  it.each([2, 6, 20, 255, 256, 300])('carries all %i decks without truncation', (count) => {
+    const decks = Array.from({ length: count }, (_, i) =>
+      deck(i + 1, [...FIVE_DECKS[i % FIVE_DECKS.length]!]));
+    const payload = decodeShareCode(encodeShareCode(decks, true), allNames);
+    expect(payload.fiveDeckMode).toBe(true);
+    expect(payload.decks.map((entry) => entry.squad)).toEqual(decks.map((entry) => entry.squad));
+  });
+
+  it('reads legacy JSON containing more than five decks and still limits squad slots', () => {
+    const decks = Array.from({ length: 8 }, () => ({ squad: ['리타', '', '', '', '', '앨리스'] }));
+    const code = 'NIKKE1-' + btoa(unescape(encodeURIComponent(JSON.stringify({ fiveDeckMode: true, decks }))));
+    const payload = decodeShareCode(code);
+    expect(payload.fiveDeckMode).toBe(true);
+    expect(payload.decks).toEqual(decks.map(({ squad }) => ({ squad: squad.slice(0, 5) })));
+  });
+
+  it('rejects extended counts larger than the available deck payload', () => {
+    const code = 'NK2-' + btoa(String.fromCharCode(1, 0, 255, 255, 255, 255, 0));
+    expect(() => decodeShareCode(code)).toThrow(/잘렸/);
+  });
+
+  it('keeps the original NK2 byte layout for existing deck counts', () => {
+    expect(encodeShareCode([deck(1, ['', '', '', '', ''])], true)).toBe('NK2-AQEA');
+    expect(decodeShareCode('NK2-AQEA')).toEqual({
+      fiveDeckMode: true, decks: [{ squad: ['', '', '', '', ''] }],
+    });
+  });
+
   it('carries the squads of five decks', () => {
     const decks = emptyDecks();
     decks[0]!.squad = ['리타', '크라운', '', '', ''];

@@ -418,6 +418,11 @@ describe('deck timeline comparison', () => {
     expect(series.totals['덱 2']).toBeCloseTo(130);
   });
 
+  it('assigns distinct comparison colors after the fifth deck', () => {
+    const series = buildDeckComparisonSeries(Array.from({ length: 8 }, (_, index) => ({ ...entry, deckId: index + 1 })))!;
+    expect(new Set(Object.values(series.colors)).size).toBe(8);
+  });
+
   it('requires two decks with usable timelines', () => {
     expect(createTimelineComparison([entry])).toBeNull();
     expect(createTimelineComparison([entry, { ...entry, deckId: 2, result: { ...entry.result, timeline: undefined } }])).toBeNull();

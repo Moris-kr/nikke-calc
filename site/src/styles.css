@@ -299,7 +299,7 @@ input:hover, select:hover { border-color: rgba(69,214,208,.5); }
 .deck-tabs button.is-drop { outline: 2px dashed var(--cyan); outline-offset: 1px; }
 /* 다섯을 한 번에 지우는 단추는 «한 번 더» 눌러야 듣는다. */
 .deck-clear.is-armed { border-color: var(--danger); background: rgba(255,77,109,.16); color: #ffd7de; }
-.deck-tabs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; margin: -4px 0 10px; }
+.deck-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 7px; margin: -4px 0 10px; }
 /* 칸 하나 = 덱 단추 하나. 연필은 이 안에 겹쳐 놓는다.
    `min-width: 0`은 격자 칸의 기본값(auto)이 «안쪽 내용보다 좁아지지 않는다»라
    이름이 길면 1fr을 넘겨 탭줄이 가로로 삐져나가기 때문이다. */
@@ -880,7 +880,7 @@ footer a { color: #93aabd; text-decoration: none; font-weight: 800; letter-spaci
   .panel { padding: 20px; }
   .section-heading { align-items: stretch; flex-direction: column; gap: 16px; }
   .squad-tools { align-items: stretch; flex-direction: column; gap: 12px; }
-  .deck-tabs { grid-template-columns: repeat(5, minmax(72px, 1fr)); overflow-x: auto; }
+  .deck-tabs { grid-template-columns: repeat(auto-fit, minmax(72px, 1fr)); }
   /* 폰에서는 슬롯을 가로로 밀지 않고 두 줄로 접는다. 밀어서 보면 지금 겨냥한 칸이
      화면 밖에 있기 쉬운데, 그 칸이 어디인지가 이 화면의 전부다. 번호(01~05)가
      카드에 찍혀 있어 순서는 접혀도 읽힌다. */
@@ -2531,3 +2531,21 @@ body.bm-open { overflow: hidden; }
 .timeline-y-limit input { width: 110px; min-height: 30px; font-size: 11px; }
 .quick-synchro { flex-wrap: wrap; }
 .quick-synchro small { color: var(--muted); font-size: 11px; }
+
+.timeline-deck-pick { display: inline-flex; align-items: center; gap: 7px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 6px; cursor: pointer; }
+.timeline-deck-pick:has(input:checked) { color: var(--cyan); border-color: var(--cyan); }
+.timeline-selected-deck { margin-bottom: 24px; }
+.timeline-selected-deck > h3 { margin: 12px 0; }
+
+.quick-decks-card { width: min(1100px, 96vw); max-height: 92vh; overflow: auto; }
+.quick-deck-row { display: grid; grid-template-columns: 54px repeat(5, minmax(0, 1fr)); gap: 6px; margin: 7px 0; align-items: center; }
+.quick-deck-row button { min-height: 42px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg); color: var(--ink); cursor: pointer; overflow-wrap: anywhere; }
+.quick-deck-row button.is-on { border-color: var(--cyan); background: rgba(69,214,208,.12); }
+.quick-deck-badges { position: absolute; top: 4px; right: 4px; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 2px; max-width: 75%; z-index: 3; }
+.quick-deck-badges span { min-width: 19px; height: 19px; padding: 1px 3px; border: 1px solid var(--cyan); border-radius: 2px; background: #071723; color: var(--cyan); font-size: 11px; font-weight: 800; text-align: center; }
+.is-quick-picker .roster-code { top: auto; bottom: 4px; }
+.is-quick-picker [data-picker-close] { display: none; }
+.quick-decks-card .picker-scroll { max-height: 45vh; }
+@media (max-width: 600px) { .quick-deck-row { grid-template-columns: 35px repeat(5, minmax(0, 1fr)); gap: 3px; font-size: 11px; } .quick-deck-row button { font-size: 10px; padding: 4px 2px; } }
+
+[data-quick-decks-slots] { max-height: 28vh; overflow-y: auto; }

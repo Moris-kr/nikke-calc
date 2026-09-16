@@ -137,7 +137,7 @@ export function buildSeries(
   const totals: Record<string, number> = {};
   let peak = 0;
   names.forEach((name, index) => {
-    colors[name] = LINE_COLORS[index % LINE_COLORS.length]!;
+    colors[name] = LINE_COLORS[index] ?? `hsl(${(index * 137.508) % 360} 70% 65%)`;
     const row = timeline.damage[name] ?? [];
     totals[name] = row.reduce((sum, value) => sum + value, 0);
     for (const value of row) if (value > peak) peak = value;

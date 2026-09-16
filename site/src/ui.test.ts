@@ -8,7 +8,7 @@ import type { StorageLike } from './cache';
 import { ANNOUNCEMENTS, COUNTDOWNS, countdownToShow } from './announcement';
 import { LATEST_NOTICE_ID } from './notices';
 import { mountCalculator, type CalculatorClientLike } from './ui';
-import { decodeBattleCode, encodeBattleCode } from './share-code';
+import { decodeBattleCode, encodeBattleCode, encodeShareCode } from './share-code';
 import './styles.css';
 import type {
   CharacterMeta,
@@ -608,9 +608,8 @@ describe('calculator UI', () => {
     root.querySelector<HTMLInputElement>('#squad-mode')!.click();
 
     const tabs = root.querySelector<HTMLElement>('[data-deck-tabs]')!;
-    // 격자가 5칸이므로 최상위 자식도 정확히 다섯이어야 한다. 연필이 형제로 붙어
-    // 여섯 번째 칸이 되면 줄이 넘어갔다 — 그것이 실제 결함이었다.
-    expect(tabs.children).toHaveLength(5);
+    // 기본 두 덱의 칸만 있어야 한다. 연필이 별도 격자 칸을 만들면 안 된다.
+    expect(tabs.children).toHaveLength(2);
 
     const rename = root.querySelector<HTMLButtonElement>('[data-deck-rename]')!;
     expect(rename).not.toBeNull();
@@ -632,11 +631,11 @@ describe('calculator UI', () => {
 
     // 다른 덱으로 옮기면 연필도 따라간다.
     const tabs = [...root.querySelectorAll<HTMLButtonElement>('[data-deck-tab]')];
-    tabs[2]!.click();
+    tabs[1]!.click();
     const rename = root.querySelectorAll<HTMLButtonElement>('[data-deck-rename]');
     expect(rename).toHaveLength(1);
-    expect(rename[0]!.dataset.deckRename).toBe('3');
-    expect(root.querySelector('[data-deck-tabs]')!.children).toHaveLength(5);
+    expect(rename[0]!.dataset.deckRename).toBe('2');
+    expect(root.querySelector('[data-deck-tabs]')!.children).toHaveLength(2);
   });
 
   /** 오버로드 옵션이 잡힌 로스터를 심는다 — 시각화는 이 값이 있어야 그린다. */
@@ -952,9 +951,9 @@ describe('calculator UI', () => {
     expect(root.querySelector('[data-share-scope-note]')?.textContent)
       .toContain('덱 1에만 들어갑니다');
 
-    // 「5덱 전부」로 바꾸면 안내도 따라 바뀐다.
+    // 「모든 덱」로 바꾸면 안내도 따라 바뀐다.
     root.querySelector<HTMLButtonElement>('[data-share-scope-pick="all"]')!.click();
-    expect(scope.querySelector('.share-scope-pick.is-on')?.textContent).toBe('5덱 전부');
+    expect(scope.querySelector('.share-scope-pick.is-on')?.textContent).toBe('모든 덱');
     expect(root.querySelector('[data-share-scope-note]')?.textContent)
       .toContain('판 전체가 바뀝니다');
   });
@@ -972,7 +971,7 @@ describe('calculator UI', () => {
     root.querySelector<HTMLButtonElement>('[data-share-scope-pick="all"]')!.click();
     root.querySelector<HTMLInputElement>('[data-preset-name]')!.value = '판 전체';
     root.querySelector<HTMLButtonElement>('[data-preset-save]')!.click();
-    expect(root.querySelector('[data-share-msg]')?.textContent).toContain('5덱 전부');
+    expect(root.querySelector('[data-share-msg]')?.textContent).toContain('모든 덱');
 
     const stored = JSON.parse(localStorage.getItem('nikke-presets-v1')!) as Array<{ name: string }>;
     expect(stored.map((item) => item.name).sort()).toEqual(['판 전체', '한 덱짜리']);
@@ -1057,7 +1056,7 @@ describe('calculator UI', () => {
     });
     root.querySelector<HTMLButtonElement>('[data-notice-dismiss]')?.click();
 
-    // 2덱까지 채운 판을 «5덱 전부»로 담아 코드를 만든다.
+    // 2덱까지 채운 판을 «모든 덱»로 담아 코드를 만든다.
     root.querySelector<HTMLInputElement>('#squad-mode')!.click();
     root.querySelector<HTMLButtonElement>('[data-deck-tab="2"]')!.click();
     chooseCharacter(root, 0, '나가');
@@ -1897,6 +1896,87 @@ describe('calculator UI', () => {
     for (const name of withItem) expect(settings.characters[name]?.favoriteItem).toBeTruthy();
   });
 
+  it.each(['remove', 'replace'])('닫힌 편성 화면(%s)은 예약된 미리 계산을 실행하지 않는다', async (action) => {
+    vi.useFakeTimers();
+    try {
+      const client = new FakeClient();
+      mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });
+      if (action === 'remove') root.remove(); else root.replaceChildren();
+      await vi.advanceTimersByTimeAsync(800);
+      expect(client.simulateCalls).toBe(0);
+    } finally {
+      vi.clearAllTimers(); vi.useRealTimers();
+    }
+  });
+
+  it('빠른덱편성은 순서대로 채우고 다른 덱 중복과 필터를 유지한다', () => {
+    localStorage.setItem('nikke-state-v1', JSON.stringify({ fiveDeckMode: true, activeDeckId: 1,
+      decks: [1, 2].map(id => ({ id, squad: ['', '', '', '', ''], characters: {} })) }));
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    root.querySelector<HTMLButtonElement>('[data-quick-decks-open]')!.click();
+    const modal = root.querySelector<HTMLElement>('[data-quick-decks-modal]')!;
+    expect(modal.hidden).toBe(false);
+    expect(modal.querySelector('[data-filter-open]')).not.toBeNull();
+    const filter = modal.querySelector<HTMLButtonElement>('[data-filter-chip="burst:1"]')!;
+    filter.focus(); filter.click();
+    expect(document.activeElement).toBe(modal.querySelector('[data-roster-search]'));
+    modal.querySelector<HTMLButtonElement>('[data-filter-chip="burst:1"]')!.click();
+    const names = catalog.slice(0, 5).map(c => c.name);
+    for (const name of names) modal.querySelector<HTMLButtonElement>(`[data-roster-cell="${name}"]`)!.click();
+    const repeat = modal.querySelector<HTMLButtonElement>(`[data-roster-cell="${names[0]}"]`)!;
+    expect(repeat.disabled).toBe(false);
+    repeat.click();
+    const decks = JSON.parse(localStorage.getItem('nikke-state-v1')!).decks;
+    expect(decks[0].squad).toEqual(names);
+    expect(decks[1].squad[0]).toBe(names[0]);
+    const badges = modal.querySelectorAll(`[data-roster-cell="${names[0]}"] [data-quick-deck-badge]`);
+    expect([...badges].map(b => b.textContent)).toEqual(['1', '2']);
+    expect(document.activeElement).toBe(modal.querySelector('[data-roster-search]'));
+    document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(modal.hidden).toBe(true);
+    expect(root.querySelector('[data-picker]')!.closest('[data-quick-decks-modal]')).toBeNull();
+  });
+
+  it('6덱 공유를 적용해도 기존 덱별 전투 조건을 보존한다', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    root.querySelector<HTMLInputElement>('#core-per-deck')!.click();
+    root.querySelector<HTMLInputElement>('[data-deck-core-input="1"]')!.click();
+    root.querySelector<HTMLInputElement>('#burst-regen-per-deck')!.click();
+    const regen = root.querySelector<HTMLInputElement>('[data-deck-regen-input="1"]')!;
+    regen.value = '7'; regen.dispatchEvent(new Event('change', { bubbles: true }));
+    root.querySelector<HTMLButtonElement>('[data-share-open]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-share-scope-pick="all"]')!.click();
+    root.querySelector<HTMLTextAreaElement>('[data-share-in]')!.value = encodeShareCode(
+      Array.from({ length: 6 }, (_, i) => ({ id: i + 1, squad: ['리타', '', '', '', ''], characters: {} })), true);
+    root.querySelector<HTMLButtonElement>('[data-share-apply]')!.click();
+    expect(root.querySelectorAll('[data-deck-tab]')).toHaveLength(6);
+    expect(root.querySelector<HTMLInputElement>('[data-deck-core-input="1"]')!.checked).toBe(true);
+    expect(root.querySelector<HTMLInputElement>('[data-deck-regen-input="1"]')!.value).toBe('7');
+  });
+
+  it('여러덱 모드는 두 덱부터 추가하고 6덱을 저장·복원·계산한다', async () => {
+    const client = new FakeClient();
+    const deps = { catalog, settings: { ...settings, buffTargetWatch: {} }, version: 'v1', client, storage: localStorage };
+    mountCalculator(root, deps);
+    root.querySelector<HTMLInputElement>('#squad-mode')!.click();
+    expect(root.querySelectorAll('[data-deck-tab]')).toHaveLength(2);
+    for (let i = 0; i < 4; i += 1) root.querySelector<HTMLButtonElement>('[data-deck-add]')!.click();
+    expect(root.querySelectorAll('[data-deck-tab]')).toHaveLength(6);
+    chooseCharacter(root, 0, '리타');
+    root.querySelector<HTMLFormElement>('form')!.requestSubmit();
+    await flush();
+    await flush();
+    expect(client.requests).toHaveLength(2);
+    expect(root.querySelector('[data-deck-result-tab="6"]')).not.toBeNull();
+    root.replaceChildren();
+    mountCalculator(root, { ...deps, client: new FakeClient() });
+    expect(root.querySelectorAll('[data-deck-tab]')).toHaveLength(6);
+    expect(root.querySelector('[data-deck-tab="6"]')!.classList.contains('is-active')).toBe(true);
+    const remove = root.querySelector<HTMLButtonElement>('[data-deck-remove]')!;
+    remove.click(); remove.click();
+    expect(root.querySelectorAll('[data-deck-tab]')).toHaveLength(5);
+  });
+
   it('여러 덱 타임라인을 견주고 개별 상세로 돌아간다', async () => {
     const client = new FakeClient();
     client.simulate = async () => ({ ...calculated, timeline: {
@@ -1912,14 +1992,17 @@ describe('calculator UI', () => {
     await flush();
     await flush();
     const compare = root.querySelector<HTMLButtonElement>('[data-timeline-tab="0"]')!;
-    expect(compare.textContent).toContain('덱끼리 견주기');
+    expect(compare.parentElement!.textContent).toContain('덱끼리 견주기');
     compare.click();
-    expect(compare.getAttribute('aria-pressed')).toBe('true');
+    expect((compare as unknown as HTMLInputElement).checked).toBe(true);
     expect(root.querySelector('[data-timeline-stage] [data-timeline-comparison]')).not.toBeNull();
-    expect(root.querySelectorAll('[data-timeline-stage] [data-series]')).toHaveLength(2);
+    expect(root.querySelectorAll('[data-timeline-comparison] [data-series]')).toHaveLength(2);
     root.querySelector<HTMLButtonElement>('[data-timeline-tab="2"]')!.click();
     expect(root.querySelector('[data-timeline-stage] [data-timeline="2"]')).not.toBeNull();
+    expect(root.querySelectorAll('[data-timeline-stage] [data-timeline]')).toHaveLength(3);
+    compare.click();
     expect(root.querySelector('[data-timeline-stage] [data-timeline-comparison]')).toBeNull();
+    expect(root.querySelectorAll('[data-timeline-stage] [data-timeline]')).toHaveLength(2);
   });
 
   it('0.1초 버킷에서도 고정 Y축 상한은 그래프와 같은 단위를 쓴다', async () => {
@@ -2183,6 +2266,7 @@ describe('calculator UI', () => {
     const mode = root.querySelector<HTMLInputElement>('#squad-mode')!;
     mode.checked = true;
     mode.dispatchEvent(new Event('change'));
+    root.querySelector<HTMLButtonElement>('[data-deck-add]')!.click();
     root.querySelector<HTMLButtonElement>('[data-deck-tab="3"]')!.click();
     chooseCharacter(root, 0, '프리바티');
     const viewing = [...root.querySelectorAll('[data-slot-choose] strong')].map((e) => e.textContent);
@@ -2402,6 +2486,8 @@ describe('calculator UI', () => {
     mode.checked = true;
     mode.dispatchEvent(new Event('change'));
 
+    for (let i = 0; i < 4; i += 1) root.querySelector<HTMLButtonElement>('[data-deck-add]')!.click();
+
     // 덱 2는 미리 채워 둔다 — 덮어쓰기 대상은 기본 선택되지 않아야 한다.
     root.querySelector<HTMLButtonElement>('[data-deck-tab="2"]')!.click();
     chooseCharacter(root, 0, '앨리스');
@@ -2409,7 +2495,7 @@ describe('calculator UI', () => {
 
     root.querySelector<HTMLButtonElement>('[data-deck-copy-open]')!.click();
     const targets = [...root.querySelectorAll<HTMLInputElement>('[data-deck-copy-target]')];
-    expect(targets.map((box) => box.dataset.deckCopyTarget)).toEqual(['2', '3', '4', '5']);
+    expect(targets.map((box) => box.dataset.deckCopyTarget)).toEqual(['2', '3', '4', '5', '6']);
     expect(targets[0]!.checked).toBe(false);
     expect(targets.slice(1).every((box) => box.checked)).toBe(true);
 
@@ -2418,7 +2504,7 @@ describe('calculator UI', () => {
     const deckOne = [...root.querySelectorAll<HTMLSelectElement>('[data-squad-slot]')].map((slot) => slot.value);
     root.querySelector<HTMLButtonElement>('[data-deck-copy-apply]')!.click();
 
-    for (const id of ['2', '3', '4', '5']) {
+    for (const id of ['2', '3', '4', '5', '6']) {
       root.querySelector<HTMLButtonElement>(`[data-deck-tab="${id}"]`)!.click();
       expect([...root.querySelectorAll<HTMLSelectElement>('[data-squad-slot]')].map((slot) => slot.value))
         .toEqual(deckOne);

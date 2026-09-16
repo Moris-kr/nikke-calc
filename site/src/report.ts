@@ -6,7 +6,7 @@
 //
 // 레이아웃은 두 가지다.
 //   1덱  → 5덱과 같은 가로 카드: 큰 초상화·개별딜과 작은 평타/스킬 막대
-//   5덱  → 합계 헤드라인 + 덱 5열: 전체 합계가 주인공이고 25명 개별딜을 모두 싣는다
+//   2덱 이상 → 합계 헤드라인 + 최대 5열: 다음 덱은 새 줄에 이어 그린다
 
 import { formatDamage, formatDps } from './model';
 import type { BatchResult, CharacterMeta, DeckResultEntry } from './types';
@@ -253,9 +253,10 @@ function drawSingle(
   return SINGLE_H;
 }
 
-// ── K · 5덱 합계 헤드라인 + 덱 5열 ─────────────────────────────────────────
+// ── K · 여러 덱 합계 헤드라인 + 최대 5열 ─────────────────────────────────────
 
 const COL_GAP = 16;
+const MAX_COLUMNS = 5;
 
 function drawBatch(
   ctx: CanvasRenderingContext2D,
@@ -285,12 +286,14 @@ function drawBatch(
   line(ctx, PAD, y, width - PAD * 2);
   y += 26;
 
-  const colW = (width - PAD * 2 - COL_GAP * (decks.length - 1)) / decks.length;
-  const top = y;
+  const columns = Math.min(MAX_COLUMNS, decks.length);
+  const colW = (width - PAD * 2 - COL_GAP * (columns - 1)) / columns;
+  let top = y;
   let bottom = y;
 
   decks.forEach((entry, index) => {
-    const x = PAD + index * (colW + COL_GAP);
+    if (index > 0 && index % columns === 0) top = bottom + 26;
+    const x = PAD + (index % columns) * (colW + COL_GAP);
     let cy = top;
 
     // 이름을 붙였으면 그대로 싣는다 — 「0장 · 1장 · 2장」처럼 무엇을 견줬는지가
@@ -343,7 +346,7 @@ export function renderReport(
   createCanvas: () => HTMLCanvasElement = () => document.createElement('canvas'),
 ): HTMLCanvasElement {
   const multi = batch.decks.length > 1;
-  const width = multi ? Math.max(980, 240 * batch.decks.length) : CARD_W;
+  const width = multi ? Math.max(980, 240 * Math.min(MAX_COLUMNS, batch.decks.length)) : CARD_W;
 
   const measure = createCanvas();
   const measureCtx = measure.getContext('2d');

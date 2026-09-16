@@ -59,8 +59,37 @@ describe('report image', () => {
     portraitsDrawn.length = 0;
     const five = renderReport(batchOf([1, 2, 3, 4, 5].map(id => entry(id, squad, 1000))), meta, portraits, createCanvas);
     expect([single.width, single.height]).toEqual([five.width, five.height]);
+    expect([single.width, single.height]).toEqual([2400, 884]);
     expect(largePortrait).toBeGreaterThanOrEqual(80);
     expect(largePortrait).toBeGreaterThan(Math.max(...portraitsDrawn));
+  });
+
+  it.each([6, 10, 11, 17])('wraps %i decks after five columns and keeps every deck inside the canvas', (count) => {
+    const labels: { value: string; x: number; y: number }[][] = [];
+    const createCanvas = () => {
+      const drawn: typeof labels[number] = [];
+      labels.push(drawn);
+      const ctx = new Proxy({
+        measureText: () => ({ width: 30 }),
+        fillText: (value: string, x: number, y: number) => drawn.push({ value, x, y }),
+      }, { get: (target, key) => Reflect.get(target, key) ?? (() => {}) });
+      return { width: 0, height: 0, getContext: () => ctx } as unknown as HTMLCanvasElement;
+    };
+    const decks = Array.from({ length: count }, (_, index) => entry(index + 1, ['slot-a', 'slot-b', 'slot-c', 'slot-d', 'slot-e'], 1000));
+    const canvas = renderReport(batchOf(decks), meta, new Map(), createCanvas);
+    const headings = labels[1]!.filter(({ value }) => /^덱 \d+$/.test(value));
+    expect(canvas.width).toBe(2400);
+    expect(headings).toHaveLength(count);
+    expect(new Set(headings.map(({ x }) => x)).size).toBe(5);
+    expect(new Set(headings.map(({ y }) => y)).size).toBe(Math.ceil(count / 5));
+    expect(headings[5]!.x).toBe(headings[0]!.x);
+    expect(headings[5]!.y).toBeGreaterThan(headings[0]!.y + 160);
+    for (const { x, y } of labels[1]!) {
+      expect(x).toBeGreaterThanOrEqual(0);
+      expect(x).toBeLessThan(canvas.width / 2);
+      expect(y).toBeGreaterThanOrEqual(0);
+      expect(y).toBeLessThan(canvas.height / 2);
+    }
   });
 
   it('keeps the squad slot order instead of ranking by damage', () => {

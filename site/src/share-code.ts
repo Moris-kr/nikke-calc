@@ -7,8 +7,8 @@ import type { BattleSettings, DeckState, ElementWindow, PhaseWindow } from './ty
 //
 // 형식(NK2): 이름을 그대로 실으면 한글 한 글자가 3바이트라 5덱이면 코드가 700자를
 // 넘어 붙여넣는 곳에서 잘린다. 그래서 이름 대신 **24비트 해시**를 바이너리로 싣는다.
-//   [0] 플래그(bit0 = 5덱 모드)
-//   [1] 덱 수
+//   [0] 플래그(bit0 = 여러 덱 모드)
+//   [1] 덱 수 (256개 이상이면 0, 뒤에 4바이트 big-endian 덱 수)
 //   덱마다: [채워진 슬롯 비트마스크] + 슬롯당 해시 3바이트
 // 해시는 이름에서만 나오므로 캐릭터가 새로 추가돼도 옛 코드가 깨지지 않는다
 // (목록 순서에 의존하는 인덱스 방식과 다른 점). 받는 쪽이 자기 캐릭터 목록을
@@ -65,7 +65,9 @@ const trimEmptyDecks = (decks: Array<{ squad: string[] }>): Array<{ squad: strin
 export function encodeShareCode(decks: DeckState[], fiveDeckMode: boolean): string {
   // 이름만 싣는다 — deck.characters(개인 스펙)는 의도적으로 제외한다.
   const trimmed = trimEmptyDecks(decks.map((deck) => ({ squad: deck.squad })));
-  const bytes: number[] = [fiveDeckMode ? 1 : 0, trimmed.length];
+  const count = trimmed.length;
+  const bytes: number[] = [fiveDeckMode ? 1 : 0, count <= 255 ? count : 0];
+  if (count > 255) bytes.push((count >>> 24) & 0xff, (count >>> 16) & 0xff, (count >>> 8) & 0xff, count & 0xff);
   for (const deck of trimmed) {
     let mask = 0;
     const filled: string[] = [];
@@ -115,11 +117,18 @@ export function decodeShareCode(code: string, catalogNames: string[] = []): Shar
   }
 
   const fiveDeckMode = (bytes[0]! & 1) === 1;
-  const deckCount = bytes[1]!;
-  if (deckCount < 1 || deckCount > 5) throw new Error('공유 코드의 덱 수가 올바르지 않습니다.');
+  let deckCount = bytes[1]!;
+  let cursor = 2;
+  if (deckCount === 0) {
+    if (bytes.length < 6) throw new Error('공유 코드의 덱 수가 올바르지 않습니다.');
+    deckCount = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(cursor);
+    cursor += 4;
+  }
+  if (deckCount < 1) throw new Error('공유 코드의 덱 수가 올바르지 않습니다.');
+  // 빈 덱도 마스크 1바이트가 필요하다. 조작된 큰 개수로 반복하기 전에 실제 길이를 확인한다.
+  if (deckCount > bytes.length - cursor) throw new Error('공유 코드가 중간에 잘렸습니다. 전체를 다시 복사해 주세요.');
 
   const decks: Array<{ squad: string[] }> = [];
-  let cursor = 2;
   for (let d = 0; d < deckCount; d += 1) {
     if (cursor >= bytes.length) throw new Error('공유 코드가 중간에 잘렸습니다. 전체를 다시 복사해 주세요.');
     const mask = bytes[cursor]!;
@@ -156,7 +165,7 @@ function decodeLegacy(body: string): SharePayload {
   }
   return {
     fiveDeckMode: Boolean((payload as SharePayload).fiveDeckMode),
-    decks: decks.slice(0, 5).map((deck) => ({
+    decks: decks.map((deck) => ({
       squad: Array.isArray(deck?.squad)
         ? deck.squad.slice(0, SLOTS).map((name) => (typeof name === 'string' ? name : ''))
         : [],
