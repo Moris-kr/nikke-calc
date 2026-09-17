@@ -1,4 +1,5 @@
 .worktrees/
+.venv-mcp/
 __pycache__/
 *.py[cod]
 site/node_modules/

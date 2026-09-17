@@ -1,0 +1,22 @@
+name: MCP checks
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r nikke_mcp/requirements.txt
+      - run: python -m unittest discover -s nikke_mcp -p 'test_*.py' -v
+      - run: docker build -f nikke_mcp/Dockerfile -t nikke-mcp .
+      - name: Verify container HTTP transport
+        run: |
+          docker run -d --name nikke-mcp -p 127.0.0.1:8000:8000 -e NIKKE_MCP_ALLOWED_HOSTS=127.0.0.1:8000 nikke-mcp
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8000/health && break; sleep 1; done
+          python nikke_mcp/smoke.py --url http://127.0.0.1:8000/mcp

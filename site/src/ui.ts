@@ -708,6 +708,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           <div><p class="step">UTILITIES</p><h2 id="fun-heading">편의 기능</h2></div>
         </div>
         <p class="fun-lede">스킬 강화 재료를 계산하고, 보유 니케의 육성 현황을 살펴보세요.</p>
+        <p class="fun-lede"><a href="https://github.com/Moris-kr/nikke-calc/blob/master/docs/MCP_SETUP.md" target="_blank" rel="noopener noreferrer">AI 에이전트 연결 · MCP 설치 튜토리얼 ↗</a></p>
         <div class="fun-tabs" data-fun-tabs role="tablist" aria-label="편의 기능 고르기"></div>
         <div class="fun-body" data-fun-body></div>
         <!-- 별도 컨테이너를 유지하여 탭 전환 중에도 비교 설정과 결과를 보존한다. -->

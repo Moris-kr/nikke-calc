@@ -1,0 +1,16 @@
+**
+!nikke_mcp/
+!nikke_mcp/*.py
+!nikke_mcp/requirements.txt
+!calculator/
+!calculator/*.py
+!context/
+!context/*.py
+!data/
+!data/**
+!scraper/
+!scraper/nikke_scraped.json
+!scraper/preview_skills.json
+!site/
+!site/pybridge/
+!site/pybridge/*.py

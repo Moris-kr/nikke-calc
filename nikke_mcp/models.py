@@ -1,0 +1,133 @@
+"""Small, explicit public API; unsupported browser options fail closed."""
+from __future__ import annotations
+
+import json
+from functools import lru_cache
+from pathlib import Path
+from typing import Annotated, Literal
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from calculator.customization import CUBE_NAMES, COLLECTION_STAGES, normalize_character_overrides
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+@lru_cache(maxsize=8)
+def data(path: str) -> dict:
+    return json.loads((ROOT / path).read_text(encoding='utf-8'))
+
+
+def character_names() -> list[str]:
+    return sorted(name for name in data('data/parsed_nikke.json')
+                  if name in data('data/parsed_skills.json') and not name.startswith('test_'))
+
+
+class StrictModel(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True, allow_inf_nan=False)
+
+
+class Cube(StrictModel):
+    name: str = Field(json_schema_extra={'enum': ['없음', *CUBE_NAMES]})
+    level: int = Field(ge=0, le=15)
+
+    @model_validator(mode='after')
+    def no_cube_level(self):
+        if self.name == '없음' and self.level != 0:
+            raise ValueError('큐브 없음은 level=0이어야 합니다.')
+        return self
+
+
+class Collection(StrictModel):
+    stage: str = Field(default='없음', json_schema_extra={'enum': list(COLLECTION_STAGES)})
+    favorite: int = Field(default=0, ge=0, le=3, description='애장품 단계. 1~3이면 stage는 SR15로 적용됩니다.')
+
+
+class BurstPriority(StrictModel):
+    mode: Literal['priority']
+    every: int = Field(default=1, ge=1, le=100)
+
+
+class BurstSkip(StrictModel):
+    mode: Literal['skip']
+
+
+class BurstEndgame(StrictModel):
+    mode: Literal['endgame']
+    seconds: float = Field(default=20, gt=0, le=180)
+
+
+class TapFire(StrictModel):
+    rate: float = Field(ge=.1, le=20)
+    release: float | None = Field(default=None, ge=0, le=1)
+    full_charge_interval: float | None = Field(default=None, ge=0, le=300)
+
+
+class Reload(StrictModel):
+    policy: Literal['before_fb_end', 'into_fb']
+    lead: float | None = Field(default=None, ge=0, le=300)
+    margin: float | None = Field(default=None, ge=0, le=300)
+    duration: float | None = Field(default=None, ge=0, le=300)
+    if_dry: bool | None = None
+
+
+class Cover(StrictModel):
+    policy: Literal['own_full_burst']
+    extend: float | None = Field(default=None, ge=0, le=300)
+
+
+class Hold(StrictModel):
+    policy: Literal['own_full_burst', 'charge_hold_after_fb']
+    lead: float | None = Field(default=None, ge=0, le=300)
+
+
+class Control(StrictModel):
+    bunny_mode: Literal['stance', 'engage'] | None = None
+    tap_fire: TapFire | None = None
+    reload: Reload | None = None
+    cover: Cover | None = None
+    hold: Hold | None = None
+
+
+class CharacterOverrides(StrictModel):
+    growthStage: int | None = Field(default=None, ge=0, le=10,
+        description='R=0, SR=0~2, SSR=0~10. 0~3은 돌파, 4~10은 코어 강화.')
+    skillLevels: dict[Literal['1', '2', '3'], Annotated[int, Field(ge=1, le=10)]] | None = None
+    cube: Cube | None = None
+    collection: Collection | None = None
+    overload: dict[str, float] | None = Field(default=None, description='get_settings.overloadFields의 키와 범위를 사용. 백분율 수치.')
+    manualStats: dict[str, float] | None = Field(default=None, description='get_settings.manualStats의 키와 범위를 사용.')
+    equipLevels: dict[Literal['머리', '몸통', '팔', '다리'],
+        Annotated[int, Field(ge=0, le=5)] | Literal['없음', 'T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9']] | None = None
+    burst: Annotated[BurstPriority | BurstSkip | BurstEndgame, Field(discriminator='mode')] | None = None
+    control: Control | None = None
+    weaponModeSwapAt: float | None = Field(default=None, ge=0, le=180,
+        description='신데렐라 : 크리스탈 웨이브의 저격 모드 변경 시점(초).')
+
+
+class CombatRequest(StrictModel):
+    squad: list[str] = Field(min_length=1, max_length=5, description='등록된 정식 캐릭터명. 왼쪽부터 편성 순서.')
+    duration: int = Field(default=180, ge=1, le=180)
+    enemyDef: int = Field(default=31784, ge=0, le=10000000)
+    enemyCode: Literal['', '풍압', '수냉', '작열', '전격', '철갑'] = ''
+    corePx: float = Field(default=0, ge=0, le=1000)
+    hasParts: bool = False
+    seed: int = Field(default=42, ge=0, le=2147483647)
+    rngMode: Literal['expected', 'random'] = 'expected'
+    characters: dict[str, CharacterOverrides] = Field(default_factory=dict,
+        description='정식 이름별 웹 계산기 CharacterOverrides. get_settings로 옵션과 형식을 조회하세요.')
+
+    @model_validator(mode='after')
+    def validate_roster(self):
+        if len(set(self.squad)) != len(self.squad):
+            raise ValueError('같은 캐릭터를 중복 편성할 수 없습니다.')
+        unknown = set(self.squad) - set(character_names())
+        if unknown:
+            raise ValueError(f'등록되지 않은 정식 이름: {sorted(unknown)}. list_characters로 확인하세요.')
+        if set(self.characters) - set(self.squad):
+            raise ValueError('편성에 없는 캐릭터의 설정입니다.')
+        if len(self.model_dump_json(exclude_none=True).encode('utf-8')) > 32000:
+            raise ValueError('캐릭터 설정이 너무 큽니다.')
+        for name, overrides in self.characters.items():
+            normalize_character_overrides(overrides.model_dump(exclude_none=True), character_name=name)
+        return self
