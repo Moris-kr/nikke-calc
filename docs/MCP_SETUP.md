@@ -3,8 +3,14 @@
 ChatGPT·Claude·MCP 지원 에이전트가 **기존 웹 계산기와 같은 Python 엔진**을 호출합니다.
 이 서버에는 AI 모델이나 AI API 키가 필요하지 않습니다. 사용하는 AI 서비스의 이용 조건은 별도입니다.
 
-**지금 제공하는 것:** 로컬 실행 프로그램, 자동 설치 스크립트, 원격 Docker 배포 구성.
-**제공하지 않는 것:** 운영 중인 공용 MCP 주소. GitHub Pages 사이트 주소는 MCP 주소가 아닙니다.
+**바로 연결할 무료 체험 MCP 주소:** `https://nikke-calc-mcp.onrender.com/mcp`
+
+[서버 상태 확인](https://nikke-calc-mcp.onrender.com/health)에서 `status: ok`를 확인한 뒤,
+ChatGPT는 **6절**, Claude 웹은 **7절**을 따라 위 주소를 등록하면 됩니다. 인증 방식은 **No Authentication**입니다.
+무료 Render 인스턴스라 절전 후 첫 응답이 늦을 수 있고, 동시 계산은 1개입니다.
+GitHub Pages 사이트 주소는 MCP 주소가 아닙니다.
+
+직접 운영하려는 사용자를 위한 로컬 실행 프로그램, 자동 설치 스크립트, 원격 Docker 배포 구성도 제공합니다.
 
 ## 1. 연결 방식 고르기
 
@@ -14,9 +20,10 @@ ChatGPT·Claude·MCP 지원 에이전트가 **기존 웹 계산기와 같은 Pyt
 | ChatGPT 웹, Claude 웹의 사용자 지정 커넥터 | 원격 Streamable HTTP | 외부에서 접근 가능한 HTTPS 실행 환경 필요 |
 | 개발 중 HTTP 점검 | `http://127.0.0.1:8000/mcp` | PC에서만 접속 |
 
+제공된 무료 체험 주소를 사용한다면 서버 설치는 건너뛰어도 됩니다.
 ChatGPT에 `localhost`를 입력하는 것만으로 PC에 연결되지 않습니다.
 Claude도 **원격 커넥터는 클라우드에서 접속**합니다. Claude Desktop의 로컬 MCP 설정은 다른 방식입니다.
-서버가 없다면 **2~3절로 로컬 MCP부터 사용**하고, 원격 연결은 5~7절을 따르세요.
+직접 PC에서 실행하려면 **2~3절**, 서버 배포는 **5절**, 제공된 주소로 원격 연결하려면 **6~7절**을 따르세요.
 
 ## 2. Windows 설치
 
@@ -195,12 +202,12 @@ OAuth나 사용자별 저장 기능은 이 구성에 포함되지 않습니다.
 
 ## 6. ChatGPT 웹 연결
 
-**먼저 5절의 HTTPS 주소가 실제로 동작해야 합니다.** 로컬 설치만으로 이 단계는 완료되지 않습니다.
+**상단 무료 체험 주소 또는 5절에서 직접 배포한 HTTPS 주소를 사용합니다.** 로컬 설치만으로 이 단계는 완료되지 않습니다.
 현재 공식 문서의 개발자 모드 경로는 다음과 같습니다. 계정·조직 정책에 따라 메뉴와 권한이 다를 수 있습니다.
 
 1. ChatGPT 웹의 설정 → 보안 및 로그인(Security and login)에서 개발자 모드를 켭니다.
 2. [ChatGPT Plugins](https://chatgpt.com/plugins)에서 `+`를 눌러 개발자 모드 앱을 만듭니다.
-3. 이름은 `NIKKE Calculator`, MCP 주소는 **본인 서버의 `https://도메인/mcp`**를 입력합니다.
+3. 이름은 `NIKKE Calculator`, MCP 주소는 **`https://nikke-calc-mcp.onrender.com/mcp`** 또는 직접 배포한 주소를 입력합니다.
 4. 이 버전의 인증 방식은 **No Authentication**입니다. OpenAI API 키나 블라블라링크 쿠키를 입력하지 않습니다.
 5. 새 대화에서 개발자 모드 도구로 앱을 선택하고, 3절의 조회 예시를 실행합니다.
 
@@ -213,7 +220,7 @@ OAuth나 사용자별 저장 기능은 이 구성에 포함되지 않습니다.
 ## 7. Claude 웹 / 원격 커넥터 연결
 
 1. Claude의 Customize → Connectors에서 사용자 지정 커넥터를 추가합니다.
-2. 이름과 본인 서버의 **`https://도메인/mcp`** 주소를 입력합니다.
+2. 이름과 **`https://nikke-calc-mcp.onrender.com/mcp`** 또는 직접 배포한 주소를 입력합니다.
 3. 이 서버에는 OAuth가 없으므로 고급 OAuth Client ID/Secret을 입력하지 않습니다.
 4. 새 대화의 `+` → Connectors에서 연결한 도구를 활성화하고 조회 예시를 실행합니다.
 

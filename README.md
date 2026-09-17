@@ -12,7 +12,8 @@ ChatGPT·Claude·MCP 지원 에이전트에서 같은 엔진을 호출할 수 �
 캐릭터 조회, 단일 편성 계산, 동일 조건 후보 비교를 제공합니다.
 **[설치·연결 튜토리얼](docs/MCP_SETUP.md)** — Windows 자동 설치, Claude Desktop,
 ChatGPT/Claude 원격 연결과 Docker 배포 구성을 포함합니다.
-공용 MCP 서버는 제공하지 않으며 로컬 설치 또는 별도 서버 실행이 필요합니다.
+무료 체험 MCP 주소: `https://nikke-calc-mcp.onrender.com/mcp` (인증 없음).
+Render 무료 인스턴스이므로 절전 후 첫 응답이 늦을 수 있습니다. 로컬 설치와 직접 배포도 지원합니다.
 MCP는 선택 기능으로, 기존 웹 계산기의 브라우저 내 실행 방식은 그대로 유지됩니다.
 
 ## 구조
