@@ -2781,7 +2781,7 @@
           "gauge_above:MP:1"
         ]
       },
-      "target": "allies_code:전격",
+      "target": "allies_code_excl_self:전격",
       "stat": "element_bonus_pct",
       "polarity": "beneficial",
       "values": {
@@ -2810,7 +2810,7 @@
           "gauge_above:MP:1"
         ]
       },
-      "target": "allies_code:전격",
+      "target": "allies_code_excl_self:전격",
       "stat": "atk_caster_based_pct",
       "polarity": "beneficial",
       "values": {

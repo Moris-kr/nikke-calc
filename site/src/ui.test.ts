@@ -2251,6 +2251,41 @@ describe('calculator UI', () => {
     expect(root.querySelector<HTMLElement>('[data-notice-modal]')!.hidden).toBe(false);
   });
 
+  it('다중 덱 탭과 캐릭터 수치는 자세히 보기 설정을 함께 따른다', async () => {
+    class BigClient extends FakeClient {
+      override async simulate(request: SimulationRequest): Promise<SimulationResult> {
+        await super.simulate(request);
+        return { ...calculated, squadTotal: 124_381_927, charTotals: { 리타: 124_381_927 } };
+      }
+    }
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new BigClient(), storage: localStorage });
+    const mode = root.querySelector<HTMLInputElement>('#squad-mode')!;
+    mode.checked = true;
+    mode.dispatchEvent(new Event('change'));
+    root.querySelector<HTMLButtonElement>('[data-deck-tab="2"]')!.click();
+    chooseCharacter(root, 0, '리타');
+    root.querySelector<HTMLFormElement>('form')!.requestSubmit();
+    await flush(); await flush();
+    const total = () => root.querySelector('.result-row-total')!.textContent;
+    const tab = () => root.querySelector('[data-deck-result-tab="2"] > span')!.textContent;
+    expect(total()).toMatch(/억$/);
+    expect(tab()).toMatch(/억$/);
+    root.querySelector<HTMLInputElement>('[data-detail-damage]')!.click();
+    expect(total()).toBe('124,381,927');
+    expect(tab()).toBe('124,381,927');
+  });
+
+  it('MCP 사용법을 편의 기능 내부에서 열고 다른 도구로 돌아간다', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    root.querySelector<HTMLButtonElement>('[data-view-tab="fun"]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-fun-tab="mcp"]')!.click();
+    expect(root.querySelector('[data-mcp-guide]')?.textContent).toContain('ChatGPT');
+    expect(root.querySelector('[data-mcp-guide]')?.textContent).toContain('Claude');
+    expect(root.querySelector<HTMLInputElement>('[data-mcp-url]')?.value).toBe('https://nikke-calc-mcp.onrender.com/mcp');
+    root.querySelector<HTMLButtonElement>('[data-fun-tab="skills"]')!.click();
+    expect(root.querySelector('[data-mcp-guide]')).toBeNull();
+  });
+
   it('자세히 보기를 켜면 대미지를 1의 자리까지 적는다', async () => {
     // 「1.24억」은 견주기에 좋지만 두 덱이 같은 글자로 보이는 일이 있다.
     // 줄여 쓰기는 백만이 넘어야 시작되므로, 그 위의 수치를 내는 대역으로 잰다.

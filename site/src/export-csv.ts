@@ -73,7 +73,7 @@ Array<Array<string | number>> {
  * 내보낼 CSV 한 장. 위쪽에 최종 대미지, 한 줄 띄고 초당 대미지를 잇는다 —
  * 파일 하나로 받는 편이 두 장을 오가는 것보다 낫고, 시트에서 잘라 쓰기도 쉽다.
  */
-export function damageCsv(result: SimulationResult, names: string[], note = ''): string {
+function damageRows(result: SimulationResult, names: string[], note = ''): Array<Array<string | number>> {
   const head: Array<Array<string | number>> = [
     ['NIKKE 스쿼드 계산기 · 정밀 수치'],
     ['전투 시간(초)', result.duration, '총 히트', result.hitCount],
@@ -84,7 +84,29 @@ export function damageCsv(result: SimulationResult, names: string[], note = ''):
     const bucket = result.timeline.bucket || 1;
     rows.push([], [`구간별 대미지 (${bucket}초 단위)`], ...perSecondRows(result.timeline, names));
   }
-  return csvText(rows);
+  return rows;
+}
+
+export function damageCsv(result: SimulationResult, names: string[], note = ''): string {
+  return csvText(damageRows(result, names, note));
+}
+
+export interface DamageCsvDeck {
+  label: string;
+  result: SimulationResult;
+  names: string[];
+  note?: string;
+}
+
+/** 덱별 표를 나란히 놓는다. 각 표의 폭을 지켜 뒤쪽 덱의 열이 움직이지 않는다. */
+export function damageBatchRows(decks: DamageCsvDeck[]): Array<Array<string | number>> {
+  const tables = decks.map(deck => [[deck.label], ...damageRows(deck.result, deck.names, deck.note)]);
+  const widths = tables.map(rows => Math.max(...rows.map(row => row.length)));
+  const height = Math.max(0, ...tables.map(rows => rows.length));
+  return Array.from({ length: height }, (_, rowIndex) => tables.flatMap((rows, index) => {
+    const row = rows[rowIndex] ?? [];
+    return [...(index ? [''] : []), ...row, ...Array(widths[index]! - row.length).fill('')];
+  }));
 }
 
 /** 엑셀이 한글을 깨뜨리지 않게 BOM을 붙인 CSV 덩이. */

@@ -11,6 +11,20 @@ NAME = '메이든 : 아이스 로즈'
 
 
 class MaidenIceRoseTest(unittest.TestCase):
+    def test_mp_charge_buffs_only_other_electric_allies(self):
+        bm = BuffManager(build_squad([NAME, '신데렐라', '리타']),
+                         {'enemy': {}, 'base_stats': {NAME: {'atk': 100000}}})
+        bm.battle_start()
+        before = {n: bm.get_buffs(n, '__enemy__', 0) for n in [NAME, '신데렐라', '리타']}
+        bm.notify('burst_enter:1', 0, NAME)
+        bm.notify('full_burst_start', 1, NAME)
+        after = {n: bm.get_buffs(n, '__enemy__', 1) for n in before}
+        self.assertAlmostEqual(after['신데렐라']['element_bonus_pct'] - before['신데렐라']['element_bonus_pct'], 40.9)
+        self.assertGreater(after['신데렐라']['atk_flat'], before['신데렐라']['atk_flat'])
+        for name in [NAME, '리타']:
+            self.assertEqual(after[name]['element_bonus_pct'], before[name]['element_bonus_pct'])
+            self.assertEqual(after[name]['atk_flat'], before[name]['atk_flat'])
+
     def test_mp_accumulates_caps_at_twelve_and_is_read_before_consumption(self):
         bm = BuffManager(build_squad([NAME]), {'enemy': {}})
         bm.battle_start()

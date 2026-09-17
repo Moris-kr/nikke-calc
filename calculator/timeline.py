@@ -366,7 +366,7 @@ class CharState:
         # 라플라스 : 얼티밋 히어로의 SMG 모드는 탄착군이 매우 좁아 사실상 명중 100%다
         # (유저 확인, 2026-09-04). 실측은 `weapon_delays._weapon_change`에 적고
         # 여기로 올라온다. 0이면 종전과 같다.
-        self.accuracy_floor_pct: float = 0.0
+        self.accuracy_floor_pct: float = float('-inf')
         # 연사 무기 모드는 진입 시 self.ammo를 모드 장탄으로 덮어쓴다(원래 장탄은 버린다).
         # 모드가 끝날 때 되돌려 놓아야 그 값이 원래 무기로 새어 나가지 않는다.
         self._wc_ammo_borrowed: bool = False
@@ -1176,8 +1176,8 @@ class CharState:
         wc_post_fire_delay = _pick("post_fire_delay", wc_over, wc_eff,
                                    default=wc_mech.get("post_fire_delay", 0.0))
         # 모드의 명중률 하한. 무기군 기본 탄착군이 실제와 다른 모드가 있어 실측을 얹는다
-        # (`weapon_delays._weapon_change`). 없으면 0이라 종전과 같다.
-        wc_accuracy_floor = float(_pick("accuracy_pct", wc_over, wc_eff, default=0.0))
+        # (`weapon_delays._weapon_change`). 지정하지 않으면 음수 명중률도 그대로 반영한다.
+        wc_accuracy_floor = float(_pick("accuracy_pct", wc_over, wc_eff, default=float('-inf')))
         # 탄착군을 잴 무기군. 안 주면 모드 무기로 잰다(종전과 같다).
         wc_accuracy_weapon = str(_pick("accuracy_weapon", wc_over, wc_eff, default="") or "")
 

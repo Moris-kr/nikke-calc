@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { csvCell, csvFileName, csvText, damageCsv, perSecondRows, totalRows } from './export-csv';
+import { csvCell, csvFileName, csvText, damageCsv, damageBatchRows, perSecondRows, totalRows } from './export-csv';
 import type { BattleTimeline, SimulationResult } from './types';
 
 const timeline = (bucket: number): BattleTimeline => ({
@@ -21,6 +21,20 @@ const result = (extra: Partial<SimulationResult> = {}): SimulationResult => ({
 });
 
 describe('정밀 수치 내보내기', () => {
+  it('덱별 정밀 표를 빈 열로 구분해 가로로 놓고 길이가 다른 표도 보존한다', () => {
+    const rows = damageBatchRows([
+      { label: '덱 1', result: result(), names: ['리타', '크라운'], note: '3초' },
+      { label: '덱 2', result: result({ timeline: undefined }), names: ['크라운'], note: '3초' },
+    ]);
+    expect(rows[0]![0]).toBe('덱 1');
+    expect(rows[0]![8]).toBe('덱 2');
+    expect(rows.every(row => row.length === 15)).toBe(true);
+    const header = rows.find(row => row[0] === '캐릭터')!;
+    expect(header[8]).toBe('캐릭터');
+    expect(rows.find(row => row[0] === '리타')?.[1]).toBe(60);
+    expect(rows.find(row => row[8] === '크라운')?.[9]).toBe(6);
+    expect(rows.at(-1)!.slice(8)).toEqual(Array(7).fill(''));
+  });
   it('쉼표와 따옴표가 든 칸만 감싼다', () => {
     expect(csvCell('리타')).toBe('리타');
     expect(csvCell(1234)).toBe('1234');

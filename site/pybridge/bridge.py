@@ -644,7 +644,11 @@ def run_request(raw: str) -> str:
         "charTotals": result.char_total,
         "charBreakdown": _build_breakdown(result, names),
         "previewNote": char_spec.preview_note(names),
-        "deviations": char_spec.format_deviations(squad),
+        "deviations": char_spec.format_deviations(squad) + (
+            "\n계산 한계: 마스트 : 로망틱 메이드의 취기 명중률 감소는 중첩되지만, "
+            "MG 탄착군은 현재 10px 고정 가정입니다. 예열·취기에 따른 탄착군 변화는 "
+            "실측 계수가 없어 반영되지 않으며, 10px 이상 코어의 크기 차이는 결과에 나타나지 않습니다."
+            if "마스트 : 로망틱 메이드" in names else ""),
         "timeline": _build_timeline(result, names),
         "buffTargets": _build_buff_targets(result, names),
     }

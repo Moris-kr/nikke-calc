@@ -49,7 +49,8 @@ import {
   reportFilename,
   type ReportMeta,
 } from './report';
-import { csvBlob, csvFileName, csvText, damageCsv } from './export-csv';
+import { csvBlob, csvFileName, csvText, damageBatchRows, type DamageCsvDeck } from './export-csv';
+import { renderMcpGuide } from './mcp-guide';
 import {
   applyShareToDecks, decodeBattleCode, decodeShareCode, encodeBattleCode, encodeShareCode,
   type ApplyTarget,
@@ -281,7 +282,7 @@ function renderCharacterRows(
     body.append(head, track);
     row.append(body);
 
-    row.append(createText('strong', Math.round(value).toLocaleString('ko-KR'), 'result-row-total'));
+    row.append(createText('strong', fmt.dmg(value), 'result-row-total'));
     rows.append(row);
   }
   container.append(rows);
@@ -707,8 +708,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         <div class="section-heading">
           <div><p class="step">UTILITIES</p><h2 id="fun-heading">편의 기능</h2></div>
         </div>
-        <p class="fun-lede">스킬 강화 재료를 계산하고, 보유 니케의 육성 현황을 살펴보세요.</p>
-        <p class="fun-lede"><a href="https://github.com/Moris-kr/nikke-calc/blob/master/docs/MCP_SETUP.md" target="_blank" rel="noopener noreferrer">AI 에이전트 연결 · MCP 설치 튜토리얼 ↗</a></p>
+        <p class="fun-lede">육성 재료와 효율을 계산하고, AI 연결 사용법을 확인하세요.</p>
         <div class="fun-tabs" data-fun-tabs role="tablist" aria-label="편의 기능 고르기"></div>
         <div class="fun-body" data-fun-body></div>
         <!-- 별도 컨테이너를 유지하여 탭 전환 중에도 비교 설정과 결과를 보존한다. -->
@@ -4158,7 +4158,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     button.disabled = true;
     button.textContent = '수치 모으는 중…';
     try {
-      const parts: string[] = [];
+      const parts: DamageCsvDeck[] = [];
       let coarseOnly = false;
       for (const entry of batch.decks) {
         let result = entry.result;
@@ -4171,10 +4171,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         if (!result.fineTimeline) coarseOnly = true;
         const names = entry.request.squad.filter(Boolean);
         const note = `${entry.request.duration}초 · 적 방어력 ${entry.request.enemyDef}`;
-        if (batch.decks.length > 1) parts.push(csvText([[deckNameOf(entry.deckId)]]));
-        parts.push(damageCsv({ ...result, timeline }, names, note));
+        parts.push({ label: deckNameOf(entry.deckId), result: { ...result, timeline }, names, note });
       }
-      downloadImage(csvBlob(parts.join('\r\n\r\n')),
+      downloadImage(csvBlob(csvText(damageBatchRows(parts))),
         csvFileName(batch.decks.length > 1 ? `${batch.decks.length}덱` : `덱 ${batch.decks[0]?.deckId ?? 1}`));
       status.textContent = coarseOnly
         ? '정밀 수치 CSV를 내려받았습니다 (1초 단위 — 0.1초 표는 다시 계산해야 나옵니다).'
@@ -4463,9 +4462,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         const head = document.createElement('b');
         head.append(document.createTextNode(deckNameOf(entry.deckId)));
         head.append(createText('em', t('{n}위', { n: rank }), 'deck-tab-rank'));
-        // 덱끼리 견주는 자리라 줄이지 않고 온전한 숫자를 적는다 — «1.14억»으로는
-        // 2위와의 차이가 읽히지 않는다.
-        tab.append(head, createText('span', Math.round(entry.result.squadTotal).toLocaleString('ko-KR')));
+        tab.append(head, createText('span', dmg(entry.result.squadTotal)));
         tab.addEventListener('click', () => show(entry));
         buttons.set(entry.deckId, tab);
         tabs.append(tab);
@@ -7097,6 +7094,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const FUN_VIEWS = [
     { key: 'skills', label: '스킬칩 계산기', note: '현재 레벨부터 목표 레벨까지 필요한 매뉴얼을 계산합니다' },
     { key: 'lab', label: '오버효율', note: '오버효율' },
+    { key: 'mcp', label: 'MCP', note: 'ChatGPT·Claude에서 계산기를 사용하는 방법' },
     { key: 'vision', label: '오버옵 시각화', note: '불러온 프로필의 오버로드 옵션을 초상화 크기로 봅니다' },
   ] as const;
   type FunView = (typeof FUN_VIEWS)[number]['key'];
@@ -7369,6 +7367,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     element<HTMLElement>(root, '[data-overload-lab]').hidden = funView !== 'lab';
     if (funView === 'vision') renderVision();
     if (funView === 'skills') skillPlanner.render(funBody);
+    if (funView === 'mcp') renderMcpGuide(funBody);
   };
 
   // ── 외부고리 ────────────────────────────────────────────────────────────

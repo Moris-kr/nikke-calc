@@ -3627,6 +3627,10 @@ class BuffManager:
             cls = target.split(":")[1]
             cls = {"공격": "화력형", "방어": "방어형", "지원": "지원형"}.get(cls, cls)
             return [n for n in self.squad_names if _NIKKE[n]["class"] == cls]
+        if target.startswith("allies_code_excl_self:"):
+            code = target.split(":")[1]
+            return [n for n in self.squad_names
+                    if n != caster and _NIKKE[n].get("element_code") == code]
         if target.startswith("allies_code:"):
             code = target.split(":")[1]
             return [n for n in self.squad_names if _NIKKE[n].get("element_code") == code]
