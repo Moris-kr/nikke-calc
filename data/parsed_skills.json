@@ -46272,6 +46272,15 @@
       "target": "self",
       "stat": "atk_pct",
       "values": {
+        "1": 11.88,
+        "2": 12.79,
+        "3": 13.7,
+        "4": 14.62,
+        "5": 15.53,
+        "6": 16.45,
+        "7": 17.36,
+        "8": 18.27,
+        "9": 19.19,
         "10": 20.1
       },
       "polarity": "beneficial",
@@ -46290,10 +46299,8 @@
       },
       "target": "self",
       "stat": "bunny_mode_switch",
-      "values": {
-        "10": 0
-      },
-      "mode": "stance"
+      "mode": "stance",
+      "fixed_value": 0
     },
     {
       "source": "스킬1",
@@ -46309,10 +46316,8 @@
       },
       "target": "self",
       "stat": "bunny_mode_switch",
-      "values": {
-        "10": 0
-      },
-      "mode": "toggle"
+      "mode": "toggle",
+      "fixed_value": 0
     },
     {
       "source": "스킬2",
@@ -46328,12 +46333,10 @@
       },
       "target": "self",
       "stat": "armor_break_enabled",
-      "values": {
-        "10": 1
-      },
       "polarity": "beneficial",
       "max_stack": 1,
-      "duration": -1
+      "duration": -1,
+      "fixed_value": 1
     },
     {
       "source": "스킬2",
@@ -46350,6 +46353,15 @@
       "target": "target",
       "stat": "armor_break_damage",
       "values": {
+        "1": 218.68,
+        "2": 235.51,
+        "3": 252.33,
+        "4": 269.15,
+        "5": 285.97,
+        "6": 302.79,
+        "7": 319.61,
+        "8": 336.44,
+        "9": 353.26,
         "10": 370.08
       }
     },
@@ -46368,6 +46380,15 @@
       "target": "self",
       "stat": "atk_dmg_pct",
       "values": {
+        "1": 12.08,
+        "2": 13.01,
+        "3": 13.94,
+        "4": 14.87,
+        "5": 15.8,
+        "6": 16.73,
+        "7": 17.66,
+        "8": 18.59,
+        "9": 19.52,
         "10": 20.45
       },
       "polarity": "beneficial",
@@ -46389,7 +46410,16 @@
       "target": "self",
       "stat": "charge_dmg_pct",
       "values": {
-        "10": 40
+        "1": 23.64,
+        "2": 25.45,
+        "3": 27.27,
+        "4": 29.09,
+        "5": 30.91,
+        "6": 32.73,
+        "7": 34.55,
+        "8": 36.36,
+        "9": 38.18,
+        "10": 40.0
       },
       "polarity": "beneficial",
       "max_stack": 1,
@@ -46410,6 +46440,15 @@
       "target": "target",
       "stat": "bonus_damage",
       "values": {
+        "1": 266.44,
+        "2": 286.93,
+        "3": 307.43,
+        "4": 327.92,
+        "5": 348.42,
+        "6": 368.91,
+        "7": 389.41,
+        "8": 409.9,
+        "9": 430.4,
         "10": 450.89
       }
     },
@@ -46426,6 +46465,15 @@
       "target": "self",
       "weapon_type": "SR",
       "damage_coeff": {
+        "1": 61.3,
+        "2": 65.74,
+        "3": 70.19,
+        "4": 74.63,
+        "5": 79.08,
+        "6": 83.52,
+        "7": 87.97,
+        "8": 92.41,
+        "9": 96.86,
         "10": 101.3
       },
       "max_ammo": 1,
@@ -46467,7 +46515,16 @@
       "target": "self",
       "stat": "charge_dmg_pct",
       "values": {
-        "10": 1400
+        "1": 827.27,
+        "2": 890.91,
+        "3": 954.55,
+        "4": 1018.18,
+        "5": 1081.82,
+        "6": 1145.45,
+        "7": 1209.09,
+        "8": 1272.73,
+        "9": 1336.36,
+        "10": 1400.0
       },
       "polarity": "beneficial",
       "max_stack": 1,
@@ -46487,6 +46544,15 @@
       "target": "self",
       "stat": "atk_dmg_pct",
       "values": {
+        "1": 45.71,
+        "2": 49.22,
+        "3": 52.74,
+        "4": 56.25,
+        "5": 59.77,
+        "6": 63.29,
+        "7": 66.8,
+        "8": 70.32,
+        "9": 73.83,
         "10": 77.35
       },
       "polarity": "beneficial",
@@ -46508,6 +46574,15 @@
       "target": "self",
       "stat": "atk_pct",
       "values": {
+        "1": 9.07,
+        "2": 9.77,
+        "3": 10.47,
+        "4": 11.16,
+        "5": 11.86,
+        "6": 12.56,
+        "7": 13.26,
+        "8": 13.95,
+        "9": 14.65,
         "10": 15.35
       },
       "polarity": "beneficial",
@@ -46523,13 +46598,22 @@
           "full_charge"
         ],
         "condition": [
-          "not_self_state:스위프트 캐럿"
+          "not_self_state:스위프트 피어싱"
         ]
       },
       "target": "self",
       "stat": "normal_atk_dmg_pct",
       "values": {
-        "10": 100
+        "1": 59.09,
+        "2": 63.64,
+        "3": 68.18,
+        "4": 72.73,
+        "5": 77.27,
+        "6": 81.82,
+        "7": 86.36,
+        "8": 90.91,
+        "9": 95.45,
+        "10": 100.0
       },
       "polarity": "beneficial",
       "max_stack": 1,
@@ -46545,12 +46629,21 @@
           "full_charge"
         ],
         "condition": [
-          "not_self_state:스위프트 캐럿"
+          "not_self_state:스위프트 피어싱"
         ]
       },
       "target": "self",
       "stat": "charge_dmg_pct",
       "values": {
+        "1": 30.8,
+        "2": 33.17,
+        "3": 35.54,
+        "4": 37.91,
+        "5": 40.27,
+        "6": 42.64,
+        "7": 45.01,
+        "8": 47.38,
+        "9": 49.75,
         "10": 52.12
       },
       "polarity": "beneficial",
@@ -46570,10 +46663,8 @@
       },
       "target": "self",
       "stat": "bunny_mode_switch",
-      "values": {
-        "10": 0
-      },
-      "mode": "stance"
+      "mode": "stance",
+      "fixed_value": 0
     },
     {
       "source": "스킬1",
@@ -46587,10 +46678,8 @@
       },
       "target": "self",
       "stat": "bunny_mode_switch",
-      "values": {
-        "10": 0
-      },
-      "mode": "toggle"
+      "mode": "toggle",
+      "fixed_value": 0
     },
     {
       "source": "스킬2",
@@ -46606,12 +46695,10 @@
       },
       "target": "self",
       "stat": "armor_break_enabled",
-      "values": {
-        "10": 1
-      },
       "polarity": "beneficial",
       "max_stack": 1,
-      "duration": -1
+      "duration": -1,
+      "fixed_value": 1
     },
     {
       "source": "스킬2",
@@ -46628,6 +46715,15 @@
       "target": "self",
       "stat": "crit_rate",
       "values": {
+        "1": 20.76,
+        "2": 22.36,
+        "3": 23.96,
+        "4": 25.56,
+        "5": 27.15,
+        "6": 28.75,
+        "7": 30.35,
+        "8": 31.95,
+        "9": 33.54,
         "10": 35.14
       },
       "polarity": "beneficial",
@@ -46649,6 +46745,15 @@
       "target": "self",
       "stat": "crit_dmg",
       "values": {
+        "1": 44.39,
+        "2": 47.8,
+        "3": 51.22,
+        "4": 54.63,
+        "5": 58.05,
+        "6": 61.46,
+        "7": 64.88,
+        "8": 68.29,
+        "9": 71.71,
         "10": 75.12
       },
       "polarity": "beneficial",
@@ -46658,7 +46763,7 @@
     {
       "source": "스킬2",
       "type": "weapon_change",
-      "name": "스위프트 캐럿",
+      "name": "스위프트 피어싱",
       "trigger": {
         "timing": [
           "burst_cast"
@@ -46668,6 +46773,15 @@
       "target": "self",
       "weapon_type": "SR",
       "damage_coeff": {
+        "1": 43.27,
+        "2": 46.59,
+        "3": 49.92,
+        "4": 53.25,
+        "5": 56.58,
+        "6": 59.91,
+        "7": 63.24,
+        "8": 66.56,
+        "9": 69.89,
         "10": 73.22
       },
       "max_ammo": 6,
@@ -46680,13 +46794,13 @@
     {
       "source": "스킬2",
       "type": "buff",
-      "name": "스위프트 캐럿 고정 차지",
+      "name": "스위프트 피어싱 고정 차지",
       "trigger": {
         "timing": [
           "burst_cast"
         ],
         "condition": [
-          "self_state:스위프트 캐럿"
+          "self_state:스위프트 피어싱"
         ]
       },
       "target": "self",
@@ -46699,7 +46813,7 @@
     {
       "source": "스킬3",
       "type": "buff",
-      "name": "스위프트 피어싱",
+      "name": "스위프트 피어싱 2",
       "trigger": {
         "timing": [
           "burst_cast"
@@ -46709,27 +46823,20 @@
       "target": "self",
       "stat": "atk_pct",
       "values": {
-        "10": 110
+        "1": 65.0,
+        "2": 70.0,
+        "3": 75.0,
+        "4": 80.0,
+        "5": 85.0,
+        "6": 90.0,
+        "7": 95.0,
+        "8": 100.0,
+        "9": 105.0,
+        "10": 110.0
       },
       "polarity": "beneficial",
       "max_stack": 1,
       "duration": 5
-    },
-    {
-      "source": "스킬3",
-      "type": "damage",
-      "name": "스위프트 피어싱 2",
-      "trigger": {
-        "timing": [
-          "burst_cast"
-        ],
-        "condition": []
-      },
-      "target": "all_enemies",
-      "stat": "burst_damage",
-      "values": {
-        "10": 516.6
-      }
     },
     {
       "source": "스킬3",
@@ -46739,14 +46846,21 @@
         "timing": [
           "burst_cast"
         ],
-        "condition": [
-          "self_state:바니 모드 : 스탠스"
-        ]
+        "condition": []
       },
       "target": "all_enemies",
-      "stat": "bonus_damage",
+      "stat": "burst_damage",
       "values": {
-        "10": 958.9
+        "1": 305.26,
+        "2": 328.75,
+        "3": 352.23,
+        "4": 375.71,
+        "5": 399.19,
+        "6": 422.67,
+        "7": 446.15,
+        "8": 469.64,
+        "9": 493.12,
+        "10": 516.6
       }
     },
     {
@@ -46758,12 +46872,48 @@
           "burst_cast"
         ],
         "condition": [
+          "self_state:바니 모드 : 스탠스"
+        ]
+      },
+      "target": "all_enemies",
+      "stat": "bonus_damage",
+      "values": {
+        "1": 566.62,
+        "2": 610.21,
+        "3": 653.8,
+        "4": 697.38,
+        "5": 740.97,
+        "6": 784.55,
+        "7": 828.14,
+        "8": 871.73,
+        "9": 915.31,
+        "10": 958.9
+      }
+    },
+    {
+      "source": "스킬3",
+      "type": "damage",
+      "name": "스위프트 피어싱 5",
+      "trigger": {
+        "timing": [
+          "burst_cast"
+        ],
+        "condition": [
           "self_state:바니 모드 : 인게이지"
         ]
       },
       "target": "all_enemies",
       "stat": "armor_break_damage",
       "values": {
+        "1": 504.99,
+        "2": 543.84,
+        "3": 582.68,
+        "4": 621.53,
+        "5": 660.37,
+        "6": 699.22,
+        "7": 738.06,
+        "8": 776.91,
+        "9": 815.75,
         "10": 854.6
       }
     }

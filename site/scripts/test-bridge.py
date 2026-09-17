@@ -635,7 +635,7 @@ class BrowserBridgeTest(unittest.TestCase):
         )
 
     def test_bundled_temporary_characters_simulate_with_fiction_warning(self):
-        entries = [json.loads((SITE_DIR / "src/fixtures/fictional-character.json").read_text())]
+        entries = [json.loads((SITE_DIR / "src/fixtures/fictional-character.json").read_text(encoding="utf-8"))]
         names = [entry["name"] for entry in entries]
         custom = {entry["name"]: {"nikke": entry["nikke"], "skills": entry["skills"]}
                   for entry in entries}
@@ -954,7 +954,7 @@ class BrowserBridgeTest(unittest.TestCase):
 
 
 
-class GuiltyBunnyPreviewBridgeTest(unittest.TestCase):
+class GuiltyBunnyReleasedBridgeTest(unittest.TestCase):
     NAME = "길티 : 마이티 바니"
 
     def payload(self, mode=None):
@@ -964,26 +964,31 @@ class GuiltyBunnyPreviewBridgeTest(unittest.TestCase):
             result["characters"] = {self.NAME: {"control": {"bunny_mode": mode}}}
         return result
 
-    def test_default_engage_and_selected_stance_use_published_preview(self):
+    def test_default_engage_and_selected_stance_use_released_data(self):
         default = json.loads(run_request(json.dumps(self.payload(), ensure_ascii=False)))
         stance = json.loads(run_request(json.dumps(self.payload("stance"), ensure_ascii=False)))
         engage = json.loads(run_request(json.dumps(self.payload("engage"), ensure_ascii=False)))
         self.assertEqual(default["charTotals"], engage["charTotals"])
         self.assertGreater(engage["charTotals"][self.NAME], 0)
         self.assertNotEqual(stance["charTotals"], engage["charTotals"])
-        self.assertIn("[프리뷰 · 미검증]", engage["previewNote"])
-        self.assertNotIn("창작", engage["previewNote"])
+        self.assertFalse(engage.get("previewNote"))
 
-    def test_invalid_mode_and_unknown_skill_levels_are_rejected(self):
+    def test_invalid_mode_is_rejected(self):
         with self.assertRaises(ValueError):
             run_request(json.dumps(self.payload("both"), ensure_ascii=False))
-        payload = self.payload("stance")
-        payload["characters"][self.NAME]["skillLevels"] = {"1": 9, "2": 10, "3": 10}
-        with self.assertRaises(ValueError):
-            run_request(json.dumps(payload, ensure_ascii=False))
+
+    def test_all_released_skill_levels_run_and_change_damage(self):
+        totals = []
+        for level in range(1, 11):
+            payload = self.payload("stance")
+            payload["characters"][self.NAME]["skillLevels"] = dict.fromkeys(("1", "2", "3"), level)
+            result = json.loads(run_request(json.dumps(payload, ensure_ascii=False)))
+            self.assertFalse(result.get("previewNote"))
+            totals.append(result["charTotals"][self.NAME])
+        self.assertTrue(all(b > a > 0 for a, b in zip(totals, totals[1:])))
 
 
-class SinBunnyPreviewBridgeTest(GuiltyBunnyPreviewBridgeTest):
+class SinBunnyReleasedBridgeTest(GuiltyBunnyReleasedBridgeTest):
     NAME = "신 : 스위프트 바니"
 
 

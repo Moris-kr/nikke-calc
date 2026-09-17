@@ -155,9 +155,7 @@ const altBurstStageOf = (name) => {
 const catalog = names.map((name) => {
   const meta = nikke[name];
   const sourceImage = imageIndex.get(normalizeImageName(name));
-  let image = meta.preview && name === '길티 : 마이티 바니'
-    ? 'temporary-characters/guilty-mighty-bunny-portrait.png'
-    : meta.preview && name === '신 : 스위프트 바니' ? 'temporary-characters/sin-swift-bunny-portrait.png' : null;
+  let image = null;
   if (sourceImage) {
     // 정렬 순번 URL은 신캐 추가 시 다른 니케의 캐시를 재사용한다.
     // 이름과 이미지 바이트에 묶어 순서 변경은 안정적이고 이미지 교체는 새 URL이 되게 한다.

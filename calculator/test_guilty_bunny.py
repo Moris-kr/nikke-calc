@@ -1,4 +1,4 @@
-"""Published Lv10 bunny modes and SR-to-SR one-shot contracts (preview)."""
+"""Published Lv10 bunny modes and SR-to-SR one-shot contracts."""
 import unittest
 from unittest.mock import patch
 from calculator.buff_manager import BuffManager

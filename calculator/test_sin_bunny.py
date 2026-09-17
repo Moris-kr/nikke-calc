@@ -1,4 +1,4 @@
-"""Published Sin Lv10 preview contracts; not an in-game performance verification."""
+"""Released Sin Lv10 contracts; not an in-game performance verification."""
 import unittest
 from unittest.mock import patch
 from calculator.buff_manager import BuffManager
@@ -57,7 +57,7 @@ class SinBunnyTest(unittest.TestCase):
                 self.assertEqual(modes,['바니 모드 : 스탠스','바니 모드 : 인게이지'])
 
     def test_two_bursts_fixed_charge_duration_and_mode_specific_damage(self):
-        for mode,chosen,excluded in [('engage','스위프트 피어싱 4','스위프트 피어싱 3'),('stance','스위프트 피어싱 3','스위프트 피어싱 4')]:
+        for mode,chosen,excluded in [('engage','스위프트 피어싱 5','스위프트 피어싱 4'),('stance','스위프트 피어싱 4','스위프트 피어싱 5')]:
             with self.subTest(mode=mode):
                 shots=[];original=CharState._tick_weapon_change
                 def spy(cs,t,bm,enemy,cfg,effect):
@@ -71,7 +71,7 @@ class SinBunnyTest(unittest.TestCase):
                 hits=[h for h in result.hits if h.caster==NAME]
                 self.assertEqual(sum(h.skill_name==chosen for h in hits),len(bursts))
                 self.assertFalse(any(h.skill_name==excluded for h in hits))
-                self.assertEqual(sum(h.skill_name=='스위프트 피어싱 2' for h in hits),len(bursts))
+                self.assertEqual(sum(h.skill_name=='스위프트 피어싱 3' for h in hits),len(bursts))
                 for burst in bursts:
                     window=[(t,b) for t,b in shots if burst.t<=t<burst.t+5]
                     self.assertGreater(len(window),1)
@@ -80,7 +80,7 @@ class SinBunnyTest(unittest.TestCase):
                         self.assertTrue(b['charge_time_fixed'])
                         self.assertEqual(b['charge_speed_pct'],0)
                     self.assertTrue(any(h.skill_name=='기본 공격' and burst.t+5<h.t<burst.t+7 for h in hits))
-                timed=[e for e in result.log.buff_events if e.name=='스위프트 피어싱' and e.kind=='activate']
+                timed=[e for e in result.log.buff_events if e.name=='스위프트 피어싱 2' and e.kind=='activate']
                 self.assertTrue(all(abs(e.expires_at-e.t-5)<1e-8 for e in timed))
 
 if __name__=='__main__': unittest.main()

@@ -16,8 +16,22 @@ describe('generated browser runtime', () => {
 
     expect(catalog).toHaveLength(202);
     expect(catalog.every((char) => !char.name.startsWith('test_'))).toBe(true);
-    // 공개 카드로 등록한 프리뷰는 출시 후 정식 원문과 대조한다.
-    expect(catalog.filter((char) => char.preview).map((char) => char.name)).toEqual(['길티 : 마이티 바니', '신 : 스위프트 바니']);
+    // 두 바니까지 정식 출시 원문과 레벨 1~10 반영 완료.
+    expect(catalog.filter((char) => char.preview).map((char) => char.name)).toEqual([]);
+  });
+
+  it('exports released bunny identifiers, all skill levels and standing images', () => {
+    const catalog = JSON.parse(readFileSync(join(publicDir, 'catalog.json'), 'utf8')) as CharacterMeta[];
+    for (const [name, resourceId] of [['길티 : 마이티 바니', 404], ['신 : 스위프트 바니', 405]] as const) {
+      const character = catalog.find((item) => item.name === name)!;
+      expect(character).toMatchObject({ preview: false, resourceId });
+      expect(character.nameCode).toBeTypeOf('number');
+      expect(character.image).toMatch(/^characters\/[a-f0-9]+\.webp$/);
+      expect(character.info!.skills).toHaveLength(3);
+      for (const skill of character.info!.skills) {
+        expect(Object.keys(skill.values)).toEqual(Array.from({ length: 10 }, (_, i) => String(i + 1)));
+      }
+    }
   });
 
   it('binds every portrait URL to its character and source bytes, never a roster position', () => {
@@ -36,7 +50,7 @@ describe('generated browser runtime', () => {
       expect(readFileSync(join(publicDir, character.image!)).equals(bytes), character.name).toBe(true);
       checked++;
     }
-    expect(checked).toBe(200);
+    expect(checked).toBe(catalog.length);
     expect(catalog.find(c => c.name === '플로라')!.image).not.toBe(catalog.find(c => c.name === '하란')!.image);
   });
 
@@ -153,7 +167,7 @@ describe('generated browser runtime', () => {
     // 정식 명칭으로, `드레이크 : 그레이트 빌런`은 출시 원문으로 등록되며 잠금이 풀렸다.
     expect(Object.entries(settings.characters)
       .filter(([, meta]) => meta.skillLevelsLocked)
-      .map(([name]) => name)).toEqual(['길티 : 마이티 바니', '신 : 스위프트 바니']);
+      .map(([name]) => name)).toEqual([]);
     for (const name of ['퀸(마코토)', '유키코', '드레이크 : 그레이트 빌런']) {
       expect(settings.characters[name]).toMatchObject({ skillLevelsLocked: false });
     }
