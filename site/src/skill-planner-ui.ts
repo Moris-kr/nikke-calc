@@ -25,6 +25,8 @@ export function createSkillPlanner(options: PlannerOptions) {
   let state = readPlannerState(null);
   try { state = readPlannerState(options.storage()?.getItem(PLANNER_KEY) ?? null); } catch { /* Storage may be blocked. */ }
   const save = () => { try { options.storage()?.setItem(PLANNER_KEY, JSON.stringify(state)); } catch { /* Session use still works. */ } };
+  const targetLevels = (name: string) => ['1', '2', '3'].map((key) =>
+    Math.min(10, (characterCosts(name)![key]?.length ?? 0) + 1));
   const levels = (name: string) => {
     const loaded = options.roster()[name]?.skillLevels;
     const costs = characterCosts(name)!;
@@ -72,7 +74,7 @@ export function createSkillPlanner(options: PlannerOptions) {
       const char = candidates.find((c) => !state.rows.some((r) => r.name === c.name));
       if (!char) return;
       const current = levels(char.name);
-      state.rows.push({ name: char.name, current, target: [...current] }); save(); render(root);
+      state.rows.push({ name: char.name, current, target: targetLevels(char.name) }); save(); render(root);
     });
     add.disabled = state.rows.length >= candidates.length;
     actions.append(add, button('프로필 레벨 다시 적용', () => {
@@ -110,7 +112,7 @@ export function createSkillPlanner(options: PlannerOptions) {
       };
       search.addEventListener('input', fillOptions); fillOptions();
       select.addEventListener('change', () => {
-        row.name = select.value; row.current = levels(row.name); row.target = [...row.current]; save(); render(root);
+        row.name = select.value; row.current = levels(row.name); row.target = targetLevels(row.name); save(); render(root);
       });
       selection.append(search, select, el('small', options.roster()[row.name]?.skillLevels ? '프로필에서 불러온 레벨 · 직접 수정 가능' : '미연동 · 현재 레벨을 확인해 주세요.'));
       picker.append(selection); card.append(picker);

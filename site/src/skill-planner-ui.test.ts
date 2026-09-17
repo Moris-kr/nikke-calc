@@ -18,6 +18,14 @@ const mount = () => createSkillPlanner({ catalog: () => catalog, roster: () => (
 it('loads current skills from the profile, calculates a target and preserves it across mounts', () => {
   mount().render(root); click('캐릭터 추가');
   expect(root.querySelector<HTMLSelectElement>('select[aria-label="신 : 스위프트 바니 스킬 1 현재"]')?.value).toBe('4');
+  for (const skill of ['스킬 1', '스킬 2', '버스트 스킬']) {
+    expect(root.querySelector<HTMLSelectElement>(`select[aria-label="신 : 스위프트 바니 ${skill} 목표"]`)!.value).toBe('10');
+  }
+  change('캐릭터 1', '길티 : 마이티 바니');
+  expect(root.querySelector<HTMLSelectElement>('select[aria-label="길티 : 마이티 바니 스킬 1 목표"]')!.value).toBe('10');
+  change('캐릭터 1', '신 : 스위프트 바니');
+  change('신 : 스위프트 바니 스킬 2 목표', '5');
+  change('신 : 스위프트 바니 버스트 스킬 목표', '7');
   change('신 : 스위프트 바니 스킬 1 목표', '5');
   expect(root.querySelector('[data-material-result="7091001"]')!.textContent).toContain('42');
   const input = root.querySelector<HTMLInputElement>('[data-manual-inventory="7091001"]')!;
@@ -32,6 +40,9 @@ it('adds distinct characters, falls back to level 1 and removes rows from totals
   mount().render(root); click('캐릭터 추가'); click('캐릭터 추가');
   expect(root.querySelectorAll('.skill-plan-row')).toHaveLength(2);
   expect(root.querySelector<HTMLSelectElement>('select[aria-label="길티 : 마이티 바니 스킬 1 현재"]')!.value).toBe('1');
+  for (const [name, current] of [[names[0]!, [4, 5, 7]], [names[1]!, [1, 1, 1]]] as const) {
+    ['스킬 1', '스킬 2', '버스트 스킬'].forEach((skill, i) => change(`${name} ${skill} 목표`, String(current[i])));
+  }
   change('길티 : 마이티 바니 스킬 1 목표', '2');
   expect(root.querySelector('[data-material-result="7091001"]')!.textContent).toContain('8');
   [...root.querySelectorAll('button')].filter((b) => b.textContent === '삭제')[1]!.click();
