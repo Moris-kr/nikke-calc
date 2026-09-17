@@ -115,6 +115,36 @@ Invoke-RestMethod http://127.0.0.1:8000/health
 
 ## 5. 원격 서버 배포 준비
 
+### Render 무료 플랜으로 시작하기
+
+[Render에 배포하기](https://render.com/deploy?repo=https://github.com/Moris-kr/nikke-calc)
+
+1. Render에 로그인하고 위 링크로 Blueprint 생성 화면을 엽니다.
+2. 저장소와 `master` 브랜치, `render.yaml`을 확인합니다.
+3. 생성할 리소스가 **nikke-calc-mcp 웹 서비스 1개**, 플랜이 **Free / $0**인지 확인한 뒤 배포합니다.
+   데이터베이스·디스크·유료 플랜은 추가하지 않습니다. 결제를 요구하면 진행하지 말고 Free 선택을 다시 확인하세요.
+4. 서비스가 `Live`가 되면 Render가 실제로 발급한 `https://…onrender.com` 주소를 복사합니다.
+   서비스 이름과 URL이 반드시 같지는 않으므로 이름으로 주소를 추측하지 마세요.
+5. 주소 끝에 `/health`를 붙여 `status: ok`를 확인합니다. AI 연결에는 `/mcp`를 붙입니다.
+6. 로컬 검증 클라이언트로 아래 명령을 실행한 뒤 ChatGPT/Claude에 등록합니다.
+
+```powershell
+.\.venv-mcp\Scripts\python.exe .\nikke_mcp\smoke.py --url https://실제발급주소.onrender.com/mcp
+```
+
+Render 전용 설정은 동시 계산 **1개**, 한 건 제한 **120초**로 무료 인스턴스의 메모리와 CPU에 맞춥니다.
+발급된 호스트 이름은 Render 환경 변수에서 자동으로 허용하므로 수동 입력할 필요가 없습니다.
+GitHub 검사 통과 후 자동 배포되도록 구성했습니다.
+
+무료 서비스는 **15분간 요청이 없으면 절전**되고 다시 켜지는 데 약 1분이 걸릴 수 있습니다.
+오래 쉬었다면 `/health`를 먼저 열어 정상 응답을 기다린 뒤 AI 연결을 재시도하세요.
+처음에는 10~30초 전투로 확인하고, 180초와 여러 후보 비교는 실제 처리 시간을 확인하며 사용하세요.
+자동 깨우기용 주기적 호출은 설정하지 않습니다.
+월 무료 실행 시간은 워크스페이스 안에서 공유되며 네트워크·빌드 한도도 적용됩니다.
+공식 안내: [Render 무료 정책](https://render.com/docs/free).
+
+### 직접 Docker 서버에 배포하기
+
 Docker를 실행할 서버와 HTTPS 도메인을 준비한 뒤 사용합니다.
 이 저장소의 GitHub Pages 배포는 MCP 서버를 시작하지 않습니다.
 아래 `mcp.example.com`은 설명용 예시이며 제공되는 서비스가 아닙니다.
