@@ -11,6 +11,7 @@ from functools import lru_cache
 from typing import Any
 
 from nikke_mcp.models import ROOT, CombatRequest, character_names, data
+from nikke_mcp.errors import ServerBusyError, EngineProcessError, InvalidSettingsError
 
 
 @lru_cache(maxsize=1)
@@ -31,7 +32,7 @@ def engine_version() -> str:
 
 def list_characters(query: str = '') -> dict[str, Any]:
     if len(query) > 100:
-        raise ValueError('검색어는 100자 이하입니다.')
+        raise InvalidSettingsError('검색어는 100자 이하입니다.')
     catalog = data('data/parsed_nikke.json')
     rows = [{'name': name, **{k: catalog[name].get(k) for k in
              ('element_code', 'weapon_type', 'burst_stage', 'burst_cooldown')}}
@@ -41,9 +42,9 @@ def list_characters(query: str = '') -> dict[str, Any]:
 
 def get_character(name: str, skill_level: int = 10) -> dict[str, Any]:
     if name not in character_names():
-        raise ValueError('정식 이름을 list_characters로 확인하세요.')
+        raise InvalidSettingsError('정식 이름을 list_characters로 확인하세요.')
     if isinstance(skill_level, bool) or not 1 <= skill_level <= 10:
-        raise ValueError('스킬 레벨은 1~10입니다.')
+        raise InvalidSettingsError('스킬 레벨은 1~10입니다.')
     raw = data('scraper/nikke_scraped.json').get(name)
     preview = raw is None
     if raw is None:
@@ -52,7 +53,7 @@ def get_character(name: str, skill_level: int = 10) -> dict[str, Any]:
     for title, skill in raw.get('스킬', {}).items():
         values = skill.get('values', {}).get(str(skill_level))
         if values is None:
-            raise ValueError('요청 레벨의 원문 수치가 없습니다. 프리뷰는 Lv10만 지원합니다.')
+            raise InvalidSettingsError('요청 레벨의 원문 수치가 없습니다. 프리뷰는 Lv10만 지원합니다.')
         text = re.sub(r'\{(\d+)\}', lambda m: str(values[int(m[1])]), skill.get('template', ''))
         skills.append({'name': title, 'description': text, 'cooldown': skill.get('쿨타임')})
     return {'name': name, 'skillLevel': skill_level, 'skills': skills,
@@ -71,7 +72,7 @@ class CalculatorService:
         try:
             await asyncio.wait_for(self.slots.acquire(), timeout=2)
         except asyncio.TimeoutError as error:
-            raise ValueError('계산 서버가 사용 중입니다. 잠시 후 다시 시도하세요.') from error
+            raise ServerBusyError('다른 계산이 실행 중입니다. 동시 요청하지 말고 앞선 계산이 끝난 뒤 순서대로 다시 호출하세요. 육성이나 편성을 바꿀 필요는 없습니다.') from error
         try:
             child = await asyncio.create_subprocess_exec(
                 sys.executable, '-m', 'nikke_mcp.worker', cwd=str(ROOT),
@@ -90,10 +91,15 @@ class CalculatorService:
                     raise TimeoutError('계산 시간 제한을 초과했습니다. 전투 시간을 줄여 다시 시도하세요.') from error
                 raise
             if child.returncode:
-                raise ValueError('계산 프로세스 실행에 실패했습니다. 설치 및 서버 로그를 확인하세요.')
-            output = json.loads(stdout)
-            if 'error' in output:
-                raise ValueError(output['error'])
+                raise EngineProcessError('계산 프로세스 실행에 실패했습니다. 설치 및 서버 로그를 확인하세요.')
+            try:
+                output = json.loads(stdout)
+            except (ValueError, UnicodeError) as error:
+                raise EngineProcessError('계산 프로세스가 올바른 결과를 반환하지 않았습니다.') from error
+            if not isinstance(output, dict) or 'error' in output:
+                # Worker messages may originate in unexpected engine exceptions.
+                # Do not publish their raw strings as user-input errors.
+                raise EngineProcessError('검증된 요청을 계산하는 중 내부 오류가 발생했습니다. 호출 입력과 엔진 버전을 운영자에게 전달해 주세요.')
         finally:
             self.slots.release()
         if not detail:
@@ -107,11 +113,11 @@ class CalculatorService:
 
     async def compare(self, requests: list[CombatRequest]) -> dict:
         if not 2 <= len(requests) <= 5:
-            raise ValueError('비교 후보는 2~5개입니다.')
+            raise InvalidSettingsError('비교 후보는 2~5개입니다.')
         def battle(req):
             return req.model_dump(exclude={'squad', 'characters'})
         if any(battle(req) != battle(requests[0]) for req in requests[1:]):
-            raise ValueError('비교 후보의 전투 시간·보스·난수 모드·seed는 같아야 합니다.')
+            raise InvalidSettingsError('비교 후보의 전투 시간·보스·난수 모드·seed는 같아야 합니다.')
         candidates = []
         for index, request in enumerate(requests):
             result = await self.simulate(request)

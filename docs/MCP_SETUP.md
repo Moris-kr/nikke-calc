@@ -8,6 +8,8 @@ ChatGPT·Claude·MCP 지원 에이전트가 **기존 웹 계산기와 같은 Pyt
 [서버 상태 확인](https://nikke-calc-mcp.onrender.com/health)에서 `status: ok`를 확인한 뒤,
 ChatGPT는 **6절**, Claude 웹은 **7절**을 따라 위 주소를 등록하면 됩니다. 인증 방식은 **No Authentication**입니다.
 무료 Render 인스턴스라 절전 후 첫 응답이 늦을 수 있고, 동시 계산은 1개입니다.
+계산 도구는 **순차 호출**하세요. 여러 후보를 동시에 요청하면 `SERVER_BUSY`가 반환됩니다.
+이는 캐릭터 스킬 오류가 아니며, 앞선 계산 완료 후 같은 입력으로 다시 호출하면 됩니다.
 GitHub Pages 사이트 주소는 MCP 주소가 아닙니다.
 
 직접 운영하려는 사용자를 위한 로컬 실행 프로그램, 자동 설치 스크립트, 원격 Docker 배포 구성도 제공합니다.
@@ -320,6 +322,13 @@ AI는 1번 후보를 유지하고, 2번 후보의 `characters`에 다음을 지�
 - 최대 로스터 500명, 덱 20개, JSON 800KB. 상세 스키마는 `get_settings.sharedStateSchema`를 확인하세요.
 
 ## 9. 결과를 읽는 기준
+
+오류를 계산 결과처럼 해석하지 마세요. `SERVER_BUSY`는 서버 사용 중,
+`CALCULATION_TIMEOUT`은 계산 시간 초과, `INVALID_SETTINGS`는 입력 설정 오류,
+`ENGINE_PROCESS_FAILED`는 계산 프로세스 실패입니다. 알려진 오류는 상세 원인과 함께 반환됩니다.
+예상하지 못한 내부 예외는 세부 정보를 노출하지 않습니다.
+클라이언트가 표시한 `INVALID_ARGUMENT`만으로 캐릭터 구현 오류라고 단정할 수 없습니다.
+AI에는 “도구 호출을 하나씩 완료한 뒤 다음 후보를 계산하고, 실패 이유를 그대로 보고해줘”라고 요청하세요.
 
 | 필드 | 의미 |
 |---|---|

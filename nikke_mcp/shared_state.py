@@ -5,6 +5,7 @@ from pydantic import Field, model_validator
 
 from calculator.customization import normalize_character_overrides
 from nikke_mcp.models import BattleOptions, CharacterOverrides, CombatRequest, StrictModel, character_names
+from nikke_mcp.errors import InvalidSettingsError
 
 
 class SharedState(StrictModel):
@@ -30,11 +31,11 @@ def shared_request(state: SharedState, deck_index: int = 1, squad: list[str] | N
     if squad is not None:
         missing = set(squad) - set(state.roster)
         if missing:
-            raise ValueError(f'공유 로스터에 육성이 없습니다: {sorted(missing)}. 기본 육성으로 대체하지 않습니다.')
+            raise InvalidSettingsError(f'공유 로스터에 육성이 없습니다: {sorted(missing)}. 기본 육성으로 대체하지 않습니다.')
         return CombatRequest.model_validate({**state.battle.model_dump(exclude_none=True),
             'squad': squad, 'characters': {name: state.roster[name] for name in squad}})
     if isinstance(deck_index, bool) or not 1 <= deck_index <= len(state.decks):
-        raise ValueError('deck_index는 공유 파일의 1부터 시작하는 덱 번호여야 합니다.')
+        raise InvalidSettingsError('deck_index는 공유 파일의 1부터 시작하는 덱 번호여야 합니다.')
     return state.decks[deck_index - 1]
 
 

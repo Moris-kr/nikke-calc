@@ -14,7 +14,8 @@ from calculator.customization import CUBE_NAMES, COLLECTION_STAGES, OVERLOAD_FIE
 from context.spec import DEFAULT_CHAR
 from nikke_mcp.models import CombatRequest
 from nikke_mcp.shared_state import SharedState, inspect_shared, shared_request
-from nikke_mcp.service import CalculatorService, engine_version, get_character, list_characters
+from nikke_mcp.service import CalculatorService, engine_version, get_character as lookup_character, list_characters as search_characters
+from nikke_mcp.errors import public_errors
 
 
 def create_server(timeout: int = 60, max_concurrent: int = 2) -> MCPServer:
@@ -22,14 +23,25 @@ def create_server(timeout: int = 60, max_concurrent: int = 2) -> MCPServer:
         '니케 계산 도구입니다. 먼저 정식 이름과 설정을 조회하고 실제 simulate_squad/compare_setups 결과로 답하세요. '
         '수치를 추측하지 마세요. 입력한 육성이 없으면 기본 육성이며 사용자 실제 계정으로 표현하지 마세요. '
         '엔진 버전, 전투 조건, 기본 이탈과 프리뷰 경고를 명시하세요. 비교는 입력 후보만의 순위입니다. '
+        '계산 호출은 반드시 순차 실행하세요. SERVER_BUSY는 기존 호출 완료 후 같은 입력으로 재시도하고, '
+        'CALCULATION_TIMEOUT은 시간 제한입니다. 이 오류들을 특정 캐릭터의 계산 불가로 해석하지 마세요. '
         '결과는 저장하지 않습니다. 상세 결과는 같은 요청에 detail=true로 재실행하세요.'),
         log_level='WARNING')
     service = CalculatorService(timeout=timeout, max_concurrent=max_concurrent)
     read_only = ToolAnnotations(read_only_hint=True, destructive_hint=False,
                                 idempotent_hint=True, open_world_hint=False)
 
-    server.tool(annotations=read_only, description='정식 캐릭터명·속성·무기·버스트를 검색합니다. 별칭을 추측하지 말고 이 목록의 이름을 사용하세요.')(list_characters)
-    server.tool(annotations=read_only, description='캐릭터의 스킬 원문을 지정 레벨(1~10) 수치로 조회합니다. stats는 공통 육성 적용 전 무기/분류 데이터입니다.')(get_character)
+    @server.tool(annotations=read_only)
+    def list_characters(query: str = '') -> dict[str, Any]:
+        """정식 캐릭터명·속성·무기·버스트를 검색합니다. 별칭을 추측하지 말고 이 목록의 이름을 사용하세요."""
+        with public_errors():
+            return search_characters(query)
+
+    @server.tool(annotations=read_only)
+    def get_character(name: str, skill_level: int = 10) -> dict[str, Any]:
+        """캐릭터 스킬 원문을 지정 레벨(1~10)로 조회합니다. stats는 공통 육성 적용 전 데이터입니다."""
+        with public_errors():
+            return lookup_character(name, skill_level)
 
     @server.tool(annotations=read_only)
     def get_settings() -> dict[str, Any]:
@@ -51,12 +63,14 @@ def create_server(timeout: int = 60, max_concurrent: int = 2) -> MCPServer:
     @server.tool(annotations=read_only)
     async def simulate_squad(request: CombatRequest, detail: bool = False) -> dict[str, Any]:
         """웹과 같은 엔진으로 계산합니다(최대 180초). detail=true는 타임라인도 반환합니다."""
-        return await service.simulate(request, detail)
+        with public_errors():
+            return await service.simulate(request, detail)
 
     @server.tool(annotations=read_only)
     async def compare_setups(requests: list[CombatRequest]) -> dict[str, Any]:
         """동일 전투 조건의 2~5개 후보를 계산합니다. 후보별 실제 설정과 1번 대비 증감을 반환합니다."""
-        return await service.compare(requests)
+        with public_errors():
+            return await service.compare(requests)
 
     @server.tool(annotations=read_only)
     def inspect_shared_state(state: SharedState) -> dict[str, Any]:
@@ -67,7 +81,8 @@ def create_server(timeout: int = 60, max_concurrent: int = 2) -> MCPServer:
     async def simulate_shared_state(state: SharedState, deck_index: int = 1,
                                     squad: list[str] | None = None, detail: bool = False) -> dict[str, Any]:
         """공유 JSON으로 계산합니다. 기본은 deck_index(1부터)의 설정 그대로. squad를 지정하면 공유 roster의 육성 + battle 조건으로 새 편성을 계산하며, 육성이 없는 캐릭터는 거절합니다. 매 호출에 state 전체를 전달하세요."""
-        return await service.simulate(shared_request(state, deck_index, squad), detail)
+        with public_errors():
+            return await service.simulate(shared_request(state, deck_index, squad), detail)
 
     @server.custom_route('/health', methods=['GET'])
     async def health(request):

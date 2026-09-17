@@ -10,9 +10,59 @@ from mcp.client.stdio import StdioServerParameters
 
 from nikke_mcp.models import ROOT
 from nikke_mcp.server import create_server
+from nikke_mcp.service import CalculatorService
+from unittest.mock import patch, AsyncMock
 
 
 class ProtocolTests(unittest.IsolatedAsyncioTestCase):
+    async def test_busy_service_returns_actionable_error(self):
+        service = CalculatorService(max_concurrent=1)
+        await service.slots.acquire()
+        try:
+            with patch('nikke_mcp.server.CalculatorService', return_value=service):
+                server = create_server()
+            async with Client(server) as client:
+                result = await client.call_tool('simulate_squad', {'request': {'squad': ['리타']}})
+                self.assertTrue(result.is_error)
+                self.assertIn('[SERVER_BUSY]', str(result.content))
+                self.assertIn('순서대로', str(result.content))
+        finally:
+            service.slots.release()
+
+    async def test_expected_failures_reach_client_without_masking(self):
+        async with Client(create_server()) as client:
+            for tool, args in [
+                ('compare_setups', {'requests': [{'squad': ['리타']}, {'squad': ['리타'], 'enemyDef': 1}]}),
+                ('get_character', {'name': 'unknown'}),
+            ]:
+                result = await client.call_tool(tool, args)
+                self.assertTrue(result.is_error)
+                self.assertIn('[INVALID_SETTINGS]', str(result.content))
+            with patch('nikke_mcp.service.CalculatorService.simulate', new=AsyncMock(side_effect=TimeoutError('계산 시간 제한'))):
+                result = await client.call_tool('simulate_squad', {'request': {'squad': ['리타']}})
+                self.assertTrue(result.is_error)
+                self.assertIn('[CALCULATION_TIMEOUT]', str(result.content))
+
+    async def test_unexpected_exception_stays_private(self):
+        async with Client(create_server()) as client:
+            for exception in [RuntimeError, ValueError, KeyError, TypeError]:
+                with patch('nikke_mcp.service.CalculatorService.simulate', new=AsyncMock(side_effect=exception('PRIVATE_INTERNAL_DETAIL'))):
+                    result = await client.call_tool('simulate_squad', {'request': {'squad': ['리타']}})
+                    self.assertTrue(result.is_error)
+                    self.assertNotIn('PRIVATE_INTERNAL_DETAIL', str(result.content))
+
+    async def test_worker_error_details_are_not_published(self):
+        async with Client(create_server()) as client:
+            for output in [b'{"error":"PRIVATE_INTERNAL_DETAIL"}', b'PRIVATE_INTERNAL_DETAIL']:
+                child = AsyncMock()
+                child.returncode = 0
+                child.communicate.return_value = (output, b'')
+                with patch('nikke_mcp.service.asyncio.create_subprocess_exec', new=AsyncMock(return_value=child)):
+                    result = await client.call_tool('simulate_squad', {'request': {'squad': ['리타']}})
+                    self.assertTrue(result.is_error)
+                    self.assertIn('[ENGINE_PROCESS_FAILED]', str(result.content))
+                    self.assertNotIn('PRIVATE_INTERNAL_DETAIL', str(result.content))
+
     async def exercise(self, client):
         tools = await client.list_tools()
         names = {tool.name for tool in tools.tools}

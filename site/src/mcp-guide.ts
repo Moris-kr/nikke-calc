@@ -64,7 +64,8 @@ export function renderMcpGuide(host: HTMLElement, getShare?: () => McpShare): vo
       </section>
       <section><h4>연결이 늦거나 결과가 다를 때</h4>
         <ul><li>무료 서버는 미사용 시 절전합니다. <a href="https://nikke-calc-mcp.onrender.com/health" target="_blank" rel="noopener noreferrer">서버 상태 확인 ↗</a>에서 <code>status: ok</code>가 나온 뒤 다시 시도하세요. 처음에는 약 1분 걸릴 수 있습니다.</li>
-        <li>동시 계산은 1개입니다. 사용 중이라는 응답이 오면 잠시 뒤 다시 요청하세요.</li>
+        <li>동시 계산은 1개입니다. 후보를 여러 개 시험할 때도 앞선 도구 호출이 끝난 뒤 다음을 요청하세요. <code>SERVER_BUSY</code>는 다른 계산이 실행 중이라는 뜻이며, 캐릭터 오류가 아닙니다. 같은 입력으로 순서대로 다시 호출하세요.</li>
+        <li><code>CALCULATION_TIMEOUT</code>은 계산 시간 초과, <code>INVALID_SETTINGS</code>는 입력 설정 오류입니다. 메시지의 원인을 확인하세요. <code>INVALID_ARGUMENT</code>나 <code>Error executing tool</code>만 보이면 특정 캐릭터가 계산 불가능하다고 단정하지 말고 상세 오류와 호출 입력을 확인하세요.</li>
         <li>웹과 결과가 다르면 공유 파일을 다시 내보내고 같은 덱 번호·전투 조건인지 확인하세요. 서버와 웹의 데이터 버전이 다르거나 기본값이 바뀌면 결과도 달라질 수 있습니다.</li>
         <li>계산에 필요한 입력만 서버로 전달됩니다. 블라블라링크 쿠키나 계정 비밀번호는 입력하지 마세요.</li></ul>
         <a href="https://github.com/Moris-kr/nikke-calc/blob/master/docs/MCP_SETUP.md" target="_blank" rel="noopener noreferrer">로컬 설치·직접 배포 상세 안내 ↗</a>
