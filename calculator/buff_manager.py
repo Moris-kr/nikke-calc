@@ -1063,6 +1063,54 @@ class BuffManager:
                 self._next_fire[id(_eff)] = (t + max(0.0, next_t - t) * factor, interval)
             return
 
+        # Generic stack addition changes existing beneficial stacks on the recipients.
+        # It neither raises their caps nor creates a buff which has not been applied.
+        if stat == "buff_stack_add" and not eff.get("target_effect"):
+            targets = set(self._resolve_target(eff.get("target", "self"), caster))
+            changed = []
+            reached = []
+            for ab in list(self._active):
+                maximum = ab.effect.get("max_stack", 1)
+                if (ab.effect.get("type") != "buff" or ab.effect.get("polarity") != "beneficial"
+                        or maximum == 1 or t >= ab.expires_at):
+                    continue
+                recipients = self._resolve_lazy(ab) if ab.target_chars is None else ab.target_chars
+                affected = [n for n in recipients if n in targets
+                            and not self._has_immune(n, "stack_change_immune")]
+                if not affected:
+                    continue
+                if len(recipients) > 1 and not ab.per_char_stacks:
+                    ab.per_char_stacks = {n: ab.stack for n in recipients}
+                for recipient in affected:
+                    previous = ab.per_char_stacks.get(recipient, ab.stack)
+                    cap = self._effective_stack_cap(ab.effect, recipient, t)
+                    count = previous + int(val or 1)
+                    if maximum != -1:
+                        count = min(count, cap)
+                    if count == previous:
+                        continue
+                    old_hp = self.effective_max_hp(recipient)
+                    if ab.per_char_stacks:
+                        ab.per_char_stacks[recipient] = count
+                    else:
+                        ab.stack = count
+                    changed.append((ab, recipient, self.effective_max_hp(recipient) - old_hp, count))
+                    if ab.effect.get("name") and recipient == ab.caster:
+                        reached.append((ab.effect["name"], count, ab.caster))
+            self._invalidate_buffs_cache()
+            for ab, recipient, hp_delta, count in changed:
+                if recipient in self.state.get("hp", {}):
+                    if ab.effect.get("stat") in ("max_hp_pct", "hp_caster_based_pct"):
+                        self.state["hp"][recipient] += max(0, hp_delta)
+                    self.sync_hp(recipient)
+                if self._buff_event_handler and ab.effect.get("name"):
+                    self._buff_event_handler("activate", ab.effect["name"], ab.caster, recipient,
+                        t, ab.expires_at, self._get_value(ab.effect, ab, recipient),
+                        ab.effect.get("stat"), count, ab.effect.get("max_stack", 1))
+            for name, count, owner in reached:
+                self.notify(f"stack_reach:{name}:{count}", t, owner)
+            return
+
         # buff_stack_add / buff_stack_remove
         if stat in ("buff_stack_add", "buff_stack_remove"):
             target_name = eff.get("target_effect", "")
@@ -2396,6 +2444,12 @@ class BuffManager:
                     default=max_stack,
                 ) if max_stack != -1 else existing.stack + 1
                 prev_stack = existing.stack
+                if existing.per_char_stacks and not use_per_target:
+                    for recipient in recipients:
+                        current = existing.per_char_stacks.get(recipient, existing.stack)
+                        limit = self._effective_stack_cap(eff, recipient, t)
+                        existing.per_char_stacks[recipient] = (current + 1 if max_stack == -1
+                                                               else min(current + 1, limit))
                 existing.stack = min(existing.stack + 1, cap)
                 existing.activated_at = t
                 existing.expires_at = expires
@@ -3324,7 +3378,7 @@ class BuffManager:
             return sum(1 for e in feathers[ref]["expiry"] if e > self._cur_t)
         for ab in self._by_name(ref):
             if ab.caster == caster:
-                return ab.stack
+                return ab.per_char_stacks.get(caster, ab.stack)
         return None
 
     def _same_target_ramp_hits(self, eff: dict, caster: str) -> int | None:
@@ -3386,7 +3440,8 @@ class BuffManager:
             return base * lost
 
         # 스택 합산 (per_char_stacks 오버라이드 우선 적용)
-        eff_stack = stack_override if stack_override is not None else ab.stack
+        eff_stack = (stack_override if stack_override is not None
+                     else ab.per_char_stacks.get(query_caster, ab.stack))
         if scaling == "stack_count":
             ref = eff.get("scaling_ref")
             if ref:

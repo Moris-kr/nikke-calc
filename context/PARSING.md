@@ -615,7 +615,7 @@ n% ▲]`처럼 대괄호 안에 상태 이름을 적어 두더라도, 그 이름
 | `charge_speed_debuff_immune` | 차지 속도 감소 효과 면역 (`values`/`fixed_value` 없음) |
 | `charge_speed_buff_immune` | 차지 속도 증가 효과 면역 (`values`/`fixed_value` 없음) |
 | `stack_change_immune` | 중첩량 증감 효과 면역 (`values`/`fixed_value` 없음) |
-| `buff_max_stack_add` | `중첩 가능 이로운 효과 중첩량 N개 ▲` — 대상 아군의 스택형 이로운 효과 **중첩 한도(`max_stack`)** 를 N 올린다. 대상 버프를 특정하지 않으므로 `target_effect` 없음 |
+| `buff_max_stack_add` | **최대 중첩 한도** 증가가 명시된 경우에만 사용. `중첩 가능 이로운 효과 중첩량 N개 ▲`는 이 키가 아니라 `buff_stack_add` 즉발이다 |
 | `charge_time_fixed` | 차지 시간 고정 |
 | `atk_copy` | 공격력 복제 (복잡 메카닉, 파싱 불가 시 `_unparseable`) |
 | `hp_copy` | 체력 복제 (복잡 메카닉, 파싱 불가 시 `_unparseable`) |
@@ -664,7 +664,7 @@ n% ▲]`처럼 대괄호 안에 상태 이름을 적어 두더라도, 그 이름
 | `ammo_charge_flat` | 탄환 충전 N발 |
 | `burst_charge_pct` | 버스트 게이지 충전 N% |
 | `heal_hp_pct` | 체력 회복 (시전자 최대 체력 N%) |
-| `buff_stack_add` | 중첩형 이로운 효과 중첩 N 증가. 특정 named buff의 스택을 올리는 경우에 사용 |
+| `buff_stack_add` | 현재 중첩 N 증가(instant). `중첩 가능 이로운 효과 중첩량 N개 ▲`는 `target_effect` 없이 대상의 활성 이로운 중첩 버프 전체에 적용. 특정 named buff이면 `target_effect`를 지정. 최대 한도는 유지하며 없는 버프를 생성하지 않음 |
 | `buff_stack_remove` | 중첩형 이로운 효과 중첩 N 감소. 특정 named buff의 스택을 내리는 경우에 사용 |
 | `debuff_stack_add` | 중첩형 해로운 효과 중첩 N 증가. 스택이 쌓이는 debuff에만 사용 |
 | `debuff_stack_remove` | 중첩형 해로운 효과 중첩 N 감소. 스택이 쌓이는 debuff의 중첩을 줄이는 경우에만 사용. 단순 해제(스택 무관)는 `debuff_cleanse` 사용 |

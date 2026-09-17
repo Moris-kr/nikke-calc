@@ -309,7 +309,7 @@ python calculator/damage.py
 | `heal_overcharge_store` | — | — | ❌ | 초과 회복 저장. 미구현 |
 | `heal_overcharge_store_atk_pct` | — | — | ❌ | ATK N%까지 받는 회복량 저장. 힐 모델 없음 |
 | `shield_restore_pct` | — | — | ❌ | 보호막 회복 ▲. 아군 피격·보호막 소모 모델 없음 |
-| `buff_max_stack_add` | — | buff_manager | ✅ | 중첩 가능 이로운 효과의 **중첩 한도(`max_stack`) N개 ▲**. `_effective_stack_cap()`이 대상 아군에게 활성인 효과를 합산해 일반 재부여와 `buff_stack_add` 즉발 양쪽 상한에 적용. 원래 `max_stack > 1`인 버프만 확장하며 비중첩·무제한 버프는 바꾸지 않음. 플로라·미카 : 스노우 버디·디젤 |
+| `buff_max_stack_add` | — | buff_manager | ✅ | 중첩 가능 이로운 효과의 **중첩 한도(`max_stack`) N개 ▲**. `_effective_stack_cap()`이 대상 아군에게 활성인 효과를 합산해 일반 재부여와 `buff_stack_add` 즉발 양쪽 상한에 적용. 원래 `max_stack > 1`인 버프만 확장하며 비중첩·무제한 버프는 바꾸지 않음. 플로라의 현재 중첩 증가에는 사용하지 않음 |
 | `burst_dmg_single_pct` | — | — | ❌ | 단일 대상 버스트 대미지 ▲. 미구현 (`burst_dmg`로 통합 필요 또는 별도 처리) |
 | `burst_dmg_aoe_pct` | `burst_dmg_aoe_pct` | ⑤ | ✅ | 전체 대상 버스트 대미지 ▲. `_factor5()`의 `is_burst_damage` 블록 **안**에서 `hit_type["is_aoe_burst"]`일 때만 가산 — 구조적으로 `bonus_damage`가 탈 수 없다. 플래그는 `timeline.simulate` `_handle_damage_eff`가 `base_stat=="burst_damage" and target=="all_enemies"`로 세운다. **AoE 판정 기준**: 버스트 스킬의 대상 설명이 `적 전체에게`로 끝나는 효과 — `적 전체에게(파츠 포함)`처럼 괄호 부연이 붙어도 포함한다(레이븐). **같은 clause의 `bonus_damage`·`dot_damage`는 제외** — "버스트 스킬 대미지"만 증폭한다(이사벨 `타겟 마킹 2·3` 추가 대미지는 비대상, 유저 확인). 트리나 `뻗은 뿌리`/`시든 뿌리` |
 | `burst_cooldown` | `burst_cooldown` | — | ✅ | buff 상태로 지속. `BurstManager.tick()`의 `full_burst_start` 분기가 풀버스트 1회당 1회씩 `burst_ready_at`을 당긴다 (`_cd_applied_at_cast`로 cast 시 반영분 중복 방지) |
@@ -396,7 +396,7 @@ python calculator/damage.py
 | `ammo_charge_flat` | `_dispatch_instant()` → timeline 핸들러 | ✅ | |
 | `burst_charge_pct` | — | 🚫 | 버스트 게이지 모델 단순화로 보류 |
 | `heal_hp_pct` | `_dispatch_instant()` → timeline 핸들러 | ✅ | `state["hp"]` 갱신 후 `hp_pct` 재동기화 |
-| `buff_stack_add` | `_dispatch_instant()` | ✅ | 스택 +N과 함께 **대상 버프의 지속시간도 갱신**한다(유저 확정: 일반 동작 — 원문 `[스택명 : ...] [N 중첩] [M초 유지]`는 버프를 다시 붙이는 문장이다). `duration: -1`(영구, `expires_at == inf`)은 갱신 대상 아님. 스택이 증가하면 `stack_reach:버프명:N`도 notify한다(`_activate()`와 동일). notify는 `_active` 순회가 끝난 뒤 emit — 순회 중 emit하면 재진입으로 리스트가 바뀐다 |
+| `buff_stack_add` | `_dispatch_instant()` | ✅ | `target_effect` 미지정 시 대상 아군의 활성 이로운 중첩 버프를 현재 상한 내에서 +N. 속성 대상·면역·미부여/만료를 구분하며 다중 대상의 중첩은 수령자별로 보존한다. 범용 중첩 조작은 원 버프의 만료 시각을 유지한다. named 지정 시에는 스택 +N과 함께 **대상 버프의 지속시간도 갱신**한다(유저 확정: 일반 동작 — 원문 `[스택명 : ...] [N 중첩] [M초 유지]`는 버프를 다시 붙이는 문장이다). `duration: -1`(영구, `expires_at == inf`)은 갱신 대상 아님. 스택이 증가하면 `stack_reach:버프명:N`도 notify한다(`_activate()`와 동일). notify는 `_active` 순회가 끝난 뒤 emit — 순회 중 emit하면 재진입으로 리스트가 바뀐다 |
 | `buff_stack_remove` | `_dispatch_instant()` | ✅ | |
 | `buff_stack_init` | `_dispatch_instant()` | ✅ | `target_effect` 버프가 없을 때만 N 스택으로 초기 생성. `_effects`에서 버프 정의 조회 후 `ActiveBuff` 직접 생성 |
 | `debuff_stack_add` | `_dispatch_instant()` | ✅ | |

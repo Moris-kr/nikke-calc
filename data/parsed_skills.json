@@ -17816,7 +17816,7 @@
     },
     {
       "source": "스킬1",
-      "type": "buff",
+      "type": "instant",
       "name": "피튜니아 3",
       "trigger": {
         "timing": [
@@ -17825,11 +17825,8 @@
         "condition": []
       },
       "target": "allies_code:전격",
-      "stat": "buff_max_stack_add",
-      "polarity": "beneficial",
-      "max_stack": 1,
-      "fixed_value": 1,
-      "duration": -1
+      "stat": "buff_stack_add",
+      "fixed_value": 1
     },
     {
       "source": "스킬1",
@@ -17880,7 +17877,7 @@
     {
       "source": "스킬1",
       "favorite": 1,
-      "type": "buff",
+      "type": "instant",
       "name": "피튜니아 2",
       "trigger": {
         "timing": [
@@ -17889,11 +17886,8 @@
         "condition": []
       },
       "target": "allies_code:전격",
-      "stat": "buff_max_stack_add",
-      "polarity": "beneficial",
-      "max_stack": 1,
-      "fixed_value": 1,
-      "duration": -1
+      "stat": "buff_stack_add",
+      "fixed_value": 1
     },
     {
       "source": "스킬1",
