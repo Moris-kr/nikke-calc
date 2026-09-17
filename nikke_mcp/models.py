@@ -8,7 +8,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from calculator.customization import CUBE_NAMES, COLLECTION_STAGES, normalize_character_overrides
+from calculator.customization import (CUBE_NAMES, COLLECTION_STAGES, normalize_character_overrides,
+    normalize_console, normalize_burst_sequence, normalize_normal_hit_coeff)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -24,7 +25,7 @@ def character_names() -> list[str]:
 
 
 class StrictModel(BaseModel):
-    model_config = ConfigDict(extra='forbid', strict=True, allow_inf_nan=False)
+    model_config = ConfigDict(extra='forbid', strict=True, allow_inf_nan=False, serialize_by_alias=True)
 
 
 class Cube(StrictModel):
@@ -105,8 +106,38 @@ class CharacterOverrides(StrictModel):
         description='신데렐라 : 크리스탈 웨이브의 저격 모드 변경 시점(초).')
 
 
-class CombatRequest(StrictModel):
-    squad: list[str] = Field(min_length=1, max_length=5, description='등록된 정식 캐릭터명. 왼쪽부터 편성 순서.')
+class ConsoleLevels(StrictModel):
+    common_level: int = Field(ge=0, le=1000)
+    class_level: dict[str, Annotated[int, Field(ge=0, le=1000)]]
+    company_level: dict[str, Annotated[int, Field(ge=0, le=1000)]]
+
+    @model_validator(mode='after')
+    def validate_console(self):
+        normalize_console(self.model_dump())
+        return self
+
+
+class PhaseWindow(StrictModel):
+    start: float = Field(alias='from', ge=0, le=180)
+    to: float = Field(ge=0, le=180)
+
+    @model_validator(mode='after')
+    def validate_interval(self):
+        if self.start >= self.to:
+            raise ValueError('구간 시작은 끝보다 앞서야 합니다.')
+        return self
+
+
+class ElementWindow(PhaseWindow):
+    code: Literal['풍압', '수냉', '작열', '전격', '철갑']
+
+
+class PiercePass(StrictModel):
+    shapes: int = Field(ge=1, le=20)
+    parts: int = Field(ge=0, le=20)
+
+
+class BattleOptions(StrictModel):
     duration: int = Field(default=180, ge=1, le=180)
     enemyDef: int = Field(default=31784, ge=0, le=10000000)
     enemyCode: Literal['', '풍압', '수냉', '작열', '전격', '철갑'] = ''
@@ -114,11 +145,36 @@ class CombatRequest(StrictModel):
     hasParts: bool = False
     seed: int = Field(default=42, ge=0, le=2147483647)
     rngMode: Literal['expected', 'random'] = 'expected'
+    synchroLevel: int = Field(default=400, ge=1, le=1400)
+    console: ConsoleLevels | None = None
+    burstRegenTime: float | None = Field(default=None, ge=0, le=20)
+    burstReaction: float | None = Field(default=None, ge=0, le=3)
+    optimalRangeWeapons: list[Literal['AR', 'SMG', 'SG', 'SR', 'RL', 'MG']] = Field(default_factory=list, max_length=6)
+    immuneWindows: list[PhaseWindow] = Field(default_factory=list, max_length=100)
+    elementWindows: list[ElementWindow] = Field(default_factory=list, max_length=100)
+    immuneBlocksBurst: bool = True
+    normalHitCoeff: dict[str, float] = Field(default_factory=dict)
+    partBreakInterval: float | None = Field(default=None, ge=0, le=100000)
+    piercePass: PiercePass | None = None
+
+    @model_validator(mode='after')
+    def validate_coefficients(self):
+        normalize_normal_hit_coeff(self.normalHitCoeff)
+        return self
+
+
+class CombatRequest(BattleOptions):
+    squad: list[str] = Field(min_length=1, max_length=5, description='등록된 정식 캐릭터명. 왼쪽부터 편성 순서.')
+    burstSequence: list[dict[Literal['1', '2', '3'], list[str]]] | None = Field(default=None, max_length=60)
+    stateTrack: bool = False
+    shotTrack: bool = False
+    fineTimeline: bool = False
     characters: dict[str, CharacterOverrides] = Field(default_factory=dict,
         description='정식 이름별 웹 계산기 CharacterOverrides. get_settings로 옵션과 형식을 조회하세요.')
 
     @model_validator(mode='after')
     def validate_roster(self):
+        normalize_burst_sequence(self.burstSequence, self.squad)
         if len(set(self.squad)) != len(self.squad):
             raise ValueError('같은 캐릭터를 중복 편성할 수 없습니다.')
         unknown = set(self.squad) - set(character_names())

@@ -22,6 +22,15 @@ class ProtocolTests(unittest.IsolatedAsyncioTestCase):
         self.assertGreater(result.structured_content['result']['squadTotal'], 0)
         invalid = await client.call_tool('simulate_squad', {'request': {'squad': ['리타'], 'duration': 999}})
         self.assertTrue(invalid.is_error)
+        state = {'format': 'nikke-calc-mcp', 'version': 1,
+                 'battle': {'duration': 2, 'synchroLevel': 321},
+                 'roster': {'리타': {'skillLevels': {'1': 4, '2': 5, '3': 6}}}, 'decks': []}
+        inspected = await client.call_tool('inspect_shared_state', {'state': state})
+        self.assertFalse(inspected.is_error)
+        self.assertEqual(inspected.structured_content['rosterCount'], 1)
+        shared = await client.call_tool('simulate_shared_state', {'state': state, 'squad': ['리타']})
+        self.assertFalse(shared.is_error)
+        self.assertEqual(shared.structured_content['effectiveCharacters'][0]['level'], 321)
 
     async def test_in_memory_protocol(self):
         async with Client(create_server()) as client:

@@ -51,6 +51,7 @@ import {
 } from './report';
 import { csvBlob, csvFileName, csvText, damageBatchRows, type DamageCsvDeck } from './export-csv';
 import { renderMcpGuide } from './mcp-guide';
+import { buildMcpShare } from './mcp-share';
 import {
   applyShareToDecks, decodeBattleCode, decodeShareCode, encodeBattleCode, encodeShareCode,
   type ApplyTarget,
@@ -7367,7 +7368,14 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     element<HTMLElement>(root, '[data-overload-lab]').hidden = funView !== 'lab';
     if (funView === 'vision') renderVision();
     if (funView === 'skills') skillPlanner.render(funBody);
-    if (funView === 'mcp') renderMcpGuide(funBody);
+    if (funView === 'mcp') renderMcpGuide(funBody, () => {
+      const battle = readBattle();
+      const custom = customPayload();
+      return buildMcpShare(roster,
+        requestForDeck({ id: 0, squad: [], characters: {} }, battle),
+        decks.filter((deck) => deck.squad.some(Boolean)).map((deck) =>
+          requestForDeck(deck, battle, Object.keys(custom).length ? custom : undefined)));
+    });
   };
 
   // ── 외부고리 ────────────────────────────────────────────────────────────

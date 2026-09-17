@@ -22,6 +22,14 @@ export interface Notice {
 /** 최신이 맨 앞. */
 export const NOTICES: Notice[] = [
   {
+    id: '2026-09-18-mcp-growth-share', date: '2026-09-18',
+    title: '내 육성·편성을 AI에 전달하기',
+    items: [
+      { tag: '새 기능', text: '<b>편의 기능 → MCP</b>에서 전체 육성과 덱·전투 조건을 JSON으로 내려받거나 복사할 수 있습니다. 연결한 AI에 전달하면 같은 설정으로 계산합니다.' },
+      { tag: '개선', text: 'MCP에서 싱크로·콘솔을 지원하며, 공유 파일 확인과 계산 방법도 안내합니다. 닉네임·계정 ID·쿠키는 내보내지 않습니다.' },
+    ],
+  },
+  {
     id: '2026-09-18-feedback-mcp-guide',
     date: '2026-09-18',
     title: 'MCP 사용법 · 전투 결과와 CSV 개선',

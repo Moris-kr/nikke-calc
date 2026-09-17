@@ -30,6 +30,10 @@
 .mcp-platforms { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
 .mcp-note { color: var(--muted); font-size: 13px; }
 .mcp-example { padding: 8px 16px; margin: 12px 0; border-left: 3px solid var(--cyan); background: rgba(69,214,208,.05); }
+.mcp-guide textarea { width: 100%; font-family: monospace; }
+.mcp-guide figure { margin: 20px 0; }
+.mcp-guide figure img { width: 100%; height: auto; border: 1px solid var(--line); border-radius: 10px; }
+.mcp-guide figcaption { color: var(--muted); font-size: 13px; margin-top: 8px; }
 @media (max-width: 640px) {
   .mcp-platforms { grid-template-columns: 1fr; gap: 0; }
   .mcp-guide > section, .mcp-platforms > section { padding: 16px; }

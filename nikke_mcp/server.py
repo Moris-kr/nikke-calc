@@ -13,6 +13,7 @@ from starlette.responses import JSONResponse
 from calculator.customization import CUBE_NAMES, COLLECTION_STAGES, OVERLOAD_FIELDS, MANUAL_STATS
 from context.spec import DEFAULT_CHAR
 from nikke_mcp.models import CombatRequest
+from nikke_mcp.shared_state import SharedState, inspect_shared, shared_request
 from nikke_mcp.service import CalculatorService, engine_version, get_character, list_characters
 
 
@@ -42,7 +43,9 @@ def create_server(timeout: int = 60, max_concurrent: int = 2) -> MCPServer:
                 'notes': ['큐브 없음은 Lv0, 착용 큐브는 Lv1~15입니다.',
                           '기본 스펙은 실제 계정 정보가 아닙니다. 캐릭터별 기본 설정도 추가됩니다.',
                           '지원: growthStage, skillLevels, overload, cube, collection, control, burst, equipLevels, manualStats, weaponModeSwapAt.',
-                          '미지원: 프로필 파일/백업 통째로 가져오기, 커스텀 캐릭터, 핵 옵션, 보스 메이커 고급 옵션, 계정 콘솔/싱크로 레벨 지정.'],
+                          '싱크로·콘솔·전투 조건과 웹 공유 JSON을 지원합니다. 공유는 inspect_shared_state로 먼저 검증하세요.',
+                          '미지원: 일반 백업/계정 로그인, 커스텀 캐릭터, 핵 옵션.'],
+                'sharedStateSchema': SharedState.model_json_schema(),
                 'engineVersion': engine_version()}
 
     @server.tool(annotations=read_only)
@@ -54,6 +57,17 @@ def create_server(timeout: int = 60, max_concurrent: int = 2) -> MCPServer:
     async def compare_setups(requests: list[CombatRequest]) -> dict[str, Any]:
         """동일 전투 조건의 2~5개 후보를 계산합니다. 후보별 실제 설정과 1번 대비 증감을 반환합니다."""
         return await service.compare(requests)
+
+    @server.tool(annotations=read_only)
+    def inspect_shared_state(state: SharedState) -> dict[str, Any]:
+        """웹의 편의 기능 → MCP에서 내보낸 JSON을 state에 전달해 전체 육성·덱·조건을 검증하고 조회합니다. 파일 경로나 URL이 아닌 JSON 객체를 전달하세요. 저장하지 않습니다."""
+        return {**inspect_shared(state), 'engineVersion': engine_version()}
+
+    @server.tool(annotations=read_only)
+    async def simulate_shared_state(state: SharedState, deck_index: int = 1,
+                                    squad: list[str] | None = None, detail: bool = False) -> dict[str, Any]:
+        """공유 JSON으로 계산합니다. 기본은 deck_index(1부터)의 설정 그대로. squad를 지정하면 공유 roster의 육성 + battle 조건으로 새 편성을 계산하며, 육성이 없는 캐릭터는 거절합니다. 매 호출에 state 전체를 전달하세요."""
+        return await service.simulate(shared_request(state, deck_index, squad), detail)
 
     @server.custom_route('/health', methods=['GET'])
     async def health(request):
@@ -93,5 +107,5 @@ def main():
         allowed_origins=['http://127.0.0.1:*', 'http://localhost:*',
                          *['https://' + h for h in hosts if not h.endswith(':*')]])
     server.run(transport='streamable-http', host=args.host, port=args.port,
-               stateless_http=True, json_response=True, max_request_body_size=65536,
+               stateless_http=True, json_response=True, max_request_body_size=1048576,
                transport_security=security)

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="400" viewBox="0 0 1080 400" role="img" aria-labelledby="title desc">
+<title id="title">내 육성을 AI 계산에 적용하는 세 단계</title><desc id="desc">계산기에서 JSON 내보내기, AI 대화에 첨부, MCP 도구로 계산. 웹 변경 후에는 다시 내보냅니다.</desc>
+<rect width="1080" height="400" rx="20" fill="#07111f"/>
+<g font-family="Pretendard, Noto Sans KR, Malgun Gothic, sans-serif" fill="#eaf2f8">
+<text x="36" y="48" font-size="25" font-weight="700">내 육성 그대로, 대화로 계산하기</text>
+<text x="36" y="78" font-size="16" fill="#a6b8ca">설명용 그림 · 실제 사이트 화면은 아래에서 확인하세요</text>
+<g fill="#102337" stroke="#2e5266"><rect x="36" y="110" width="310" height="216" rx="14"/><rect x="385" y="110" width="310" height="216" rx="14"/><rect x="734" y="110" width="310" height="216" rx="14"/></g>
+<g fill="#45d6d0" font-size="16" font-weight="700"><text x="58" y="145">01 · 계산기</text><text x="407" y="145">02 · ChatGPT / Claude</text><text x="756" y="145">03 · MCP 도구</text></g>
+<g font-size="23" font-weight="700"><text x="58" y="191">JSON 내보내기</text><text x="407" y="191">파일 첨부 또는 붙여넣기</text><text x="756" y="191">같은 설정으로 계산</text></g>
+<g font-size="17" fill="#c0cfdd"><text x="58" y="231">편의 기능 → MCP</text><text x="58" y="260">전체 육성 · 덱 · 전투 조건</text><text x="407" y="231">연결 확인 프롬프트 실행</text><text x="407" y="260">공유 JSON과 계산 요청 전달</text><text x="756" y="231">공유 데이터 검증</text><text x="756" y="260">덱 번호 선택 → 결과 확인</text></g>
+<g stroke="#45d6d0" stroke-width="3" fill="none"><path d="M353 215h24m-8-7 8 7-8 7"/><path d="M702 215h24m-8-7 8 7-8 7"/></g>
+<text x="36" y="366" font-size="17" fill="#ffbf3c">웹과 자동 동기화되지 않습니다. 육성이나 편성을 바꾸면 다시 내보내세요.</text>
+</g></svg>

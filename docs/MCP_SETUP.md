@@ -45,10 +45,11 @@ powershell -ExecutionPolicy Bypass -File .\nikke_mcp\setup.ps1
 
 설치기는 저장소 안에 `.venv-mcp` 가상환경을 만들고, 필요한 라이브러리와
 **이 PC의 경로가 들어간 Claude 설정 예제**를 생성합니다. 기존 앱 설정은 수정하지 않습니다.
-마지막에 `"status": "OK"`와 아래 5개 도구 이름이 나오면 실제 연결·계산 검증까지 성공한 것입니다.
+마지막에 `"status": "OK"`와 아래 도구 이름이 나오면 실제 연결·계산 검증까지 성공한 것입니다.
 
 ```text
 list_characters · get_character · get_settings · simulate_squad · compare_setups
+inspect_shared_state · simulate_shared_state
 ```
 
 직접 다시 확인하려면:
@@ -209,7 +210,12 @@ OAuth나 사용자별 저장 기능은 이 구성에 포함되지 않습니다.
 2. [ChatGPT Plugins](https://chatgpt.com/plugins)에서 `+`를 눌러 개발자 모드 앱을 만듭니다.
 3. 이름은 `NIKKE Calculator`, MCP 주소는 **`https://nikke-calc-mcp.onrender.com/mcp`** 또는 직접 배포한 주소를 입력합니다.
 4. 이 버전의 인증 방식은 **No Authentication**입니다. OpenAI API 키나 블라블라링크 쿠키를 입력하지 않습니다.
-5. 새 대화에서 개발자 모드 도구로 앱을 선택하고, 3절의 조회 예시를 실행합니다.
+5. 앱 상세 화면에서 도구 목록을 확인합니다. 서버 업데이트 후에는 Refresh로 갱신합니다.
+6. 새 대화에 다음 확인 프롬프트를 보냅니다. 실제 도구 호출과 목록이 보이면 연결된 것입니다.
+
+> NIKKE Calculator의 list_characters 도구를 호출해 사용 가능한 캐릭터 3명의 이름을 보여줘. 도구를 호출할 수 없으면 추측하지 말고 연결되지 않았다고 알려줘.
+
+도구를 사용할 수 없다고 나오면 등록 계정과 도구 활성화를 확인하세요. 대화에서 앱 선택을 요구하는 화면이면 NIKKE Calculator를 선택합니다. 선택 메뉴는 화면마다 다를 수 있어 `+ → 개발자 모드`를 필수 경로로 안내하지 않습니다.
 
 메뉴가 없으면 계정의 개발자 모드 제공 여부와 조직 관리자의 앱 허용 설정을 확인하세요.
 일반 대화에 주소만 붙이는 것으로 MCP가 등록되지는 않습니다.
@@ -273,10 +279,45 @@ AI는 1번 후보를 유지하고, 2번 후보의 `characters`에 다음을 지�
 {"skillLevels": {"1": 7, "2": 7, "3": 10}}
 ```
 
-지원하는 육성 입력은 `get_settings`로 확인합니다. 웹의 백업 JSON 전체를 넣는 기능은 없습니다.
-실제 계정 육성을 쓰려면 필요한 캐릭터의 지원 설정을 명시적으로 전달해야 합니다.
-계정 콘솔·싱크로 레벨·고급 보스 메이커·커스텀 캐릭터·핵 옵션은 이 첫 버전에서 지원하지 않습니다.
+지원하는 육성 입력은 `get_settings`로 확인합니다. 싱크로·콘솔·보스 페이즈·버스트 순서를 지원합니다.
+실제 육성을 전달하려면 아래 MCP 전용 JSON을 사용합니다. 일반 백업 JSON과 커스텀 캐릭터·핵 옵션은 지원하지 않습니다.
 미지원 옵션을 보내면 무시하지 않고 오류로 처리합니다.
+
+### 웹의 전체 육성·편성을 공유하기
+
+![공유 과정 안내 그림](../site/public/tutorials/mcp-share-flow.svg)
+
+![계산기 실제 MCP 탭 화면](../site/public/tutorials/mcp-tab-screen.png)
+
+1. 계산기에서 블라블라링크/CSV 육성을 불러오고 편성·전투 조건을 설정합니다.
+2. **편의 기능 → MCP → 육성·편성 JSON 다운로드**를 누릅니다. JSON 복사도 가능합니다.
+3. `nikke-calc-mcp.json`을 연결한 AI 대화에 첨부하고 아래 요청을 보냅니다. 파일 읽기가 안 되면 JSON 내용을 붙여 넣습니다.
+
+![기본 예시 편성으로 촬영한 JSON 내보내기 화면](../site/public/tutorials/mcp-share-screen.png)
+
+> 첨부한 JSON을 inspect_shared_state의 state에 전달해 전체 육성과 덱 목록을 확인해줘. 이어 simulate_shared_state에 같은 state와 deck_index: 1을 전달해 첫 덱을 그대로 계산해줘. 실제 적용한 육성도 알려줘.
+
+`state`에는 파일 경로나 URL이 아니라 **파싱한 JSON 객체 전체**를 전달합니다. 서버가 파일을 내려받거나 보관하지 않으므로 호출마다 같은 객체를 전달해야 합니다. 새 조합은 `simulate_shared_state`의 `squad`에 정식 이름 목록을 지정합니다. 이때는 `roster` 육성과 공통 `battle` 조건을 사용하며, 로스터에 없는 캐릭터는 기본값으로 대체하지 않고 거절합니다. 덱 수정값을 유지하려면 `deck_index`를 사용하세요. 인덱스는 비어 있지 않은 덱 순서대로 1부터 시작합니다.
+
+공유 포맷 v1 (아래는 개인 계정이 아닌 가상 예시):
+
+```json
+{
+  "format": "nikke-calc-mcp",
+  "version": 1,
+  "battle": {"duration": 180, "synchroLevel": 400},
+  "roster": {"리타": {"skillLevels": {"1": 7, "2": 7, "3": 10}}},
+  "decks": [{"squad": ["리타"], "duration": 180, "synchroLevel": 400,
+    "characters": {"리타": {"skillLevels": {"1": 7, "2": 7, "3": 10}}}}]
+}
+```
+
+- `roster`: 불러온 전체 육성. `decks`: 덱에서 수정한 육성과 운용을 포함한 웹 계산 요청. `battle`: 새 조합에 적용할 공통 전투·계정 조건.
+- 스킬, 돌파/코어, 장비, 오버로드 합계, 큐브, 소장품/애장품, 수동 스탯, 운용 설정을 전달합니다. 화면 전용 오버로드 줄은 합계로 변환된 값을 사용합니다.
+- 빈 설정·생략된 값은 계산기 기본값입니다. 실제 보유·육성으로 단정하지 않습니다. 보유 재료와 계산 결과는 포함하지 않습니다.
+- 닉네임·계정 ID·프로필 주소·덱 이름·쿠키·대화 내역은 제외합니다. 육성 수치는 첨부한 AI 서비스와 도구 호출 시 MCP 서버에 전달됩니다. MCP 서버는 저장하지 않습니다.
+- 내보낸 시점의 스냅샷입니다. 웹 변경 후 다시 공유하세요. 서버/웹 데이터나 기본값 버전이 다르면 결과도 달라질 수 있습니다.
+- 최대 로스터 500명, 덱 20개, JSON 800KB. 상세 스키마는 `get_settings.sharedStateSchema`를 확인하세요.
 
 ## 9. 결과를 읽는 기준
 
