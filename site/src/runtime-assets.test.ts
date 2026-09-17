@@ -20,7 +20,7 @@ describe('generated browser runtime', () => {
     expect(catalog.filter((char) => char.preview).map((char) => char.name)).toEqual([]);
   });
 
-  it('exports released bunny identifiers, all skill levels and standing images', () => {
+  it('exports released bunny identifiers, all skill levels and portraits', () => {
     const catalog = JSON.parse(readFileSync(join(publicDir, 'catalog.json'), 'utf8')) as CharacterMeta[];
     for (const [name, resourceId] of [['길티 : 마이티 바니', 404], ['신 : 스위프트 바니', 405]] as const) {
       const character = catalog.find((item) => item.name === name)!;

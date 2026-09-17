@@ -709,6 +709,7 @@ describe('calculator UI', () => {
 
   const openVision = () => {
     root.querySelector<HTMLButtonElement>('[data-view-tab="fun"]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-fun-tab="vision"]')!.click();
   };
 
   it('오버옵 시각화는 동그라미를 모아 붙이지 않은 채로 열린다', () => {

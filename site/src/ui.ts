@@ -17,6 +17,8 @@ import {
   type RawProfile,
 } from './blablalink';
 import { parseRosterCsv } from './csv-import';
+import { createSkillPlanner } from './skill-planner-ui';
+import { PLANNER_KEY } from './skill-planner';
 import {
   VISION_METRICS, packBounds, packCircles, visionRows, visionSize, visionSummary,
   type VisionMetric,
@@ -696,17 +698,17 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         ${blablaProxy ? '<button type="button" class="view-tab" data-view-tab="union" aria-pressed="false">유니온 레이드<b class="tab-beta">BETA</b></button>' : ''}
         <button type="button" class="view-tab" data-view-tab="lab" aria-pressed="false">오버효율<b class="tab-beta">BETA</b></button>
         <button type="button" class="view-tab" data-view-tab="enikk" aria-pressed="false">ENIKK 조합 가져오기</button>
-        <button type="button" class="view-tab" data-view-tab="fun" aria-pressed="false">재미용 기능</button>
+        <button type="button" class="view-tab" data-view-tab="fun" aria-pressed="false">편의 기능</button>
         <button type="button" class="view-tab" data-view-tab="links" aria-pressed="false">외부고리</button>
       </nav>
 
-      <!-- 재미용. 계산에는 관여하지 않는 것들만 둔다 — 안쪽 단추로 다시 갈린다. -->
+      <!-- 육성 계획과 프로필 확인을 위한 편의 도구. -->
       <section class="panel fun-panel" data-view="fun" aria-labelledby="fun-heading" hidden>
         <div class="section-heading">
-          <div><p class="step">FOR FUN</p><h2 id="fun-heading">재미용 기능</h2></div>
+          <div><p class="step">UTILITIES</p><h2 id="fun-heading">편의 기능</h2></div>
         </div>
-        <p class="fun-lede">계산과 상관없이 <b>구경하는 것들</b>입니다. 여기 값은 딜 계산에 쓰이지 않습니다.</p>
-        <div class="fun-tabs" data-fun-tabs role="tablist" aria-label="재미용 기능 고르기"></div>
+        <p class="fun-lede">스킬 강화 재료를 계산하고, 보유 니케의 육성 현황을 살펴보세요.</p>
+        <div class="fun-tabs" data-fun-tabs role="tablist" aria-label="편의 기능 고르기"></div>
         <div class="fun-body" data-fun-body></div>
       </section>
 
@@ -5674,7 +5676,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   element<HTMLButtonElement>(root, '[data-reset-confirm]').addEventListener('click', () => {
     cache.clear();
     const store = resolveStorage();
-    for (const key of [STATE_KEY, ROSTER_KEY, CUSTOM_KEY, ACCOUNT_SYNCHRO_KEY]) {
+    for (const key of [STATE_KEY, ROSTER_KEY, CUSTOM_KEY, ACCOUNT_SYNCHRO_KEY, PLANNER_KEY]) {
       try {
         store?.removeItem(key);
       } catch {
@@ -7081,16 +7083,22 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     tab.addEventListener('click', () => switchView(tab.dataset.viewTab as ViewName));
   }
 
-  // ── 재미용 기능 ─────────────────────────────────────────────────────────
-  // 안쪽 단추로 다시 갈리는 판이다. 지금은 「니케 시각화」 하나지만, 새 놀이는
-  // `FUN_VIEWS`에 한 줄 더하고 그리는 함수만 붙이면 된다.
+  // ── 편의 기능 ─────────────────────────────────────────────────────────
   const funTabs = element<HTMLElement>(root, '[data-fun-tabs]');
   const funBody = element<HTMLElement>(root, '[data-fun-body]');
+  const skillPlanner = createSkillPlanner({
+    catalog: () => catalog, roster: () => roster, storage: resolveStorage,
+    importProfile: () => {
+      if (blablaProxy) element<HTMLButtonElement>(root, '[data-blabla-open]').click();
+      else switchView('calc');
+    },
+  });
   const FUN_VIEWS = [
+    { key: 'skills', label: '스킬칩 계산기', note: '현재 레벨부터 목표 레벨까지 필요한 매뉴얼을 계산합니다' },
     { key: 'vision', label: '오버옵 시각화', note: '불러온 프로필의 오버로드 옵션을 초상화 크기로 봅니다' },
   ] as const;
   type FunView = (typeof FUN_VIEWS)[number]['key'];
-  let funView: FunView = 'vision';
+  let funView: FunView = 'skills';
   let visionMetric: VisionMetric = 'element';
   /**
    * 수치를 동그라미에 적을지. **기본은 끔** — 이 화면의 값은 크기 그 자체이고,
@@ -7355,6 +7363,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       funTabs.append(button);
     }
     if (funView === 'vision') renderVision();
+    if (funView === 'skills') skillPlanner.render(funBody);
   };
 
   // ── 외부고리 ────────────────────────────────────────────────────────────

@@ -27,7 +27,8 @@ export const BACKUP_KEYS = [
   'nikke-blabla-profile-v1',         // 지난번 블라블라링크 주소
   'nikke-lang-v1',                   // 고른 언어
   'nikke-parallel-v1',               // 병렬 계산 설정
-  'nikke-vision-pack',               // 재미용 기능 토글
+  'nikke-vision-pack',               // 편의 기능 시각화 토글
+  'nikke-skill-planner-v1',          // 스킬 강화 계획과 보유 매뉴얼
   'nikke-portrait-badges-v1',
   'nikke-detail-damage-v1',
 ] as const;
