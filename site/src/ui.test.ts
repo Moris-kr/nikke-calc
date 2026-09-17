@@ -712,6 +712,42 @@ describe('calculator UI', () => {
     root.querySelector<HTMLButtonElement>('[data-fun-tab="vision"]')!.click();
   };
 
+  it('accepts an unequipped cube and preserves it after reloading saved settings', async () => {
+    const client = new FakeClient();
+    const dispose = mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });
+    openSettings();
+    const cube = root.querySelector<HTMLSelectElement>('[data-slot-card="0"] [data-cube-name]')!;
+    cube.value = '없음'; cube.dispatchEvent(new Event('change', { bubbles: true }));
+    root.querySelector<HTMLInputElement>('#duration')!.value = '10';
+    root.querySelector<HTMLFormElement>('form')!.requestSubmit();
+    await flush();
+    expect(client.lastRequest?.characters?.리타?.cube).toEqual({ name: '없음', level: 0 });
+    dispose(); root.replaceChildren();
+    const reloaded = new FakeClient();
+    mountCalculator(root, { catalog, settings, version: 'v2', client: reloaded, storage: localStorage });
+    root.querySelector<HTMLFormElement>('form')!.requestSubmit();
+    await flush();
+    expect(reloaded.lastRequest?.characters?.리타?.cube).toEqual({ name: '없음', level: 0 });
+  });
+
+  it('keeps the overload lab inside utilities and preserves its mounted controls across tabs', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    expect(root.querySelector('[data-view-tab="lab"]')).toBeNull();
+    const panel = root.querySelector<HTMLElement>('[data-overload-lab]')!;
+    expect(panel.closest('[data-view="fun"]')).not.toBeNull();
+    root.querySelector<HTMLButtonElement>('[data-view-tab="fun"]')!.click();
+    expect(panel.hidden).toBe(true);
+    root.querySelector<HTMLButtonElement>('[data-fun-tab="lab"]')!.click();
+    expect(panel.hidden).toBe(false);
+    expect(root.querySelector<HTMLElement>('[data-fun-body]')!.hidden).toBe(true);
+    const control = panel.querySelector('input, select, button');
+    root.querySelector<HTMLButtonElement>('[data-fun-tab="skills"]')!.click();
+    expect(panel.hidden).toBe(true);
+    root.querySelector<HTMLButtonElement>('[data-fun-tab="lab"]')!.click();
+    expect(panel.querySelector('input, select, button')).toBe(control);
+    expect(panel.hidden).toBe(false);
+  });
+
   it('오버옵 시각화는 동그라미를 모아 붙이지 않은 채로 열린다', () => {
     seedVisionRoster();
     mountCalculator(root, {

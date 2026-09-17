@@ -5,7 +5,7 @@ import {
 import { ResultCache, type StorageLike, type StorageSource } from './cache';
 import { applyBackup, backupFileName, buildBackup, readBackup } from './backup';
 import { isCancelled } from './worker-client';
-import { renderCharacterSettings, withParticle, type CharPanelKind } from './character-settings';
+import { renderCharacterSettings, withParticle, NO_CUBE, type CharPanelKind } from './character-settings';
 import {
   BLABLA_SERVERS,
   areaToOverrides,
@@ -652,7 +652,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         if (!cube) continue;
         const renamed = LEGACY_CUBE_NAMES[cube.name];
         if (renamed) cube.name = renamed;
-        if (!settings.cubes[cube.name]) delete overrides.cube;
+        if (cube.name === NO_CUBE) cube.level = 0;
+        else if (!settings.cubes[cube.name]) delete overrides.cube;
       }
       for (const overrides of Object.values(deck.characters ?? {})) migrateOverloadLines(overrides);
     }
@@ -696,7 +697,6 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       <nav class="view-tabs" aria-label="화면 전환">
         <button type="button" class="view-tab is-on" data-view-tab="calc" aria-pressed="true">계산기</button>
         ${blablaProxy ? '<button type="button" class="view-tab" data-view-tab="union" aria-pressed="false">유니온 레이드<b class="tab-beta">BETA</b></button>' : ''}
-        <button type="button" class="view-tab" data-view-tab="lab" aria-pressed="false">오버효율<b class="tab-beta">BETA</b></button>
         <button type="button" class="view-tab" data-view-tab="enikk" aria-pressed="false">ENIKK 조합 가져오기</button>
         <button type="button" class="view-tab" data-view-tab="fun" aria-pressed="false">편의 기능</button>
         <button type="button" class="view-tab" data-view-tab="links" aria-pressed="false">외부고리</button>
@@ -710,11 +710,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         <p class="fun-lede">스킬 강화 재료를 계산하고, 보유 니케의 육성 현황을 살펴보세요.</p>
         <div class="fun-tabs" data-fun-tabs role="tablist" aria-label="편의 기능 고르기"></div>
         <div class="fun-body" data-fun-body></div>
+        <!-- 별도 컨테이너를 유지하여 탭 전환 중에도 비교 설정과 결과를 보존한다. -->
+        <section class="lab-panel" data-overload-lab hidden></section>
       </section>
-
-      <!-- 오버효율. 안은 overload-lab.ts가 통째로 그린다 — 계산기 화면과 겹치는
-           것이 없어(편성도 조건도 그쪽 것을 빌려 쓴다) 판만 내어 준다. -->
-      <section class="panel lab-panel" data-view="lab" data-overload-lab hidden></section>
 
       <section class="panel links-panel" data-view="links" aria-labelledby="links-heading" hidden>
         <div class="section-heading">
@@ -3613,8 +3611,10 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           messages.push(`덱 ${deck.id} · ${name}: ${meta?.label ?? key} 값이 허용 범위를 벗어났습니다.`);
         }
       }
-      if (custom.cube && (!settings.cubes[custom.cube.name] || !Number.isInteger(custom.cube.level)
-        || custom.cube.level < 1 || custom.cube.level > 15)) {
+      if (custom.cube && (custom.cube.name === NO_CUBE
+        ? custom.cube.level !== 0
+        : !settings.cubes[custom.cube.name] || !Number.isInteger(custom.cube.level)
+          || custom.cube.level < 1 || custom.cube.level > 15)) {
         messages.push(`덱 ${deck.id} · ${name}: 큐브 설정을 확인해 주세요.`);
       }
       if (custom.weaponModeSwapAt !== undefined && (
@@ -6480,7 +6480,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   // 300명을 한 줄로 늘어놓으면 스크롤이 끝없다 — 열 명씩 끊어 쪽으로 넘긴다.
   const ENIKK_PER_PAGE = 10;
   let enikkPage = 0;
-  let currentView: 'calc' | 'union' | 'lab' | 'enikk' | 'fun' | 'links' = 'calc';
+  let currentView: 'calc' | 'union' | 'enikk' | 'fun' | 'links' = 'calc';
 
   const readEnikkCache = (): EnikkImport | null => {
     try {
@@ -7049,7 +7049,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   // ── 화면 전환 ───────────────────────────────────────────────────────────
   // 유니온 탭이 없는 배포(프록시 미설정)에서는 손잡이도 없다.
   /** 위쪽 탭이 고를 수 있는 화면. 「외부고리」는 우리 것이 아닌 곳으로 나가는 판이다. */
-  type ViewName = 'calc' | 'union' | 'lab' | 'enikk' | 'fun' | 'links';
+  type ViewName = 'calc' | 'union' | 'enikk' | 'fun' | 'links';
 
   function switchView(view: ViewName) {
     currentView = view;
@@ -7095,6 +7095,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   });
   const FUN_VIEWS = [
     { key: 'skills', label: '스킬칩 계산기', note: '현재 레벨부터 목표 레벨까지 필요한 매뉴얼을 계산합니다' },
+    { key: 'lab', label: '오버효율', note: '오버효율' },
     { key: 'vision', label: '오버옵 시각화', note: '불러온 프로필의 오버로드 옵션을 초상화 크기로 봅니다' },
   ] as const;
   type FunView = (typeof FUN_VIEWS)[number]['key'];
@@ -7359,9 +7360,12 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       button.setAttribute('aria-selected', String(view.key === funView));
       button.title = view.note;
       button.textContent = view.label;
+      if (view.key === 'lab') button.append(createText('b', 'BETA', 'tab-beta'));
       button.addEventListener('click', () => { funView = view.key; renderFun(); });
       funTabs.append(button);
     }
+    funBody.hidden = funView === 'lab';
+    element<HTMLElement>(root, '[data-overload-lab]').hidden = funView !== 'lab';
     if (funView === 'vision') renderVision();
     if (funView === 'skills') skillPlanner.render(funBody);
   };

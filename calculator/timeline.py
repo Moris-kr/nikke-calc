@@ -2712,6 +2712,12 @@ def simulate(
         buffs = bm.get_buffs(caster, "__enemy__", t)
         buffs["is_element_match"] = cs.element_match(bm)
         damage_base_atk = cs.base_atk
+        # 최대 체력의 일부를 기존 최종 공격력에 합산한다. atk_flat에 더해야
+        # 공격력% 버프가 체력 환산분에 다시 곱해지지 않는다.
+        if eff.get("scaling") == "max_hp_additive":
+            hp_pct = float(eff.get("scaling_hp_pct", 0.0))
+            buffs = {**buffs, "atk_flat": buffs.get("atk_flat", 0.0)
+                     + bm.effective_max_hp(caster) * hp_pct / 100.0}
         # 킬로처럼 "최종 최대 체력 N%를 공격력으로 환산"하는 스킬은 캐릭터의
         # 공격력과 공격력 버프를 전혀 쓰지 않는다. 환산값 자체가 이 1회의 공격력이다.
         if eff.get("scaling") == "max_hp_conversion":

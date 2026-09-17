@@ -44,20 +44,31 @@ class ReloadDelayScalesWithSpeedTest(unittest.TestCase):
         bm.get_buffs = lambda *a, **k: {'reload_speed_pct': 75.0}
         self.assertAlmostEqual(0.25, state._reload_speed_factor(bm, 0.0))
 
-    def test_sparkling_summer_outdamages_maiden_as_measured(self):
-        """제보 스쿼드에서 아니스가 메이든보다 위여야 한다.
+    def test_one_round_reload_scales_both_delays_on_every_cycle(self):
+        """1발 재장전의 앞뒤 지연을 실제 완료 시각으로 검증한다.
 
-        실측 비중은 아니스 42.1% · 메이든 35.2%(비 1.19)다. 절대값은 육성에 달렸지만
-        **둘의 순서**는 뒤집히면 안 된다 — 고정 딜레이 시절에는 0.78로 뒤집혀 있었다.
+        제보의 아니스 42.1% · 메이든 35.2%는 동일 육성 자료 없이 순위 기준으로
+        쓸 수 없다. 메이든의 누락된 HP 합산 피해를 복구해도 이 회귀 검증은 유효하다.
         """
-        result = _run()
-        anis = result.char_total['아니스 : 스파클링 서머']
-        maiden = result.char_total['메이든 : 아이스 로즈']
-        self.assertGreater(
-            anis / maiden, 1.0,
-            f'아니스가 메이든보다 낮다 (비 {anis / maiden:.2f}) — 재장전 딜레이가 '
-            '1발 장탄을 매 발 때리고 있는지 확인하라',
-        )
+        from calculator.buff_manager import BuffManager
+        from calculator.timeline import CharState
+
+        squad = build_squad(['아니스 : 스파클링 서머'])
+        state = CharState(squad[0], 100000.0, '')
+        bm = BuffManager(squad)
+        bm.get_buffs = lambda *a, **k: {'reload_speed_pct': 75.0, 'max_ammo_pct': -100.0}
+        self.assertGreater(state.reload_start_delay, 0)
+        self.assertGreater(state.post_reload_delay, 0)
+        start = 10.0
+        for _ in range(2):
+            state.ammo = 0
+            state._start_reload(start, bm, from_empty=True)
+            finish = start + (state.reload_start_delay + state.weapon['reload_time']) * .25
+            self.assertAlmostEqual(state.reloading_until, finish)
+            state._finish_reload(finish, bm)
+            self.assertEqual(state.ammo, 1)
+            self.assertAlmostEqual(state._post_reload_end_t, finish + state.post_reload_delay * .25)
+            start = state._post_reload_end_t
 
     def test_last_bullet_skill_fires_often_at_one_round(self):
         """장탄이 1발로 줄면 «마지막 탄환»이 매 발 터진다 — 그게 이 캐릭터의 설계다."""
