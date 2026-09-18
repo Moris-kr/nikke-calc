@@ -19,7 +19,6 @@ export function renderMcpGuide(host: HTMLElement, getShare?: () => McpShare, con
         <p data-mcp-copy-status role="status" aria-live="polite"></p>
         <p>이름: <strong>NIKKE Calculator</strong> · 인증: <strong>No Authentication (인증 없음)</strong></p>
         <p>서버 설치나 API 키 없이 사용할 수 있습니다. AI 서비스의 이용 요금·연결 권한은 별도입니다.</p>
-        <details><summary>실제 사이트에서 MCP 탭 위치 보기</summary><figure><img loading="lazy" src="${import.meta.env.BASE_URL}tutorials/mcp-tab-screen.png" width="1265" height="712" alt="실제 계산기 화면의 편의 기능 탭과 MCP 하위 탭"><figcaption>계산기 실제 화면 · 2026-09-18 캡처. 편의 기능에서 MCP를 선택합니다.</figcaption></figure></details>
       </section>
       <div class="mcp-platforms">
         <section><h4>2. ChatGPT에 연결</h4>
@@ -52,14 +51,12 @@ export function renderMcpGuide(host: HTMLElement, getShare?: () => McpShare, con
         <p>AI는 먼저 작업 번호를 받고 <code>get_browser_result</code>로 완료 결과를 조회합니다. 기다리는 중이라고 나오면 “그 작업의 결과를 다시 확인해 줘”라고 요청하세요. 작업을 새로 제출할 필요는 없습니다.</p>
         <p class="mcp-note">이 탭을 열어 두고 기기가 절전되지 않게 해 주세요. 탭 이동은 가능하지만 모바일 백그라운드에서는 연결이 끊길 수 있습니다. 연결은 최대 2시간, 응답이 없으면 약 45초 후 만료됩니다. 서버 재시작·새로고침 후에는 새 코드를 발급하세요.</p>
         <p class="mcp-note">코드는 육성 조회·계산 권한입니다. 공개 게시물이나 스크린샷에 노출하지 마세요. 요청한 육성과 결과는 AI 서비스 및 중계 서버를 거치며 서버 메모리에 잠시 보관됩니다(결과 최대 5분). 연결 해제로 폐기할 수 있습니다. 닉네임·계정 ID·쿠키·대화 내역은 보내지 않습니다.</p>
-        <details><summary>실제 AI 연결 화면 보기</summary><figure><img loading="lazy" src="${import.meta.env.BASE_URL}tutorials/mcp-browser-screen.png" width="1265" height="712" alt="편의 기능 MCP의 AI 연결 버튼과 연결 방법 안내 화면"></figure></details>
       </section>
       <section aria-labelledby="mcp-share-heading"><h4 id="mcp-share-heading">선택: JSON 파일로 육성·편성 전달하기</h4>
         <p>블라블라링크·CSV에서 불러온 전체 육성과 현재 저장된 덱의 수정값, 싱크로·콘솔·전투 조건을 JSON 파일로 전달할 수 있습니다.</p>
         <div class="mcp-copy-row"><button type="button" data-mcp-download>육성·편성 JSON 다운로드</button>
           <button type="button" data-mcp-share-copy>JSON 복사</button></div>
         <p data-mcp-share-status role="status" aria-live="polite"></p>
-        <details><summary>실제 JSON 내보내기 화면 보기</summary><figure><img loading="lazy" src="${import.meta.env.BASE_URL}tutorials/mcp-share-screen.png" width="1265" height="712" alt="실제 계산기의 육성·편성 JSON 다운로드와 JSON 복사 버튼 및 첨부 안내"><figcaption>기본 예시 편성으로 찍은 실제 화면입니다. 불러온 육성이 0명이면 로스터는 비어 있고, 덱 설정은 별도로 전달됩니다.</figcaption></figure></details>
         <textarea data-mcp-share-fallback hidden readonly aria-label="공유 JSON 수동 복사" rows="6"></textarea>
         <ol><li>계산기에서 육성을 불러오고 원하는 편성·전투 조건을 설정하세요.</li>
           <li>위 버튼으로 파일을 내려받아 MCP를 연결한 ChatGPT·Claude 대화에 첨부하세요. 파일을 읽지 못하면 <strong>JSON 복사</strong>로 내용을 붙여 넣으세요.</li>
