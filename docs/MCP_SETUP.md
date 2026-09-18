@@ -218,6 +218,8 @@ AI 서비스에 보낸 내용에는 해당 서비스의 보관 정책이 적용�
 
 덱 추천 전에 MCP의 `get_recommendation_guide`를 호출하도록 서버 지침에 연결되어 있습니다.
 `mode`는 `overview`(전체), `meta`, `campaign`, `soloraid`, `unionraid`입니다.
+
+모든 모드에는 `characterFilters` 지침이 포함됩니다. 필수 편성만 Include에, 미보유·사용 금지·다른 덱 예약 니케는 Exclude에 반영합니다. 보유한 모든 니케를 Include에 넣지 않으며, 육성값이 없는 니케를 미보유로 단정하지 않습니다. 캠페인 상세의 Include/Exclude 조작법과 솔로레이드 Teams/Ranks의 필터 차이, 조건 적용 후 표본 확인, 결과가 없을 때의 대체 탐색도 안내합니다.
 기존 앱은 도구 목록을 새로고침하면 새 도구를 확인할 수 있습니다.
 
 이 도구는 **검색 절차를 제공하며 ENIKK 기록 자체를 내려받지는 않습니다.** AI의 웹 검색·브라우저 도구가

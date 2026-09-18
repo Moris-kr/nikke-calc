@@ -8,6 +8,26 @@ COMMON = {
     'guideVersion': '2026-09-18',
     'navigationVerifiedAt': '2026-09-18',
     'dataAccess': 'guidance_only',
+    'characterFilters': {
+        'constraints': [
+            'Include는 반드시 편성할 고정 니케, Exclude는 미보유·사용 금지·다른 덱에 예약한 니케입니다. 단순히 보유했다는 이유로 모든 보유 니케를 Include에 넣지 않습니다. 보유는 선택 가능, Include는 필수라는 차이를 지킵니다.',
+            '브라우저 roster의 누락은 육성 미입력일 수 있으므로 미보유로 단정하지 않습니다. 명시적인 보유/미보유 정보와 사용자 요청을 우선하고 불명확한 후보만 확인합니다.',
+            '같은 니케가 Include와 Exclude 양쪽에 있거나 한 덱의 필수 니케가 5명을 넘으면 조건 충돌을 확인합니다. 이격은 별도 캐릭터이며 resourceId와 정식 이름으로 구분합니다.',
+            '여러 덱에서는 반드시 포함할 니케가 특정 덱 고정인지 전체 편성 중 한 번 사용인지 구분합니다. 확정한 덱의 니케를 나머지 덱 후보에서 제외하고 최종 편성 전체의 중복을 검사합니다.',
+        ],
+        'campaignControls': [
+            'Hard 스테이지 상세 → Lowest Power Clears → Include NIKKE / Exclude NIKKE 콤보박스를 사용합니다. 검색어를 입력한 뒤 정확한 캐릭터 옵션을 클릭해 선택 칩이 생겼는지 확인합니다. 텍스트 입력만으로 필터 적용을 주장하지 않습니다.',
+            '여러 Include는 AND 조건(모두 포함), Exclude는 선택한 누구도 포함하지 않는 조건입니다. 화면의 Teams must contain every included NIKKE and none of the excluded NIKKE 안내와 일치해야 합니다.',
+            'Remove <이름>으로 개별 조건을 제거하고 Clear로 니케 필터를 초기화할 수 있습니다. Loading clears가 끝난 뒤 matching clears 수와 실제 5인 명단을 다시 확인합니다. 로딩 중 남은 이전 결과를 필터 결과로 쓰지 않습니다.',
+            '필터 선택이 URL에 보존된다고 가정하지 않습니다. 출처 URL과 함께 include/exclude 이름 및 적용 후 표본 수를 기록합니다. Compositions의 Unit filter를 이 두 컨트롤과 동일한 기능으로 가정하지 않습니다.',
+        ],
+        'otherModes': [
+            'Solo Raid 시즌 Teams에는 Nikke Filter, Ranks에는 Exclude Nikkes가 있습니다. 검색 후 옵션 선택과 선택 상태를 확인합니다. Teams에 캠페인과 같은 Include/Exclude 쌍이 있다고 가정하지 않습니다.',
+            'Ranks는 플레이어의 여러 덱 기록을 보는 화면입니다. 그 화면의 제외를 특정 단일 팀의 제외와 동일시하지 말고 반환된 5덱을 확인합니다. Teams 필터의 다중 선택 AND/OR 의미도 화면과 결과로 확인하고 모든 후보에 필수 포함·제외 조건을 직접 재검사합니다.',
+            '필요한 제외 기능이 없는 화면은 확인한 팀 명단에서 직접 걸러냅니다. 일부 페이지를 살폈다면 조사 범위를 밝히며 전체 기록에 조건이 없다고 단정하지 않습니다. Meta·Union Raid에 확인하지 않은 Include/Exclude UI나 URL 매개변수를 만들지 않습니다.',
+        ],
+        'noMatches': '0건이면 로딩 완료와 필터 충돌부터 확인합니다. 필수 포함·미보유·사용 금지는 조용히 풀지 않습니다. 날짜/서버/인접 Hard 구간 등 자료 범위를 넓혔다면 표시하고, 그래도 없으면 조건에 맞는 관측 기록 없음으로 보고합니다. 별도 구성한 대체 덱은 ENIKK 실사용 덱과 구분해 사용자 육성으로 비교합니다.',
+    },
     'access': [
         '이 도구는 검색 지침입니다. 최신 ENIKK 기록을 조회한 결과가 아닙니다. 아래 URL을 웹 검색/열기 또는 브라우저 도구로 직접 확인하세요.',
         'SSR·검색 결과에 빈 표가 보이면 JavaScript 로딩 후 실제 화면을 확인하세요. 조회 실패·403·로딩 중·미수집은 사용률 0이나 기록 없음으로 단정하지 마세요.',
@@ -19,7 +39,7 @@ COMMON = {
         '2. 연결 코드가 있으면 inspect_browser_state → get_browser_result로 실제 roster·decks·battle을 확인합니다. 연결 코드가 없으면 사이트의 AI 연결을 안내하고 기본 육성을 실제 계정이라고 말하지 않습니다.',
         '3. 스테이지·난이도 또는 시즌·정확한 보스·레벨·덱 수를 확정합니다. 이미 대화/브라우저에 있는 조건은 다시 묻지 않습니다. 중요한 누락만 묶어서 질문합니다.',
         '4. ENIKK에서 정확히 같은 콘텐츠의 기록을 우선하고, 날짜·표본·서버 필터를 기록합니다. 다른 시즌/보스 자료는 대체 근거로 구분합니다.',
-        '5. 반복 등장하는 완성된 5인 조합을 후보로 잡고 실제 보유·스킬·애장품·큐브·운용과 맞춥니다. 캐릭터 사용률 상위 5명을 단순 조립하지 않습니다.',
+        '5. characterFilters 지침으로 필수 포함·미보유·제외·예약 조건을 적용합니다. 반복 등장하는 완성된 5인 조합을 후보로 잡고 실제 보유·스킬·애장품·큐브·운용과 맞춥니다. 캐릭터 사용률 상위 5명을 단순 조립하지 않습니다.',
         '6. 니케 이름은 list_characters의 정식 이름으로 확인합니다. ENIKK resource_id 또는 초상화 si_c<ID> 번호와 list_characters.resourceId를 대조하세요. 영문 음차나 이격 이름을 추측하지 말고 매칭 불가를 표시합니다.',
         '7. 새 조합은 simulate_browser_state(squad=정식 이름 목록)로 불러온 roster + 공통 battle을 적용합니다. 저장 덱은 deck_index로 덱 수정값을 유지합니다. 새 보스 조건은 확인한 battle을 복사해 synchroLevel·console 등 계정 육성을 보존하고, 검증한 보스 조건만 덮어씁니다. 확인한 roster를 characters에 넣은 request를 구성해 simulate_squad/compare_setups로 전달합니다. 계정 육성을 기본값으로 초기화하지 않습니다.',
         '8. compare_setups는 동일 전투 조건의 2~5개 후보만 비교합니다. 연결 코드를 전달하고 반환된 jobId를 get_browser_result로 complete까지 조회합니다. queued/running을 결과로 쓰거나 요청을 중복 등록하지 않습니다.',
@@ -40,7 +60,7 @@ COMMON = {
     'elementNames': {'Water': '수냉', 'Fire': '작열', 'Wind': '풍압', 'Iron': '철갑', 'Electronic': '전격', 'Electric': '전격'},
     'weaknessToEnemyCode': {'Water': '작열', 'Fire': '풍압', 'Wind': '철갑', 'Iron': '전격', 'Electronic': '수냉', 'Electric': '수냉'},
     'evidenceToRecord': ['sourceUrl', 'accessedAt', 'dataUpdatedAt/clearDate', 'mode', 'season/stage/difficulty/boss/level',
-                         'serverFilter', 'sampleUnit', 'sampleCount', 'squad', 'observedStats', 'assumptions', 'missingInformation'],
+                         'serverFilter', 'includeCharacters', 'excludeCharacters', 'filterScope', 'sampleUnit', 'sampleCount', 'squad', 'observedStats', 'assumptions', 'missingInformation'],
     'answerFormat': [
         '대상 콘텐츠·조건과 추천 5인 또는 중복 없는 N덱을 먼저 제시합니다.',
         'ENIKK 출처 링크·시즌/스테이지·자료 날짜·표본 수와 추천 근거를 붙입니다. 확인 안 된 항목은 미확인으로 적습니다.',
