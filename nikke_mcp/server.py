@@ -17,11 +17,15 @@ from nikke_mcp.shared_state import SharedState, inspect_shared, shared_request
 from nikke_mcp.service import CalculatorService, engine_version, get_character as lookup_character, list_characters as search_characters
 from nikke_mcp.errors import public_errors, InvalidSettingsError
 from nikke_mcp.browser_relay import BrowserRelay, install_routes, fail
+from nikke_mcp.enikk_guide import GuideMode, recommendation_guide
 
 
 def create_server(timeout: int = 60, max_concurrent: int = 2, browser_mode: bool = False) -> MCPServer:
     server = MCPServer('NIKKE Calculator', version='1.0.0', instructions=(
-        '니케 계산 도구입니다. 먼저 정식 이름과 설정을 조회하고 실제 simulate_squad/compare_setups 결과로 답하세요. '
+        '니케 계산 도구입니다. 덱/조합 추천 요청(Campaign 스테이지, 속성별 솔로레이드, 유니온레이드 보스 등)은 '
+        '반드시 먼저 get_recommendation_guide를 호출해 해당 콘텐츠의 ENIKK 검색·근거 검증 지침을 읽으세요. '
+        '지침 조회 자체는 최신 기록 조회가 아닙니다. 웹/브라우저 접근이 없으면 ENIKK를 확인했다고 말하지 마세요. '
+        '먼저 정식 이름과 설정을 조회하고 실제 simulate_squad/compare_setups 결과로 답하세요. '
         '수치를 추측하지 마세요. 입력한 육성이 없으면 기본 육성이며 사용자 실제 계정으로 표현하지 마세요. '
         '엔진 버전, 전투 조건, 기본 이탈과 프리뷰 경고를 명시하세요. 비교는 입력 후보만의 순위입니다. '
         '계산 호출은 반드시 순차 실행하세요. SERVER_BUSY는 기존 호출 완료 후 같은 입력으로 재시도하고, '
@@ -38,6 +42,11 @@ def create_server(timeout: int = 60, max_concurrent: int = 2, browser_mode: bool
 
     calculation = ToolAnnotations(read_only_hint=True, destructive_hint=False,
                                   idempotent_hint=not browser_mode, open_world_hint=False)
+
+    @server.tool(annotations=read_only)
+    def get_recommendation_guide(mode: GuideMode = 'overview') -> dict[str, Any]:
+        """덱 추천 전에 읽는 ENIKK 검색 지침. mode: overview/meta/campaign/soloraid/unionraid. 캠페인·수냉 솔레·핑거즈 등 콘텐츠별 실제 기록 탐색, 표본/최신성, 사용자 브라우저 육성 적용 절차를 제공합니다. 최신 기록 자체를 수집하는 도구는 아닙니다."""
+        return recommendation_guide(mode)
 
     @server.tool(annotations=read_only)
     def list_characters(query: str = '') -> dict[str, Any]:
@@ -63,7 +72,7 @@ def create_server(timeout: int = 60, max_concurrent: int = 2, browser_mode: bool
                 'notes': ['큐브 없음은 Lv0, 착용 큐브는 Lv1~15입니다.',
                           '기본 스펙은 실제 계정 정보가 아닙니다. 캐릭터별 기본 설정도 추가됩니다.',
                           '지원: growthStage, skillLevels, overload, cube, collection, control, burst, equipLevels, manualStats, weaponModeSwapAt.',
-                          '싱크로·콘솔·전투 조건과 웹 공유 JSON을 지원합니다. 공유는 inspect_shared_state로 먼저 검증하세요.',
+                          '현재 브라우저 육성은 inspect_browser_state와 get_browser_result로 확인합니다. 파일 공유는 필요 없습니다.',
                           '미지원: 일반 백업/계정 로그인, 커스텀 캐릭터, 핵 옵션.'],
                 'sharedStateSchema': SharedState.model_json_schema(),
                 'engineVersion': engine_version()}
@@ -91,7 +100,7 @@ def create_server(timeout: int = 60, max_concurrent: int = 2, browser_mode: bool
 
     @server.tool(annotations=read_only)
     def inspect_shared_state(state: SharedState) -> dict[str, Any]:
-        """웹의 편의 기능 → MCP에서 내보낸 JSON을 state에 전달해 전체 육성·덱·조건을 검증하고 조회합니다. 파일 경로나 URL이 아닌 JSON 객체를 전달하세요. 저장하지 않습니다."""
+        """기존 공유 형식의 JSON 객체를 검증하는 호환 도구입니다. 현재 웹 육성은 inspect_browser_state로 조회하세요. 파일 경로나 URL은 받지 않습니다."""
         return {**inspect_shared(state), 'engineVersion': engine_version()}
 
     @server.tool(annotations=calculation)

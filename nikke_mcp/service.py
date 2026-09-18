@@ -34,7 +34,9 @@ def list_characters(query: str = '') -> dict[str, Any]:
     if len(query) > 100:
         raise InvalidSettingsError('검색어는 100자 이하입니다.')
     catalog = data('data/parsed_nikke.json')
-    rows = [{'name': name, **{k: catalog[name].get(k) for k in
+    raw = data('scraper/nikke_scraped.json')
+    rows = [{'name': name, 'resourceId': int(raw[name]['id']) if name in raw and 'id' in raw[name] else None,
+             **{k: catalog[name].get(k) for k in
              ('element_code', 'weapon_type', 'burst_stage', 'burst_cooldown')}}
             for name in character_names() if query.replace(' ', '') in name.replace(' ', '')]
     return {'characters': rows, 'count': len(rows), 'engineVersion': engine_version()}

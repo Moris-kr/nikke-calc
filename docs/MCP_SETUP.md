@@ -214,6 +214,29 @@ AI 서비스에 보낸 내용에는 해당 서비스의 보관 정책이 적용�
 
 ## 9. 결과를 읽는 기준
 
+### 덱 추천에 ENIKK 자료 활용하기
+
+덱 추천 전에 MCP의 `get_recommendation_guide`를 호출하도록 서버 지침에 연결되어 있습니다.
+`mode`는 `overview`(전체), `meta`, `campaign`, `soloraid`, `unionraid`입니다.
+기존 앱은 도구 목록을 새로고침하면 새 도구를 확인할 수 있습니다.
+
+이 도구는 **검색 절차를 제공하며 ENIKK 기록 자체를 내려받지는 않습니다.** AI의 웹 검색·브라우저 도구가
+실제 출처를 열어야 합니다. 동적 페이지의 빈 표나 접근 실패를 기록 없음으로 해석하거나,
+자료를 확인하지 않고 최신 메타라고 답해서는 안 됩니다.
+
+- [Meta](https://enikk.app/meta): 콘텐츠별 사용률과 최근/전체 기간을 확인한 뒤 실제 조합 기록과 대조합니다.
+- [Campaign](https://enikk.app/campaign): 모든 기록은 Hard 기준입니다. Hard는 같은 스테이지의 클리어 기록을 우선하고 구간별 Compositions로 보완합니다. Normal 요청에도 덱을 추천하되, Normal 데이터가 없어 Hard에서 사용된 덱을 참고했다고 반드시 안내합니다. Hard의 투력 컷이나 적 구성을 Normal에 그대로 적용하지 않습니다.
+- [Solo Raid](https://enikk.app/soloraid): 시즌의 보스 조건, 실제 표본이 있는 Teams·Parses·Ranks를 확인합니다. 5덱은 캐릭터 중복과 서포터 배분을 함께 검토합니다.
+- [Union Raid](https://enikk.app/unionraid): 시즌·보스 변종·레벨을 확인합니다. 유니온 총점과 특정 보스의 실사용 조합 기록을 구분합니다.
+
+사용 예: “수냉 약점 솔로레이드 5덱을 내 육성으로 추천해 줘. 추천 검색 지침부터 읽고 ENIKK 출처와
+자료 날짜·표본을 제시한 뒤 후보를 계산해 줘.”
+
+검색 지침의 정본은 `nikke_mcp/enikk_guide.py`입니다. 탐색 구조 확인일은 2026-09-18이며,
+추천 순위·시즌 번호·통계 수치는 고정해 두지 않습니다. 캐릭터 이름은 `list_characters.resourceId`와
+ENIKK의 캐릭터 식별 번호를 대조할 수 있습니다. 육성은 연결된 브라우저에서 읽고, 외부 기록의 육성을
+사용자의 실제 육성으로 대신 쓰지 않습니다.
+
 `complete`의 `result`에 있는 실제 입력, `effectiveCharacters`, 총딜·캐릭터별 딜과
 `deviations`(기본 스펙 이탈), `previewNote`(미검증 데이터 경고)를 함께 확인하세요.
 브라우저 런타임 버전도 비교해야 하며 서버 버전만 같다고 같은 결과를 보장하지는 않습니다.

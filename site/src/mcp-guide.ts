@@ -53,9 +53,11 @@ export function renderMcpGuide(host: HTMLElement, connection?: BrowserMcpConnect
         <p class="mcp-note">코드는 육성 조회·계산 권한입니다. 공개 게시물이나 스크린샷에 노출하지 마세요. 요청한 육성과 결과는 AI 서비스 및 중계 서버를 거치며 서버 메모리에 잠시 보관됩니다(결과 최대 5분). 연결 해제로 폐기할 수 있습니다. 닉네임·계정 ID·쿠키·대화 내역은 보내지 않습니다.</p>
       </section>
       <section><h4>4. 이렇게 물어보세요</h4>
-        <div class="mcp-example"><p>NIKKE Calculator로 사용 가능한 캐릭터 목록을 확인해 줘.</p></div>
-        <div class="mcp-example"><p>리타, 크라운, 신데렐라, 모더니아, 나가를 기본 스펙으로 180초 계산해 줘. 적 방어력 31784, 속성 없음, 코어 없음으로 하고 캐릭터별 대미지와 계산 조건을 알려 줘.</p></div>
-        <div class="mcp-example"><p>방금 편성에서 신데렐라의 큐브만 없음과 렐릭 베어 큐브 Lv7로 바꿔 비교해 줘. 사용 가능한 큐브 이름을 먼저 확인하고, 나머지 조건은 동일하게 유지해 줘.</p></div>
+        <p>덱 추천에는 ENIKK 검색 지침이 제공됩니다. AI가 웹 검색·브라우저를 사용할 수 있어야 최신 기록까지 확인할 수 있습니다. 처음에는 앱의 도구 목록을 새로고침해 주세요.</p>
+        <div class="mcp-example"><p>내 육성으로 캠페인 덱 짜줘. NIKKE Calculator의 추천 검색 지침을 먼저 읽고 ENIKK의 Hard 기록을 참고해 줘. Normal 요청이면 Normal 데이터가 없어 Hard 덱을 기준으로 추천한다고 설명해 줘. 스테이지와 난이도가 필요하면 물어봐.</p></div>
+        <div class="mcp-example"><p>수냉 약점 솔로레이드용 중복 없는 5덱을 내 육성으로 짜줘. ENIKK에서 기록이 있는 최근 시즌과 사용 표본을 확인하고 후보를 계산해 줘.</p></div>
+        <div class="mcp-example"><p>유니온레이드 핑거즈 덱 짜줘. 시즌과 Fingers / Rebuild Fingers를 구분하고, 보스 레벨·약점·기믹을 확인해서 내 육성으로 비교해 줘.</p></div>
+        <p>ENIKK 사용률은 성능 점수나 승률이 아닙니다. AI는 출처·자료 날짜·표본과 실제 계산 결과를 구분해야 하며, 자료에 접근하지 못했다면 확인하지 못했다고 알려야 합니다.</p>
         <p>AI가 실제 계산 도구를 호출했는지 확인하세요. 비교 결과는 요청한 후보 사이의 순위이며 모든 조합의 최적해를 보장하지 않습니다.</p>
       </section>
       <section><h4>연결이 늦거나 결과가 다를 때</h4>
