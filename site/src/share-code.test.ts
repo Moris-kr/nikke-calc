@@ -197,7 +197,7 @@ describe('전투 조건 공유 코드 (NK3)', () => {
   const base = {
     duration: 180, synchroLevel: 400, enemyDef: 31_784, enemyCode: '' as const, coreEnabled: false,
     corePx: 52, hasParts: false, seed: 42, optimalRangeWeapons: [],
-    normalHitCoeff: { ...COEFF }, coreWindows: [], immuneWindows: [], elementWindows: [],
+    normalHitCoeff: { ...COEFF }, coreWindows: [], defenseRateWindows: [], immuneWindows: [], elementWindows: [],
     rngMode: 'expected' as const, immuneBlocksBurst: true, burstRegenTime: 2, burstReaction: 0.05,
     console: { common_level: 390, class_level: { 화력형: 257 }, company_level: { 필그림: 386 } },
   };
@@ -222,6 +222,13 @@ describe('전투 조건 공유 코드 (NK3)', () => {
     expect(code.length).toBeLessThan(200);   // 붙여넣기 한도(약 400자)의 절반 아래
     const { console: _drop, synchroLevel: _level, ...expected } = battle;
     expect(decodeBattleCode(code)).toEqual({ ...expected, normalHitCoeff: {} });
+  });
+
+  it('바디 방어율 구간의 시간과 소수 방어율을 공유한다', () => {
+    const defenseRateWindows = [{ from: 10.5, to: 60, rate: 60 }, { from: 50, to: 100, rate: 75.5 }];
+    expect(decodeBattleCode(encodeBattleCode({ ...base, defenseRateWindows }, COEFF)).defenseRateWindows)
+      .toEqual(defenseRateWindows);
+    expect(decodeBattleCode(encodeBattleCode(base, COEFF)).defenseRateWindows).toEqual([]);
   });
 
   it('평타 계수는 기본값과 다른 무기군만 싣는다', () => {

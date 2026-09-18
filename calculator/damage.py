@@ -279,6 +279,17 @@ def _factor7(buffs: dict) -> float:
     return 1.0 + 0.1 + buffs.get("element_bonus_pct", 0.0) / 100.0
 
 
+def _defense_rate_factor(buffs: dict, hit_type: dict) -> float:
+    """Timed enemy veil is independent of received damage and ordinary DEF.
+
+    Only an explicit armor-break damage type bypasses it; neither a damage
+    bonus for that type nor def_ignore_pct converts an ordinary attack.
+    """
+    if hit_type.get("is_armor_break_damage"):
+        return 1.0
+    return 1.0 - buffs.get("enemy_defense_rate_pct", 0.0) / 100.0
+
+
 # ── 메인 함수 ─────────────────────────────────────────────────────────────
 
 def calc_damage(
@@ -326,6 +337,9 @@ def calc_damage(
     # ①~⑦ **밖에서** 곱한다 — 안에 섞으면 어디까지가 진짜 계산인지 흐려진다.
     damage *= buffs.get("cheat_dmg_mult", 1.0)
 
+    veil = _defense_rate_factor(buffs, hit_type)
+    damage *= veil
+
     if hit_type.get("_debug_factors"):
         print(
             f"  ①계수={f1:.4f}%  ②공방차={f2:,.1f}"
@@ -335,7 +349,8 @@ def calc_damage(
         )
 
     # 공격력 < 방어력이면 f2=0 → 최소 1 보장
-    return {"damage": max(round(damage), 1), "is_crit": is_crit, "crit_frac": crit_frac}
+    return {"damage": max(round(damage), 1) if veil else 0,
+            "is_crit": is_crit, "crit_frac": crit_frac}
 
 
 def calc_damage_avg(
@@ -361,7 +376,8 @@ def calc_damage_avg(
     f6 = _factor6(buffs, hit_type)
     f7 = _factor7(buffs)
 
-    return max((f1 / 100.0) * f2 * f3 * f4 * f5 * f6 * f7, 1.0)
+    veil = _defense_rate_factor(buffs, hit_type)
+    return max((f1 / 100.0) * f2 * f3 * f4 * f5 * f6 * f7 * veil, 1.0) if veil else 0.0
 
 
 # ── 단위 테스트 ───────────────────────────────────────────────────────────

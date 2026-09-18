@@ -45,8 +45,10 @@ export interface TimelineSeries {
   totals: Record<string, number>;
   bursts: Record<string, { t: number; stage: string }[]>;
   fullBurst: [number, number][];
-  /** 족자 — 평타가 빗나가는 구간. 타임라인에 붉은 밴드로 깐다. */
+  /** 바디 방어율 — 일반 대미지 감소 구간. 보라색 밴드로 깐다. */
+  defenseRateWindows: Array<{ from: number; to: number; rate: number }>;
   coreWindows: Array<{ from: number; to: number }>;
+  /** 족자 — 평타가 빗나가는 구간. 타임라인에 붉은 밴드로 깐다. */
   immuneWindows: Array<{ from: number; to: number }>;
   /** 속저 — 우월 코드만 통과하는 구간. 푸른 밴드로 깐다. */
   elementWindows: Array<{ from: number; to: number; code: string }>;
@@ -127,6 +129,7 @@ export function buildSeries(
   squad: string[],
   duration: number,
   phases: {
+    defenseRateWindows?: Array<{ from: number; to: number; rate: number }>;
     coreWindows?: Array<{ from: number; to: number }>;
     immuneWindows?: Array<{ from: number; to: number }>;
     elementWindows?: Array<{ from: number; to: number; code: string }>;
@@ -152,6 +155,7 @@ export function buildSeries(
     totals,
     bursts: timeline.bursts,
     fullBurst: timeline.fullBurst,
+    defenseRateWindows: phases.defenseRateWindows ?? [],
     coreWindows: phases.coreWindows ?? [],
     immuneWindows: phases.immuneWindows ?? [],
     elementWindows: phases.elementWindows ?? [],
@@ -490,6 +494,9 @@ class TimelineChart {
         ctx.fillText(label, x0 + w / 2, top + 3);
       }
     };
+    for (const w of this.series.defenseRateWindows) {
+      band(w.from, w.to, 'rgba(192,132,252,0.16)', `바디 방어율 ${w.rate}%`);
+    }
     for (const w of this.series.coreWindows) {
       band(w.from, w.to, 'rgba(74,222,128,0.12)', '코어 노출');
     }
@@ -895,6 +902,7 @@ export function createTimelineBlock(
   if (!timeline) return null;
   const squad = entry.request.squad.filter(Boolean);
   const series = buildSeries(timeline, squad, entry.result.duration, {
+    defenseRateWindows: entry.request.defenseRateWindows,
     coreWindows: entry.request.corePx > 0 ? entry.request.coreWindows : [],
     immuneWindows: entry.request.immuneWindows,
     elementWindows: entry.request.elementWindows,
@@ -985,7 +993,7 @@ function createSeriesBlock(
 
   const note = document.createElement('p');
   note.className = 'timeline-legend';
-  note.textContent = '드래그 이동 · 휠/버튼 확대·축소 · 노란 밴드 = 풀버스트 · 붉은 밴드 = 족자 · 푸른 밴드 = 속저 · 아래 초상화 = 버스트 사용(배지는 단계) · 「장탄 표시」를 켜면 남은 탄과 재장전이 같은 축에 깔립니다';
+  note.textContent = '드래그 이동 · 휠/버튼 확대·축소 · 노란 밴드 = 풀버스트 · 붉은 밴드 = 족자 · 푸른 밴드 = 속저 · 초록 밴드 = 코어 노출 · 보라 밴드 = 바디 방어율 · 아래 초상화 = 버스트 사용(배지는 단계) · 「장탄 표시」를 켜면 남은 탄과 재장전이 같은 축에 깔립니다';
   block.append(note);
 
   const chart = new TimelineChart(canvas, tooltip, series, portraitUrls, states);

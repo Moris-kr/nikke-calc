@@ -44,6 +44,7 @@ class SharedTests(unittest.IsolatedAsyncioTestCase):
                         'company_level': {name: 50 for name in CONSOLE_COMPANIES}},
             'burstRegenTime': 3, 'burstReaction': .2,
             'immuneWindows': [{'from': 2, 'to': 3}],
+            'defenseRateWindows': [{'from': 6, 'to': 8, 'rate': 60}],
             'elementWindows': [{'from': 4, 'to': 5, 'code': '철갑'}],
             'normalHitCoeff': {'SMG': .8}, 'optimalRangeWeapons': ['SMG'],
             'burstSequence': [{'1': ['리타']}],
@@ -61,6 +62,7 @@ class SharedTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(out['effectiveCharacters'][0]['console']['common_level'], 90)
         self.assertEqual(out['effectiveCharacters'][0]['burst_regen_time'], 3)
         self.assertEqual(out['request']['immuneWindows'], [{'from': 2, 'to': 3}])
+        self.assertEqual(out['request']['defenseRateWindows'], [{'from': 6, 'to': 8, 'rate': 60}])
 
 
 if __name__ == '__main__':

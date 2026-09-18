@@ -444,3 +444,27 @@ describe('core exposure windows', () => {
     expect(requestForDeck(deck(1, ['리타']), { ...settings, corePerDeck: { 1: false } }).corePx).toBe(0);
   });
 });
+
+
+describe('body defense rate windows', () => {
+  const defenseRateWindows = [{ from: 30, to: 60, rate: 60 }, { from: 40, to: 70, rate: 75 }];
+  it('validates times and finite percentages, preserving overlapping windows', () => {
+    expect(validateRequest({ ...valid, defenseRateWindows })).toEqual([]);
+    for (const rate of [-1, 101, Infinity, NaN]) {
+      expect(validateRequest({ ...valid, defenseRateWindows: [{ from: 0, to: 30, rate }] }))
+        .toContain('바디 방어율은 0~100%여야 합니다.');
+    }
+    expect(validateRequest({ ...valid, defenseRateWindows: [{ from: 60, to: 30, rate: 60 }] }))
+      .toContain('바디 방어율 구간은 시작이 끝보다 앞서야 합니다 (60~30).');
+    expect(validateRequest({ ...valid, defenseRateWindows: [{ from: 0, to: Infinity, rate: 60 }] }))
+      .toContain('바디 방어율 구간은 0~180초여야 합니다.');
+  });
+  it('includes rates in cache identity, ignoring order and empty windows', () => {
+    const key = cacheKey({ ...valid, defenseRateWindows }, 'v1');
+    expect(key).toBe(cacheKey({ ...valid, defenseRateWindows: [...defenseRateWindows].reverse() }, 'v1'));
+    expect(key).not.toBe(cacheKey(valid, 'v1'));
+    expect(key).not.toBe(cacheKey({ ...valid, defenseRateWindows: [{ ...defenseRateWindows[0]!, rate: 50 }, defenseRateWindows[1]!] }, 'v1'));
+    expect(cacheKey({ ...valid, defenseRateWindows: [] }, 'v1')).toBe(cacheKey(valid, 'v1'));
+    expect(requestForDeck(deck(1, ['리타']), { ...battle, defenseRateWindows })).toMatchObject({ defenseRateWindows });
+  });
+});

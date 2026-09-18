@@ -1711,6 +1711,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
         // 겹친 도형은 합집합이다 — 보너스는 무기군마다 한 번만 붙는다.
         optimalRangeWeapons: aimRange ?? battle.optimalRangeWeapons,
         coreWindows: battle.coreWindows,
+        defenseRateWindows: battle.defenseRateWindows,
         immuneWindows: battle.immuneWindows,
         elementWindows: battle.elementWindows,
         rngMode: battle.rngMode,

@@ -1545,6 +1545,34 @@ describe('calculator UI', () => {
       .toContain('블라블라링크 글로벌 1명 적용');
   });
 
+  it('바디 방어율 구간 두 개를 편집하고 복원하며 삭제한다', () => {
+    const deps = { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage };
+    const unmount = mountCalculator(root, deps);
+    for (const [from, to] of [[30, 60], [90, 120]]) {
+      root.querySelector<HTMLButtonElement>('[data-phase-add="defense"]')!.click();
+      const rows = root.querySelectorAll<HTMLElement>('[data-phase-row^="defense:"]');
+      const inputs = rows[rows.length - 1]!.querySelectorAll<HTMLInputElement>('input');
+      inputs[0]!.value = String(from);
+      inputs[0]!.dispatchEvent(new Event('input', { bubbles: true }));
+      inputs[1]!.value = String(to);
+      inputs[1]!.dispatchEvent(new Event('input', { bubbles: true }));
+      expect(inputs[2]!.value).toBe('60');
+      inputs[2]!.value = '75';
+      inputs[2]!.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    expect(JSON.parse(localStorage.getItem('nikke-state-v1')!).battle.defenseRateWindows)
+      .toEqual([{ from: 30, to: 60, rate: 75 }, { from: 90, to: 120, rate: 75 }]);
+    unmount();
+    root.replaceChildren();
+    mountCalculator(root, deps);
+    expect(root.querySelectorAll('[data-phase-row^="defense:"]')).toHaveLength(2);
+    expect(root.querySelector<HTMLInputElement>('[data-phase-row="defense:1"] input')!.value).toBe('90');
+    expect(root.querySelectorAll<HTMLInputElement>('[data-phase-row="defense:1"] input')[2]!.value).toBe('75');
+    root.querySelector<HTMLButtonElement>('[data-phase-drop="defense:0"]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-phase-drop="defense:0"]')!.click();
+    expect(JSON.parse(localStorage.getItem('nikke-state-v1')!).battle.defenseRateWindows).toEqual([]);
+  });
+
   it('코어 노출 구간 두 개를 편집하고 복원하며 삭제한다', () => {
     const deps = { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage };
     const unmount = mountCalculator(root, deps);

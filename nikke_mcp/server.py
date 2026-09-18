@@ -76,7 +76,15 @@ def create_server(timeout: int = 60, max_concurrent: int = 2, browser_mode: bool
                           '지원: growthStage, skillLevels, overload, cube, collection, control, burst, equipLevels, manualStats, weaponModeSwapAt.',
                           '현재 브라우저 육성은 inspect_browser_state와 get_browser_result로 확인합니다. 파일 공유는 필요 없습니다.',
                           '미지원: 일반 백업/계정 로그인, 커스텀 캐릭터, 핵 옵션.'],
-                'sharedStateSchema': SharedState.model_json_schema(),
+                  'sharedStateSchema': SharedState.model_json_schema(),
+                  'defenseRateGuide': {
+                      'source': 'https://arca.live/b/nikketgv/183364010',
+                      'example': {'defenseRateWindows': [{'from': 30, 'to': 60, 'rate': 60}, {'from': 90, 'to': 120, 'rate': 60}]},
+                      'notes': ['리버렐리오 바디 심해의 장막: 일반 최종 대미지 ×0.4, 방어력 무시 대미지는 그대로인 커뮤니티 실험을 모델링합니다.',
+                                '장막의 실제 시작·종료 시각은 자동 추정하지 않습니다. 사용자 관측 구간을 입력하세요.',
+                                '방어력 증가나 받는 대미지 증가와 상쇄하는 항이 아닙니다. 방어력 무시 대미지 증가 버프만으로 공격 유형이 바뀌지는 않습니다.',
+                                '방어력 감소와 장막의 상호작용은 원문에서도 미검증입니다. 현재는 방깎 계산 후 독립 배율로 적용합니다. 겹치는 장막은 가장 높은 감소율 하나만 적용합니다.'],
+                  },
                 'browserFallback': {
                     'url': 'https://moris-kr.github.io/nikke-calc/',
                     'steps': [

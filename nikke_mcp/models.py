@@ -153,6 +153,10 @@ class ElementWindow(PhaseWindow):
     code: Literal['풍압', '수냉', '작열', '전격', '철갑']
 
 
+class DefenseRateWindow(PhaseWindow):
+    rate: float = Field(default=60, ge=0, le=100)
+
+
 class PiercePass(StrictModel):
     shapes: int = Field(ge=1, le=20)
     parts: int = Field(ge=0, le=20)
@@ -163,6 +167,8 @@ class BattleOptions(StrictModel):
     enemyDef: int = Field(default=31784, ge=0, le=10000000)
     enemyCode: Literal['', '풍압', '수냉', '작열', '전격', '철갑'] = ''
     corePx: float = Field(default=0, ge=0, le=1000)
+    defenseRateWindows: list[DefenseRateWindow] = Field(default_factory=list, max_length=100,
+        description='리버렐리오 바디 심해의 장막 방어율 구간. from/to는 전투 시작 기준 초, rate는 감소율%(기본60). 일반 최종 대미지에 (1-rate/100), 방어력 무시 대미지는 우회. 단순 방무 대미지 증가 버프는 우회 불가. 시작 포함·끝 제외, 겹치면 최대 rate만 적용. 커뮤니티 실험 기반이며 방깎 상호작용 미검증.')
     coreWindows: list[PhaseWindow] = Field(default_factory=list, max_length=100,
         description='코어 노출 구간(전투 시작 기준 초). 빈 배열이면 상시 노출. corePx=0이면 구간과 무관하게 코어 없음. 시작 포함·끝 제외.')
     hasParts: bool = False

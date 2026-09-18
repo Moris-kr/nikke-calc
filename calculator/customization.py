@@ -550,6 +550,34 @@ def normalize_immune_windows(raw: Any) -> list[list[float]]:
     return [list(_window(item, "족자")) for item in raw]
 
 
+def normalize_defense_rate_windows(raw: Any) -> list[list[float]]:
+    """방어율 구간 → [시작, 끝, 감소율%]. 생략한 감소율은 60%다."""
+    if raw is None:
+        return []
+    if not isinstance(raw, list) or len(raw) > 100:
+        raise ValueError("방어율 설정은 최대 100개 구간의 배열이어야 한다")
+    result = []
+    for item in raw:
+        if isinstance(item, (list, tuple)) and len(item) == 3:
+            item = dict(zip(("from", "to", "rate"), item))
+        if not isinstance(item, dict) or set(item) - {"from", "to", "rate"}:
+            raise ValueError("방어율 구간은 from·to·rate 객체여야 한다")
+        if any(isinstance(item.get(key), bool) for key in ("from", "to", "rate")):
+            raise ValueError("방어율 구간에는 숫자가 필요하다")
+        try:
+            start, end = _window(item, "방어율")
+        except OverflowError:
+            raise ValueError("방어율 구간은 유한한 숫자여야 한다") from None
+        try:
+            rate = float(item.get("rate", 60.0))
+        except (TypeError, ValueError, OverflowError):
+            raise ValueError("방어율은 0~100 사이의 유한한 숫자여야 한다") from None
+        if not math.isfinite(rate) or not 0 <= rate <= 100:
+            raise ValueError("방어율은 0~100 사이의 유한한 숫자여야 한다")
+        result.append([start, end, rate])
+    return result
+
+
 def normalize_element_windows(raw: Any) -> list[dict[str, Any]]:
     """속저 — 그 구간 동안 **그 코드에 우월한** 캐릭터의 딜만 들어간다.
 

@@ -63,6 +63,8 @@ export function normalizeRequest(request: SimulationRequest): SimulationRequest 
     ...(request.optimalRangeWeapons?.length
       ? { optimalRangeWeapons: [...request.optimalRangeWeapons].sort() } : {}),
     // 보스 페이즈는 시작 시각순으로 세운다 — 넣은 순서가 달라도 같은 설정이다.
+    ...(request.defenseRateWindows?.length ? { defenseRateWindows:
+      [...request.defenseRateWindows].sort((a, b) => a.from - b.from || a.to - b.to || a.rate - b.rate) } : {}),
     ...(request.coreWindows?.length ? { coreWindows:
       [...request.coreWindows].sort((a, b) => a.from - b.from || a.to - b.to) } : {}),
     ...(request.immuneWindows?.length ? { immuneWindows:
@@ -211,6 +213,7 @@ export function validateRequest(request: SimulationRequest): string[] {
   }
   // 보스 페이즈 — 시작이 끝보다 뒤면 조용히 뒤집지 않고 막는다. 엔진도 같은 규칙이다.
   const windows: Array<[{ from: number; to: number }, string]> = [
+    ...(request.defenseRateWindows ?? []).map((w) => [w, '바디 방어율'] as [typeof w, string]),
     ...(request.coreWindows ?? []).map((w) => [w, '코어 노출'] as [typeof w, string]),
     ...(request.immuneWindows ?? []).map((w) => [w, '족자'] as [typeof w, string]),
     ...(request.elementWindows ?? []).map((w) => [w, '속저'] as [typeof w, string]),
@@ -221,6 +224,13 @@ export function validateRequest(request: SimulationRequest): string[] {
       errors.push(`${label} 구간은 0~180초여야 합니다.`);
     } else if (w.from >= w.to) {
       errors.push(`${label} 구간은 시작이 끝보다 앞서야 합니다 (${w.from}~${w.to}).`);
+    }
+  }
+
+  if ((request.defenseRateWindows?.length ?? 0) > 100) errors.push('바디 방어율 구간은 최대 100개까지 지정할 수 있습니다.');
+  for (const w of request.defenseRateWindows ?? []) {
+    if (!Number.isFinite(w.rate) || w.rate < 0 || w.rate > 100) {
+      errors.push('바디 방어율은 0~100%여야 합니다.');
     }
   }
 
@@ -291,6 +301,7 @@ export function requestForDeck(
     seed: battle.seed,
     optimalRangeWeapons: battle.optimalRangeWeapons,
     coreWindows: battle.coreWindows,
+    defenseRateWindows: battle.defenseRateWindows,
     immuneWindows: battle.immuneWindows,
     elementWindows: battle.elementWindows,
     rngMode: battle.rngMode,

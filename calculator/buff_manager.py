@@ -3260,6 +3260,17 @@ class BuffManager:
         if self.cheats.on:
             self.cheats.apply_to_buffs(buffs)
 
+        # Veil is a separate final damage multiplier, never received_dmg.
+        # Query at the actual hit time, including battle-start and DoT ticks.
+        # Copied/accumulated damage already includes this reduction at source.
+        windows = self.state.get("enemy", {}).get("defense_rate_windows") or []
+        if windows:
+            frame_t = round(t, 9)
+            buffs["enemy_defense_rate_pct"] = max(
+                (rate for start, end, rate in windows if start <= frame_t < end),
+                default=0.0,
+            )
+
         self._buffs_cache[cache_key] = buffs
         return buffs
 

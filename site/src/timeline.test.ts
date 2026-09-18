@@ -440,3 +440,10 @@ describe('deck timeline comparison', () => {
     expect(block.querySelector('[data-timeline-ammo]')).toBeNull();
   });
 });
+
+
+it('preserves defense rate bands without requiring an exposed core', () => {
+  const defenseRateWindows = [{ from: 0, to: 2, rate: 60 }, { from: 1, to: 3, rate: 75 }];
+  expect(buildSeries(timeline, ['라피'], 4, { defenseRateWindows })?.defenseRateWindows).toEqual(defenseRateWindows);
+  expect(buildSeries(timeline, ['라피'], 4)?.defenseRateWindows).toEqual([]);
+});

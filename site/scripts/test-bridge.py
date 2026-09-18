@@ -57,6 +57,24 @@ class HackBridgeTest(unittest.TestCase):
             self._total({"damageMult": 0})
 
 
+class DefenseRateBridgeTest(unittest.TestCase):
+    def test_windows_reach_engine(self):
+        base = {'squad': ['리타'], 'duration': 4, 'enemyDef': 31784, 'seed': 42, 'rngMode': 'expected'}
+        def total(windows):
+            return json.loads(run_request(json.dumps({**base, 'defenseRateWindows': windows})))['squadTotal']
+        ordinary = total([])
+        self.assertEqual(ordinary, total([{'from': 10, 'to': 20, 'rate': 60}]))
+        self.assertAlmostEqual(total([{'from': 0, 'to': 5, 'rate': 60}]) / ordinary, .4, places=4)
+        partial = total([{'from': 0, 'to': 2, 'rate': 60}])
+        self.assertGreater(partial, ordinary * .4)
+        self.assertLess(partial, ordinary)
+
+    def test_invalid_rate_rejected(self):
+        with self.assertRaises(ValueError):
+            run_request(json.dumps({'squad': ['리타'], 'duration': 4, 'enemyDef': 31784,
+                'defenseRateWindows': [{'from': 0, 'to': 3, 'rate': 101}]}))
+
+
 class CoreShareTest(unittest.TestCase):
     """캐릭터마다 «쏜 탄 중 몇 발이 코어에 맞았나»를 결과에 실어 보낸다.
 

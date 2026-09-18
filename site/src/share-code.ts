@@ -283,6 +283,7 @@ const BATTLE_DEFAULTS: BattleShare = {
   optimalRangeWeapons: [],
   normalHitCoeff: {},
   coreWindows: [],
+  defenseRateWindows: [],
   immuneWindows: [],
   elementWindows: [],
   rngMode: 'expected',
@@ -336,6 +337,7 @@ export function encodeBattleCode(
   }
   put('hc', coeff, {});
 
+  put('dw', (battle.defenseRateWindows ?? []).map((w) => [toTenth(w.from), toTenth(w.to), w.rate]), []);
   put('cw', (battle.coreWindows ?? []).map((w) => [toTenth(w.from), toTenth(w.to)]), []);
   put('iw', (battle.immuneWindows ?? []).map((w) => [toTenth(w.from), toTenth(w.to)]), []);
   put('ew', (battle.elementWindows ?? []).map(
@@ -401,6 +403,13 @@ export function decodeBattleCode(code: string): BattleShare {
       ? (raw.or as unknown[]).filter((w): w is string => typeof w === 'string')
       : [],
     normalHitCoeff: coeff,
+    defenseRateWindows: Array.isArray(raw.dw) ? raw.dw.slice(0, 100).flatMap((item: unknown) => {
+      if (!Array.isArray(item)) return [];
+      const window = windowsOf([item], false)[0];
+      const rate = item[2] === undefined ? 60 : item[2];
+      return window && typeof rate === 'number' && Number.isFinite(rate) && rate >= 0 && rate <= 100
+        ? [{ ...window, rate }] : [];
+    }) : [],
     coreWindows: windowsOf(raw.cw, false) as PhaseWindow[],
     immuneWindows: windowsOf(raw.iw, false) as PhaseWindow[],
     elementWindows: windowsOf(raw.ew, true) as ElementWindow[],

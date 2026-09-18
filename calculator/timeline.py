@@ -158,6 +158,7 @@ DEFAULT_ENEMY: dict = {
     "code":                 None,
     "core_px":              0,    # 코어 직경(px). 0이면 코어 없음, >0이면 코어히트율 확률 계산
     "core_windows":         [],   # 코어 노출 [시작, 끝). 비어 있으면 항상 노출
+    "defense_rate_windows": [],   # [시작, 끝, 방어율%]; 중첩 시 최댓값, 방어 무시 대미지는 우회
     "has_parts":            False,# 파괴 가능 파츠 보유 보스. part_hit_count / part_dmg_pct의 전제
     "optimal_range_weapons": [],  # 적정거리 적용 무기군 목록 e.g. ["SG", "SMG"]
     # 보스 페이즈 구간. 둘 다 `[시작초, 끝초)` 반개구간이고 여러 개를 넣을 수 있다.
