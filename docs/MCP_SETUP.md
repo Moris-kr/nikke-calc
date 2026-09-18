@@ -191,32 +191,15 @@ Team/Enterprise는 조직 관리자가 먼저 추가해야 할 수 있습니다.
 그 덱에서 수정한 육성·운용·전투 조건을 유지합니다. `squad`로 새 조합을 요청하면 전체 `roster` 육성과
 공통 `battle` 조건을 사용합니다. 로스터에 없는 캐릭터는 기본값으로 대체하지 않고 거절합니다.
 
-### 직접 입력하거나 JSON으로 전달하기
+### 직접 조건을 지정해 비교하기
 
-기존 `simulate_squad`, `compare_setups`, `simulate_shared_state`도 원격 HTTP에서는
-**`connection_code`가 필요**합니다. 이 도구들도 `queued`와 `jobId`를 반환하고,
-`get_browser_result`에서 완료를 확인합니다. JSON을 전달해도 계산은 연결한 브라우저에서 실행됩니다.
-로컬 stdio에서는 기존처럼 이 PC에서 직접 계산하므로 연결 코드가 필요하지 않습니다.
+육성 파일을 따로 공유할 필요는 없습니다. `simulate_browser_state`가 요청 시점의 브라우저 설정을 읽습니다.
+특정 조건을 직접 지정하려면 `simulate_squad`에 `request`, `compare_setups`에 같은 전투 조건의
+2~5개 `requests`를 전달할 수도 있습니다. 원격 HTTP에서는 `connection_code`가 필요하며,
+받은 `jobId`를 `get_browser_result`로 조회합니다. 로컬 stdio는 연결 코드 없이 이 PC에서 계산합니다.
 
-- `simulate_squad`: `connection_code`와 `request`를 전달합니다.
-- `compare_setups`: `connection_code`와 `requests` 배열을 전달합니다. 같은 전투 조건의 2~5개 후보를 비교합니다.
-- `simulate_shared_state`: `connection_code`, `state`, `deck_index` 또는 `squad`를 전달합니다.
-- 지원 입력은 `get_settings`에서 확인합니다. 일반 백업 전체·커스텀 캐릭터·핵 옵션은 지원하지 않습니다.
-
-**편의 기능 → MCP → 육성·편성 JSON 다운로드** 또는 JSON 복사도 계속 사용할 수 있습니다.
-`nikke-calc-mcp.json`을 AI에 첨부하거나 내용을 붙여 넣고 다음과 같이 요청하세요.
-
-> 첨부한 JSON 전체를 파싱해 inspect_shared_state의 state로 확인해줘. 이어 simulate_shared_state에 같은 state, 내 connection_code, deck_index: 1을 전달해줘. 반환된 jobId를 get_browser_result로 complete까지 확인한 다음 실제 결과를 알려줘.
-
-`state`는 파일 경로나 URL이 아니라 파싱한 JSON 객체 전체입니다. 호출마다 같은 객체를 전달합니다.
-JSON은 내보낸 시점의 스냅샷이므로 웹에서 설정을 바꿨다면 다시 내보내세요.
-
-공유 포맷은 `format: "nikke-calc-mcp"`, `version: 1`이며 다음을 포함합니다.
-
-- `roster`: 불러온 전체 육성. `decks`: 덱별 수정값·운용을 포함한 계산 요청. `battle`: 새 조합의 공통 조건.
-- 스킬·돌파/코어·장비·오버로드 합계·큐브·소장품/애장품·수동 스탯·운용 설정.
-- 빈 설정과 생략된 값은 계산기 기본값입니다. 실제 보유·육성으로 단정하지 않습니다.
-- 최대 로스터 500명, 덱 20개, JSON 800KB. 상세 형식은 `get_settings.sharedStateSchema`를 확인하세요.
+생략한 육성은 계산기 기본값이므로 실제 보유·육성으로 단정하지 않습니다.
+지원 입력은 `get_settings`에서 확인합니다. 커스텀 캐릭터·핵 옵션은 지원하지 않습니다.
 
 ### 전달되는 정보와 연결 코드 관리
 

@@ -7380,7 +7380,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     element<HTMLElement>(root, '[data-overload-lab]').hidden = funView !== 'lab';
     if (funView === 'vision') renderVision();
     if (funView === 'skills') skillPlanner.render(funBody);
-    if (funView === 'mcp') renderMcpGuide(funBody, getMcpShare, browserMcp);
+    if (funView === 'mcp') renderMcpGuide(funBody, browserMcp);
   };
 
   // ── 외부고리 ────────────────────────────────────────────────────────────

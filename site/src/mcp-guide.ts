@@ -1,9 +1,8 @@
 /** 공개 서버 사용 안내. 계정 정보와 브라우저 프로필은 포함하지 않는다. */
-import type { McpShare } from './mcp-share';
 import type { BrowserMcpConnection } from './mcp-browser';
 export const MCP_URL = 'https://nikke-calc-mcp.onrender.com/mcp';
 
-export function renderMcpGuide(host: HTMLElement, getShare?: () => McpShare, connection?: BrowserMcpConnection): void {
+export function renderMcpGuide(host: HTMLElement, connection?: BrowserMcpConnection): void {
   host.innerHTML = `
     <section class="mcp-guide" data-mcp-guide aria-labelledby="mcp-heading">
       <header><p class="step">AI × NIKKE CALCULATOR</p>
@@ -43,6 +42,7 @@ export function renderMcpGuide(host: HTMLElement, getShare?: () => McpShare, con
       </div>
       <section class="mcp-address" aria-labelledby="mcp-browser-heading"><h4 id="mcp-browser-heading">3. 이 브라우저에서 AI 연결 켜기</h4>
         <p>육성·편성·전투 조건을 준비한 뒤 <strong>AI 연결</strong>을 누르세요. 연결 코드가 있는 AI는 현재 육성을 조회하고 이 기기에서 계산할 수 있습니다.</p>
+        <p>파일을 따로 전달할 필요 없이 요청 시점의 브라우저 설정을 읽습니다. 저장된 덱을 계산하면 덱별 수정값을, 새 조합을 계산하면 불러온 전체 육성을 사용합니다. 입력하지 않은 값은 계산기 기본값입니다.</p>
         <div class="mcp-copy-row"><button type="button" data-mcp-connect>AI 연결</button><button type="button" data-mcp-disconnect disabled>연결 해제 · 계산 중단</button></div>
         <p data-mcp-connection-status role="status" aria-live="polite">연결 꺼짐</p>
         <label for="mcp-connection-code">이번 브라우저 연결 코드</label>
@@ -51,20 +51,6 @@ export function renderMcpGuide(host: HTMLElement, getShare?: () => McpShare, con
         <p>AI는 먼저 작업 번호를 받고 <code>get_browser_result</code>로 완료 결과를 조회합니다. 기다리는 중이라고 나오면 “그 작업의 결과를 다시 확인해 줘”라고 요청하세요. 작업을 새로 제출할 필요는 없습니다.</p>
         <p class="mcp-note">이 탭을 열어 두고 기기가 절전되지 않게 해 주세요. 탭 이동은 가능하지만 모바일 백그라운드에서는 연결이 끊길 수 있습니다. 연결은 최대 2시간, 응답이 없으면 약 45초 후 만료됩니다. 서버 재시작·새로고침 후에는 새 코드를 발급하세요.</p>
         <p class="mcp-note">코드는 육성 조회·계산 권한입니다. 공개 게시물이나 스크린샷에 노출하지 마세요. 요청한 육성과 결과는 AI 서비스 및 중계 서버를 거치며 서버 메모리에 잠시 보관됩니다(결과 최대 5분). 연결 해제로 폐기할 수 있습니다. 닉네임·계정 ID·쿠키·대화 내역은 보내지 않습니다.</p>
-      </section>
-      <section aria-labelledby="mcp-share-heading"><h4 id="mcp-share-heading">선택: JSON 파일로 육성·편성 전달하기</h4>
-        <p>블라블라링크·CSV에서 불러온 전체 육성과 현재 저장된 덱의 수정값, 싱크로·콘솔·전투 조건을 JSON 파일로 전달할 수 있습니다.</p>
-        <div class="mcp-copy-row"><button type="button" data-mcp-download>육성·편성 JSON 다운로드</button>
-          <button type="button" data-mcp-share-copy>JSON 복사</button></div>
-        <p data-mcp-share-status role="status" aria-live="polite"></p>
-        <textarea data-mcp-share-fallback hidden readonly aria-label="공유 JSON 수동 복사" rows="6"></textarea>
-        <ol><li>계산기에서 육성을 불러오고 원하는 편성·전투 조건을 설정하세요.</li>
-          <li>위 버튼으로 파일을 내려받아 MCP를 연결한 ChatGPT·Claude 대화에 첨부하세요. 파일을 읽지 못하면 <strong>JSON 복사</strong>로 내용을 붙여 넣으세요.</li>
-          <li>아래 문장을 함께 보내세요. AI가 파일 내용을 도구의 <code>state</code>에 JSON 객체로 전달해야 합니다. 파일명이나 경로만 전달하면 안 됩니다.</li></ol>
-        <div class="mcp-example"><p>첨부한 JSON을 NIKKE Calculator의 inspect_shared_state로 검증해 줘. simulate_shared_state에 같은 state, deck_index: 1과 내가 준 connection_code를 전달하고, 받은 jobId를 get_browser_result로 조회해서 완료된 실제 결과를 알려 줘.</p></div>
-        <p>새 조합은 <code>simulate_shared_state</code>의 <code>squad</code>에 정식 이름을 지정합니다. 이때 덱 수정값 대신 불러온 로스터 육성과 공통 전투 조건을 사용합니다. 로스터에 없는 캐릭터는 자동으로 기본 육성으로 채우지 않습니다.</p>
-        <p class="mcp-note">스킬·돌파/코어·장비·오버로드 합계·큐브·소장품/애장품·수동 스탯·운용 설정을 담습니다. 부위별 오버로드 줄은 계산에 쓰는 합계로 전달됩니다. 입력하지 않은 항목은 계산기 기본값이며, 실계정 정보로 확정되는 것은 아닙니다. 보유 재료 수량과 계산 결과는 포함하지 않습니다.</p>
-        <p class="mcp-note">닉네임·계정 ID·프로필 주소·덱 이름·쿠키·대화 내역은 담지 않습니다. 파일은 AI 서비스와 중계 서버로 전달되며, 계산은 연결된 브라우저에서 합니다. JSON은 자동 동기화되지 않으므로 수정 후 다시 내보내세요. AI 연결 방식은 요청 시점의 현재 설정을 읽습니다. 커스텀 캐릭터·핵 옵션은 지원하지 않습니다.</p>
       </section>
       <section><h4>4. 이렇게 물어보세요</h4>
         <div class="mcp-example"><p>NIKKE Calculator로 사용 가능한 캐릭터 목록을 확인해 줘.</p></div>
@@ -123,40 +109,4 @@ export function renderMcpGuide(host: HTMLElement, getShare?: () => McpShare, con
       status.textContent = '주소를 선택했습니다. Ctrl+C 또는 길게 눌러 복사해 주세요.';
     }
   });
-  const shareStatus = host.querySelector<HTMLElement>('[data-mcp-share-status]')!;
-  const fallback = host.querySelector<HTMLTextAreaElement>('[data-mcp-share-fallback]')!;
-  for (const action of ['download', 'share-copy']) {
-    const button = host.querySelector<HTMLButtonElement>(`[data-mcp-${action}]`)!;
-    button.disabled = !getShare;
-    button.addEventListener('click', async () => {
-      try {
-        const share = getShare!();
-        const json = JSON.stringify(share, null, 2);
-        const count = `불러온 육성 ${Object.keys(share.roster).length}명 · 편성 ${share.decks.length}개`;
-        fallback.hidden = true;
-        if (action === 'download') {
-          const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = 'nikke-calc-mcp.json';
-          link.click();
-          setTimeout(() => URL.revokeObjectURL(url), 1000);
-          shareStatus.textContent = `${count}를 파일로 내보냈습니다. AI 대화에 첨부하세요.`;
-        } else {
-          try {
-            await navigator.clipboard.writeText(json);
-            shareStatus.textContent = `${count}를 복사했습니다. AI 대화에 붙여 넣으세요.`;
-          } catch {
-            fallback.value = json;
-            fallback.hidden = false;
-            fallback.focus();
-            fallback.select();
-            shareStatus.textContent = `${count} · 아래 JSON을 Ctrl+C 또는 길게 눌러 복사해 주세요.`;
-          }
-        }
-      } catch (error) {
-        shareStatus.textContent = error instanceof Error ? error.message : '공유 파일을 만들지 못했습니다.';
-      }
-    });
-  }
 }
