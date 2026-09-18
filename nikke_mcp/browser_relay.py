@@ -118,6 +118,18 @@ class BrowserRelay:
                 raise ValueError()
             if payload['kind'] == 'inspect':
                 SharedState.model_validate(result)
+            elif payload['kind'] == 'growth':
+                rows = result.get('scenarios')
+                if (result.get('name') != payload['name'] or not isinstance(result.get('engineVersion'), str)
+                        or not isinstance(rows, list) or len(rows) != len(payload['scenarios'])):
+                    raise ValueError()
+                for row in [result.get('baseline'), *rows]:
+                    if (not isinstance(row, dict) or type(row.get('combatPower')) not in (int, float)
+                            or not isinstance(row.get('effectiveCharacter'), dict)):
+                        raise ValueError()
+                for row, requested in zip(rows, payload['scenarios']):
+                    if row.get('label') != requested['label'] or type(row.get('delta')) not in (int, float):
+                        raise ValueError()
             else:
                 candidates = result.get('candidates') if len(payload.get('requests', [])) > 1 else [result]
                 if not isinstance(candidates, list) or len(candidates) != max(1, len(payload.get('requests', []))):

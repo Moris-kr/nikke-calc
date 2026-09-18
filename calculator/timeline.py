@@ -157,6 +157,7 @@ DEFAULT_ENEMY: dict = {
     "def":                  31784,
     "code":                 None,
     "core_px":              0,    # 코어 직경(px). 0이면 코어 없음, >0이면 코어히트율 확률 계산
+    "core_windows":         [],   # 코어 노출 [시작, 끝). 비어 있으면 항상 노출
     "has_parts":            False,# 파괴 가능 파츠 보유 보스. part_hit_count / part_dmg_pct의 전제
     "optimal_range_weapons": [],  # 적정거리 적용 무기군 목록 e.g. ["SG", "SMG"]
     # 보스 페이즈 구간. 둘 다 `[시작초, 끝초)` 반개구간이고 여러 개를 넣을 수 있다.
@@ -2502,6 +2503,17 @@ def simulate(
 
     cfg = {**DEFAULT_CONFIG, **(config or {})}
     enm = {**DEFAULT_ENEMY, **(enemy or {})}
+    core_px = enm["core_px"]
+    core_windows = [(float(a), float(b)) for a, b in enm.get("core_windows") or []]
+
+    def _update_core_exposure(t: float):
+        # DT 누적으로 30초가 29.999999999…가 되어 경계가 한 프레임 밀리지 않게 한다.
+        frame_t = round(t, 9)
+        enm["core_px"] = core_px if not core_windows or any(
+            lo <= frame_t < hi for lo, hi in core_windows
+        ) else 0
+
+    _update_core_exposure(0.0)
     duration = cfg["duration"]
 
     if cfg["rng_mode"] not in ("random", "expected"):
@@ -2900,6 +2912,7 @@ def simulate(
 
     t = 0.0
     while t <= duration:
+        _update_core_exposure(t)
         bm.tick(t)
         _sync_damage_accumulators(t)
 

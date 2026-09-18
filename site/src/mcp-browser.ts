@@ -1,12 +1,14 @@
 import type { McpShare } from './mcp-share';
-import type { SimulationRequest, SimulationResult } from './types';
+import type { SimulationRequest, SimulationResult, GrowthComparisonRequest } from './types';
 import { CalculatorWorkerClient } from './worker-client';
 
 const RELAY = import.meta.env.DEV && import.meta.env.VITE_MCP_RELAY_URL
   ? import.meta.env.VITE_MCP_RELAY_URL : 'https://nikke-calc-mcp.onrender.com/browser';
 export interface BrowserJob {
   id: string;
-  kind: 'inspect' | 'simulate' | 'shared';
+  kind: 'inspect' | 'simulate' | 'shared' | 'growth';
+  name?: string;
+  scenarios?: GrowthComparisonRequest['scenarios'];
   requests?: SimulationRequest[];
   state?: McpShare;
   deck_index?: number;
@@ -16,6 +18,7 @@ export interface BrowserJob {
 interface BrowserEngine {
   prepare(): Promise<void>;
   simulateMcp(request: SimulationRequest): Promise<{ result: SimulationResult; effectiveCharacters: unknown[]; engineVersion: string }>;
+  compareGrowth?(request: GrowthComparisonRequest): Promise<Record<string, unknown>>;
   dispose(): void;
 }
 export interface ConnectionState { code: string; message: string; connecting: boolean; }
@@ -23,6 +26,17 @@ export interface ConnectionState { code: string; message: string; connecting: bo
 /** Only allowlisted data jobs; nothing received from the relay is executable code. */
 export async function executeBrowserJob(job: BrowserJob, getShare: () => McpShare, engine: BrowserEngine): Promise<Record<string, unknown>> {
   if (job.kind === 'inspect') return { ...getShare() };
+  if (job.kind === 'growth') {
+    const state = getShare();
+    if (!job.name || !Object.hasOwn(state.roster, job.name) || !Object.keys(state.roster[job.name]!).length) {
+      throw new Error(`현재 육성 정보가 없습니다: ${job.name ?? ''}`);
+    }
+    if (!engine.compareGrowth) throw new Error('계산기 페이지를 새로고침하고 AI 연결을 다시 켜 주세요.');
+    const request: GrowthComparisonRequest = JSON.parse(JSON.stringify({ name: job.name,
+      baseline: state.roster[job.name], scenarios: job.scenarios,
+      synchroLevel: state.battle.synchroLevel, console: state.battle.console }));
+    return { ...await engine.compareGrowth(request), execution: 'user-browser', source: 'current-browser-roster', request };
+  }
   let requests: SimulationRequest[];
   if (job.kind === 'shared') {
     const state = job.state ?? getShare();

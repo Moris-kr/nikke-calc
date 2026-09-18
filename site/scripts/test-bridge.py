@@ -96,6 +96,22 @@ class CoreShareTest(unittest.TestCase):
             self.assertGreater(row["shots"], 0, name)
             self.assertEqual(row["coreShots"], 0, name)
 
+    def test_core_windows_reach_engine_and_empty_keeps_existing_behavior(self):
+        base = self._breakdown(duration=4)
+        self.assertEqual(base, self._breakdown(duration=4, coreWindows=[]))
+        hidden = self._breakdown(duration=4, coreWindows=[{"from": 10, "to": 20}])
+        for row in hidden.values():
+            self.assertEqual(row["coreShots"], 0)
+        partial = self._breakdown(duration=4, coreWindows=[{"from": 0, "to": 2}])
+        self.assertGreater(sum(row["coreShots"] for row in partial.values()), 0)
+        self.assertLess(sum(row["coreShots"] for row in partial.values()),
+                        sum(row["coreShots"] for row in base.values()))
+
+    def test_invalid_core_windows_are_rejected(self):
+        for windows in ["invalid", [{"from": 2, "to": 1}], [{"from": -1, "to": 2}]]:
+            with self.subTest(windows=windows), self.assertRaises(ValueError):
+                self._breakdown(coreWindows=windows)
+
     def test_skill_damage_is_not_counted_as_a_shot(self):
         rows = self._breakdown(duration=120)
         for name, row in rows.items():

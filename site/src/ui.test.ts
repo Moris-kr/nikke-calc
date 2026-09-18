@@ -1545,6 +1545,30 @@ describe('calculator UI', () => {
       .toContain('블라블라링크 글로벌 1명 적용');
   });
 
+  it('코어 노출 구간 두 개를 편집하고 복원하며 삭제한다', () => {
+    const deps = { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage };
+    const unmount = mountCalculator(root, deps);
+    for (const [from, to] of [[30, 60], [90, 120]]) {
+      root.querySelector<HTMLButtonElement>('[data-phase-add="core"]')!.click();
+      const rows = root.querySelectorAll<HTMLElement>('[data-phase-row^="core:"]');
+      const inputs = rows[rows.length - 1]!.querySelectorAll<HTMLInputElement>('input');
+      inputs[0]!.value = String(from);
+      inputs[0]!.dispatchEvent(new Event('input', { bubbles: true }));
+      inputs[1]!.value = String(to);
+      inputs[1]!.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    expect(JSON.parse(localStorage.getItem('nikke-state-v1')!).battle.coreWindows)
+      .toEqual([{ from: 30, to: 60 }, { from: 90, to: 120 }]);
+    unmount();
+    root.replaceChildren();
+    mountCalculator(root, deps);
+    expect(root.querySelectorAll('[data-phase-row^="core:"]')).toHaveLength(2);
+    expect(root.querySelector<HTMLInputElement>('[data-phase-row="core:1"] input')!.value).toBe('90');
+    root.querySelector<HTMLButtonElement>('[data-phase-drop="core:0"]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-phase-drop="core:0"]')!.click();
+    expect(JSON.parse(localStorage.getItem('nikke-state-v1')!).battle.coreWindows).toEqual([]);
+  });
+
   it('보스 메이커에서 잡은 전투 조건이 새로고침에도 남는다', () => {
     // 폼은 사람이 만질 때(change) 저장된다 — 프로그램이 써넣은 값에는 그 이벤트가
     // 없어서, 보스 메이커에서 잡은 족자·속저가 새로고침에 날아갔다.

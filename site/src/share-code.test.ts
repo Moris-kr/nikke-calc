@@ -197,7 +197,7 @@ describe('전투 조건 공유 코드 (NK3)', () => {
   const base = {
     duration: 180, synchroLevel: 400, enemyDef: 31_784, enemyCode: '' as const, coreEnabled: false,
     corePx: 52, hasParts: false, seed: 42, optimalRangeWeapons: [],
-    normalHitCoeff: { ...COEFF }, immuneWindows: [], elementWindows: [],
+    normalHitCoeff: { ...COEFF }, coreWindows: [], immuneWindows: [], elementWindows: [],
     rngMode: 'expected' as const, immuneBlocksBurst: true, burstRegenTime: 2, burstReaction: 0.05,
     console: { common_level: 390, class_level: { 화력형: 257 }, company_level: { 필그림: 386 } },
   };
@@ -214,6 +214,7 @@ describe('전투 조건 공유 코드 (NK3)', () => {
       ...base, duration: 120, enemyCode: '철갑' as const, coreEnabled: true,
       optimalRangeWeapons: ['SG', 'SMG'], rngMode: 'random' as const,
       immuneBlocksBurst: false, burstRegenTime: 2.8,
+      coreWindows: [{ from: 30, to: 60 }, { from: 90, to: 120 }],
       immuneWindows: [{ from: 10, to: 30 }, { from: 90.5, to: 95 }],
       elementWindows: [{ from: 100, to: 102, code: '풍압' as const }],
     };

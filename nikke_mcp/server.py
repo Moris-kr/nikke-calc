@@ -12,7 +12,7 @@ from starlette.responses import JSONResponse
 
 from calculator.customization import CUBE_NAMES, COLLECTION_STAGES, OVERLOAD_FIELDS, MANUAL_STATS
 from context.spec import DEFAULT_CHAR
-from nikke_mcp.models import CombatRequest
+from nikke_mcp.models import CombatRequest, GrowthScenario, character_names
 from nikke_mcp.shared_state import SharedState, inspect_shared, shared_request
 from nikke_mcp.service import CalculatorService, engine_version, get_character as lookup_character, list_characters as search_characters
 from nikke_mcp.errors import public_errors, InvalidSettingsError
@@ -27,6 +27,8 @@ def create_server(timeout: int = 60, max_concurrent: int = 2, browser_mode: bool
         '지침 조회 자체는 최신 기록 조회가 아닙니다. 웹/브라우저 접근이 없으면 ENIKK를 확인했다고 말하지 마세요. '
         '먼저 정식 이름과 설정을 조회하고 실제 simulate_squad/compare_setups 결과로 답하세요. '
         '수치를 추측하지 마세요. 입력한 육성이 없으면 기본 육성이며 사용자 실제 계정으로 표현하지 마세요. '
+        '육성 전후 예상 전투력은 compare_browser_growth로 비교하세요. 전용 MCP 도구가 없는 기능은 '
+        'get_settings.browserFallback 지침에 따라 실제 계산기 UI를 확인하세요. 브라우저 접근 없이 조작했다고 말하지 마세요. '
         '엔진 버전, 전투 조건, 기본 이탈과 프리뷰 경고를 명시하세요. 비교는 입력 후보만의 순위입니다. '
         '계산 호출은 반드시 순차 실행하세요. SERVER_BUSY는 기존 호출 완료 후 같은 입력으로 재시도하고, '
         'CALCULATION_TIMEOUT은 시간 제한입니다. 이 오류들을 특정 캐릭터의 계산 불가로 해석하지 마세요. '
@@ -75,7 +77,27 @@ def create_server(timeout: int = 60, max_concurrent: int = 2, browser_mode: bool
                           '현재 브라우저 육성은 inspect_browser_state와 get_browser_result로 확인합니다. 파일 공유는 필요 없습니다.',
                           '미지원: 일반 백업/계정 로그인, 커스텀 캐릭터, 핵 옵션.'],
                 'sharedStateSchema': SharedState.model_json_schema(),
+                'browserFallback': {
+                    'url': 'https://moris-kr.github.io/nikke-calc/',
+                    'steps': [
+                        '전용 MCP 도구가 없으면 사용 가능한 웹/브라우저 도구로 계산기 페이지의 메뉴와 기능을 확인합니다. MCP가 임의의 브라우저 제어 기능을 제공하는 것은 아닙니다.',
+                        '사용자 육성 작업은 AI 연결이 켜진 실제 사용자 탭인지 확인합니다. 새 탭·다른 프로필·원격 브라우저의 육성값을 사용자 계정으로 간주하지 않습니다. 정보가 없다면 육성을 불러오도록 안내합니다.',
+                        '읽기 전용 웹 검색은 메뉴를 찾는 용도입니다. 입력·클릭은 실제 조작 가능한 브라우저 도구가 있을 때만 하며, 화면에 존재하는 컨트롤과 도움말을 근거로 진행합니다.',
+                        '요청 범위의 계산·조회는 진행하되, 원래 설정을 보존하고 비교용 임시 변경은 복구합니다. 저장·계정 연동·공개 공유·삭제 등 별도 영향을 주는 작업은 사용자 요청과 권한 범위를 확인합니다.',
+                        '결과가 실제 표시됐는지 확인하고 조건·수치를 보고합니다. 브라우저가 없거나 기능이 없거나 접근이 막히면 구체적인 제한과 사용자가 따라 할 메뉴/입력 순서를 안내합니다. 미실행 결과를 만들지 않습니다.',
+                    ],
+                },
                 'engineVersion': engine_version()}
+
+    @server.tool(annotations=calculation)
+    def compare_browser_growth(connection_code: str, name: str, scenarios: list[GrowthScenario]) -> dict[str, Any]:
+        """현재 브라우저 육성에서 변경안별 예상 전투력·증가량을 비교합니다(1~12개). 사용자 PC에서 계산하며 저장 육성은 변경하지 않습니다. 각 변경안은 현재 기준 독립 비교입니다. 장비 4310은 머리4/팔3/몸통1/다리0 목표 단계이며 증가 단계가 아닙니다. 소장품 R15→SR5/SR15는 각각 별도 changes.collection.stage로 지정하세요. 결과는 get_browser_result로 조회합니다."""
+        if not browser_mode:
+            fail('BROWSER_CONNECTION_REQUIRED', '이 도구는 공개 HTTP MCP와 연결된 계산기 브라우저에서 지원합니다. get_settings.browserFallback을 확인하세요.')
+        if name not in character_names() or not 1 <= len(scenarios) <= 12:
+            fail('INVALID_SETTINGS', '정식 캐릭터 이름과 변경안 1~12개를 지정하세요.')
+        return relay.submit(connection_code, {'kind': 'growth', 'name': name,
+            'scenarios': [s.model_dump(exclude_none=True, exclude_unset=True) for s in scenarios]})
 
     @server.tool(annotations=calculation)
     async def simulate_squad(request: CombatRequest, detail: bool = False, connection_code: str = '') -> dict[str, Any]:

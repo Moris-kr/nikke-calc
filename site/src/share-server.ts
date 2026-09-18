@@ -284,6 +284,7 @@ export function summarizeBattle(battle: BattleShare): string {
   if (battle.optimalRangeWeapons.length > 0) {
     parts.push(t('적정 {list}', { list: battle.optimalRangeWeapons.join('·') }));
   }
+  if (battle.coreWindows?.length) parts.push(t('코어 노출 {n}', { n: battle.coreWindows.length }));
   if (battle.immuneWindows.length > 0) parts.push(t('족자 {n}', { n: battle.immuneWindows.length }));
   if (battle.elementWindows.length > 0) parts.push(t('속저 {n}', { n: battle.elementWindows.length }));
   parts.push(battle.rngMode === 'expected' ? t('기대값') : t('난수'));

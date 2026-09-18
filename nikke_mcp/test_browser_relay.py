@@ -61,12 +61,16 @@ class BrowserProtocolTests(unittest.IsolatedAsyncioTestCase):
                     ('simulate_shared_state', {'state': state, 'squad': ['리타']}, 'shared'),
                     ('inspect_browser_state', {}, 'inspect'),
                     ('simulate_browser_state', {'squad': ['리타']}, 'shared'),
+                    ('compare_browser_growth', {'name': '민트', 'scenarios': [
+                        {'label': 'SR5', 'changes': {'collection': {'stage': 'SR5'}}}]}, 'growth'),
                 ]:
                     response = await client.call_tool(tool, {**args, 'connection_code': code})
                     self.assertFalse(response.is_error, str(response.content))
                     self.assertEqual(response.structured_content['status'], 'queued')
                     job = relay.poll(token)['job']
                     self.assertEqual(job['kind'], kind)
+                    if kind == 'growth':
+                        self.assertEqual(job['scenarios'][0]['changes'], {'collection': {'stage': 'SR5'}})
                     relay.finish(token, job['id'], error='test cancellation')
                 invalid = await client.call_tool('compare_setups', {'connection_code': code,
                     'requests': [{'squad': ['리타']}, {'squad': ['리타'], 'enemyDef': 1}]})

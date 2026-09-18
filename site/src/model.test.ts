@@ -423,3 +423,24 @@ describe('핵', () => {
     expect(cacheKey(hacked, 'v1')).not.toBe(cacheKey(plain, 'v1'));
   });
 });
+
+
+describe('core exposure windows', () => {
+  const coreWindows = [{ from: 30, to: 60 }, { from: 90, to: 120 }];
+  it('validates windows and makes their order irrelevant to cache identity', () => {
+    expect(validateRequest({ ...valid, coreWindows })).toEqual([]);
+    expect(validateRequest({ ...valid, coreWindows: [{ from: 60, to: 30 }] })).toContain(
+      '코어 노출 구간은 시작이 끝보다 앞서야 합니다 (60~30).');
+    expect(validateRequest({ ...valid, coreWindows: [{ from: 0, to: Infinity }] })).toContain(
+      '코어 노출 구간은 0~180초여야 합니다.');
+    expect(cacheKey({ ...valid, coreWindows }, 'v1')).toBe(cacheKey({ ...valid, coreWindows: [...coreWindows].reverse() }, 'v1'));
+    expect(cacheKey({ ...valid, coreWindows }, 'v1')).not.toBe(cacheKey(valid, 'v1'));
+    expect(cacheKey({ ...valid, coreWindows: [] }, 'v1')).toBe(cacheKey(valid, 'v1'));
+  });
+  it('carries intervals while preserving disabled core and per-deck overrides', () => {
+    const settings = { ...battle, coreWindows, coreEnabled: true };
+    expect(requestForDeck(deck(1, ['리타']), settings)).toMatchObject({ coreWindows, corePx: 52 });
+    expect(requestForDeck(deck(1, ['리타']), { ...settings, coreEnabled: false }).corePx).toBe(0);
+    expect(requestForDeck(deck(1, ['리타']), { ...settings, corePerDeck: { 1: false } }).corePx).toBe(0);
+  });
+});

@@ -46,6 +46,7 @@ const runtimeFiles = [
 ];
 
 const bridgeTarget = 'bridge.py';
+const growthTarget = 'growth_comparison.py';
 
 const readJson = (path) => JSON.parse(readFileSync(path, 'utf8'));
 const normalizeImageName = (value) => value
@@ -77,6 +78,10 @@ const bridgeContent = readFileSync(bridgeSource);
 copyFileSync(bridgeSource, join(runtimeDir, bridgeTarget));
 hash.update(bridgeTarget);
 hash.update(bridgeContent);
+const growthContent = readFileSync(join(siteDir, 'pybridge', growthTarget));
+writeFileSync(join(runtimeDir, growthTarget), growthContent);
+hash.update(growthTarget);
+hash.update(growthContent);
 
 const nikke = readJson(join(repoRoot, 'data', 'parsed_nikke.json'));
 const skills = readJson(join(repoRoot, 'data', 'parsed_skills.json'));
@@ -209,7 +214,7 @@ hash.update('settings.json');
 hash.update(settings);
 const manifest = {
   version: hash.digest('hex').slice(0, 16),
-  files: [...runtimeFiles, bridgeTarget],
+  files: [...runtimeFiles, bridgeTarget, growthTarget],
 };
 
 writeFileSync(join(runtimeDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);

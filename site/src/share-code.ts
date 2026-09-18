@@ -282,6 +282,7 @@ const BATTLE_DEFAULTS: BattleShare = {
   seed: 42,
   optimalRangeWeapons: [],
   normalHitCoeff: {},
+  coreWindows: [],
   immuneWindows: [],
   elementWindows: [],
   rngMode: 'expected',
@@ -335,6 +336,7 @@ export function encodeBattleCode(
   }
   put('hc', coeff, {});
 
+  put('cw', (battle.coreWindows ?? []).map((w) => [toTenth(w.from), toTenth(w.to)]), []);
   put('iw', (battle.immuneWindows ?? []).map((w) => [toTenth(w.from), toTenth(w.to)]), []);
   put('ew', (battle.elementWindows ?? []).map(
     (w) => [toTenth(w.from), toTenth(w.to), Math.max(1, CODES.indexOf(w.code))]), []);
@@ -399,6 +401,7 @@ export function decodeBattleCode(code: string): BattleShare {
       ? (raw.or as unknown[]).filter((w): w is string => typeof w === 'string')
       : [],
     normalHitCoeff: coeff,
+    coreWindows: windowsOf(raw.cw, false) as PhaseWindow[],
     immuneWindows: windowsOf(raw.iw, false) as PhaseWindow[],
     elementWindows: windowsOf(raw.ew, true) as ElementWindow[],
     rngMode: raw.rm ? 'random' : 'expected',

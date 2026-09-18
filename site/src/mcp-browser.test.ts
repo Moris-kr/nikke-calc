@@ -8,6 +8,21 @@ const engine = () => ({ prepare: vi.fn().mockResolvedValue(undefined), dispose: 
   simulateMcp: vi.fn().mockResolvedValue({ engineVersion: 'browser-runtime', effectiveCharacters: [],
     result: { squadTotal: 123, timeline: {}, buffTargets: {}, states: {} } }) });
 afterEach(() => vi.useRealTimers());
+it('compares growth on the captured live roster and preserves account settings without editing it', async () => {
+  const saved = structuredClone(state);
+  saved.battle.synchroLevel = 321;
+  saved.battle.console = { common_level: 10, class_level: {}, company_level: {} };
+  const before = structuredClone(saved);
+  const worker = { ...engine(), compareGrowth: vi.fn().mockResolvedValue({ baseline: { combatPower: 100 }, scenarios: [] }) };
+  const result = await executeBrowserJob({ id: '1', kind: 'growth', name: '리타',
+    scenarios: [{ label: 'SR5', changes: { collection: { stage: 'SR5', favorite: 0 } } }] }, () => saved, worker);
+  expect(worker.compareGrowth.mock.calls[0]![0]).toMatchObject({ name: '리타', synchroLevel: 321,
+    console: saved.battle.console, baseline: saved.roster.리타 });
+  expect(result.execution).toBe('user-browser');
+  expect(saved).toEqual(before);
+  expect(worker.simulateMcp).not.toHaveBeenCalled();
+  await expect(executeBrowserJob({ id: '2', kind: 'growth', name: '크라운', scenarios: [] }, () => saved, worker)).rejects.toThrow('육성');
+});
 it('captures live roster for a new squad without changing saved deck', async () => {
   const worker = engine();
   const result = await executeBrowserJob({ id: '1', kind: 'shared', squad: ['리타'] }, () => state, worker);

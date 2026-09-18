@@ -46,6 +46,7 @@ export interface TimelineSeries {
   bursts: Record<string, { t: number; stage: string }[]>;
   fullBurst: [number, number][];
   /** 족자 — 평타가 빗나가는 구간. 타임라인에 붉은 밴드로 깐다. */
+  coreWindows: Array<{ from: number; to: number }>;
   immuneWindows: Array<{ from: number; to: number }>;
   /** 속저 — 우월 코드만 통과하는 구간. 푸른 밴드로 깐다. */
   elementWindows: Array<{ from: number; to: number; code: string }>;
@@ -126,6 +127,7 @@ export function buildSeries(
   squad: string[],
   duration: number,
   phases: {
+    coreWindows?: Array<{ from: number; to: number }>;
     immuneWindows?: Array<{ from: number; to: number }>;
     elementWindows?: Array<{ from: number; to: number; code: string }>;
   } = {},
@@ -150,6 +152,7 @@ export function buildSeries(
     totals,
     bursts: timeline.bursts,
     fullBurst: timeline.fullBurst,
+    coreWindows: phases.coreWindows ?? [],
     immuneWindows: phases.immuneWindows ?? [],
     elementWindows: phases.elementWindows ?? [],
     // 이 덱에 없는 사람이 건 버프는 색을 줄 수 없으니 뺀다(옛 결과에는 목록 자체가 없다).
@@ -487,6 +490,9 @@ class TimelineChart {
         ctx.fillText(label, x0 + w / 2, top + 3);
       }
     };
+    for (const w of this.series.coreWindows) {
+      band(w.from, w.to, 'rgba(74,222,128,0.12)', '코어 노출');
+    }
     for (const w of this.series.immuneWindows) {
       band(w.from, w.to, 'rgba(255,119,135,0.16)', '족자');
     }
@@ -889,6 +895,7 @@ export function createTimelineBlock(
   if (!timeline) return null;
   const squad = entry.request.squad.filter(Boolean);
   const series = buildSeries(timeline, squad, entry.result.duration, {
+    coreWindows: entry.request.corePx > 0 ? entry.request.coreWindows : [],
     immuneWindows: entry.request.immuneWindows,
     elementWindows: entry.request.elementWindows,
   });

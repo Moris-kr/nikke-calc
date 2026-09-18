@@ -1102,10 +1102,12 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <fieldset class="range-field phase-field">
               <legend>보스 페이즈</legend>
               <div class="phase-head">
+                <button type="button" class="phase-add" data-phase-add="core">+코어 노출 구간</button>
                 <button type="button" class="phase-add" data-phase-add="immune">족자 추가 <b>+</b></button>
                 <button type="button" class="phase-add" data-phase-add="element">속저 추가 <b>+</b></button>
               </div>
               <div class="phase-list" data-phase-list></div>
+              <p class="field-note">코어 노출 구간이 없으면 코어가 항상 노출됩니다. 구간을 추가하면 해당 시간에만 노출되며, 코어를 끄면 모든 구간에서 비활성화됩니다.</p>
               <p class="field-note"><b>족자</b>는 평타만 빗나갑니다. 지속 대미지·스킬 대미지와 평타로 발동한 후속 공격은 계속 들어갑니다. <b>속저</b>는 고른 속성에 <b>우월한</b> 캐릭터의 딜만 통과시킵니다 — 풍압으로 두면 작열 캐릭터만 들어갑니다. 인게임처럼 <b>우월 코드 버프</b>로 우월해진 캐릭터도 통과합니다(라피 : 레드 후드 «부착형 유탄» 등).</p>
             </fieldset>
           </div>
@@ -3151,6 +3153,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   // 구간은 개수가 정해지지 않아 입력을 미리 만들어 둘 수 없다 — 배열을 정본으로
   // 들고 그릴 때마다 새로 만든다. 입력값이 잘못돼도(시작>끝) 지우지 않고 그대로
   // 두고, 실행할 때 검증 메시지로 알린다.
+  let coreWindows: PhaseWindow[] = [];
   let immuneWindows: PhaseWindow[] = [];
   let elementWindows: ElementWindow[] = [];
 
@@ -3169,25 +3172,44 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       return input;
     };
 
-    const row = (kind: 'immune' | 'element', index: number, from: number, to: number) => {
+    const row = (kind: 'core' | 'immune' | 'element', index: number, from: number, to: number) => {
       const box = document.createElement('div');
       box.className = `phase-row is-${kind}`;
       box.dataset.phaseRow = `${kind}:${index}`;
-      box.append(createText('span', kind === 'immune' ? '족자' : '속저', 'phase-tag'));
+      box.append(createText('span', kind === 'core' ? '코어 노출' : kind === 'immune' ? '족자' : '속저', 'phase-tag'));
       box.append(numberField(from, (v) => {
-        if (kind === 'immune') immuneWindows[index]!.from = v;
+        if (kind === 'core') coreWindows[index]!.from = v;
+        else if (kind === 'immune') immuneWindows[index]!.from = v;
         else elementWindows[index]!.from = v;
         saveState();
       }));
       box.append(createText('span', '~', 'phase-sep'));
       box.append(numberField(to, (v) => {
-        if (kind === 'immune') immuneWindows[index]!.to = v;
+        if (kind === 'core') coreWindows[index]!.to = v;
+        else if (kind === 'immune') immuneWindows[index]!.to = v;
         else elementWindows[index]!.to = v;
         saveState();
       }));
       box.append(createText('span', '초', 'phase-sep'));
       return box;
     };
+
+    coreWindows.forEach((w, index) => {
+      const box = row('core', index, w.from, w.to);
+      const drop = document.createElement('button');
+      drop.type = 'button';
+      drop.className = 'phase-drop';
+      drop.dataset.phaseDrop = `core:${index}`;
+      drop.textContent = '✕';
+      drop.ariaLabel = `코어 노출 ${index + 1} 삭제`;
+      drop.addEventListener('click', () => {
+        coreWindows.splice(index, 1);
+        saveState();
+        renderPhases();
+      });
+      box.append(drop);
+      list.append(box);
+    });
 
     immuneWindows.forEach((w, index) => {
       const box = row('immune', index, w.from, w.to);
@@ -3238,13 +3260,14 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     });
   };
 
-  for (const kind of ['immune', 'element'] as const) {
+  for (const kind of ['core', 'immune', 'element'] as const) {
     element<HTMLButtonElement>(root, `[data-phase-add="${kind}"]`).addEventListener('click', () => {
       // 마지막 구간 뒤를 기본값으로 잡아, 겹치지 않는 구간을 이어 붙이기 쉽게 한다.
-      const all = [...immuneWindows, ...elementWindows];
+      const all = kind === 'core' ? coreWindows : [...immuneWindows, ...elementWindows];
       const start = all.length > 0 ? Math.max(...all.map((w) => w.to)) : 0;
       const from = Math.min(start, 178);
-      if (kind === 'immune') immuneWindows.push({ from, to: Math.min(from + 2, 180) });
+      if (kind === 'core') coreWindows.push({ from, to: Math.min(from + 2, 180) });
+      else if (kind === 'immune') immuneWindows.push({ from, to: Math.min(from + 2, 180) });
       else elementWindows.push({ from, to: Math.min(from + 2, 180), code: '풍압' });
       saveState();
       renderPhases();
@@ -3395,6 +3418,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     optimalRangeWeapons: readOptimalRange(),
     // 배열은 화면이 아니라 이 변수가 정본이다 — 입력이 잘못돼도 지우지 않고
     // 그대로 실어 실행 시 검증 메시지로 알린다.
+    coreWindows: coreWindows.map((w) => ({ ...w })),
     immuneWindows: immuneWindows.map((w) => ({ ...w })),
     elementWindows: elementWindows.map((w) => ({ ...w })),
     rngMode: element<HTMLSelectElement>(root, '#rng-mode').value as RngMode,
@@ -3427,6 +3451,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     element<HTMLInputElement>(root, '#has-parts').checked = battle.hasParts;
     element<HTMLInputElement>(root, '#seed').value = String(battle.seed);
     writeOptimalRange(battle.optimalRangeWeapons ?? []);
+    coreWindows = (battle.coreWindows ?? []).map((w) => ({ ...w }));
     immuneWindows = (battle.immuneWindows ?? []).map((w) => ({ ...w }));
     elementWindows = (battle.elementWindows ?? []).map((w) => ({ ...w }));
     renderPhases();

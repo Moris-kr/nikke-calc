@@ -18,7 +18,7 @@ from nikke_mcp.errors import ServerBusyError, EngineProcessError, InvalidSetting
 def engine_version() -> str:
     digest = hashlib.sha256()
     files = [*(ROOT / 'calculator').glob('*.py'), *(ROOT / 'context').glob('*.py'),
-             *(ROOT / 'data').rglob('*.json'), ROOT / 'site/pybridge/bridge.py',
+             *(ROOT / 'data').rglob('*.json'), *(ROOT / 'site/pybridge').glob('*.py'),
              ROOT / 'scraper/preview_skills.json', ROOT / 'scraper/nikke_scraped.json',
              *(ROOT / 'nikke_mcp').glob('*.py')]
     for path in sorted(files):

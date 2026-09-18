@@ -117,6 +117,27 @@ class ConsoleLevels(StrictModel):
         return self
 
 
+class GrowthCube(StrictModel):
+    name: str | None = Field(default=None, json_schema_extra={'enum': ['없음', *CUBE_NAMES]})
+    level: int | None = Field(default=None, ge=0, le=15)
+
+
+class GrowthChanges(CharacterOverrides):
+    cube: GrowthCube | None = None
+
+
+class GrowthScenario(StrictModel):
+    label: str = Field(min_length=1, max_length=100)
+    changes: GrowthChanges = Field(description='현재 육성에 덮어쓸 변경만 지정. 각 변경안은 독립 비교. 장비 4310=머리4·팔3·몸통1·다리0이며, equipLevels 정수는 오버로드 강화 목표 단계.')
+
+    @model_validator(mode='after')
+    def validate_changes(self):
+        changes = self.changes.model_dump(exclude_unset=True, exclude_none=True)
+        if not changes or set(changes) - {'growthStage', 'skillLevels', 'cube', 'collection', 'overload', 'equipLevels'}:
+            raise ValueError('전투력 비교는 돌파·스킬·큐브·소장품·오버로드·장비 변경만 지원합니다.')
+        return self
+
+
 class PhaseWindow(StrictModel):
     start: float = Field(alias='from', ge=0, le=180)
     to: float = Field(ge=0, le=180)
@@ -142,6 +163,8 @@ class BattleOptions(StrictModel):
     enemyDef: int = Field(default=31784, ge=0, le=10000000)
     enemyCode: Literal['', '풍압', '수냉', '작열', '전격', '철갑'] = ''
     corePx: float = Field(default=0, ge=0, le=1000)
+    coreWindows: list[PhaseWindow] = Field(default_factory=list, max_length=100,
+        description='코어 노출 구간(전투 시작 기준 초). 빈 배열이면 상시 노출. corePx=0이면 구간과 무관하게 코어 없음. 시작 포함·끝 제외.')
     hasParts: bool = False
     seed: int = Field(default=42, ge=0, le=2147483647)
     rngMode: Literal['expected', 'random'] = 'expected'

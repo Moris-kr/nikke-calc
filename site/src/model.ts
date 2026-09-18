@@ -63,6 +63,8 @@ export function normalizeRequest(request: SimulationRequest): SimulationRequest 
     ...(request.optimalRangeWeapons?.length
       ? { optimalRangeWeapons: [...request.optimalRangeWeapons].sort() } : {}),
     // 보스 페이즈는 시작 시각순으로 세운다 — 넣은 순서가 달라도 같은 설정이다.
+    ...(request.coreWindows?.length ? { coreWindows:
+      [...request.coreWindows].sort((a, b) => a.from - b.from || a.to - b.to) } : {}),
     ...(request.immuneWindows?.length ? { immuneWindows:
       [...request.immuneWindows].sort((a, b) => a.from - b.from || a.to - b.to) } : {}),
     ...(request.elementWindows?.length ? { elementWindows:
@@ -209,6 +211,7 @@ export function validateRequest(request: SimulationRequest): string[] {
   }
   // 보스 페이즈 — 시작이 끝보다 뒤면 조용히 뒤집지 않고 막는다. 엔진도 같은 규칙이다.
   const windows: Array<[{ from: number; to: number }, string]> = [
+    ...(request.coreWindows ?? []).map((w) => [w, '코어 노출'] as [typeof w, string]),
     ...(request.immuneWindows ?? []).map((w) => [w, '족자'] as [typeof w, string]),
     ...(request.elementWindows ?? []).map((w) => [w, '속저'] as [typeof w, string]),
   ];
@@ -287,6 +290,7 @@ export function requestForDeck(
     hasParts: battle.hasParts,
     seed: battle.seed,
     optimalRangeWeapons: battle.optimalRangeWeapons,
+    coreWindows: battle.coreWindows,
     immuneWindows: battle.immuneWindows,
     elementWindows: battle.elementWindows,
     rngMode: battle.rngMode,

@@ -59,6 +59,9 @@ export function renderMcpGuide(host: HTMLElement, connection?: BrowserMcpConnect
         <div class="mcp-example"><p>유니온레이드 핑거즈 덱 짜줘. 시즌과 Fingers / Rebuild Fingers를 구분하고, 보스 레벨·약점·기믹을 확인해서 내 육성으로 비교해 줘.</p></div>
         <p>ENIKK 사용률은 성능 점수나 승률이 아닙니다. AI는 출처·자료 날짜·표본과 실제 계산 결과를 구분해야 하며, 자료에 접근하지 못했다면 확인하지 못했다고 알려야 합니다.</p>
         <p>AI가 실제 계산 도구를 호출했는지 확인하세요. 비교 결과는 요청한 후보 사이의 순위이며 모든 조합의 최적해를 보장하지 않습니다.</p>
+        <div class="mcp-example"><p>내 민트의 현재 육성을 기준으로 예상 전투력을 비교해 줘. 장비를 머리 4·팔 3·몸통 1·다리 0강으로 바꾸는 경우와, 소장품만 SR5 또는 SR15로 바꾸는 경우를 각각 독립적으로 계산하고 현재 대비 증감을 보여 줘. compare_browser_growth를 사용하고 저장된 육성은 바꾸지 마.</p></div>
+        <p>코어 노출은 전투 설정의 고급 설정에서 여러 구간으로 지정할 수 있습니다. 예를 들어 “코어는 30~60초, 90~120초에만 노출되도록 계산해 줘”라고 요청하세요. 구간이 없으면 코어가 상시 노출되며, 코어 없음 설정이 우선합니다.</p>
+        <p>전용 MCP 도구가 없는 기능도 AI가 브라우저 조작 도구를 갖고 있다면 계산기 화면을 확인해 진행할 수 있습니다. 실제 육성이 있는 탭을 사용해야 하며, 브라우저 조작이 불가능하면 직접 따라 할 메뉴와 입력 방법을 안내합니다.</p>
       </section>
       <section><h4>연결이 늦거나 결과가 다를 때</h4>
         <ul><li>무료 서버는 미사용 시 절전합니다. <a href="https://nikke-calc-mcp.onrender.com/health" target="_blank" rel="noopener noreferrer">서버 상태 확인 ↗</a>에서 <code>status: ok</code>가 나온 뒤 다시 시도하세요. 처음에는 약 1분 걸릴 수 있습니다.</li>

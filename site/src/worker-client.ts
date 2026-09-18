@@ -2,6 +2,7 @@ import type {
   SimulationRequest,
   SimulationResult,
   CombatPowerRequest,
+  GrowthComparisonRequest,
   WorkerRequest,
   WorkerResponse,
 } from './types';
@@ -102,6 +103,10 @@ export class CalculatorWorkerClient {
   /** 캐릭터별 인게임 전투력. 목록 정렬에만 쓴다. */
   combatPower(request: CombatPowerRequest): Promise<Record<string, number>> {
     return this.send<Record<string, number>>('combatPower', 'result', request);
+  }
+
+  compareGrowth(request: GrowthComparisonRequest): Promise<Record<string, unknown>> {
+    return this.send('compareGrowth', 'result', request);
   }
 
   dispose(): void {

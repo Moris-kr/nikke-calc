@@ -611,6 +611,7 @@ def run_request(raw: str, include_effective: bool = False) -> str:
         "def": int(payload["enemyDef"]),
         "code": str(payload.get("enemyCode") or ""),
         "core_px": float(payload.get("corePx") or 0),
+        "core_windows": normalize_immune_windows(payload.get("coreWindows")),
         "has_parts": bool(payload.get("hasParts")),
         # 적정거리는 무기군 단위로 켜진다 — 그 무기군의 일반 공격에만 ③ +30%.
         "optimal_range_weapons": normalize_optimal_range(
