@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import argparse
 import os
-from typing import Any
+from typing import Any, Literal
 
 from mcp.server import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
@@ -12,7 +12,8 @@ from starlette.responses import JSONResponse
 
 from calculator.customization import CUBE_NAMES, COLLECTION_STAGES, OVERLOAD_FIELDS, MANUAL_STATS
 from context.spec import DEFAULT_CHAR
-from nikke_mcp.models import CombatRequest, GrowthScenario, character_names
+from nikke_mcp.models import CombatRequest, GrowthScenario, CharacterOverrides, RecommendationCandidate, RecommendationScenario, character_names
+from nikke_mcp.squad_policy import inspect_squad_policy, query_squad_roles
 from nikke_mcp.shared_state import SharedState, inspect_shared, shared_request
 from nikke_mcp.service import CalculatorService, engine_version, get_character as lookup_character, list_characters as search_characters
 from nikke_mcp.errors import public_errors, InvalidSettingsError
@@ -24,6 +25,10 @@ def create_server(timeout: int = 60, max_concurrent: int = 2, browser_mode: bool
     server = MCPServer('NIKKE Calculator', version='1.0.0', instructions=(
         '니케 계산 도구입니다. 덱/조합 추천 요청(Campaign 스테이지, 속성별 솔로레이드, 유니온레이드 보스 등)은 '
         '반드시 먼저 get_recommendation_guide를 호출해 해당 콘텐츠의 ENIKK 검색·근거 검증 지침을 읽으세요. '
+        '추천하는 각 덱에는 실제 발동 가능한 아군 버스트 쿨타임 감소 캐릭터를 반드시 포함하세요. '
+        'validate_squad_policy로 검사하고, 사용자 지정 덱에 쿨감이 없으면 의도를 한 번 확인하세요. '
+        '예외는 솔린 대신 바니 소다를 쓰는 실제 샷건 편성뿐입니다. 자기 쿨감은 아군 쿨감이 아닙니다. '
+        'get_recommendation_evidence의 날짜가 붙은 관측 조합으로 후보를 찾고 recommend_browser_squads로 실제 육성의 후보를 비교하세요. '
         '지침 조회 자체는 최신 기록 조회가 아닙니다. 웹/브라우저 접근이 없으면 ENIKK를 확인했다고 말하지 마세요. '
         '먼저 정식 이름과 설정을 조회하고 실제 simulate_squad/compare_setups 결과로 답하세요. '
         '수치를 추측하지 마세요. 입력한 육성이 없으면 기본 육성이며 사용자 실제 계정으로 표현하지 마세요. '
@@ -55,6 +60,50 @@ def create_server(timeout: int = 60, max_concurrent: int = 2, browser_mode: bool
         """정식 캐릭터명·속성·무기·버스트를 검색합니다. 별칭을 추측하지 말고 이 목록의 이름을 사용하세요."""
         with public_errors():
             return search_characters(query)
+
+    @server.tool(annotations=read_only)
+    def get_squad_roles(names: list[str] | None = None, characters: dict[str, CharacterOverrides] | None = None) -> dict[str, Any]:
+        """스킬 데이터에서 아군 버스트 쿨감과 발동 조건을 조회합니다. 자기 쿨감/음수 효과와 구분합니다. 실제 육성이 없으면 기본 스킬 기준이며 팀 조건은 validate_squad_policy로 검사하세요."""
+        with public_errors():
+            try:
+                return query_squad_roles(names, {n: c.model_dump(exclude_unset=True) for n, c in (characters or {}).items()})
+            except ValueError as error:
+                raise InvalidSettingsError(str(error)) from error
+
+    @server.tool(annotations=read_only)
+    def validate_squad_policy(squad: list[str], characters: dict[str, CharacterOverrides] | None = None,
+                              purpose: Literal['recommendation', 'user_fixed'] = 'recommendation',
+                              allow_no_cdr: bool = False) -> dict[str, Any]:
+        """덱의 아군 쿨감·조건부 발동·버스트 구조를 검사합니다. requiresConfirmation이면 쿨감 없는 편성이 원래 의도인지 한 번 물으세요. allow_no_cdr는 사용자 지정 편성에서 사용자가 확인한 뒤에만 true; 새 추천의 필수 조건을 우회하지 않습니다."""
+        with public_errors():
+            try:
+                return inspect_squad_policy(squad, {n: c.model_dump(exclude_unset=True) for n, c in (characters or {}).items()}, purpose, allow_no_cdr)
+            except ValueError as error:
+                raise InvalidSettingsError(str(error)) from error
+
+    @server.tool(annotations=read_only)
+    def get_recommendation_evidence(mode: Literal['all', 'campaign', 'soloraid'] = 'all') -> dict[str, Any]:
+        """2026-09-18에 직접 확인한 ENIKK 조합·표본·해석의 연구 스냅샷입니다. 최신 검색 결과가 아니며 사용률은 성능/승률이 아닙니다. 실제 요청 조건은 ENIKK에서 재확인하세요."""
+        from nikke_mcp.recommendation_evidence import evidence
+        return evidence(mode)
+
+    @server.tool(annotations=calculation)
+    def recommend_browser_squads(connection_code: str, candidates: list[RecommendationCandidate],
+                                  squad_count: int = 1, include: list[str] | None = None,
+                                  exclude: list[str] | None = None,
+                                  scenarios: list[RecommendationScenario] | None = None) -> dict[str, Any]:
+        """ENIKK 등에서 구성한 1~20개 후보를 현재 브라우저 육성·전투 조건으로 계산하고 중복 없는 1~5덱을 선택합니다. 쿨감 필수 검사 후 expected 계산. 추가 전투 조건 최대2개에서 최대 상대 손실을 최소화합니다. include는 선택된 모든 덱의 합집합에 필수, exclude는 모든 덱에서 금지. 입력 후보 내 최적화이며 전체 최적해/클리어 보장 아님. 저장값은 변경하지 않습니다. get_browser_result로 완료까지 조회하세요."""
+        if not browser_mode:
+            fail('BROWSER_CONNECTION_REQUIRED', '공개 HTTP MCP와 연결한 사용자 브라우저에서 지원합니다.')
+        if not 1 <= len(candidates) <= 20 or not 1 <= squad_count <= 5 or len(scenarios or []) > 2:
+            fail('INVALID_SETTINGS', '후보 1~20개, 덱 수 1~5, 추가 조건 최대2개입니다.')
+        required, forbidden = include or [], exclude or []
+        if set(required) & set(forbidden) or (set(required) | set(forbidden)) - set(character_names()):
+            fail('INVALID_SETTINGS', '필수·제외 캐릭터의 충돌 또는 정식 이름을 확인하세요.')
+        return relay.submit(connection_code, {'kind': 'recommend', 'options': {
+            'candidates': [c.model_dump(exclude_none=True) for c in candidates], 'squadCount': squad_count,
+            'include': required, 'exclude': forbidden,
+            'scenarios': [s.model_dump() for s in (scenarios or [])]}})
 
     @server.tool(annotations=read_only)
     def get_character(name: str, skill_level: int = 10) -> dict[str, Any]:

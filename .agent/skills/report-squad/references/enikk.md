@@ -52,7 +52,9 @@
   return (pg&&pg[0])+' :: '+rows.map(r=>{
     let p=r; for(let i=0;i<6;i++){p=p.parentElement; if(p&&/\d/.test(p.innerText))break;}
     const t=p.innerText.split('\n').map(s=>s.trim()).filter(Boolean);
-    const [mx,av,n]=t.slice(-3);
+    // 2026-09-18 UI: Max DMG / Avg DMG / Min DMG / Parse Count.
+    // 펼친 행의 실제 열 이름을 먼저 대조한다. 레이아웃이 다르면 추출하지 않는다.
+    const [mx,av,mn,n]=t.slice(-4);
     return [...r.querySelectorAll('img[alt$="character"]')]
       .map(i=>decodeURIComponent(i.src).match(/si_c(\d+)_/)[1]).join(',')
       +'='+n+'|'+mx.replace('B','')+'|'+av.replace('B','');

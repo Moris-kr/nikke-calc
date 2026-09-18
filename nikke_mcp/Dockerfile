@@ -10,6 +10,8 @@ COPY data /app/data
 COPY scraper/nikke_scraped.json scraper/preview_skills.json /app/scraper/
 COPY site/pybridge /app/site/pybridge
 COPY nikke_mcp/*.py /app/nikke_mcp/
+COPY docs/research/enikk-*-2026-09-18.json /app/docs/research/
+COPY docs/research/recommendation-method.md /app/docs/research/
 RUN useradd --uid 10001 --create-home calculator
 USER calculator
 EXPOSE 8000

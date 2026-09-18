@@ -1,12 +1,13 @@
 import type { McpShare } from './mcp-share';
-import type { SimulationRequest, SimulationResult, GrowthComparisonRequest } from './types';
+import type { SimulationRequest, SimulationResult, GrowthComparisonRequest, RecommendationOptions, RecommendationRequest } from './types';
 import { CalculatorWorkerClient } from './worker-client';
 
 const RELAY = import.meta.env.DEV && import.meta.env.VITE_MCP_RELAY_URL
   ? import.meta.env.VITE_MCP_RELAY_URL : 'https://nikke-calc-mcp.onrender.com/browser';
 export interface BrowserJob {
   id: string;
-  kind: 'inspect' | 'simulate' | 'shared' | 'growth';
+  kind: 'inspect' | 'simulate' | 'shared' | 'growth' | 'recommend';
+  options?: RecommendationOptions;
   name?: string;
   scenarios?: GrowthComparisonRequest['scenarios'];
   requests?: SimulationRequest[];
@@ -19,6 +20,7 @@ interface BrowserEngine {
   prepare(): Promise<void>;
   simulateMcp(request: SimulationRequest): Promise<{ result: SimulationResult; effectiveCharacters: unknown[]; engineVersion: string }>;
   compareGrowth?(request: GrowthComparisonRequest): Promise<Record<string, unknown>>;
+  recommend?(request: RecommendationRequest): Promise<Record<string, unknown>>;
   dispose(): void;
 }
 export interface ConnectionState { code: string; message: string; connecting: boolean; }
@@ -26,6 +28,16 @@ export interface ConnectionState { code: string; message: string; connecting: bo
 /** Only allowlisted data jobs; nothing received from the relay is executable code. */
 export async function executeBrowserJob(job: BrowserJob, getShare: () => McpShare, engine: BrowserEngine): Promise<Record<string, unknown>> {
   if (job.kind === 'inspect') return { ...getShare() };
+  if (job.kind === 'recommend') {
+    if (!job.options?.candidates || !engine.recommend) throw new Error('추천 후보를 확인하고 계산기 페이지를 새로고침해 주세요.');
+    const state = getShare();
+    const { candidates, squadCount, include, exclude, scenarios } = job.options;
+    // Never spread remote options: roster and battle belong to this browser.
+    const request: RecommendationRequest = JSON.parse(JSON.stringify({
+      candidates, squadCount, include, exclude, scenarios, roster: state.roster, battle: state.battle,
+    }));
+    return { ...await engine.recommend(request), execution: 'user-browser', source: 'current-browser-roster', request };
+  }
   if (job.kind === 'growth') {
     const state = getShare();
     if (!job.name || !Object.hasOwn(state.roster, job.name) || !Object.keys(state.roster[job.name]!).length) {
@@ -154,9 +166,10 @@ export class BrowserMcpConnection {
     }
   }
   private async run(job: BrowserJob, generation: number): Promise<void> {
+    const minutes = job.kind === 'recommend' ? 20 : 4;
     this.jobTimer = setTimeout(() => {
-      if (generation === this.generation) this.disconnect('계산이 4분을 넘겨 연결을 해제했습니다. 전투 시간을 줄이고 다시 연결해 주세요.');
-    }, 240000);
+      if (generation === this.generation) this.disconnect(`계산이 ${minutes}분을 넘겨 연결을 해제했습니다. 후보 수나 전투 시간을 줄이고 다시 연결해 주세요.`);
+    }, minutes * 60000);
     try {
       let body: object;
       try { body = { result: await executeBrowserJob(job, this.getShare, this.engine!) }; }

@@ -1,0 +1,638 @@
+{
+  "accessedDate": "2026-09-18",
+  "source": "ENIKK rendered browser UI",
+  "archiveUrl": "https://enikk.app/soloraid",
+  "selection": "Latest collected season per weakness; first five rows of Teams sorted by Parse Count, 25 per page. Slot order preserved.",
+  "statisticLabelsVerified": "Season 36 expanded team region explicitly labels Max DMG, Avg DMG, Min DMG in that order; count aria-label is Count of total parses of this team.",
+  "limitations": [
+    "Observed usage is not editorial rating or causal proof of strength.",
+    "Damage labels are rounded display values; investment, manual play, boss mechanics and favorite items are not controlled.",
+    "No five-team disjoint allocation implied; cross-season records overlap.",
+    "Exact data dates not displayed; retain literal Last Updated relative labels rather than infer dates.",
+    "Only ranks 1-5 from page 1 retained per season; rows 6 onward and all subsequent pages uncollected.",
+    "Never bypass effective team cooldown-reduction gate merely because a historical squad has usage. Favorite-item variants must be checked separately."
+  ],
+  "skipped": [
+    {
+      "season": 42,
+      "weakness": "Electric",
+      "reason": "Archive explicitly No data / Not collected"
+    },
+    {
+      "season": 41,
+      "weakness": "Water",
+      "reason": "Archive explicitly No data"
+    },
+    {
+      "seasons": "1-35",
+      "reason": "Older than latest collected representative of each weakness"
+    }
+  ],
+  "seasons": [
+    {
+      "season": 40,
+      "sourceUrl": "https://enikk.app/soloraid/40",
+      "boss": "Luxurious Spider",
+      "observedBossElement": "Wind",
+      "observedWeakness": "Fire",
+      "totalParses": 10665,
+      "dataDate": null,
+      "lastUpdatedLabel": "20 days",
+      "sort": "Sort by Parse Count",
+      "pageSize": 25,
+      "observedPage": 1,
+      "totalPages": 34,
+      "teams": [
+        {
+          "usageRank": 1,
+          "resourceIds": [
+            192,
+            234,
+            583,
+            101,
+            74
+          ],
+          "characters": [
+            "토브",
+            "도로시 : 세렌디피티",
+            "아르카나 : 포츈 메이트",
+            "드레이크",
+            "솔린 : 프로스트 티켓"
+          ],
+          "parseCount": 1969,
+          "maxDamageLabel": "8.40B",
+          "avgDamageLabel": "5.08B",
+          "minDamageLabel": "590M"
+        },
+        {
+          "usageRank": 2,
+          "resourceIds": [
+            513,
+            330,
+            870,
+            871,
+            354
+          ],
+          "characters": [
+            "리틀 머메이드",
+            "크라운",
+            "퀸(마코토)",
+            "유키코",
+            "마스트 : 로망틱 메이드"
+          ],
+          "parseCount": 1242,
+          "maxDamageLabel": "10.86B",
+          "avgDamageLabel": "7.57B",
+          "minDamageLabel": "2.74B"
+        },
+        {
+          "usageRank": 3,
+          "resourceIds": [
+            73,
+            16,
+            17,
+            162,
+            170
+          ],
+          "characters": [
+            "브리드 : 사일런트 트랙",
+            "라피 : 레드 후드",
+            "아니스 : 스타",
+            "미하라 : 본딩 체인",
+            "프리바티"
+          ],
+          "parseCount": 986,
+          "maxDamageLabel": "14.33B",
+          "avgDamageLabel": "11.19B",
+          "minDamageLabel": "7.86B"
+        },
+        {
+          "usageRank": 4,
+          "resourceIds": [
+            82,
+            514,
+            191,
+            831,
+            260
+          ],
+          "characters": [
+            "리타",
+            "그레이브",
+            "앨리스",
+            "레이",
+            "모더니아"
+          ],
+          "parseCount": 803,
+          "maxDamageLabel": "6.73B",
+          "avgDamageLabel": "4.35B",
+          "minDamageLabel": "1.39B"
+        },
+        {
+          "usageRank": 5,
+          "resourceIds": [
+            600,
+            281,
+            471,
+            75,
+            601
+          ],
+          "characters": [
+            "민트",
+            "목단",
+            "스노우 화이트 : 헤비암즈",
+            "디젤 : 윈터 스위츠",
+            "프리카"
+          ],
+          "parseCount": 773,
+          "maxDamageLabel": "8.38B",
+          "avgDamageLabel": "6.15B",
+          "minDamageLabel": "744M"
+        }
+      ]
+    },
+    {
+      "season": 39,
+      "sourceUrl": "https://enikk.app/soloraid/39",
+      "boss": "Island Eater",
+      "observedBossElement": "Electronic",
+      "observedWeakness": "Iron",
+      "totalParses": 9325,
+      "dataDate": null,
+      "lastUpdatedLabel": "57 days",
+      "sort": "Sort by Parse Count",
+      "pageSize": 25,
+      "observedPage": 1,
+      "totalPages": 41,
+      "teams": [
+        {
+          "usageRank": 1,
+          "resourceIds": [
+            330,
+            450,
+            17,
+            16,
+            170
+          ],
+          "characters": [
+            "크라운",
+            "나가",
+            "아니스 : 스타",
+            "라피 : 레드 후드",
+            "프리바티"
+          ],
+          "parseCount": 1528,
+          "maxDamageLabel": "15.64B",
+          "avgDamageLabel": "12.53B",
+          "minDamageLabel": "6.74B"
+        },
+        {
+          "usageRank": 2,
+          "resourceIds": [
+            354,
+            515,
+            355,
+            850,
+            513
+          ],
+          "characters": [
+            "마스트 : 로망틱 메이드",
+            "신데렐라 : 크리스탈 웨이브",
+            "앵커 : 이노센트 메이드",
+            "이브",
+            "리틀 머메이드"
+          ],
+          "parseCount": 1082,
+          "maxDamageLabel": "14.06B",
+          "avgDamageLabel": "9.34B",
+          "minDamageLabel": "4.47B"
+        },
+        {
+          "usageRank": 3,
+          "resourceIds": [
+            32,
+            223,
+            322,
+            352,
+            353
+          ],
+          "characters": [
+            "미란다",
+            "나유타",
+            "마르차나 : 마린 스터디",
+            "헬름",
+            "헬름 : 아쿠아마린"
+          ],
+          "parseCount": 711,
+          "maxDamageLabel": "8.45B",
+          "avgDamageLabel": "5.94B",
+          "minDamageLabel": "3.31B"
+        },
+        {
+          "usageRank": 4,
+          "resourceIds": [
+            82,
+            600,
+            851,
+            601,
+            470
+          ],
+          "characters": [
+            "리타",
+            "민트",
+            "레이븐",
+            "프리카",
+            "레드 후드"
+          ],
+          "parseCount": 671,
+          "maxDamageLabel": "9.28B",
+          "avgDamageLabel": "6.40B",
+          "minDamageLabel": "2.82B"
+        },
+        {
+          "usageRank": 5,
+          "resourceIds": [
+            281,
+            860,
+            861,
+            471,
+            840
+          ],
+          "characters": [
+            "목단",
+            "치사토",
+            "타키나",
+            "스노우 화이트 : 헤비암즈",
+            "에이다"
+          ],
+          "parseCount": 468,
+          "maxDamageLabel": "6.78B",
+          "avgDamageLabel": "5.17B",
+          "minDamageLabel": "2.18B"
+        }
+      ]
+    },
+    {
+      "season": 38,
+      "sourceUrl": "https://enikk.app/soloraid/38",
+      "boss": "Annihilio",
+      "observedBossElement": "Iron",
+      "observedWeakness": "Wind",
+      "totalParses": 1500,
+      "dataDate": null,
+      "lastUpdatedLabel": "68 days",
+      "sort": "Sort by Parse Count",
+      "pageSize": 25,
+      "observedPage": 1,
+      "totalPages": 9,
+      "teams": [
+        {
+          "usageRank": 1,
+          "resourceIds": [
+            354,
+            225,
+            17,
+            262,
+            355
+          ],
+          "characters": [
+            "마스트 : 로망틱 메이드",
+            "홍련 : 흑영",
+            "아니스 : 스타",
+            "리버렐리오",
+            "앵커 : 이노센트 메이드"
+          ],
+          "parseCount": 300,
+          "maxDamageLabel": "17.82B",
+          "avgDamageLabel": "14.58B",
+          "minDamageLabel": "12.22B"
+        },
+        {
+          "usageRank": 2,
+          "resourceIds": [
+            515,
+            223,
+            513,
+            316,
+            170
+          ],
+          "characters": [
+            "신데렐라 : 크리스탈 웨이브",
+            "나유타",
+            "리틀 머메이드",
+            "벨벳",
+            "프리바티"
+          ],
+          "parseCount": 120,
+          "maxDamageLabel": "11.86B",
+          "avgDamageLabel": "10.02B",
+          "minDamageLabel": "7.92B"
+        },
+        {
+          "usageRank": 3,
+          "resourceIds": [
+            16,
+            835,
+            352,
+            834,
+            330
+          ],
+          "characters": [
+            "라피 : 레드 후드",
+            "아스카 : WILLE",
+            "헬름",
+            "레이 (가칭)",
+            "크라운"
+          ],
+          "parseCount": 96,
+          "maxDamageLabel": "9.05B",
+          "avgDamageLabel": "7.34B",
+          "minDamageLabel": "5.54B"
+        },
+        {
+          "usageRank": 4,
+          "resourceIds": [
+            330,
+            834,
+            835,
+            513,
+            170
+          ],
+          "characters": [
+            "크라운",
+            "레이 (가칭)",
+            "아스카 : WILLE",
+            "리틀 머메이드",
+            "프리바티"
+          ],
+          "parseCount": 86,
+          "maxDamageLabel": "11.86B",
+          "avgDamageLabel": "9.71B",
+          "minDamageLabel": "7.60B"
+        },
+        {
+          "usageRank": 5,
+          "resourceIds": [
+            16,
+            471,
+            600,
+            570,
+            601
+          ],
+          "characters": [
+            "라피 : 레드 후드",
+            "스노우 화이트 : 헤비암즈",
+            "민트",
+            "아크레인저 블랙",
+            "프리카"
+          ],
+          "parseCount": 55,
+          "maxDamageLabel": "7.82B",
+          "avgDamageLabel": "6.34B",
+          "minDamageLabel": "5.41B"
+        }
+      ]
+    },
+    {
+      "season": 37,
+      "sourceUrl": "https://enikk.app/soloraid/37",
+      "boss": "Ultra",
+      "observedBossElement": "Fire",
+      "observedWeakness": "Water",
+      "totalParses": 6860,
+      "dataDate": null,
+      "lastUpdatedLabel": "103 days",
+      "sort": "Sort by Parse Count",
+      "pageSize": 25,
+      "observedPage": 1,
+      "totalPages": 25,
+      "teams": [
+        {
+          "usageRank": 1,
+          "resourceIds": [
+            192,
+            234,
+            583,
+            101,
+            74
+          ],
+          "characters": [
+            "토브",
+            "도로시 : 세렌디피티",
+            "아르카나 : 포츈 메이트",
+            "드레이크",
+            "솔린 : 프로스트 티켓"
+          ],
+          "parseCount": 1281,
+          "maxDamageLabel": "14.07B",
+          "avgDamageLabel": "9.84B",
+          "minDamageLabel": "5.39B"
+        },
+        {
+          "usageRank": 2,
+          "resourceIds": [
+            330,
+            82,
+            352,
+            194,
+            502
+          ],
+          "characters": [
+            "크라운",
+            "리타",
+            "헬름",
+            "루드밀라 : 윈터 오너",
+            "일레그 : 붐 앤 쇼크"
+          ],
+          "parseCount": 449,
+          "maxDamageLabel": "11.09B",
+          "avgDamageLabel": "7.46B",
+          "minDamageLabel": "2.97B"
+        },
+        {
+          "usageRank": 3,
+          "resourceIds": [
+            17,
+            520,
+            355,
+            354,
+            75
+          ],
+          "characters": [
+            "아니스 : 스타",
+            "브래디",
+            "앵커 : 이노센트 메이드",
+            "마스트 : 로망틱 메이드",
+            "디젤 : 윈터 스위츠"
+          ],
+          "parseCount": 289,
+          "maxDamageLabel": "12.05B",
+          "avgDamageLabel": "9.59B",
+          "minDamageLabel": "7.51B"
+        },
+        {
+          "usageRank": 4,
+          "resourceIds": [
+            390,
+            471,
+            600,
+            170,
+            513
+          ],
+          "characters": [
+            "츠바이",
+            "스노우 화이트 : 헤비암즈",
+            "민트",
+            "프리바티",
+            "리틀 머메이드"
+          ],
+          "parseCount": 282,
+          "maxDamageLabel": "18.40B",
+          "avgDamageLabel": "13.47B",
+          "minDamageLabel": "9.46B"
+        },
+        {
+          "usageRank": 5,
+          "resourceIds": [
+            16,
+            600,
+            403,
+            470,
+            601
+          ],
+          "characters": [
+            "라피 : 레드 후드",
+            "민트",
+            "퀀시 : 이스케이프 퀸",
+            "레드 후드",
+            "프리카"
+          ],
+          "parseCount": 245,
+          "maxDamageLabel": "7.81B",
+          "avgDamageLabel": "6.10B",
+          "minDamageLabel": "3.01B"
+        }
+      ]
+    },
+    {
+      "season": 36,
+      "sourceUrl": "https://enikk.app/soloraid/36",
+      "boss": "Egovista",
+      "observedBossElement": "Water",
+      "observedWeakness": "Electronic",
+      "totalParses": 3995,
+      "dataDate": null,
+      "lastUpdatedLabel": "134 days",
+      "sort": "Sort by Parse Count",
+      "pageSize": 25,
+      "observedPage": 1,
+      "totalPages": 12,
+      "teams": [
+        {
+          "usageRank": 1,
+          "resourceIds": [
+            231,
+            17,
+            511,
+            581,
+            330
+          ],
+          "characters": [
+            "이사벨",
+            "아니스 : 스타",
+            "신데렐라",
+            "아르카나",
+            "크라운"
+          ],
+          "parseCount": 745,
+          "maxDamageLabel": "16.57B",
+          "avgDamageLabel": "11.90B",
+          "minDamageLabel": "8.72B"
+        },
+        {
+          "usageRank": 2,
+          "resourceIds": [
+            15,
+            315,
+            281,
+            183,
+            170
+          ],
+          "characters": [
+            "아니스 : 스파클링 서머",
+            "에이드 : 에이전트 바니",
+            "목단",
+            "메이든 : 아이스 로즈",
+            "프리바티"
+          ],
+          "parseCount": 545,
+          "maxDamageLabel": "8.08B",
+          "avgDamageLabel": "5.60B",
+          "minDamageLabel": "3.72B"
+        },
+        {
+          "usageRank": 3,
+          "resourceIds": [
+            354,
+            513,
+            18,
+            262,
+            355
+          ],
+          "characters": [
+            "마스트 : 로망틱 메이드",
+            "리틀 머메이드",
+            "네온 : 비전 아이",
+            "리버렐리오",
+            "앵커 : 이노센트 메이드"
+          ],
+          "parseCount": 495,
+          "maxDamageLabel": "8.19B",
+          "avgDamageLabel": "6.38B",
+          "minDamageLabel": "3.84B"
+        },
+        {
+          "usageRank": 4,
+          "resourceIds": [
+            32,
+            861,
+            391,
+            272,
+            840
+          ],
+          "characters": [
+            "미란다",
+            "타키나",
+            "아인",
+            "루주",
+            "에이다"
+          ],
+          "parseCount": 320,
+          "maxDamageLabel": "6.85B",
+          "avgDamageLabel": "4.74B",
+          "minDamageLabel": "2.67B"
+        },
+        {
+          "usageRank": 5,
+          "resourceIds": [
+            82,
+            354,
+            18,
+            262,
+            355
+          ],
+          "characters": [
+            "리타",
+            "마스트 : 로망틱 메이드",
+            "네온 : 비전 아이",
+            "리버렐리오",
+            "앵커 : 이노센트 메이드"
+          ],
+          "parseCount": 201,
+          "maxDamageLabel": "8.71B",
+          "avgDamageLabel": "5.74B",
+          "minDamageLabel": "3.50B"
+        }
+      ]
+    }
+  ]
+}

@@ -14,3 +14,7 @@
 !site/
 !site/pybridge/
 !site/pybridge/*.py
+!docs/
+!docs/research/
+!docs/research/enikk-*-2026-09-18.json
+!docs/research/recommendation-method.md

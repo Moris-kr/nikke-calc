@@ -60,7 +60,9 @@ describe('generated browser runtime', () => {
     ) as RuntimeManifest;
 
     expect(manifest.version).toMatch(/^[a-f0-9]{16}$/);
-    expect(manifest.files).toHaveLength(26);
+    expect(manifest.files).toHaveLength(28);
+    expect(manifest.files).toContain('recommendation.py');
+    expect(manifest.files).toContain('squad_policy.py');
     expect(manifest.files).toContain('growth_comparison.py');
     expect(manifest.files).toContain('context/growth.py');
     // 브리지가 import하는 모듈이 목록에서 빠지면 엔진 초기화가 통째로 실패한다.

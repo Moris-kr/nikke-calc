@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import math
 import secrets
 import time
 from threading import RLock
@@ -35,8 +36,8 @@ class BrowserRelay:
                 del self.sessions[code]
                 continue
             for key, job in list(session['jobs'].items()):
-                if job['status'] in ('queued', 'running') and now - job['started'] >= 300:
-                    job.update(status='failed', error='[JOB_TIMEOUT] 브라우저 작업이 5분 안에 완료되지 않았습니다. 다시 연결하고 재시도하세요.', finished=now)
+                if job['status'] in ('queued', 'running') and now - job['started'] >= job.get('timeout', 300):
+                    job.update(status='failed', error='[JOB_TIMEOUT] 브라우저 작업 제한 시간을 넘었습니다. 후보나 전투 시간을 줄여 재시도하세요.', finished=now)
                     job.pop('payload', None)
                 if job.get('finished') is not None and now - job['finished'] >= 300:
                     del session['jobs'][key]
@@ -71,7 +72,8 @@ class BrowserRelay:
             if len(jobs) >= 8:
                 del jobs[next(iter(jobs))]
             job_id = secrets.token_urlsafe(16)
-            jobs[job_id] = {'payload': {'id': job_id, **payload}, 'status': 'queued', 'started': self.clock()}
+            jobs[job_id] = {'payload': {'id': job_id, **payload}, 'status': 'queued', 'started': self.clock(),
+                            'timeout': 1260 if payload.get('kind') == 'recommend' else 300}
             return {'status': 'queued', 'jobId': job_id,
                     'instruction': '계산기 탭을 열어 두고 get_browser_result(connection_code, job_id)로 결과를 확인하세요.'}
 
@@ -118,6 +120,50 @@ class BrowserRelay:
                 raise ValueError()
             if payload['kind'] == 'inspect':
                 SharedState.model_validate(result)
+            elif payload['kind'] == 'recommend':
+                rows = result.get('candidates')
+                options = payload['options']
+                scenario_count = 1 + len(options.get('scenarios', []))
+                if (not isinstance(result.get('engineVersion'), str) or not isinstance(rows, list)
+                        or len(rows) != len(options['candidates'])
+                        or not isinstance(result.get('selected'), list)
+                        or len(result['selected']) not in (0, payload['options']['squadCount'])
+                        or not isinstance(result.get('solutions'), list)):
+                    raise ValueError()
+                def number(value):
+                    return type(value) in (int, float) and math.isfinite(value) and value >= 0
+                for index, (row, requested) in enumerate(zip(rows, options['candidates'])):
+                    if (not isinstance(row, dict) or row.get('squad') != requested['squad']
+                            or row.get('id') != index or row.get('status') not in ('evaluated', 'rejected')):
+                        raise ValueError()
+                    if row['status'] == 'evaluated':
+                        if (not row.get('policy', {}).get('recommendedEligible')
+                                or len(row.get('scenarios', [])) != scenario_count
+                                or any(not number(s.get('total')) for s in row['scenarios'])):
+                            raise ValueError()
+                solutions = result['solutions']
+                if len(solutions) > 5 or bool(solutions) != bool(result['selected']):
+                    raise ValueError()
+                for solution in solutions:
+                    if not isinstance(solution, dict):
+                        raise ValueError()
+                    ids = solution.get('candidateIds', [])
+                    if (len(ids) != options['squadCount'] or len(set(ids)) != len(ids)
+                            or any(type(i) is not int or not 0 <= i < len(rows) or rows[i]['status'] != 'evaluated' for i in ids)):
+                        raise ValueError()
+                    members = [n for i in ids for n in rows[i]['squad']]
+                    totals = solution.get('scenarioTotals', [])
+                    if (len(set(members)) != len(members) or not set(options.get('include', [])) <= set(members)
+                            or set(options.get('exclude', [])) & set(members)
+                            or len(totals) != scenario_count or any(not number(t) for t in totals)
+                            or not number(solution.get('baseTotal')) or not number(solution.get('maxRegret'))
+                            or solution['maxRegret'] > 1):
+                        raise ValueError()
+                    expected = [sum(rows[i]['scenarios'][s]['total'] for i in ids) for s in range(scenario_count)]
+                    if any(not math.isclose(t, e, rel_tol=1e-9, abs_tol=1e-6) for t, e in zip(totals, expected)) or solution['baseTotal'] != totals[0]:
+                        raise ValueError()
+                if solutions and result['selected'] != [rows[i] for i in solutions[0]['candidateIds']]:
+                    raise ValueError()
             elif payload['kind'] == 'growth':
                 rows = result.get('scenarios')
                 if (result.get('name') != payload['name'] or not isinstance(result.get('engineVersion'), str)
@@ -142,7 +188,7 @@ class BrowserRelay:
                 for item in candidates:
                     if not isinstance(item, dict) or not isinstance(item.get('engineVersion'), str) or not isinstance(item.get('result'), dict) or not isinstance(item.get('effectiveCharacters'), list):
                         raise ValueError()
-        except (ValueError, TypeError, RecursionError):
+        except (ValueError, TypeError, KeyError, AttributeError, RecursionError):
             fail('INVALID_RESULT', '브라우저 결과 형식 또는 크기가 잘못되었습니다.')
 
     def result(self, code, job_id):

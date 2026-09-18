@@ -8,6 +8,21 @@ const engine = () => ({ prepare: vi.fn().mockResolvedValue(undefined), dispose: 
   simulateMcp: vi.fn().mockResolvedValue({ engineVersion: 'browser-runtime', effectiveCharacters: [],
     result: { squadTotal: 123, timeline: {}, buffTargets: {}, states: {} } }) });
 afterEach(() => vi.useRealTimers());
+it('recommendation captures only current account state and allowlisted remote options', async () => {
+  const saved = structuredClone(state);
+  const before = structuredClone(saved);
+  const worker = { ...engine(), recommend: vi.fn().mockResolvedValue({ selected: [] }) };
+  await executeBrowserJob({ id: 'r', kind: 'recommend', options: {
+    candidates: [{ label: 'candidate', squad: ['리타'] }], squadCount: 1,
+    roster: { 리타: { growthStage: 10 } }, battle: { synchroLevel: 999 },
+  } } as any, () => saved, worker);
+  const captured = worker.recommend.mock.calls[0]![0];
+  expect(captured.roster).toEqual(before.roster);
+  expect(captured.battle.synchroLevel).not.toBe(999);
+  saved.roster.리타!.skillLevels!['1'] = 9;
+  expect(captured.roster.리타.skillLevels['1']).toBe(3);
+  expect(worker.simulateMcp).not.toHaveBeenCalled();
+});
 it('compares growth on the captured live roster and preserves account settings without editing it', async () => {
   const saved = structuredClone(state);
   saved.battle.synchroLevel = 321;

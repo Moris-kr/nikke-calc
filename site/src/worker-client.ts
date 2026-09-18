@@ -3,6 +3,7 @@ import type {
   SimulationResult,
   CombatPowerRequest,
   GrowthComparisonRequest,
+  RecommendationRequest,
   WorkerRequest,
   WorkerResponse,
 } from './types';
@@ -107,6 +108,10 @@ export class CalculatorWorkerClient {
 
   compareGrowth(request: GrowthComparisonRequest): Promise<Record<string, unknown>> {
     return this.send('compareGrowth', 'result', request);
+  }
+
+  recommend(request: RecommendationRequest): Promise<Record<string, unknown>> {
+    return this.send('recommend', 'result', request);
   }
 
   dispose(): void {

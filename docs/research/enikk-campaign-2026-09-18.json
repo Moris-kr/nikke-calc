@@ -1,0 +1,33 @@
+{
+  "accessedDate": "2026-09-18",
+  "sourceUrl": "https://enikk.app/campaign#compositions",
+  "difficulty": "Hard",
+  "filters": "All Servers; From chapter Any; To chapter Any; Compositions",
+  "sampleUnit": "lowest clear per player-stage",
+  "analyzedClears": 291543,
+  "bossClears": 6902,
+  "distinctRosters": 4493,
+  "unitsSeen": 188,
+  "lastRefreshedLabel": "2026-09-16",
+  "slotOrderMeaning": "Display order only; compositions ignore slot order and limit-break variants. Not a verified burst rotation.",
+  "limitations": ["Only top nine usage compositions observed, not all records.", "Normal data unavailable: explain Normal recommendations as based on Hard records.", "Usage, average power and minimum power do not control chapter, player investment or strategy; not causal strength or clear probability."],
+  "meta": {
+    "sourceUrl": "https://enikk.app/meta?slice=campaign",
+    "selection": "Recent",
+    "rollupBuiltDisplay": "2026-09-17 01:03:29",
+    "trackedTeamsDisplay": "291.5K",
+    "meaning": "Tracked usage, not editorial ratings or strategic advice",
+    "recentUsagePercent": {"아니스 : 스타":97.5,"크라운":95.8,"마스트 : 로망틱 메이드":53.2,"라피 : 레드 후드":48.3,"스노우 화이트 : 헤비암즈":36,"네온 : 비전 아이":26.4,"신데렐라 : 크리스탈 웨이브":23.8}
+  },
+  "teams": [
+    {"usageRank":1,"resourceIds":[17,330,16,471,354],"characters":["아니스 : 스타","크라운","라피 : 레드 후드","스노우 화이트 : 헤비암즈","마스트 : 로망틱 메이드"],"uses":35770,"stages":1539,"bossClears":258,"avgPower":"635K","lowestPower":"81.6K"},
+    {"usageRank":2,"resourceIds":[17,330,515,16,354],"characters":["아니스 : 스타","크라운","신데렐라 : 크리스탈 웨이브","라피 : 레드 후드","마스트 : 로망틱 메이드"],"uses":17365,"stages":971,"bossClears":266,"avgPower":"1.2M","lowestPower":"91.3K"},
+    {"usageRank":3,"resourceIds":[354,225,17,262,330],"characters":["마스트 : 로망틱 메이드","홍련 : 흑영","아니스 : 스타","리버렐리오","크라운"],"uses":12197,"stages":264,"bossClears":473,"avgPower":"1.4M","lowestPower":"286K"},
+    {"usageRank":4,"resourceIds":[330,471,17,18,354],"characters":["크라운","스노우 화이트 : 헤비암즈","아니스 : 스타","네온 : 비전 아이","마스트 : 로망틱 메이드"],"uses":9522,"stages":727,"bossClears":110,"avgPower":"854.7K","lowestPower":"80.1K"},
+    {"usageRank":5,"resourceIds":[17,16,352,471,330],"characters":["아니스 : 스타","라피 : 레드 후드","헬름","스노우 화이트 : 헤비암즈","크라운"],"uses":9102,"stages":1350,"bossClears":66,"avgPower":"661.8K","lowestPower":"102.3K"},
+    {"usageRank":6,"resourceIds":[17,330,16,94,354],"characters":["아니스 : 스타","크라운","라피 : 레드 후드","베스티 : 택티컬 업","마스트 : 로망틱 메이드"],"uses":7542,"stages":796,"bossClears":8,"avgPower":"727.2K","lowestPower":"81.2K"},
+    {"usageRank":7,"resourceIds":[17,330,16,352,354],"characters":["아니스 : 스타","크라운","라피 : 레드 후드","헬름","마스트 : 로망틱 메이드"],"uses":6059,"stages":998,"bossClears":83,"avgPower":"668K","lowestPower":"137.1K"},
+    {"usageRank":8,"resourceIds":[471,354,17,330,170],"characters":["스노우 화이트 : 헤비암즈","마스트 : 로망틱 메이드","아니스 : 스타","크라운","프리바티"],"uses":5604,"stages":265,"bossClears":110,"avgPower":"1.2M","lowestPower":"161.3K"},
+    {"usageRank":9,"resourceIds":[330,17,18,840,354],"characters":["크라운","아니스 : 스타","네온 : 비전 아이","에이다","마스트 : 로망틱 메이드"],"uses":4801,"stages":267,"bossClears":322,"avgPower":"1.3M","lowestPower":"322.8K"}
+  ]
+}

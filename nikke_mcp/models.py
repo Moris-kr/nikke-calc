@@ -192,6 +192,33 @@ class BattleOptions(StrictModel):
         return self
 
 
+class RecommendationCandidate(StrictModel):
+    label: str = Field(min_length=1, max_length=100)
+    squad: list[str] = Field(min_length=5, max_length=5)
+    sourceUrl: str | None = Field(default=None, max_length=500)
+    reason: str | None = Field(default=None, max_length=1000)
+
+    @model_validator(mode='after')
+    def valid_squad(self):
+        if len(set(self.squad)) != 5 or set(self.squad) - set(character_names()):
+            raise ValueError('후보는 중복 없는 정식 이름 5명이어야 합니다.')
+        return self
+
+
+class RecommendationScenario(StrictModel):
+    label: str = Field(min_length=1, max_length=100)
+    battle: dict
+
+    @model_validator(mode='after')
+    def battle_only(self):
+        allowed = {'enemyDef', 'corePx', 'coreWindows', 'hasParts', 'defenseRateWindows',
+                   'elementWindows', 'immuneWindows', 'burstRegenTime', 'optimalRangeWeapons'}
+        if set(self.battle) - allowed:
+            raise ValueError('민감도 비교에서는 방어력·코어·파츠·구간·버스트 충전 시간·적정 사거리만 바꿀 수 있습니다.')
+        BattleOptions.model_validate(self.battle)
+        return self
+
+
 class CombatRequest(BattleOptions):
     squad: list[str] = Field(min_length=1, max_length=5, description='등록된 정식 캐릭터명. 왼쪽부터 편성 순서.')
     burstSequence: list[dict[Literal['1', '2', '3'], list[str]]] | None = Field(default=None, max_length=60)

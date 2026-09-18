@@ -534,10 +534,25 @@ export interface GrowthComparisonRequest {
   console?: ConsoleLevels;
 }
 
+export interface RecommendationOptions {
+  candidates: Array<{ label: string; squad: string[]; sourceUrl?: string; reason?: string }>;
+  squadCount?: number;
+  include?: string[];
+  exclude?: string[];
+  scenarios?: Array<{ label: string; battle: Partial<Pick<BattleSettings,
+    'enemyDef' | 'corePx' | 'coreWindows' | 'hasParts' | 'defenseRateWindows' |
+    'elementWindows' | 'immuneWindows' | 'burstRegenTime' | 'optimalRangeWeapons'>> }>;
+}
+
+export interface RecommendationRequest extends RecommendationOptions {
+  roster: Record<string, CharacterOverrides>;
+  battle: Omit<SimulationRequest, 'squad' | 'characters'>;
+}
+
 export interface WorkerRequest {
   id: number;
-  type: 'prepare' | 'simulate' | 'simulateMcp' | 'combatPower' | 'compareGrowth';
-  payload?: SimulationRequest | CombatPowerRequest | GrowthComparisonRequest;
+  type: 'prepare' | 'simulate' | 'simulateMcp' | 'combatPower' | 'compareGrowth' | 'recommend';
+  payload?: SimulationRequest | CombatPowerRequest | GrowthComparisonRequest | RecommendationRequest;
 }
 
 export interface WorkerResponse {

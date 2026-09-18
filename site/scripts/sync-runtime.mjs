@@ -82,6 +82,16 @@ const growthContent = readFileSync(join(siteDir, 'pybridge', growthTarget));
 writeFileSync(join(runtimeDir, growthTarget), growthContent);
 hash.update(growthTarget);
 hash.update(growthContent);
+const recommendationFiles = [
+  ['recommendation.py', join(siteDir, 'pybridge', 'recommendation.py')],
+  ['squad_policy.py', join(repoRoot, 'nikke_mcp', 'squad_policy.py')],
+];
+for (const [target, source] of recommendationFiles) {
+  const content = readFileSync(source);
+  writeFileSync(join(runtimeDir, target), content);
+  hash.update(target);
+  hash.update(content);
+}
 
 const nikke = readJson(join(repoRoot, 'data', 'parsed_nikke.json'));
 const skills = readJson(join(repoRoot, 'data', 'parsed_skills.json'));
@@ -214,7 +224,7 @@ hash.update('settings.json');
 hash.update(settings);
 const manifest = {
   version: hash.digest('hex').slice(0, 16),
-  files: [...runtimeFiles, bridgeTarget, growthTarget],
+  files: [...runtimeFiles, bridgeTarget, growthTarget, ...recommendationFiles.map(([target]) => target)],
 };
 
 writeFileSync(join(runtimeDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
