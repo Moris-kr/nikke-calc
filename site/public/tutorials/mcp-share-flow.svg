@@ -1,13 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="400" viewBox="0 0 1080 400" role="img" aria-labelledby="title desc">
-<title id="title">내 육성을 AI 계산에 적용하는 세 단계</title><desc id="desc">계산기에서 JSON 내보내기, AI 대화에 첨부, MCP 도구로 계산. 웹 변경 후에는 다시 내보냅니다.</desc>
-<rect width="1080" height="400" rx="20" fill="#07111f"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="460" viewBox="0 0 1080 460" role="img" aria-labelledby="title desc">
+<title id="title">AI 요청을 내 브라우저에서 계산하는 흐름</title>
+<desc id="desc">계산기에서 연결 코드를 발급해 AI에 전달합니다. AI의 요청은 Render를 거쳐 열린 계산기 탭에서 계산됩니다. 결과는 중계 서버를 통해 AI가 조회합니다. 탭을 열어 두세요.</desc>
+<rect width="1080" height="460" rx="20" fill="#07111f"/>
 <g font-family="Pretendard, Noto Sans KR, Malgun Gothic, sans-serif" fill="#eaf2f8">
-<text x="36" y="48" font-size="25" font-weight="700">내 육성 그대로, 대화로 계산하기</text>
-<text x="36" y="78" font-size="16" fill="#a6b8ca">설명용 그림 · 실제 사이트 화면은 아래에서 확인하세요</text>
-<g fill="#102337" stroke="#2e5266"><rect x="36" y="110" width="310" height="216" rx="14"/><rect x="385" y="110" width="310" height="216" rx="14"/><rect x="734" y="110" width="310" height="216" rx="14"/></g>
-<g fill="#45d6d0" font-size="16" font-weight="700"><text x="58" y="145">01 · 계산기</text><text x="407" y="145">02 · ChatGPT / Claude</text><text x="756" y="145">03 · MCP 도구</text></g>
-<g font-size="23" font-weight="700"><text x="58" y="191">JSON 내보내기</text><text x="407" y="191">파일 첨부 또는 붙여넣기</text><text x="756" y="191">같은 설정으로 계산</text></g>
-<g font-size="17" fill="#c0cfdd"><text x="58" y="231">편의 기능 → MCP</text><text x="58" y="260">전체 육성 · 덱 · 전투 조건</text><text x="407" y="231">연결 확인 프롬프트 실행</text><text x="407" y="260">공유 JSON과 계산 요청 전달</text><text x="756" y="231">공유 데이터 검증</text><text x="756" y="260">덱 번호 선택 → 결과 확인</text></g>
-<g stroke="#45d6d0" stroke-width="3" fill="none"><path d="M353 215h24m-8-7 8 7-8 7"/><path d="M702 215h24m-8-7 8 7-8 7"/></g>
-<text x="36" y="366" font-size="17" fill="#ffbf3c">웹과 자동 동기화되지 않습니다. 육성이나 편성을 바꾸면 다시 내보내세요.</text>
+<text x="36" y="48" font-size="25" font-weight="700">AI는 요청하고, 내 브라우저가 계산합니다</text>
+<text x="36" y="80" font-size="16" fill="#a6b8ca">편의 기능 → MCP → AI 연결 · 받은 연결 코드를 AI 대화에 전달하세요</text>
+<g fill="#102337" stroke="#2e5266"><rect x="36" y="118" width="225" height="188" rx="14"/><rect x="297" y="118" width="225" height="188" rx="14"/><rect x="558" y="118" width="225" height="188" rx="14"/><rect x="819" y="118" width="225" height="188" rx="14"/></g>
+<g fill="#45d6d0" font-size="16" font-weight="700"><text x="54" y="151">01 · 계산기</text><text x="315" y="151">02 · AI 대화</text><text x="576" y="151">03 · Render</text><text x="837" y="151">04 · 내 브라우저</text></g>
+<g font-size="21" font-weight="700"><text x="54" y="195">연결 코드 발급</text><text x="315" y="195">조회·계산 요청</text><text x="576" y="195">요청과 결과 중계</text><text x="837" y="195">실제 계산 실행</text></g>
+<g font-size="16" fill="#c0cfdd"><text x="54" y="235">육성·덱 준비</text><text x="54" y="265">코드는 공개하지 않기</text><text x="315" y="235">작업 ID 받기</text><text x="315" y="265">완료될 때까지 조회</text><text x="576" y="235">입력 검증 · 임시 보관</text><text x="576" y="265">서버 대신 계산 없음</text><text x="837" y="235">현재 설정으로 실행</text><text x="837" y="265">결과 → 중계 → AI</text></g>
+<g stroke="#45d6d0" stroke-width="3" fill="none"><path d="M266 210h25m-8-7 8 7-8 7"/><path d="M527 210h25m-8-7 8 7-8 7"/><path d="M788 210h25m-8-7 8 7-8 7"/><path d="M930 312v26H410v-26m-7 8 7-8 7 8"/></g>
+<text x="493" y="365" font-size="16" fill="#a6b8ca">완료 결과를 중계해 AI가 확인</text>
+<text x="36" y="405" font-size="17" fill="#ffbf3c">계산기 탭과 기기를 깨워 두세요 · 연결 2시간 · 완료 결과 보관 5분</text>
+<text x="36" y="433" font-size="15" fill="#a6b8ca">육성·편성·결과는 AI와 중계 서버를 거칩니다. 사용 후 연결을 해제하세요.</text>
 </g></svg>

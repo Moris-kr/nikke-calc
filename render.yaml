@@ -1,4 +1,4 @@
-# Free compute only. No databases, disks or paid add-ons.
+# Free browser relay only. No databases, disks or paid add-ons.
 services:
   - type: web
     name: nikke-calc-mcp
@@ -14,7 +14,3 @@ services:
     envVars:
       - key: PORT
         value: "8000"
-      - key: NIKKE_MCP_MAX_CONCURRENT
-        value: "1"
-      - key: NIKKE_MCP_TIMEOUT
-        value: "120"

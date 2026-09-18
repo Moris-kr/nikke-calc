@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+from copy import deepcopy
 
 from calculator.combat_power import combat_power
 from calculator.customization import (
@@ -504,7 +505,7 @@ def run_combat_power(raw: str) -> str:
     return json.dumps(out, ensure_ascii=False, separators=(",", ":"))
 
 
-def run_request(raw: str) -> str:
+def run_request(raw: str, include_effective: bool = False) -> str:
     payload = json.loads(raw)
     _inject_custom_characters(payload.get("customCharacters") or {})
     names = [str(name).strip() for name in payload["squad"]]
@@ -542,6 +543,7 @@ def run_request(raw: str) -> str:
         for name in names:
             characters.setdefault(name, {})["burst_regen_time"] = burst_regen
     squad = char_spec.build_squad(names, characters)
+    effective = deepcopy(squad) if include_effective else None
     config_in: dict = {"duration": int(payload["duration"])}
     # 버스트 운용 배정 → config["burst_pattern"]. solo는 매 사이클 우선(전담),
     # skip은 가급적 안 씀. build_config는 여기서 준 값을 그대로 살린다(caller 우선).
@@ -666,4 +668,6 @@ def run_request(raw: str) -> str:
         # 계산기 타임라인의 장탄 레인. 「왜 여기서 딜이 끊기나」가 대개 탄이 떨어져서라,
         # 초당 대미지와 같은 축에 깔면 재장전인지 버프가 꺼진 것인지가 갈린다.
         response["states"] = _build_states(result, names, STATE_BUCKET)
+    if include_effective:
+        response = {"result": response, "effectiveCharacters": effective}
     return json.dumps(response, ensure_ascii=False, separators=(",", ":"))

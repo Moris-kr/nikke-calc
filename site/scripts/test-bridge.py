@@ -26,6 +26,15 @@ class HackBridgeTest(unittest.TestCase):
         "seed": 42,
     }
 
+    def test_mcp_envelope_uses_same_result_and_effective_growth(self):
+        payload = {**self.BASE, 'synchroLevel': 350,
+                   'characters': {'리타': {'skillLevels': {'1': 4, '2': 5, '3': 6}}}}
+        raw = json.dumps(payload, ensure_ascii=False)
+        ordinary = json.loads(run_request(raw))
+        envelope = json.loads(run_request(raw, include_effective=True))
+        self.assertEqual(envelope['result'], ordinary)
+        self.assertEqual(envelope['effectiveCharacters'][0]['level'], 350)
+
     def _total(self, hacks=None):
         payload = {**self.BASE, **({"hacks": hacks} if hacks is not None else {})}
         return json.loads(run_request(json.dumps(payload, ensure_ascii=False)))["squadTotal"]

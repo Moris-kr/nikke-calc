@@ -95,6 +95,10 @@ export class CalculatorWorkerClient {
     return this.send<SimulationResult>('simulate', 'result', request);
   }
 
+  simulateMcp(request: SimulationRequest): Promise<{ result: SimulationResult; effectiveCharacters: unknown[]; engineVersion: string }> {
+    return this.send('simulateMcp', 'result', request);
+  }
+
   /** 캐릭터별 인게임 전투력. 목록 정렬에만 쓴다. */
   combatPower(request: CombatPowerRequest): Promise<Record<string, number>> {
     return this.send<Record<string, number>>('combatPower', 'result', request);

@@ -18,7 +18,7 @@ class RenderConfigurationTests(unittest.TestCase):
         self.assertEqual(options['port'], 10000)
         self.assertIn('nikke-example.onrender.com', options['transport_security'].allowed_hosts)
         self.assertNotIn('*.onrender.com', options['transport_security'].allowed_hosts)
-        self.assertEqual(create.call_args.kwargs, {'timeout': 120, 'max_concurrent': 1})
+        self.assertEqual(create.call_args.kwargs, {'timeout': 120, 'max_concurrent': 1, 'browser_mode': True})
 
     def test_public_binding_still_requires_explicit_opt_in(self):
         with patch.dict(os.environ, {'RENDER_EXTERNAL_HOSTNAME': 'example.onrender.com'}, clear=True), \

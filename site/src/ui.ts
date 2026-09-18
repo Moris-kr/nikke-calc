@@ -51,6 +51,7 @@ import {
 } from './report';
 import { csvBlob, csvFileName, csvText, damageBatchRows, type DamageCsvDeck } from './export-csv';
 import { renderMcpGuide } from './mcp-guide';
+import { BrowserMcpConnection } from './mcp-browser';
 import { buildMcpShare } from './mcp-share';
 import {
   applyShareToDecks, decodeBattleCode, decodeShareCode, encodeBattleCode, encodeShareCode,
@@ -7349,6 +7350,17 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     funBody.append(svg);
   };
 
+  const getMcpShare = () => {
+    const battle = readBattle();
+    const custom = customPayload();
+    return buildMcpShare(roster,
+      requestForDeck({ id: 0, squad: [], characters: {} }, battle),
+      decks.filter((deck) => deck.squad.some(Boolean)).map((deck) =>
+        requestForDeck(deck, battle, Object.keys(custom).length ? custom : undefined)));
+  };
+  const browserMcp = new BrowserMcpConnection(getMcpShare);
+  const disconnectMcp = () => browserMcp.disconnect();
+  window.addEventListener('pagehide', disconnectMcp);
   const renderFun = () => {
     funTabs.replaceChildren();
     for (const view of FUN_VIEWS) {
@@ -7368,14 +7380,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     element<HTMLElement>(root, '[data-overload-lab]').hidden = funView !== 'lab';
     if (funView === 'vision') renderVision();
     if (funView === 'skills') skillPlanner.render(funBody);
-    if (funView === 'mcp') renderMcpGuide(funBody, () => {
-      const battle = readBattle();
-      const custom = customPayload();
-      return buildMcpShare(roster,
-        requestForDeck({ id: 0, squad: [], characters: {} }, battle),
-        decks.filter((deck) => deck.squad.some(Boolean)).map((deck) =>
-          requestForDeck(deck, battle, Object.keys(custom).length ? custom : undefined)));
-    });
+    if (funView === 'mcp') renderMcpGuide(funBody, getMcpShare, browserMcp);
   };
 
   // ── 외부고리 ────────────────────────────────────────────────────────────
@@ -7744,5 +7749,5 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     }
   });
 
-  return () => { stopCountdown(); stopLocalize(); client.dispose(); };
+  return () => { stopCountdown(); stopLocalize(); client.dispose(); browserMcp.disconnect(); window.removeEventListener('pagehide', disconnectMcp); };
 }

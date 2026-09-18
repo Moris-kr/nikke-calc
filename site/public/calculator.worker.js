@@ -81,14 +81,18 @@ async function handle(message) {
       post(id, 'result', JSON.parse(cp));
       return;
     }
-    if (type !== 'simulate' || !payload) {
+    if (!['simulate', 'simulateMcp'].includes(type) || !payload) {
       throw new Error('지원하지 않는 계산 요청입니다.');
     }
 
     post(id, 'progress', '전투 타임라인을 계산하고 있습니다…');
     pyodide.globals.set('__nikke_request_json', JSON.stringify(payload));
-    const raw = await pyodide.runPythonAsync('run_request(__nikke_request_json)');
-    post(id, 'result', JSON.parse(raw));
+    const raw = await pyodide.runPythonAsync(type === 'simulateMcp'
+      ? 'run_request(__nikke_request_json, include_effective=True)'
+      : 'run_request(__nikke_request_json)');
+    const result = JSON.parse(raw);
+    if (type === 'simulateMcp') result.engineVersion = version;
+    post(id, 'result', result);
   } catch (error) {
     const messageText = error instanceof Error ? error.message : String(error);
     post(id, 'error', messageText);

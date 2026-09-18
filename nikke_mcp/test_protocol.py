@@ -114,7 +114,8 @@ class ProtocolTests(unittest.IsolatedAsyncioTestCase):
             else:
                 self.fail('HTTP server did not start')
             async with Client(url + '/mcp') as client:
-                await self.exercise(client)
+                from nikke_mcp.smoke import exercise_browser_relay
+                await exercise_browser_relay(client, url + '/mcp')
             def bad_host():
                 request = urllib.request.Request(url + '/mcp', data=b'{}',
                     headers={'Host': 'untrusted.example', 'Content-Type': 'application/json'})

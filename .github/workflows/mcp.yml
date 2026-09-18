@@ -15,7 +15,7 @@ jobs:
       - run: pip install -r nikke_mcp/requirements.txt
       - run: python -m unittest discover -s nikke_mcp -p 'test_*.py' -v
       - run: docker build -f nikke_mcp/Dockerfile -t nikke-mcp .
-      - name: Verify container HTTP transport
+      - name: Verify container browser relay transport
         run: |
           docker run -d --name nikke-mcp -p 127.0.0.1:8000:8000 -e NIKKE_MCP_ALLOWED_HOSTS=127.0.0.1:8000 nikke-mcp
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8000/health && break; sleep 1; done

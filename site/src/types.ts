@@ -522,7 +522,7 @@ export interface CombatPowerRequest {
 
 export interface WorkerRequest {
   id: number;
-  type: 'prepare' | 'simulate' | 'combatPower';
+  type: 'prepare' | 'simulate' | 'simulateMcp' | 'combatPower';
   payload?: SimulationRequest | CombatPowerRequest;
 }
 

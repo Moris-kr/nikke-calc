@@ -15,21 +15,29 @@ from context.spec import DEFAULT_CHAR
 from nikke_mcp.models import CombatRequest
 from nikke_mcp.shared_state import SharedState, inspect_shared, shared_request
 from nikke_mcp.service import CalculatorService, engine_version, get_character as lookup_character, list_characters as search_characters
-from nikke_mcp.errors import public_errors
+from nikke_mcp.errors import public_errors, InvalidSettingsError
+from nikke_mcp.browser_relay import BrowserRelay, install_routes, fail
 
 
-def create_server(timeout: int = 60, max_concurrent: int = 2) -> MCPServer:
+def create_server(timeout: int = 60, max_concurrent: int = 2, browser_mode: bool = False) -> MCPServer:
     server = MCPServer('NIKKE Calculator', version='1.0.0', instructions=(
         '니케 계산 도구입니다. 먼저 정식 이름과 설정을 조회하고 실제 simulate_squad/compare_setups 결과로 답하세요. '
         '수치를 추측하지 마세요. 입력한 육성이 없으면 기본 육성이며 사용자 실제 계정으로 표현하지 마세요. '
         '엔진 버전, 전투 조건, 기본 이탈과 프리뷰 경고를 명시하세요. 비교는 입력 후보만의 순위입니다. '
         '계산 호출은 반드시 순차 실행하세요. SERVER_BUSY는 기존 호출 완료 후 같은 입력으로 재시도하고, '
         'CALCULATION_TIMEOUT은 시간 제한입니다. 이 오류들을 특정 캐릭터의 계산 불가로 해석하지 마세요. '
-        '결과는 저장하지 않습니다. 상세 결과는 같은 요청에 detail=true로 재실행하세요.'),
+        '공개 HTTP 계산은 연결된 사용자 브라우저에서만 실행됩니다. connection_code가 필요하며 반환된 jobId는 '
+        'get_browser_result로 확인하세요. 탭을 열어 두세요. 결과는 5분간 보관됩니다. 로컬 stdio는 로컬에서 계산합니다.'),
         log_level='WARNING')
-    service = CalculatorService(timeout=timeout, max_concurrent=max_concurrent)
+    service = None if browser_mode else CalculatorService(timeout=timeout, max_concurrent=max_concurrent)
+    relay = BrowserRelay()
+    if browser_mode:
+        install_routes(server, relay)
     read_only = ToolAnnotations(read_only_hint=True, destructive_hint=False,
                                 idempotent_hint=True, open_world_hint=False)
+
+    calculation = ToolAnnotations(read_only_hint=True, destructive_hint=False,
+                                  idempotent_hint=not browser_mode, open_world_hint=False)
 
     @server.tool(annotations=read_only)
     def list_characters(query: str = '') -> dict[str, Any]:
@@ -60,16 +68,25 @@ def create_server(timeout: int = 60, max_concurrent: int = 2) -> MCPServer:
                 'sharedStateSchema': SharedState.model_json_schema(),
                 'engineVersion': engine_version()}
 
-    @server.tool(annotations=read_only)
-    async def simulate_squad(request: CombatRequest, detail: bool = False) -> dict[str, Any]:
+    @server.tool(annotations=calculation)
+    async def simulate_squad(request: CombatRequest, detail: bool = False, connection_code: str = '') -> dict[str, Any]:
         """웹과 같은 엔진으로 계산합니다(최대 180초). detail=true는 타임라인도 반환합니다."""
         with public_errors():
+            if browser_mode:
+                return relay.submit(connection_code, {'kind': 'simulate', 'requests': [request.model_dump(exclude_none=True)], 'detail': detail})
             return await service.simulate(request, detail)
 
-    @server.tool(annotations=read_only)
-    async def compare_setups(requests: list[CombatRequest]) -> dict[str, Any]:
+    @server.tool(annotations=calculation)
+    async def compare_setups(requests: list[CombatRequest], connection_code: str = '') -> dict[str, Any]:
         """동일 전투 조건의 2~5개 후보를 계산합니다. 후보별 실제 설정과 1번 대비 증감을 반환합니다."""
         with public_errors():
+            if browser_mode:
+                if not 2 <= len(requests) <= 5:
+                    raise InvalidSettingsError('비교 후보는 2~5개입니다.')
+                conditions = [r.model_dump(exclude={'squad', 'characters'}) for r in requests]
+                if any(c != conditions[0] for c in conditions[1:]):
+                    raise InvalidSettingsError('비교 후보의 전투 조건은 같아야 합니다.')
+                return relay.submit(connection_code, {'kind': 'simulate', 'requests': [r.model_dump(exclude_none=True) for r in requests], 'detail': False})
             return await service.compare(requests)
 
     @server.tool(annotations=read_only)
@@ -77,12 +94,33 @@ def create_server(timeout: int = 60, max_concurrent: int = 2) -> MCPServer:
         """웹의 편의 기능 → MCP에서 내보낸 JSON을 state에 전달해 전체 육성·덱·조건을 검증하고 조회합니다. 파일 경로나 URL이 아닌 JSON 객체를 전달하세요. 저장하지 않습니다."""
         return {**inspect_shared(state), 'engineVersion': engine_version()}
 
-    @server.tool(annotations=read_only)
+    @server.tool(annotations=calculation)
     async def simulate_shared_state(state: SharedState, deck_index: int = 1,
-                                    squad: list[str] | None = None, detail: bool = False) -> dict[str, Any]:
+                                    squad: list[str] | None = None, detail: bool = False, connection_code: str = '') -> dict[str, Any]:
         """공유 JSON으로 계산합니다. 기본은 deck_index(1부터)의 설정 그대로. squad를 지정하면 공유 roster의 육성 + battle 조건으로 새 편성을 계산하며, 육성이 없는 캐릭터는 거절합니다. 매 호출에 state 전체를 전달하세요."""
         with public_errors():
+            if browser_mode:
+                shared_request(state, deck_index, squad)
+                return relay.submit(connection_code, {'kind': 'shared', 'state': state.model_dump(exclude_none=True), 'deck_index': deck_index, 'squad': squad, 'detail': detail})
             return await service.simulate(shared_request(state, deck_index, squad), detail)
+
+    @server.tool(annotations=calculation)
+    def inspect_browser_state(connection_code: str) -> dict[str, Any]:
+        """연결된 브라우저의 현재 공유 가능한 육성·덱·조건을 조회하는 작업을 요청합니다."""
+        return relay.submit(connection_code, {'kind': 'inspect'})
+
+    @server.tool(annotations=calculation)
+    def simulate_browser_state(connection_code: str, deck_index: int = 1,
+                               squad: list[str] | None = None, detail: bool = False) -> dict[str, Any]:
+        """현재 브라우저 육성으로 계산합니다. squad 생략 시 지정 덱, 지정 시 보유 육성으로 새 편성을 계산합니다."""
+        if deck_index < 1 or deck_index > 100 or (squad is not None and (not 1 <= len(squad) <= 5 or len(set(squad)) != len(squad))):
+            fail('INVALID_SETTINGS', 'deck_index 또는 squad가 잘못되었습니다.')
+        return relay.submit(connection_code, {'kind': 'shared', 'deck_index': deck_index, 'squad': squad, 'detail': detail})
+
+    @server.tool(annotations=read_only)
+    def get_browser_result(connection_code: str, job_id: str) -> dict[str, Any]:
+        """브라우저 작업 상태와 결과를 조회합니다. queued/running이면 잠시 후 재조회하세요."""
+        return relay.result(connection_code, job_id)
 
     @server.custom_route('/health', methods=['GET'])
     async def health(request):
@@ -106,7 +144,7 @@ def main():
             raise ValueError()
     except ValueError:
         parser.error('NIKKE_MCP_TIMEOUT은 1~300, NIKKE_MCP_MAX_CONCURRENT는 1~8 정수여야 합니다.')
-    server = create_server(timeout=timeout, max_concurrent=max_concurrent)
+    server = create_server(timeout=timeout, max_concurrent=max_concurrent, browser_mode=args.transport == 'streamable-http')
     if args.transport == 'stdio':
         server.run()
         return
