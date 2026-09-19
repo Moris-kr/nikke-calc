@@ -9,6 +9,7 @@
     "pretest": "npm run sync-runtime",
     "test": "vitest",
     "sync-runtime": "node scripts/sync-runtime.mjs",
+    "build-pickup-history": "node scripts/build-pickup-history.mjs",
     "check-runtime": "node scripts/check-runtime.mjs",
     "check-pages": "node scripts/check-pages.mjs",
     "prebuild": "npm run sync-runtime && npm run check-runtime",

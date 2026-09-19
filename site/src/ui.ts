@@ -51,6 +51,7 @@ import {
 } from './report';
 import { csvBlob, csvFileName, csvText, damageBatchRows, type DamageCsvDeck } from './export-csv';
 import { renderMcpGuide } from './mcp-guide';
+import { renderPickupHistory } from './pickup-history';
 import { BrowserMcpConnection } from './mcp-browser';
 import { buildMcpShare } from './mcp-share';
 import {
@@ -710,7 +711,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         <div class="section-heading">
           <div><p class="step">UTILITIES</p><h2 id="fun-heading">편의 기능</h2></div>
         </div>
-        <p class="fun-lede">육성 재료와 효율을 계산하고, AI 연결 사용법을 확인하세요.</p>
+        <p class="fun-lede">픽업 이력을 살펴보고, 육성 재료·효율 계산과 AI 연결을 이용하세요.</p>
         <div class="fun-tabs" data-fun-tabs role="tablist" aria-label="편의 기능 고르기"></div>
         <div class="fun-body" data-fun-body></div>
         <!-- 별도 컨테이너를 유지하여 탭 전환 중에도 비교 설정과 결과를 보존한다. -->
@@ -7144,6 +7145,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     },
   });
   const FUN_VIEWS = [
+    { key: 'pickups', label: '픽업 연표', note: '역대 신규 픽업·복각 일정과 캐릭터별 기록' },
     { key: 'skills', label: '스킬칩 계산기', note: '현재 레벨부터 목표 레벨까지 필요한 매뉴얼을 계산합니다' },
     { key: 'lab', label: '오버효율', note: '오버효율' },
     { key: 'mcp', label: 'MCP', note: 'ChatGPT·Claude에서 계산기를 사용하는 방법' },
@@ -7411,6 +7413,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const browserMcp = new BrowserMcpConnection(getMcpShare);
   const disconnectMcp = () => browserMcp.disconnect();
   window.addEventListener('pagehide', disconnectMcp);
+  const pickupHost = document.createElement('div');
+  let pickupStarted = false;
   const renderFun = () => {
     funTabs.replaceChildren();
     for (const view of FUN_VIEWS) {
@@ -7431,6 +7435,13 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     if (funView === 'vision') renderVision();
     if (funView === 'skills') skillPlanner.render(funBody);
     if (funView === 'mcp') renderMcpGuide(funBody, browserMcp);
+    if (funView === 'pickups') {
+      funBody.replaceChildren(pickupHost);
+      if (!pickupStarted) {
+        pickupStarted = true;
+        void renderPickupHistory(pickupHost, catalog);
+      }
+    }
   };
 
   // ── 외부고리 ────────────────────────────────────────────────────────────

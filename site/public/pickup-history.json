@@ -1,0 +1,2609 @@
+{
+  "updatedAt": "2026-09-19",
+  "coverageNote": "2022년 11월부터 공개 일정 아카이브와 공지로 정리한 기록입니다. 주요 오류와 최근 복각을 대조했으며, 모든 과거 공지를 개별 재검수한 것은 아닙니다. 날짜는 한국 시간이며 종료일 새벽에 모집이 끝날 수 있습니다. 묶음 카드는 동시 모집 또는 선택 복각으로, 정확한 방식은 상세 설명을 확인하세요. 빨간 테두리: 한정 · 금색 테두리: 필그림/오버스펙. 예정 일정은 공지 기준입니다.",
+  "sources": [
+    {
+      "id": "source-1",
+      "url": "https://bannerhistory.app/ko/nikke-pickup-history",
+      "title": "BannerHistory 니케 픽업 일정 (KST timestamps, accessed 2026-09-19)"
+    },
+    {
+      "id": "source-2",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=254d33c5af95fa4a26aa933a5020c508da59&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on December 4"
+    },
+    {
+      "id": "source-3",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=03e448baac511a47f3ab197ac163fb84de60&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on November 20"
+    },
+    {
+      "id": "source-4",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=62a33855a24bea4b0faaea2a64a5cd682e21&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on October 30"
+    },
+    {
+      "id": "source-5",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=f9bf6c97acbdaa4910aa501a0e5ebaaeec52&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on October 16"
+    },
+    {
+      "id": "source-6",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=63f27933a6cfaa43b7a9d57a15ea2ec999c9&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on September 24"
+    },
+    {
+      "id": "source-7",
+      "url": "https://nikke-kr.com/newsdetail.html?content_id=23d41d37ad8aca45f3aabc8aaf06772b67bc&sid=494&from=list&col_name=IMPORTANT",
+      "title": "9월 24일 업데이트 공지"
+    },
+    {
+      "id": "source-8",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=ac974638a7197a4aa2a99c7ae31028489d2a&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on September 4"
+    },
+    {
+      "id": "source-9",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=49aa4e23adbd4a4b42a817da256c96c470ea&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on August 7"
+    },
+    {
+      "id": "source-10",
+      "url": "https://nikke-kr.com/newsdetail.html?content_id=e2e44a7fa2826a40cea953ea69d7d50798b4&sid=494&from=list&col_name=IMPORTANT",
+      "title": "7월 17일 업데이트 공지"
+    },
+    {
+      "id": "source-11",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=3674e7afaa278a4c94aa38fa527fabf1291c&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on July 3"
+    },
+    {
+      "id": "source-12",
+      "url": "https://nikke-kr.com/newsdetail.html?content_id=07f3b6daa46f1a4c25aa04aafc00a7bd88d6&sid=494&from=list&col_name=IMPORTANT",
+      "title": "7월 3일 업데이트 공지 (7월 3일 공지 수정)"
+    },
+    {
+      "id": "source-13",
+      "url": "https://nikke-kr.com/newsdetail.html?content_id=0f766029a6a7da44dda8a83a6d6898729154&sid=494&from=list&col_name=IMPORTANT",
+      "title": "6월 12일 업데이트 공지"
+    },
+    {
+      "id": "source-14",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=111db628a528ba4ff6a8b4aac30ebad07a51&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on June 12"
+    },
+    {
+      "id": "source-15",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=0f956766a8539a48a4aabb8a7f806f6e1114&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on May 29"
+    },
+    {
+      "id": "source-16",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=008f1c7fabfd4a4c14aa836a11d73294deb1&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on April 24"
+    },
+    {
+      "id": "source-17",
+      "url": "https://nikke-kr.com/newsdetail.html?content_id=43f6840ca2cffa4f00a9192ac47792ee02da&sid=494&from=list&col_name=IMPORTANT",
+      "title": "4월 24일 무점검 업데이트 공지"
+    },
+    {
+      "id": "source-18",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=0a8f1c7fa26d6a446eaba35a1af33a3d6b3e&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on February 20"
+    },
+    {
+      "id": "source-19",
+      "url": "https://nikke-kr.com/newsdetail.html?content_id=4f3eb89fabf3ea4406a9e87a83a69a3bd5ab&sid=494&from=list&col_name=IMPORTANT",
+      "title": "2월 20일 업데이트 공지"
+    },
+    {
+      "id": "source-20",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=6e7665d4a7d81a4e51a9124a0de7a9c25943&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on January 23"
+    },
+    {
+      "id": "source-21",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=be64a323acc21a4dc2abf9da0374e45aae9a&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on January 16"
+    },
+    {
+      "id": "source-22",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=41097cd7af8bea40ecab7cca14b6c100de27&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on December 26"
+    },
+    {
+      "id": "source-23",
+      "url": "https://nikke-kr.com/newsdetail.html?content_id=a5756065aaf44a4857aa7dbaa9d1d09062a0&sid=494&from=list&col_name=IMPORTANT",
+      "title": "12월 5일 업데이트 공지"
+    },
+    {
+      "id": "source-24",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=b4a4afcaa5a18a4390ab938a9bdfa646601b&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on November 21"
+    },
+    {
+      "id": "source-25",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=d2ed0f6aa8e80a4fbfa866bad01c487c5034&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on October 31"
+    },
+    {
+      "id": "source-26",
+      "url": "https://nikke-kr.com/newsdetail.html?content_id=9dc8e9e7a1687a4ec3aae89aacd40a2d3291&sid=494&from=list&col_name=IMPORTANT",
+      "title": "11월 7일 업데이트 공지"
+    },
+    {
+      "id": "source-27",
+      "url": "https://nikke-kr.com/newsdetail.html?content_id=4215a1f1a804ba4f30abe7ba846cb8fd8305&sid=494&from=list&col_name=IMPORTANT",
+      "title": "10월 31일 임시 업데이트 공지"
+    },
+    {
+      "id": "source-28",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=c00273b1a2af4a4541a9513a563d87cc9ccc&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on October 17"
+    },
+    {
+      "id": "source-29",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=cc516e5ba99c0a4233a9d54a74c90dae798a&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on October 3"
+    },
+    {
+      "id": "source-30",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=881ad66dac0ada4f1aa8e5ea30d4cc33086c&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on September 19"
+    },
+    {
+      "id": "source-31",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=9b0153f4ac55fa4215abd5dafa0fb56e4656&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on August 22"
+    },
+    {
+      "id": "source-32",
+      "url": "https://nikke-kr.com/newsdetail.html?content_id=6887504fa1db3a4f56a8060a7d733ae1311f&sid=494&from=list&col_name=IMPORTANT",
+      "title": "8월 22일 업데이트 공지(8/30 내용 추가)"
+    },
+    {
+      "id": "source-33",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=c988c3feac156a4d82ab202a1d8560eab633&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on August 8"
+    },
+    {
+      "id": "source-34",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=47697635a1787a437dab359a20f0f5042ebc&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on July 25"
+    },
+    {
+      "id": "source-35",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=34e9d110af3cea4c27a9e81ac8f4f5c4130c&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on July 4"
+    },
+    {
+      "id": "source-36",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=5c5dc8ebae766a4955aa8acad3f1d3b252a8&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on April 11"
+    },
+    {
+      "id": "source-37",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=08243a89abe37a417daa30da3b01595fdb80&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on March 21"
+    },
+    {
+      "id": "source-38",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=320db84fa270da4ddda8ecfa8e6b87ac6b57&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on February 22"
+    },
+    {
+      "id": "source-39",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=cec47aa3ab6d5a46b3aacb2ae704fe9b87db&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on February 5"
+    },
+    {
+      "id": "source-40",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=7ca78943a2f07a4847a8fdaad95cb548b17f&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on January 25"
+    },
+    {
+      "id": "source-41",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=7e06c445aa0e3a4627ab67aa17902c136d05&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on December 28"
+    },
+    {
+      "id": "source-42",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=d6c6ef9ba1ee5a4acca946baad1cd21692ae&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on December 13"
+    },
+    {
+      "id": "source-43",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=2ed384eaaf68da40f7a9022a7fefbf7e6f1f&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on November 23"
+    },
+    {
+      "id": "source-44",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=aa9f04c6a1a60a4160a9196a19e0e47b5919&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on November 2"
+    },
+    {
+      "id": "source-45",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=dd22a5bca8f6da49c6a8b44a671f25fcbaf8&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on September 1"
+    },
+    {
+      "id": "source-46",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=62760830a8ac7a4c7cab4baacc54d7435ac4&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on August 3"
+    },
+    {
+      "id": "source-47",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=3324a06ea37c1a4badaa8f0ae3c5a658c44b&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on May 18"
+    },
+    {
+      "id": "source-48",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=ef4941f2a0905a48d1ab3b4ae83664b2c3a3&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on April 13"
+    },
+    {
+      "id": "source-49",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=84507796a6e58a4d68aa830a7ee6b66ad4a0&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on March 30 [Updated on 7 April]"
+    },
+    {
+      "id": "source-50",
+      "url": "https://nikke.gg/august-7-update-patchnotes/",
+      "title": "August 7 2025 update notice mirror"
+    },
+    {
+      "id": "source-51",
+      "url": "https://nikke.gg/february-20-update-patch-notes/",
+      "title": "February 20 2025 update notice mirror"
+    },
+    {
+      "id": "source-52",
+      "url": "https://nikke.gg/july-3-update-patch-notes/",
+      "title": "July 3 2025 update notice mirror, including EVE extension"
+    },
+    {
+      "id": "source-53",
+      "url": "https://www.reddit.com/r/NikkeMobile/comments/zxp67t",
+      "title": "December 29 2022 official update notice transcription"
+    },
+    {
+      "id": "source-54",
+      "url": "https://www.reddit.com/r/NikkeMobile/comments/18b8pqh",
+      "title": "Official winter rerun announcement repost, December 5 2023"
+    },
+    {
+      "id": "source-55",
+      "url": "https://blog.prydwen.gg/2023/12/04/nikke-winter-limited-units-are-here/",
+      "title": "December 7 2023 update notice mirror"
+    },
+    {
+      "id": "source-56",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=599e7e8faa19da4f2eaa2d8a918a0cb40a0d&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on September 17"
+    },
+    {
+      "id": "source-57",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=f26d1127adfb8a4111a852fae378d7e9bd48&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on September 3"
+    },
+    {
+      "id": "source-58",
+      "url": "https://nikke-kr.com/newsdetail.html?content_id=7bbad16da7596a49e7a9a78a598da9a37fcb&sid=494&from=list&col_name=IMPORTANT",
+      "title": "9월 3일 업데이트 공지"
+    },
+    {
+      "id": "source-59",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=e7049e04ac4fba4f7aaa7eaa56aba453584b&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on August 13"
+    },
+    {
+      "id": "source-60",
+      "url": "https://nikke-kr.com/newsdetail.html?content_id=8da875aaa35f6a4711a8d15a4900fd0f88eb&sid=494&from=list&col_name=IMPORTANT",
+      "title": "8월 13일 업데이트 공지(8월 20일 공지 수정)"
+    },
+    {
+      "id": "source-61",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=4d389f01a58c5a4eaaaa42da21cc1ba5c58d&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on July 23"
+    },
+    {
+      "id": "source-62",
+      "url": "https://nikke-kr.com/newsdetail.html?content_id=b263470ea4c71a4dddab742ada3f9e7e615d&sid=494&from=list&col_name=IMPORTANT",
+      "title": "7월 23일 업데이트 공지"
+    },
+    {
+      "id": "source-63",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=bf3cdedca29cda4842aa2dbac099b269e171&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on July 2"
+    },
+    {
+      "id": "source-64",
+      "url": "https://nikke-kr.com/newsdetail.html?content_id=29f47298ad9d3a4a91a8438ac563bc29b89c&sid=494&from=list&col_name=IMPORTANT",
+      "title": "7월 2일 업데이트 공지"
+    },
+    {
+      "id": "source-65",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=68ead9d1abbaca414ea8c74ab921293a6fec&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on June 11"
+    },
+    {
+      "id": "source-66",
+      "url": "https://nikke-kr.com/newsdetail.html?content_id=49aa55e2aba26a4955aa281a3c90a844bc53&sid=494&from=list&col_name=IMPORTANT",
+      "title": "6월 11일 업데이트 공지"
+    },
+    {
+      "id": "source-67",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=31cc91ccae555a431eabd84acc0f6a2e4bee&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on May 28"
+    },
+    {
+      "id": "source-68",
+      "url": "https://nikke-kr.com/newsdetail.html?content_id=0675c61fa2f66a46f8abd1fad3d962209b5c&sid=494&from=list&col_name=IMPORTANT",
+      "title": "5월 28일 업데이트 공지"
+    },
+    {
+      "id": "source-69",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=cd90ead7a9e94a4cb1aaee6aa99485c0d7c8&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on May 14"
+    },
+    {
+      "id": "source-70",
+      "url": "https://nikke-kr.com/newsdetail.html?content_id=36e3677eafb0ea44cfaac6badccd8bcf21e3&sid=494&from=list&col_name=IMPORTANT",
+      "title": "5월 14일 업데이트 공지"
+    },
+    {
+      "id": "source-71",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=d723f151a8486a4aa8ab97da64704c1d8081&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on April 23"
+    },
+    {
+      "id": "source-72",
+      "url": "https://nikke-kr.com/newsdetail.html?content_id=1eb47801ab1a5a4d4daabb6a6cd4fb56311b&sid=494&from=list&col_name=IMPORTANT",
+      "title": "4월 28일 업데이트 공지(4월 28일 공지 수정)"
+    },
+    {
+      "id": "source-73",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=d31b0e9ba5861a4876aae35a5887fd39e511&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on April 9"
+    },
+    {
+      "id": "source-74",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=a1ffdf10aaa16a4ccaa96aaacadf61480c22&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on March 19"
+    },
+    {
+      "id": "source-75",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=273ffaa4a4cc8a4e10a91f9ae91c4bfbc5bd&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on March 5"
+    },
+    {
+      "id": "source-76",
+      "url": "https://nikke-kr.com/newsdetail.html?content_id=00ec7b7cac63aa4daea8147a8c619f409f4a&sid=494&from=list&col_name=IMPORTANT",
+      "title": "3월 5일 업데이트 공지"
+    },
+    {
+      "id": "source-77",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=4fb0d316a02f2a4c62a89cfaddc22ca30853&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on February 12"
+    },
+    {
+      "id": "source-78",
+      "url": "https://nikke-kr.com/newsdetail.html?content_id=1c0f35a1a8293a4274a9681a35cde3feca74&sid=494&from=list&col_name=IMPORTANT",
+      "title": "2월 12일 업데이트 공지"
+    },
+    {
+      "id": "source-79",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=2b1cc9b3a4e75a4f63ab34aaf326fafdce5e&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on January 29"
+    },
+    {
+      "id": "source-80",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=287f20caa617aa4189a989ca44ffec25a40d&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on January 15"
+    },
+    {
+      "id": "source-81",
+      "url": "https://nikke-en.com/newsdetail.html?content_id=39c0a1baaa6e2a4974a8f58a8e859cbd14ff&sid=494&from=list&col_name=IMPORTANT",
+      "title": "Update on December 30"
+    }
+  ],
+  "events": [
+    {
+      "id": "p202211-01",
+      "start": "2022-11-10",
+      "end": "2022-11-24",
+      "names": [
+        "헬름"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202211-02",
+      "start": "2022-11-24",
+      "end": "2022-12-08",
+      "names": [
+        "라플라스"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202212-01",
+      "start": "2022-12-08",
+      "end": "2022-12-28",
+      "names": [
+        "루피 : 윈터 쇼퍼"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202212-02",
+      "start": "2022-12-15",
+      "end": "2022-12-28",
+      "names": [
+        "앤 : 미라클 페어리"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202212-03",
+      "start": "2023-01-01",
+      "end": "2023-01-19",
+      "names": [
+        "모더니아"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-53"
+      ],
+      "note": "원본 아카이브의 2022-12-31~2023-01-18 오류를 UTC+9 공지로 정정."
+    },
+    {
+      "id": "p202301-01",
+      "start": "2023-01-12",
+      "end": "2023-01-25",
+      "names": [
+        "자칼"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202301-02",
+      "start": "2023-01-19",
+      "end": "2023-01-31",
+      "names": [
+        "바이퍼"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202302-01",
+      "start": "2023-02-01",
+      "end": "2023-02-15",
+      "names": [
+        "코코아"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202302-02",
+      "start": "2023-02-08",
+      "end": "2023-02-21",
+      "names": [
+        "소다"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202302-03",
+      "start": "2023-02-22",
+      "end": "2023-03-15",
+      "names": [
+        "마키마"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": true,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202302-04",
+      "start": "2023-02-22",
+      "end": "2023-03-15",
+      "names": [
+        "파워"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": true,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202303-01",
+      "start": "2023-03-15",
+      "end": "2023-03-30",
+      "names": [
+        "비스킷"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202303-02",
+      "start": "2023-03-30",
+      "end": "2023-04-13",
+      "names": [
+        "사쿠라"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-49"
+      ]
+    },
+    {
+      "id": "p202304-01",
+      "start": "2023-04-13",
+      "end": "2023-04-27",
+      "names": [
+        "D"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-48"
+      ]
+    },
+    {
+      "id": "p202304-02",
+      "start": "2023-04-13",
+      "end": "2023-04-27",
+      "names": [
+        "앨리스"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-48"
+      ],
+      "note": "기존 출시 캐릭터의 최초 특별 모집. 신규 캐릭터 출시가 아님."
+    },
+    {
+      "id": "p202304-03",
+      "start": "2023-04-27",
+      "end": "2023-05-18",
+      "names": [
+        "도로시"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202305-01",
+      "start": "2023-05-18",
+      "end": "2023-06-01",
+      "names": [
+        "블랑"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-47"
+      ]
+    },
+    {
+      "id": "p202305-02",
+      "start": "2023-05-25",
+      "end": "2023-06-08",
+      "names": [
+        "누아르"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202306-01",
+      "start": "2023-06-01",
+      "end": "2023-06-15",
+      "names": [
+        "로산나"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202306-02",
+      "start": "2023-06-15",
+      "end": "2023-07-06",
+      "names": [
+        "메어리 : 베이 갓데스"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202306-03",
+      "start": "2023-06-22",
+      "end": "2023-07-13",
+      "names": [
+        "네온 : 블루 오션"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202307-01",
+      "start": "2023-07-06",
+      "end": "2023-07-20",
+      "names": [
+        "네로"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202307-02",
+      "start": "2023-07-20",
+      "end": "2023-08-03",
+      "names": [
+        "마스트"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202308-01",
+      "start": "2023-08-03",
+      "end": "2023-08-24",
+      "names": [
+        "아니스 : 스파클링 서머"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-46"
+      ]
+    },
+    {
+      "id": "p202308-02",
+      "start": "2023-08-10",
+      "end": "2023-08-31",
+      "names": [
+        "헬름 : 아쿠아마린"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202309-01",
+      "start": "2023-09-01",
+      "end": "2023-09-28",
+      "names": [
+        "2B"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": true,
+      "sourceIds": [
+        "source-1",
+        "source-45"
+      ]
+    },
+    {
+      "id": "p202309-02",
+      "start": "2023-09-08",
+      "end": "2023-09-28",
+      "names": [
+        "A2"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": true,
+      "sourceIds": [
+        "source-1",
+        "source-45"
+      ]
+    },
+    {
+      "id": "p202309-03",
+      "start": "2023-09-21",
+      "end": "2023-10-05",
+      "names": [
+        "마르차나"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202310-01",
+      "start": "2023-10-05",
+      "end": "2023-10-19",
+      "names": [
+        "나가"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202310-02",
+      "start": "2023-10-12",
+      "end": "2023-10-26",
+      "names": [
+        "티아"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202310-03",
+      "start": "2023-10-19",
+      "end": "2023-11-01",
+      "names": [
+        "키리"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202311-01",
+      "start": "2023-11-02",
+      "end": "2023-11-23",
+      "names": [
+        "레드 후드"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-44"
+      ]
+    },
+    {
+      "id": "p202311-02",
+      "start": "2023-11-23",
+      "end": "2023-12-07",
+      "names": [
+        "토브"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-43"
+      ]
+    },
+    {
+      "id": "p202312-01",
+      "start": "2023-12-07",
+      "end": "2023-12-28",
+      "names": [
+        "루드밀라 : 윈터 오너"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202312-02",
+      "start": "2023-12-07",
+      "end": "2023-12-31",
+      "names": [
+        "루피 : 윈터 쇼퍼"
+      ],
+      "kind": "rerun",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-54",
+        "source-55"
+      ],
+      "note": "단독 픽업 배너가 아니라 루드밀라 : 윈터 오너·미카 : 스노우 버디 기간 한정 모집에 각 0.5% 확률로 포함된 복각."
+    },
+    {
+      "id": "p202312-03",
+      "start": "2023-12-07",
+      "end": "2023-12-31",
+      "names": [
+        "앤 : 미라클 페어리"
+      ],
+      "kind": "rerun",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-54",
+        "source-55"
+      ],
+      "note": "단독 픽업 배너가 아니라 루드밀라 : 윈터 오너·미카 : 스노우 버디 기간 한정 모집에 각 0.5% 확률로 포함된 복각."
+    },
+    {
+      "id": "p202312-04",
+      "start": "2023-12-14",
+      "end": "2023-12-31",
+      "names": [
+        "미카 : 스노우 버디"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-42"
+      ]
+    },
+    {
+      "id": "p202312-05",
+      "start": "2024-01-01",
+      "end": "2024-01-18",
+      "names": [
+        "홍련 : 흑영"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202401-01",
+      "start": "2024-01-01",
+      "end": "2024-01-18",
+      "names": [
+        "모더니아"
+      ],
+      "kind": "rerun",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-41"
+      ]
+    },
+    {
+      "id": "p202401-02",
+      "start": "2024-01-11",
+      "end": "2024-01-25",
+      "names": [
+        "레오나"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202401-03",
+      "start": "2024-01-25",
+      "end": "2024-02-08",
+      "names": [
+        "목단"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-40"
+      ]
+    },
+    {
+      "id": "p202402-01",
+      "start": "2024-02-05",
+      "end": "2024-02-22",
+      "names": [
+        "프리바티 : 언카인드 메이드"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-39"
+      ]
+    },
+    {
+      "id": "p202402-02",
+      "start": "2024-02-15",
+      "end": "2024-02-29",
+      "names": [
+        "에이드"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-39"
+      ]
+    },
+    {
+      "id": "p202402-03",
+      "start": "2024-02-22",
+      "end": "2024-03-06",
+      "names": [
+        "일레그"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-38"
+      ]
+    },
+    {
+      "id": "p202403-01",
+      "start": "2024-03-07",
+      "end": "2024-03-20",
+      "names": [
+        "D : 킬러 와이프"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202403-02",
+      "start": "2024-03-21",
+      "end": "2024-04-11",
+      "names": [
+        "에밀리아"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": true,
+      "sourceIds": [
+        "source-1",
+        "source-37"
+      ]
+    },
+    {
+      "id": "p202403-03",
+      "start": "2024-03-28",
+      "end": "2024-04-11",
+      "names": [
+        "렘"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": true,
+      "sourceIds": [
+        "source-1",
+        "source-37"
+      ]
+    },
+    {
+      "id": "p202404-01",
+      "start": "2024-04-11",
+      "end": "2024-04-24",
+      "names": [
+        "베이"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-36"
+      ]
+    },
+    {
+      "id": "p202404-02",
+      "start": "2024-04-25",
+      "end": "2024-05-16",
+      "names": [
+        "크라운"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202405-01",
+      "start": "2024-05-16",
+      "end": "2024-05-30",
+      "names": [
+        "트로니"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202405-02",
+      "start": "2024-05-30",
+      "end": "2024-06-20",
+      "names": [
+        "소다 : 트윙클링 바니"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202406-01",
+      "start": "2024-06-06",
+      "end": "2024-06-27",
+      "names": [
+        "앨리스 : 원더랜드 바니"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202406-02",
+      "start": "2024-06-20",
+      "end": "2024-07-03",
+      "names": [
+        "클레이"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202407-01",
+      "start": "2024-07-04",
+      "end": "2024-07-25",
+      "names": [
+        "사쿠라 : 블룸 인 서머"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-35"
+      ]
+    },
+    {
+      "id": "p202407-02",
+      "start": "2024-07-04",
+      "end": "2024-07-25",
+      "names": [
+        "메어리 : 베이 갓데스",
+        "네온 : 블루 오션"
+      ],
+      "kind": "rerun",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-35"
+      ]
+    },
+    {
+      "id": "p202407-03",
+      "start": "2024-07-11",
+      "end": "2024-08-01",
+      "names": [
+        "로산나 : 시크 오션"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-35"
+      ]
+    },
+    {
+      "id": "p202407-04",
+      "start": "2024-07-25",
+      "end": "2024-08-08",
+      "names": [
+        "아인"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-34"
+      ]
+    },
+    {
+      "id": "p202407-05",
+      "start": "2024-07-25",
+      "end": "2024-08-15",
+      "names": [
+        "아니스 : 스파클링 서머",
+        "헬름 : 아쿠아마린"
+      ],
+      "kind": "rerun",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-34"
+      ]
+    },
+    {
+      "id": "p202408-01",
+      "start": "2024-08-08",
+      "end": "2024-08-21",
+      "names": [
+        "츠바이"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-33"
+      ]
+    },
+    {
+      "id": "p202408-02",
+      "start": "2024-08-22",
+      "end": "2024-09-19",
+      "names": [
+        "아스카"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": true,
+      "sourceIds": [
+        "source-1",
+        "source-31",
+        "source-32"
+      ]
+    },
+    {
+      "id": "p202408-03",
+      "start": "2024-08-29",
+      "end": "2024-09-19",
+      "names": [
+        "레이"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": true,
+      "sourceIds": [
+        "source-1",
+        "source-31",
+        "source-32"
+      ]
+    },
+    {
+      "id": "p202409-01",
+      "start": "2024-09-05",
+      "end": "2024-09-19",
+      "names": [
+        "마리"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": true,
+      "sourceIds": [
+        "source-1",
+        "source-31",
+        "source-32"
+      ]
+    },
+    {
+      "id": "p202409-02",
+      "start": "2024-09-19",
+      "end": "2024-10-03",
+      "names": [
+        "루주"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-30"
+      ]
+    },
+    {
+      "id": "p202410-01",
+      "start": "2024-10-03",
+      "end": "2024-10-17",
+      "names": [
+        "퀀시 : 이스케이프 퀸"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-29"
+      ]
+    },
+    {
+      "id": "p202410-02",
+      "start": "2024-10-10",
+      "end": "2024-10-24",
+      "names": [
+        "팬텀"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202410-03",
+      "start": "2024-10-17",
+      "end": "2024-10-30",
+      "names": [
+        "루마니"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-28"
+      ]
+    },
+    {
+      "id": "p202410-04",
+      "start": "2024-10-31",
+      "end": "2024-11-21",
+      "names": [
+        "신데렐라"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-25",
+        "source-27"
+      ]
+    },
+    {
+      "id": "p202411-01",
+      "start": "2024-11-07",
+      "end": "2024-11-28",
+      "names": [
+        "그레이브"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-25",
+        "source-26"
+      ]
+    },
+    {
+      "id": "p202411-02",
+      "start": "2024-11-21",
+      "end": "2024-12-05",
+      "names": [
+        "플로라"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-24"
+      ]
+    },
+    {
+      "id": "p202412-01",
+      "start": "2024-12-05",
+      "end": "2024-12-26",
+      "names": [
+        "메이든 : 아이스 로즈"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-23"
+      ]
+    },
+    {
+      "id": "p202412-02",
+      "start": "2024-12-05",
+      "end": "2024-12-26",
+      "names": [
+        "루드밀라 : 윈터 오너",
+        "미카 : 스노우 버디"
+      ],
+      "kind": "rerun",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-23"
+      ]
+    },
+    {
+      "id": "p202412-03",
+      "start": "2024-12-12",
+      "end": "2024-12-31",
+      "names": [
+        "길로틴 : 윈터 슬레이어"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-23"
+      ]
+    },
+    {
+      "id": "p202501-01",
+      "start": "2025-01-01",
+      "end": "2025-01-23",
+      "names": [
+        "라피 : 레드 후드"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-22"
+      ],
+      "tags": [
+        "오버스펙"
+      ]
+    },
+    {
+      "id": "p202501-02",
+      "start": "2025-01-01",
+      "end": "2025-01-23",
+      "names": [
+        "홍련 : 흑영"
+      ],
+      "kind": "rerun",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-22"
+      ]
+    },
+    {
+      "id": "p202501-03",
+      "start": "2025-01-16",
+      "end": "2025-01-30",
+      "names": [
+        "마나"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-21"
+      ]
+    },
+    {
+      "id": "p202501-04",
+      "start": "2025-01-30",
+      "end": "2025-02-19",
+      "names": [
+        "마스트 : 로망틱 메이드"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-20"
+      ]
+    },
+    {
+      "id": "p202502-01",
+      "start": "2025-02-06",
+      "end": "2025-02-27",
+      "names": [
+        "앵커 : 이노센트 메이드"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-20"
+      ]
+    },
+    {
+      "id": "p202502-02",
+      "start": "2025-02-20",
+      "end": "2025-03-13",
+      "names": [
+        "아스카 : WILLE"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": true,
+      "sourceIds": [
+        "source-1",
+        "source-18",
+        "source-19"
+      ]
+    },
+    {
+      "id": "p202502-03",
+      "start": "2025-02-20",
+      "end": "2025-03-13",
+      "names": [
+        "아스카"
+      ],
+      "kind": "rerun",
+      "limited": true,
+      "collab": true,
+      "sourceIds": [
+        "source-1",
+        "source-18",
+        "source-19",
+        "source-51"
+      ]
+    },
+    {
+      "id": "p202502-04",
+      "start": "2025-02-27",
+      "end": "2025-03-13",
+      "names": [
+        "레이 (가칭)"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": true,
+      "sourceIds": [
+        "source-1",
+        "source-18",
+        "source-19"
+      ]
+    },
+    {
+      "id": "p202502-05",
+      "start": "2025-02-27",
+      "end": "2025-03-13",
+      "names": [
+        "레이",
+        "마리"
+      ],
+      "kind": "rerun",
+      "limited": true,
+      "collab": true,
+      "sourceIds": [
+        "source-1",
+        "source-18",
+        "source-19",
+        "source-51"
+      ]
+    },
+    {
+      "id": "p202503-01",
+      "start": "2025-03-13",
+      "end": "2025-03-27",
+      "names": [
+        "트리나"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202503-02",
+      "start": "2025-03-27",
+      "end": "2025-04-10",
+      "names": [
+        "브래디"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202504-01",
+      "start": "2025-04-10",
+      "end": "2025-04-23",
+      "names": [
+        "크러스트"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202504-02",
+      "start": "2025-04-24",
+      "end": "2025-05-15",
+      "names": [
+        "리틀 머메이드"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-17"
+      ]
+    },
+    {
+      "id": "p202505-01",
+      "start": "2025-05-01",
+      "end": "2025-05-22",
+      "names": [
+        "미하라 : 본딩 체인"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-16"
+      ],
+      "tags": [
+        "오버스펙"
+      ]
+    },
+    {
+      "id": "p202505-02",
+      "start": "2025-05-15",
+      "end": "2025-05-29",
+      "names": [
+        "아르카나"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202505-03",
+      "start": "2025-05-29",
+      "end": "2025-06-11",
+      "names": [
+        "K"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-15"
+      ]
+    },
+    {
+      "id": "p202506-01",
+      "start": "2025-06-12",
+      "end": "2025-07-10",
+      "names": [
+        "이브"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": true,
+      "sourceIds": [
+        "source-1",
+        "source-14",
+        "source-13",
+        "source-52"
+      ],
+      "note": "7월 3일 공지에서 모집 종료가 7월 10일로 연장됨."
+    },
+    {
+      "id": "p202506-02",
+      "start": "2025-06-19",
+      "end": "2025-07-10",
+      "names": [
+        "레이븐"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": true,
+      "sourceIds": [
+        "source-1",
+        "source-13"
+      ]
+    },
+    {
+      "id": "p202507-01",
+      "start": "2025-07-03",
+      "end": "2025-07-31",
+      "names": [
+        "2B"
+      ],
+      "kind": "rerun",
+      "limited": true,
+      "collab": true,
+      "sourceIds": [
+        "source-1",
+        "source-11",
+        "source-12",
+        "source-52"
+      ]
+    },
+    {
+      "id": "p202507-02",
+      "start": "2025-07-03",
+      "end": "2025-07-17",
+      "names": [
+        "소라"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-11",
+        "source-12"
+      ]
+    },
+    {
+      "id": "p202507-07",
+      "start": "2025-07-10",
+      "end": "2025-07-31",
+      "names": [
+        "A2"
+      ],
+      "kind": "rerun",
+      "limited": true,
+      "collab": true,
+      "sourceIds": [
+        "source-1",
+        "source-11",
+        "source-12",
+        "source-52"
+      ]
+    },
+    {
+      "id": "p202507-03",
+      "start": "2025-07-17",
+      "end": "2025-08-07",
+      "names": [
+        "도로시 : 세렌디피티"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-10"
+      ]
+    },
+    {
+      "id": "p202507-04",
+      "start": "2025-07-24",
+      "end": "2025-08-14",
+      "names": [
+        "일레그 : 붐 앤 쇼크"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-10"
+      ]
+    },
+    {
+      "id": "p202507-05",
+      "start": "2025-07-24",
+      "end": "2025-08-14",
+      "names": [
+        "사쿠라 : 블룸 인 서머"
+      ],
+      "kind": "rerun",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-10"
+      ]
+    },
+    {
+      "id": "p202507-06",
+      "start": "2025-07-31",
+      "end": "2025-08-21",
+      "names": [
+        "로산나 : 시크 오션"
+      ],
+      "kind": "rerun",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-10"
+      ]
+    },
+    {
+      "id": "p202508-01",
+      "start": "2025-08-07",
+      "end": "2025-09-04",
+      "names": [
+        "엠마 : 택티컬 업"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-9",
+        "source-50"
+      ]
+    },
+    {
+      "id": "p202508-02",
+      "start": "2025-08-14",
+      "end": "2025-09-04",
+      "names": [
+        "은화 : 택티컬 업"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-9",
+        "source-50"
+      ]
+    },
+    {
+      "id": "p202508-03",
+      "start": "2025-08-21",
+      "end": "2025-09-11",
+      "names": [
+        "베스티 : 택티컬 업"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-9",
+        "source-50"
+      ]
+    },
+    {
+      "id": "p202509-01",
+      "start": "2025-09-04",
+      "end": "2025-09-23",
+      "names": [
+        "에이드 : 에이전트 바니"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202509-04",
+      "start": "2025-09-04",
+      "end": "2025-09-23",
+      "names": [
+        "앤 : 미라클 페어리",
+        "루피 : 윈터 쇼퍼",
+        "메어리 : 베이 갓데스",
+        "네온 : 블루 오션",
+        "아니스 : 스파클링 서머",
+        "헬름 : 아쿠아마린"
+      ],
+      "kind": "rerun",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202509-02",
+      "start": "2025-09-11",
+      "end": "2025-10-02",
+      "names": [
+        "밀크 : 블루밍 바니"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-8"
+      ]
+    },
+    {
+      "id": "p202509-03",
+      "start": "2025-09-24",
+      "end": "2025-10-21",
+      "names": [
+        "에이다"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": true,
+      "sourceIds": [
+        "source-1",
+        "source-6",
+        "source-7"
+      ]
+    },
+    {
+      "id": "p202510-01",
+      "start": "2025-10-02",
+      "end": "2025-10-21",
+      "names": [
+        "질"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": true,
+      "sourceIds": [
+        "source-1",
+        "source-6",
+        "source-7"
+      ]
+    },
+    {
+      "id": "p202510-02",
+      "start": "2025-10-16",
+      "end": "2025-10-29",
+      "names": [
+        "델타 : 닌자 시프"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-5"
+      ]
+    },
+    {
+      "id": "p202510-03",
+      "start": "2025-10-30",
+      "end": "2025-11-20",
+      "names": [
+        "나유타"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-4"
+      ]
+    },
+    {
+      "id": "p202510-04",
+      "start": "2025-10-30",
+      "end": "2025-11-20",
+      "names": [
+        "모더니아",
+        "도로시",
+        "레드 후드"
+      ],
+      "kind": "rerun",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-4"
+      ]
+    },
+    {
+      "id": "p202511-01",
+      "start": "2025-11-06",
+      "end": "2025-11-27",
+      "names": [
+        "리버렐리오"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202511-02",
+      "start": "2025-11-20",
+      "end": "2025-12-04",
+      "names": [
+        "솔린 : 프로스트 티켓"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-3"
+      ]
+    },
+    {
+      "id": "p202512-01",
+      "start": "2025-12-04",
+      "end": "2025-12-25",
+      "names": [
+        "디젤 : 윈터 스위츠"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-2"
+      ]
+    },
+    {
+      "id": "p202512-02",
+      "start": "2025-12-04",
+      "end": "2025-12-25",
+      "names": [
+        "메이든 : 아이스 로즈"
+      ],
+      "kind": "rerun",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-2"
+      ]
+    },
+    {
+      "id": "p202512-03",
+      "start": "2025-12-04",
+      "end": "2025-12-25",
+      "names": [
+        "길로틴 : 윈터 슬레이어"
+      ],
+      "kind": "rerun",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-2"
+      ]
+    },
+    {
+      "id": "p202512-04",
+      "start": "2025-12-11",
+      "end": "2025-12-31",
+      "names": [
+        "브리드 : 사일런트 트랙"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1"
+      ]
+    },
+    {
+      "id": "p202601-01",
+      "start": "2026-01-01",
+      "end": "2026-01-22",
+      "names": [
+        "스노우 화이트 : 헤비암즈"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-81"
+      ]
+    },
+    {
+      "id": "p202601-02",
+      "start": "2026-01-01",
+      "end": "2026-01-22",
+      "names": [
+        "라피 : 레드 후드"
+      ],
+      "kind": "rerun",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-81"
+      ],
+      "tags": [
+        "오버스펙"
+      ]
+    },
+    {
+      "id": "p202601-03",
+      "start": "2026-01-15",
+      "end": "2026-01-29",
+      "names": [
+        "레이블"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-80"
+      ]
+    },
+    {
+      "id": "p202601-04",
+      "start": "2026-01-29",
+      "end": "2026-02-11",
+      "names": [
+        "벨벳"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-79"
+      ]
+    },
+    {
+      "id": "p202602-01",
+      "start": "2026-02-12",
+      "end": "2026-03-12",
+      "names": [
+        "치사토"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": true,
+      "sourceIds": [
+        "source-1",
+        "source-77",
+        "source-78"
+      ]
+    },
+    {
+      "id": "p202602-02",
+      "start": "2026-02-19",
+      "end": "2026-03-12",
+      "names": [
+        "타키나"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": true,
+      "sourceIds": [
+        "source-1",
+        "source-77",
+        "source-78"
+      ]
+    },
+    {
+      "id": "p202603-01",
+      "start": "2026-03-05",
+      "end": "2026-03-19",
+      "names": [
+        "E.H."
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-75",
+        "source-76"
+      ]
+    },
+    {
+      "id": "p202603-02",
+      "start": "2026-03-19",
+      "end": "2026-04-09",
+      "names": [
+        "아르카나 : 포츈 메이트"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-74"
+      ]
+    },
+    {
+      "id": "p202604-01",
+      "start": "2026-04-09",
+      "end": "2026-04-22",
+      "names": [
+        "백학"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-73"
+      ]
+    },
+    {
+      "id": "p202604-02",
+      "start": "2026-04-23",
+      "end": "2026-05-14",
+      "names": [
+        "아니스 : 스타"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-71"
+      ],
+      "tags": [
+        "오버스펙"
+      ]
+    },
+    {
+      "id": "p202604-03",
+      "start": "2026-04-30",
+      "end": "2026-05-21",
+      "names": [
+        "네온 : 비전 아이"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-71",
+        "source-72"
+      ],
+      "tags": [
+        "오버스펙"
+      ]
+    },
+    {
+      "id": "p202605-01",
+      "start": "2026-05-14",
+      "end": "2026-06-04",
+      "names": [
+        "민트"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-69",
+        "source-70"
+      ]
+    },
+    {
+      "id": "p202605-02",
+      "start": "2026-05-14",
+      "end": "2026-06-11",
+      "names": [
+        "이브"
+      ],
+      "kind": "rerun",
+      "limited": true,
+      "collab": true,
+      "sourceIds": [
+        "source-1",
+        "source-69",
+        "source-70"
+      ]
+    },
+    {
+      "id": "p202605-03",
+      "start": "2026-05-21",
+      "end": "2026-06-11",
+      "names": [
+        "레이븐"
+      ],
+      "kind": "rerun",
+      "limited": true,
+      "collab": true,
+      "sourceIds": [
+        "source-1",
+        "source-69",
+        "source-70"
+      ]
+    },
+    {
+      "id": "p202605-04",
+      "start": "2026-05-28",
+      "end": "2026-06-11",
+      "names": [
+        "프리카"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-67",
+        "source-68"
+      ]
+    },
+    {
+      "id": "p202606-01",
+      "start": "2026-06-11",
+      "end": "2026-07-02",
+      "names": [
+        "아크레인저 블랙"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-65",
+        "source-66"
+      ]
+    },
+    {
+      "id": "p202606-02",
+      "start": "2026-06-11",
+      "end": "2026-07-02",
+      "names": [
+        "아니스 : 스파클링 서머",
+        "헬름 : 아쿠아마린",
+        "메어리 : 베이 갓데스",
+        "네온 : 블루 오션",
+        "사쿠라 : 블룸 인 서머",
+        "로산나 : 시크 오션"
+      ],
+      "kind": "rerun",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-65",
+        "source-66"
+      ],
+      "note": "기간 한정 선택 모집: 대상 중 한 명을 선택하는 복각입니다."
+    },
+    {
+      "id": "p202607-01",
+      "start": "2026-07-02",
+      "end": "2026-07-23",
+      "names": [
+        "신데렐라 : 크리스탈 웨이브"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-63",
+        "source-64"
+      ]
+    },
+    {
+      "id": "p202607-02",
+      "start": "2026-07-02",
+      "end": "2026-07-23",
+      "names": [
+        "도로시 : 세렌디피티"
+      ],
+      "kind": "rerun",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-63",
+        "source-64"
+      ]
+    },
+    {
+      "id": "p202607-03",
+      "start": "2026-07-09",
+      "end": "2026-07-30",
+      "names": [
+        "마르차나 : 마린 스터디"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-63",
+        "source-64"
+      ]
+    },
+    {
+      "id": "p202607-04",
+      "start": "2026-07-09",
+      "end": "2026-07-30",
+      "names": [
+        "일레그 : 붐 앤 쇼크"
+      ],
+      "kind": "rerun",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-63",
+        "source-64"
+      ]
+    },
+    {
+      "id": "p202607-05",
+      "start": "2026-07-23",
+      "end": "2026-08-12",
+      "names": [
+        "라플라스 : 얼티밋 히어로"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-61",
+        "source-62"
+      ],
+      "note": "특수 모집 후 일반 모집에 추가되는 캐릭터입니다. 한정 모집이 아닙니다."
+    },
+    {
+      "id": "p202607-06",
+      "start": "2026-07-30",
+      "end": "2026-08-20",
+      "names": [
+        "맥스웰 : 오디너리 미케닉"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-61",
+        "source-62"
+      ],
+      "note": "특수 모집 후 일반 모집에 추가되는 캐릭터입니다. 한정 모집이 아닙니다."
+    },
+    {
+      "id": "p202608-01",
+      "start": "2026-08-13",
+      "end": "2026-09-10",
+      "names": [
+        "퀸(마코토)"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": true,
+      "sourceIds": [
+        "source-1",
+        "source-59",
+        "source-60"
+      ]
+    },
+    {
+      "id": "p202608-02",
+      "start": "2026-08-20",
+      "end": "2026-09-10",
+      "names": [
+        "유키코"
+      ],
+      "kind": "new",
+      "limited": true,
+      "collab": true,
+      "sourceIds": [
+        "source-1",
+        "source-59",
+        "source-60"
+      ]
+    },
+    {
+      "id": "p202609-01",
+      "start": "2026-09-03",
+      "end": "2026-09-17",
+      "names": [
+        "드레이크 : 그레이트 빌런"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-57",
+        "source-58"
+      ],
+      "note": "특수 모집 후 일반 모집에 추가되는 캐릭터입니다. 한정 모집이 아닙니다."
+    },
+    {
+      "id": "p202609-02",
+      "start": "2026-09-17",
+      "end": "2026-10-08",
+      "names": [
+        "길티 : 마이티 바니"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-56"
+      ],
+      "note": "특수 모집 후 일반 모집에 추가되는 캐릭터입니다. 한정 모집이 아닙니다."
+    },
+    {
+      "id": "p202609-03",
+      "start": "2026-09-17",
+      "end": "2026-10-08",
+      "names": [
+        "루피 : 윈터 쇼퍼",
+        "앤 : 미라클 페어리",
+        "루드밀라 : 윈터 오너",
+        "미카 : 스노우 버디",
+        "메이든 : 아이스 로즈",
+        "길로틴 : 윈터 슬레이어"
+      ],
+      "kind": "rerun",
+      "limited": true,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-56"
+      ],
+      "note": "기간 한정 선택 모집: 대상 중 한 명을 선택하는 복각입니다."
+    },
+    {
+      "id": "p202609-04",
+      "start": "2026-09-24",
+      "end": "2026-10-15",
+      "names": [
+        "신 : 스위프트 바니"
+      ],
+      "kind": "new",
+      "limited": false,
+      "collab": false,
+      "sourceIds": [
+        "source-1",
+        "source-56"
+      ],
+      "note": "공식 발표된 예정 픽업. 2026-09-24 05:00 시작, 2026-10-15 04:59:59 종료 (한국 시간). 특수 모집 후 일반 모집에 추가됩니다."
+    }
+  ]
+}
