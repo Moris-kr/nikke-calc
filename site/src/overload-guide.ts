@@ -40,17 +40,29 @@ export function openOverloadGuide(name:string,catalog:SettingsCatalog,current:Ch
    answer.parts.forEach((offer,p)=>{const {plan,profile}=offer;const details=el('details');details.append(el('summary',`${GUIDE_PARTS[p]} · 모듈 ${plan.modules.toFixed(1)} / 키 ${plan.keys.toFixed(1)}`));
     if(!plan.target.some(Boolean)){details.append(el('p','이 부위는 작업하지 않습니다.'));card.append(details);return;}
     for(const [slot,option] of plan.target.entries())if(option){const group=profile.assignments[profile.target.indexOf(option)]!;const originalGoal=goals.filter(g=>g.count)[group]!;details.append(el('p',`${slot+1}번: ${catalog.overloadFields[option]!.label} Lv.${plan.levels[option]} 이상${option!==originalGoal.option?` (${catalog.overloadFields[originalGoal.option]!.label}의 타협 옵션)`:''}`));}
-    details.append(el('p','아래 순서는 각 줄의 차례가 왔을 때의 장비 상태로 판단합니다. 기존 잠금 중 목표에 맞는 줄은 유지하고, 새 보호는 해당 줄의 작업을 마친 뒤 시작합니다. 앞 단계의 변경으로 효과가 바뀌었다면 해당 줄 차례에서 목표 효과를 복구합니다.','og-note'));
-    const steps=el('ol');for(const slot of plan.order){const option=plan.target[slot];if(!option)continue;const old=rows[p]![slot]!;const level=plan.levels[option]!;
-      if(old.option===option){
-        if(plan.mode==='effects-first')steps.append(el('li',`${slot+1}번: 현재 ${catalog.overloadFields[option]!.label} 효과 확보. 차례가 왔을 때 효과가 유지되어 있으면 보호하고 다음 줄로 넘어갑니다. 수치작은 모든 목표 효과를 갖춘 뒤 진행합니다.`));
-        else if(old.level>=level)steps.append(el('li',`${slot+1}번: 현재 Lv.${level} 이상 충족. 차례가 왔을 때도 충족하면 변경 없이 보호합니다. 앞 단계에서 수치가 낮아졌다면 Lv.${level} 이상까지 복구합니다.`));
-        else steps.append(el('li',`${slot+1}번: 현재 목표 효과 확보. 차례가 오면 Lv.${level} 이상까지 수치작한 뒤 보호합니다.`));
-      }else steps.append(el('li',`${slot+1}번 차례: 목표 효과가 아직 없으면 ${catalog.overloadFields[option]!.label}을 찾습니다.${plan.mode==='complete-line'?` 이어서 Lv.${level} 미만이면 수치작한 뒤 보호합니다.`:' 효과를 보호한 뒤 다음 줄로 넘어가며, 수치작은 모든 목표 효과를 갖춘 뒤 진행합니다.'}`));
-    }details.append(steps);
-    const schedule=Array.from({length:6},(_,i)=>`${i+1}단계 ${plan.schedule&(1<<i)?'락 키':'모듈'}`).join(' → ');details.append(el('p',`잠금 재화 순서: ${schedule}`),el('p','단계는 목표 효과 확보 또는 수치 목표 달성까지의 반복 변경 한 묶음입니다. 이미 충족하여 변경을 생략한 단계는 세지 않습니다. 목표가 모두 갖춰지면 남은 단계는 하지 않습니다. 키는 변경할 때마다 다시 20/50개를 냅니다. 모듈에서 키로 전환할 때는 기존 잠금을 해제하고 키로 다시 보호하며, 키에서 모듈로 전환할 때는 새 모듈 잠금 비용을 냅니다.','og-note'));
-    if(plan.mode==='effects-first')details.append(el('p','효과를 먼저 갖춘 뒤 목표 미달 수치의 잠금은 해제합니다. 목표 수치를 새로 달성한 줄이 하나 이상 생긴 결과만 채택하고, 달성한 줄은 보호하며 반복합니다.'));
-    details.append(el('p','실패 결과는 채택하지 않습니다. 미잠금 줄은 바뀔 수 있으므로 앞 작업에서 잃은 목표는 다시 확보해야 합니다.','og-note'));card.append(details);
+    const steps=el('ol');
+    const kept=plan.target.map((option,i)=>option&&(locks[p]!&(1<<i))&&rows[p]![i]!.option===option&&(plan.mode==='effects-first'||rows[p]![i]!.level>=plan.levels[option]!)?i:-1).filter(i=>i>=0);
+    const lineNames=(slots:number[])=>slots.map(i=>`${i+1}번 줄`).join(' · ');
+    steps.append(el('li',kept.length?`${lineNames(kept)} 잠금은 유지하고, 나머지 줄의 잠금은 해제하세요.`:'현재 잠금을 모두 해제하세요.'));
+    for(const slot of plan.order){const option=plan.target[slot];if(!option||kept.includes(slot))continue;
+      const label=catalog.overloadFields[option]!.label;const level=plan.levels[option]!;const value=catalog.overloadSteps?.[option]?.[level-1];
+      const protectedText=kept.length?`${lineNames(kept)}을 잠근 상태로`:'아무 줄도 잠그지 않고';
+      steps.append(el('li',`${protectedText}, ${slot+1}번 줄에 ${label}이 나올 때까지 ‘효과변경’을 하세요. 이미 ${label}이면 이 작업은 건너뛰세요.`));
+      if(plan.mode==='complete-line')steps.append(el('li',`${protectedText}, ${slot+1}번 줄이 Lv.${level}${value===undefined?'':` (${value}%)`} 이상 나올 때까지 ‘수치변경’을 하세요. 이미 목표 이상이면 건너뛰세요.`));
+      kept.push(slot);
+    }
+    if(plan.mode==='effects-first'){
+      steps.append(el('li','위 효과를 모두 맞췄으면 수치가 목표보다 낮은 줄의 잠금을 해제하세요.'));
+      const targets=plan.target.flatMap((option,i)=>option?[`${i+1}번 줄 Lv.${plan.levels[option]} 이상`]:[]).join(' · ');
+      steps.append(el('li',`${targets}: 이 조건을 이미 만족한 줄만 잠그고 ‘수치변경’을 하세요.`));
+      steps.append(el('li','미완성 줄 중 하나라도 목표 수치 이상이 나오면 새 결과를 선택하세요. 그 줄도 잠근 뒤, 남은 줄이 목표 이상이 될 때까지 반복하세요.'));
+    }
+    steps.append(el('li','모든 목표를 맞추면 종료하세요. 목표에 못 미친 결과는 선택하지 마세요.'));
+    details.append(steps);
+    const schedule=Array.from({length:6},(_,i)=>`${i+1}번째 작업: ${plan.schedule&(1<<i)?'락 키':'모듈'}`).join(' → ');
+    details.append(el('p',plan.schedule===0?'잠금은 모두 모듈을 사용하세요.':plan.schedule===63?'잠금은 모두 락 키를 사용하세요. 돌릴 때마다 같은 줄을 다시 잠그세요.':`잠금 방식: ${schedule}`));
+    if(plan.schedule!==0&&plan.schedule!==63)details.append(el('p','한 목표가 나올 때까지 반복해서 돌리는 것을 작업 1회로 셉니다. 이미 맞춰져서 건너뛴 작업은 세지 않습니다. 모듈→락 키로 바꿀 때는 잠금을 해제한 뒤 키로 다시 잠그세요. 락 키→모듈로 바꿀 때는 모듈로 새로 잠그세요.','og-note'));
+    details.append(el('p','타협 옵션 중 이번 비용 계산에서 선택한 효과를 위 순서에 표시했습니다. 다른 효과로 바꾸면 비용도 달라집니다.','og-note'));card.append(details);
    });output.append(card);
   }
  };
