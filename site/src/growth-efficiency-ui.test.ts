@@ -60,6 +60,7 @@ describe('growth efficiency dialog',()=>{
   const totals:Record<string,number>={'':100,A:120,B:110,C:115,AB:160,AC:140,BC:130,ABC:170};
   const simulate=vi.fn(async(request:SimulationRequest)=>result(totals[Object.entries(request.characters!).filter(([,v])=>v.overload?.atk===15).map(([k])=>k).sort().join('')]!));
   openGrowthEfficiency(many,{settings,catalog:new Map(),deckName:()=> '덱 1',current:()=>({overloadLines:{머리:[{option:'atk',level:2}]}}),simulate});
+  const cost=document.querySelector<HTMLInputElement>('input[aria-label="모듈 가성비 분석"]')!;expect(cost.checked).toBe(true);cost.checked=false;cost.dispatchEvent(new Event('change'));
   document.querySelector<HTMLButtonElement>('.growth-primary')!.click();
   await vi.waitFor(()=>expect(document.querySelector('.growth-status')?.textContent).toContain('100% · 5/5회 완료'));
   expect(simulate).toHaveBeenCalledTimes(5);

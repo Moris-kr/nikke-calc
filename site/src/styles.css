@@ -2486,6 +2486,9 @@ body.bm-open { overflow: hidden; }
   color: var(--muted); font-weight: 700; font-size: 11px; cursor: pointer; }
 .ol-copy { margin-left: 0; }
 .ol-roll:hover, .ol-copy:hover { color: var(--ink); border-color: rgba(69,214,208,.4); }
+.ol-roll.ol-guide { background: #c4b5fd; color: #241344; border-color: #ddd6fe; font-weight: 800; box-shadow: 0 0 12px rgba(167,139,250,.25); }
+.ol-roll.ol-guide:hover { background: #ddd6fe; color: #1d1035; border-color: #ede9fe; }
+.ol-roll.ol-guide:focus-visible { outline: 2px solid #ede9fe; outline-offset: 3px; }
 /* 초상화 위의 육성 딱지 — 인게임 목록처럼 돌파와 소장품을 겹쳐 적는다(기본 꺼짐). */
 .growth-badge { position: absolute; left: 4px; right: 4px; bottom: 4px;
   display: flex; align-items: center; justify-content: space-between; gap: 4px;
