@@ -75,6 +75,8 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
   const currencyLabel=node('label','','growth-confirm');currencyLabel.append(node('span','잠금 재화'));const currencySelect=node('select');currencySelect.setAttribute('aria-label','잠금 재화');for(const [value,label] of [['modules','커스텀 모듈'],['keys','커스텀 락 키']]){const option=node('option',label);option.value=value!;currencySelect.append(option);}currencyLabel.append(currencySelect,node('span','락 키: 매 변경마다 1줄 20개 / 2줄 50개. 변경 모듈은 별도 2개 / 3개. 기존 모듈 잠금은 해제하고 키로 다시 잠그는 방식입니다.','growth-note'));
   const allLevelLabel=node('label','','growth-confirm');allLevelLabel.append(node('span','모든 수치작 타협레벨'));const allLevelSelect=node('select');allLevelSelect.setAttribute('aria-label','모든 수치작 타협레벨');for(let n=1;n<=15;n++)allLevelSelect.add(new Option(`Lv.${n} 이상`,String(n)));allLevelSelect.value='15';allLevelLabel.append(allLevelSelect);
   const eightLines=node('button','모두 8줄작 하기','growth-secondary growth-eight-lines');eightLines.type='button';
+  const excludeNonElement=node('button','비우코 제외','growth-secondary growth-exclude-non-element');excludeNonElement.type='button';excludeNonElement.title='각 덱의 보스 속성 기준으로 우월 속성이 아닌 니케를 육성 대상에서 제외합니다.';
+  const exclusionActions:Array<()=> 'excluded'|'kept'|'unknown'|'failed'>=[];
   const resetAll=node('button','전체 목표 옵션 리셋','growth-secondary growth-reset-all');resetAll.type='button';
   const resetTargets:Array<()=>boolean>=[];
   const editor = node('div'); const footer = node('footer');
@@ -93,7 +95,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
     label.append(select);
     performance.append(label,node('p','여러 후보를 내 컴퓨터의 CPU 코어로 동시에 계산합니다. 개수를 늘리면 CPU·메모리 사용과 발열이 증가합니다. 처음에는 계산 엔진 준비 시간이 추가되며, 코어 수나 남은 작업 수보다 늘려도 더 빨라지지 않을 수 있습니다. 느려지거나 다른 작업에 지장이 생기면 줄여 주세요.','growth-note'));
   }
-  dialog.append(header, intro, performance, costLabel, currencyLabel, allLevelLabel, eightLines, resetAll, editor, footer, output); overlay.append(dialog); document.body.append(overlay);
+  dialog.append(header, intro, performance, costLabel, currencyLabel, allLevelLabel, eightLines, excludeNonElement, resetAll, editor, footer, output); overlay.append(dialog); document.body.append(overlay);
   let closed = false, busy = false, pairs: Pair[] = [];
   let unregister=()=>{};let calculationError='';let moduleResults:Record<string,unknown>[]=[];
   let closePreview: (() => void) | null = null;
@@ -138,7 +140,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
   allLevelSelect.onchange=()=>{editor.querySelectorAll('.growth-goals').forEach(host=>host.dispatchEvent(new CustomEvent('set-all-levels',{detail:Number(allLevelSelect.value)})));};
   costCheck.onchange=invalidate;currencySelect.onchange=invalidate;
   const lockEditor = (locked: boolean) => {
-    eightLines.disabled=locked;resetAll.disabled=locked;costCheck.disabled=locked;allLevelSelect.disabled=locked;currencySelect.disabled=locked;
+    excludeNonElement.disabled=locked;eightLines.disabled=locked;resetAll.disabled=locked;costCheck.disabled=locked;allLevelSelect.disabled=locked;currencySelect.disabled=locked;
     performance.querySelectorAll<HTMLSelectElement>('select').forEach(select=>{select.disabled=locked;});
     output.querySelectorAll<HTMLButtonElement>('.growth-priority-button').forEach(button=>{button.disabled=locked;});
     editor.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>('input,select,button').forEach(el => {
@@ -186,6 +188,14 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
         exclude.setAttribute('aria-label', `${deps.deckName(entry.deckId)} ${name} ${exclude.textContent}`);
         lockEditor(false); invalidate();if(!saveGrowthExcluded(name,omit))message.textContent='육성 제외 여부를 저장하지 못했습니다.';
       };
+      exclusionActions.push(()=>{
+        const advantage:Record<string,string>={수냉:'작열',작열:'풍압',풍압:'철갑',철갑:'전격',전격:'수냉'};
+        const code=deps.catalog.get(name)?.elementCode??'';
+        if(!advantage[code]||!advantage[entry.request.enemyCode])return 'unknown';
+        if(advantage[code]===entry.request.enemyCode||excluded[index]!.has(name))return 'kept';
+        exclude.click();
+        return loadGrowthExcluded(name)?'excluded':'failed';
+      });
       summary.addEventListener('click', event => { if (excluded[index]!.has(name)) event.preventDefault(); });
       card.addEventListener('toggle', () => { if (excluded[index]!.has(name)) card.open = false; });
       summary.append(exclude); card.append(summary);
@@ -261,6 +271,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
     }
     editor.append(group);
   });
+  excludeNonElement.onclick=()=>{if(busy)return;const results=exclusionActions.map(apply=>apply());message.textContent=`비우코 ${results.filter(x=>x==='excluded'||x==='failed').length}명 육성 제외 · 속성 미확인 ${results.filter(x=>x==='unknown').length}명은 변경하지 않았습니다.${results.includes('failed')?' 일부 제외 여부를 저장하지 못했습니다.':''}`;};
   eightLines.onclick=()=>{if(busy)return;editor.querySelectorAll('.growth-goals').forEach(host=>host.dispatchEvent(new Event('set-eight-lines')));message.textContent='모든 니케의 목표를 우월코드 대미지 4줄 · 공격력 4줄로 설정했습니다. 다른 옵션은 제거하지 않아도 됩니다.';};
   resetAll.onclick=()=>{if(busy)return;const results=resetTargets.map(reset=>reset());allLevelSelect.value='15';message.textContent=results.every(Boolean)?'모든 덱의 목표 옵션을 현재 장비 구성 · Lv.15로 초기화했습니다.':'목표를 초기화했지만 일부 브라우저 저장값을 삭제하지 못했습니다.';};
   lockEditor(false);

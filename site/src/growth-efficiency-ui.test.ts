@@ -263,3 +263,20 @@ it('sets every character to eight required lines while preserving thresholds and
  expect(document.querySelector<HTMLElement>('.growth-character')!.dataset.excluded).toBe('true');
  expect(localStorage.getItem('nikke-growth-target:v1:A')).toContain('element_bonus');
 });
+
+it('excludes non-advantaged characters per boss and persists exclusion without toggling it back',()=>{
+ const multiple=structuredClone(batch);multiple.decks[0]!.request.squad=['A','B','C'];
+ const catalog=new Map([['A',{elementCode:'수냉'}],['B',{elementCode:'작열'}],['C',{elementCode:''}]]) as any;
+ openGrowthEfficiency(multiple,{settings,catalog,deckName:()=> '덱 1',current:()=>({}),simulate:vi.fn()});
+ const button=document.querySelector<HTMLButtonElement>('.growth-exclude-non-element')!;button.click();button.click();
+ const cards=[...document.querySelectorAll<HTMLElement>('.growth-character')];
+ expect(cards[0]!.dataset.excluded).not.toBe('true');expect(cards[1]!.dataset.excluded).toBe('true');expect(cards[2]!.dataset.excluded).not.toBe('true');
+ expect(localStorage.getItem('nikke-growth-excluded:v1:B')).toBe('true');
+ expect(document.querySelector('.growth-status')!.textContent).toContain('속성 미확인');
+});
+it('leaves targets unchanged when the boss has no element',()=>{
+ const noCode=structuredClone(batch);noCode.decks[0]!.request.enemyCode='';
+ openGrowthEfficiency(noCode,{settings,catalog:new Map([['A',{elementCode:'수냉'}]]) as any,deckName:()=> '덱 1',current:()=>({}),simulate:vi.fn()});
+ document.querySelector<HTMLButtonElement>('.growth-exclude-non-element')!.click();
+ expect(document.querySelector<HTMLElement>('.growth-character')!.dataset.excluded).not.toBe('true');
+});
