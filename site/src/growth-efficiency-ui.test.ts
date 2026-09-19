@@ -280,3 +280,19 @@ it('leaves targets unchanged when the boss has no element',()=>{
  document.querySelector<HTMLButtonElement>('.growth-exclude-non-element')!.click();
  expect(document.querySelector<HTMLElement>('.growth-character')!.dataset.excluded).not.toBe('true');
 });
+
+
+it('includes all excluded deck entries and persists inclusion without resetting goals',()=>{
+ const multiple=structuredClone(batch);multiple.decks.push({...structuredClone(multiple.decks[0]!),deckId:2});
+ localStorage.setItem('nikke-growth-excluded:v1:A','true');
+ openGrowthEfficiency(multiple,{settings,catalog:new Map(),deckName:id=>`덱 ${id}`,current:()=>({overloadLines:{머리:[{option:'atk',level:2}]}}),simulate:vi.fn()});
+ const savedGoal=localStorage.getItem('nikke-growth-target:v1:A');
+ const button=document.querySelector<HTMLButtonElement>('.growth-reset-included')!;
+ expect(button.previousElementSibling?.classList.contains('growth-reset-all')).toBe(true);
+ expect(document.querySelectorAll('.growth-character[data-excluded="true"]')).toHaveLength(2);
+ button.click();button.click();
+ expect(document.querySelectorAll('.growth-character[data-excluded="true"]')).toHaveLength(0);
+ expect([...document.querySelectorAll<HTMLDetailsElement>('.growth-character')].every(card=>card.open)).toBe(true);
+ expect(localStorage.getItem('nikke-growth-excluded:v1:A')).not.toBe('true');
+ expect(localStorage.getItem('nikke-growth-target:v1:A')).toBe(savedGoal);
+});
