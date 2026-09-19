@@ -32,6 +32,13 @@ function fakeFetch(reply: unknown, status = 200) {
 }
 
 describe('share server client', () => {
+  it('keeps long range summaries within the upload limit without shortening the actual code',async()=>{
+    const {fetcher,calls}=fakeFetch({item:{id:'a1'},existed:false});
+    const input={kind:'boss' as const,name:'test',by:'',auto:'구간 '.repeat(100),code:'NK3-range-code'};
+    await new ShareServer('https://share.example.com',fetcher).upload(input);
+    const sent=JSON.parse(String(calls[0]!.init!.body));
+    expect(sent.auto.length).toBe(160);expect(sent.code).toBe(input.code);expect(input.auto.length).toBe(300);
+  });
   it('asks for one kind and fills in what the server left out', async () => {
     const { fetcher, calls } = fakeFetch({ items: [{ id: 'a1' }] });
     const result = await new ShareServer('https://share.example.com/', fetcher).list('boss');
@@ -77,6 +84,10 @@ describe('share server client', () => {
 });
 
 describe('auto summaries', () => {
+  it('includes timed effective range weapons, disabled windows and the outside baseline',()=>{
+    const summary=summarizeBattle({...battle,optimalRangeWeapons:['SG'],optimalRangeWindows:[{from:30,to:60,weapons:['AR','MG']},{from:90,to:120,weapons:[]}]});
+    expect(summary).toContain('유효 사거리 30~60초 AR·MG / 90~120초 없음 (구간 밖: SG)');
+  });
   it('reads the battle back as one line', () => {
     expect(summarizeBattle(battle)).toBe('180초 · 무속성 · 코어 없음 · 난수');
     expect(summarizeBattle({

@@ -1,4 +1,6 @@
 import type { ShareItem, ShareKind, ShareServer, VoteValue } from './share-server';
+import { summarizeBattle } from './share-server';
+import { decodeBattleCode } from './share-code';
 
 // 공유 모달의 서버 쪽 판. 전투 조건과 조합이 같은 구조를 쓰므로 여기 한 번만 쓴다.
 // 세 갈래다 — «올리기»는 지금 설정을 이름 붙여 보내고, «내려받기»는 남이 올린 것을
@@ -185,7 +187,11 @@ export function mountSharePanel(hosts: SharePanelHosts, deps: SharePanelDeps): S
     renderList();
     try {
       const got = await deps.server.list(deps.kind);
-      items = got.items;
+      items = got.items.map(item=>{
+        if(deps.kind!=='boss')return item;
+        try{return {...item,auto:summarizeBattle(decodeBattleCode(item.code))};}
+        catch{return item;}
+      });
       mine = got.mine;
       applied = got.applied;
       loaded = true;

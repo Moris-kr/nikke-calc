@@ -172,7 +172,8 @@ export class ShareServer {
     const response = await this.fetcher(`${this.base}/upload`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
+      // The shared service keeps at most 160 characters; boss lists rebuild the full summary from NK3.
+      body: JSON.stringify(input.kind === 'boss' ? {...input,auto:input.auto.slice(0,160)} : input),
     });
     return this.unwrapKind<ShareUploadResult>(response);
   }
@@ -283,6 +284,10 @@ export function summarizeBattle(battle: BattleShare): string {
   if (battle.hasParts) parts.push(t('파츠'));
   if (battle.optimalRangeWeapons.length > 0) {
     parts.push(t('적정 {list}', { list: battle.optimalRangeWeapons.join('·') }));
+  }
+  if (battle.optimalRangeWindows?.length) {
+    const windows=battle.optimalRangeWindows.map(window=>`${window.from}~${window.to}${t('초')} ${window.weapons.length?window.weapons.join('·'):t('없음')}`).join(' / ');
+    parts.push(`${t('유효 사거리')} ${windows} (${t('구간 밖')}: ${battle.optimalRangeWeapons.join('·')||t('없음')})`);
   }
   if (battle.defenseRateWindows?.length) parts.push(t('바디 방어율 {n}', { n: battle.defenseRateWindows.length }));
   if (battle.coreWindows?.length) parts.push(t('코어 노출 {n}', { n: battle.coreWindows.length }));

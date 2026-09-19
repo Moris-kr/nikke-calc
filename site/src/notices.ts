@@ -21,6 +21,9 @@ export interface Notice {
 
 /** 최신이 맨 앞. */
 export const NOTICES: Notice[] = [
+  {id:'2026-09-19-share-effective-range',date:'2026-09-19',title:'전투 조건 공유 · 유효 사거리 표시',items:[
+    {tag:'개선',text:'전투 조건 공유 목록에서 <b>시간별 유효 사거리와 해당 무기군</b>을 표시합니다. 보너스가 없는 구간은 없음, 구간 밖은 기본 무기군으로 안내합니다. 기존 공유 항목도 저장된 코드에서 요약을 다시 읽어 표시하며, 긴 설명은 마우스를 올리면 이동합니다.'},
+  ]},
   {
     id:'2026-09-19-global-growth-priority-retain',date:'2026-09-19',title:'전체 덱 육성 순위 · 진행률 · 창 복원',
     items:[

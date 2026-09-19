@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { agoText, mountSharePanel, rankItems, squadPreview } from './share-panel';
 import type { ShareItem, ShareListResult, ShareVoteResult } from './share-server';
 import type { ShareServer } from './share-server';
+import { encodeBattleCode } from './share-code';
 
 const item = (over: Partial<ShareItem> = {}): ShareItem => ({
   id: 'a1', name: '솔레 3페', auto: '90초 · 적 수냉', by: '', at: '2026-08-20T00:00:00.000Z',
@@ -82,6 +83,13 @@ const tab = (host: HTMLElement, key: string) =>
   host.querySelector<HTMLButtonElement>(`[data-share-tab="${key}"]`)!;
 
 describe('share panel', () => {
+  it('rebuilds old uploaded battle summaries from their code including timed range',async()=>{
+    const server=new FakeServer();
+    server.reply.items=[item({auto:'옛 요약',code:encodeBattleCode({duration:180,synchroLevel:400,console:{common_level:0,class_level:{},company_level:{}},enemyDef:0,enemyCode:'',coreEnabled:false,corePx:52,hasParts:false,seed:42,optimalRangeWeapons:[],normalHitCoeff:{},immuneWindows:[],elementWindows:[],rngMode:'expected',immuneBlocksBurst:false,burstRegenTime:0,burstReaction:0.05,optimalRangeWindows:[{from:30,to:60,weapons:['AR']}]})})];
+    const {host,panel}=mount(server);panel.open();await flush();
+    expect(host.querySelector('.share-auto')?.textContent).toContain('유효 사거리 30~60초 AR');
+    expect(server.reply.items[0]!.auto).toBe('옛 요약');
+  });
   beforeEach(() => {
     document.body.replaceChildren();
   });
