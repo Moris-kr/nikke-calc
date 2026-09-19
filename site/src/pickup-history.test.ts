@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { renderPickupHistory, filterPickupEvents, validatePickupHistory, pickupHonor, type PickupHistory } from './pickup-history';
+import { renderPickupHistory, filterPickupEvents, validatePickupHistory, pickupHonor, expandPickupCards, pickupExportLayout, type PickupHistory } from './pickup-history';
 import type { CharacterMeta } from './types';
 
 const data: PickupHistory = {
@@ -17,9 +17,40 @@ describe('pickup history', () => {
     const fixture = { ...data, events: [{ ...data.events[0]!, collab: true, gifts: ['배포 캐릭터'], giftNote: '출석 보상' }] };
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => fixture }));
     const host = document.createElement('div'); await renderPickupHistory(host, []);
-    expect([...host.querySelectorAll('.pickup-person')].map(n => n.textContent)).toEqual(['N시험 캐릭터', 'N배포 캐릭터배포']);
+    const cards = [...host.querySelectorAll('.pickup-card')];
+    expect(cards).toHaveLength(2);
+    expect(cards.map(n => n.querySelector('.pickup-name')?.textContent)).toEqual(['시험 캐릭터', '배포 캐릭터']);
+    expect(cards.every(n => n.querySelectorAll('.pickup-person').length === 1)).toBe(true);
+    expect(cards[1]!.textContent).toContain('배포');
+    expect(cards[1]!.textContent).not.toContain('복각');
+    expect(cards[1]!.classList.contains('pickup-limited')).toBe(false);
     expect(filterPickupEvents(fixture.events, { year: '', kind: 'collab', query: '배포', order: 'desc' }, [])).toHaveLength(1);
     expect(() => validatePickupHistory({ ...fixture, events: [{ ...fixture.events[0], gifts: ['시험 캐릭터'] }] })).toThrow();
+  });
+  it('uses separate adjacent gift cards for both chronological directions and PNG input', () => {
+    const events = [{ ...data.events[0]!, collab: true, gifts: ['배포1', '배포2'] }, data.events[1]!];
+    for (const order of ['asc', 'desc'] as const) {
+      const cards = expandPickupCards(filterPickupEvents(events, { year: '', kind: '', query: '', order }, []));
+      const index = cards.findIndex(e => e.id === 'b');
+      expect(cards.slice(index, index + 3).map(e => e.names)).toEqual([['시험 캐릭터'], ['배포1'], ['배포2']]);
+      expect(cards[index + 1]!.end).toBeUndefined();
+      expect(cards[index + 1]!.gifts).toBeUndefined();
+    }
+  });
+  it('fits all cards into one PNG and grows only the row containing a grouped pickup', () => {
+    const cards = Array.from({ length: 155 }, (_, i) => ({ ...data.events[0]!, id: String(i) }));
+    cards[6] = { ...cards[6]!, names: ['A', 'B', 'C', 'D', 'E', 'F'] };
+    const layout = pickupExportLayout(cards);
+    expect(layout.rows).toHaveLength(26);
+    expect(layout.rows[0]!.height).toBe(240);
+    expect(layout.rows[1]!.height).toBeGreaterThan(240);
+    expect(layout.rows[2]!.height).toBe(240);
+    expect(layout.rows.at(-1)!.y + layout.rows.at(-1)!.height).toBeLessThan(layout.height);
+    expect(layout.pixelWidth).toBe(1200);
+    const large = pickupExportLayout([...cards, ...cards, ...cards]);
+    expect(large.rows).toHaveLength(78);
+    expect(large.pixelHeight).toBeLessThanOrEqual(8192);
+    expect(large.scale).toBeLessThan(1);
   });
   it('distinguishes special limited cards, ignores unrelated tags, and remembers dark mode', async () => {
     const fixture = { ...data, events: [{ ...data.events[0]!, tags: ['오버스펙'] }, { ...data.events[1]!, tags: ['기타'] }] };
