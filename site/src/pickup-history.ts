@@ -230,7 +230,7 @@ async function exportPickupImage(events: PickupCard[], catalog: Map<string, Char
         const py = y + 65 + j * 68; const image = cache.get(name); ctx.fillStyle = dark ? '#35495c' : '#eef2f5'; ctx.fillRect(x + 10, py, 48, 54);
         if (image) { const scale = Math.max(48 / image.width, 54 / image.height); const sw = 48 / scale; const sh = 54 / scale; ctx.drawImage(image, (image.width - sw) / 2, (image.height - sh) * .2, sw, sh, x + 10, py, 48, 54); }
         const icon = icons.get(catalog.get(name)?.elementCode ?? '');
-        if (icon) { ctx.fillStyle = '#14202bdd'; ctx.fillRect(x + 10, py + 36, 18, 18); ctx.drawImage(icon, x + 11, py + 37, 16, 16); }
+        if (icon) { ctx.fillStyle = '#14202bdd'; ctx.fillRect(x + 40, py + 36, 18, 18); ctx.drawImage(icon, x + 41, py + 37, 16, 16); }
         ctx.fillStyle = dark ? '#e4edf5' : '#172532'; ctx.font = 'bold 12px sans-serif'; let line = ''; let row = 0;
         for (const char of name) { if (ctx.measureText(line + char).width > 106) { ctx.fillText(line, x + 65, py + 15 + row * 15); row++; line = ''; } line += char; } ctx.fillText(line, x + 65, py + 15 + row * 15);
         if (event.gifts?.includes(name)) { ctx.fillStyle = dark ? '#87edce' : '#00674f'; ctx.font = 'bold 11px sans-serif'; ctx.fillText('배포', x + 65, py + 59); }
