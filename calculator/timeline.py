@@ -22,6 +22,7 @@ from typing import Any
 from .base_stat import calc_base_stats
 from .buff_manager import BuffManager, _QUANT_PARTS_KEY, _get_skill_lv
 from .cheats import from_config as cheats_from_config
+from .customization import normalize_optimal_range_windows
 from .damage import calc_damage, default_hit_type, is_element_match
 from .sim_result import (
     HitEvent,
@@ -161,6 +162,7 @@ DEFAULT_ENEMY: dict = {
     "defense_rate_windows": [],   # [시작, 끝, 방어율%]; 중첩 시 최댓값, 방어 무시 대미지는 우회
     "has_parts":            False,# 파괴 가능 파츠 보유 보스. part_hit_count / part_dmg_pct의 전제
     "optimal_range_weapons": [],  # 적정거리 적용 무기군 목록 e.g. ["SG", "SMG"]
+    "optimal_range_windows": [],  # [from, to) 무기군 합집합; 구간 밖은 상시 설정
     # 보스 페이즈 구간. 둘 다 `[시작초, 끝초)` 반개구간이고 여러 개를 넣을 수 있다.
     #   immune_windows  — 족자: 그 구간 동안 평타가 적중하지 않는다
     #   element_windows — 속저: 그 구간 동안 **그 코드에 우월한** 캐릭터의 딜만 들어간다
@@ -2506,6 +2508,18 @@ def simulate(
     enm = {**DEFAULT_ENEMY, **(enemy or {})}
     core_px = enm["core_px"]
     core_windows = [(float(a), float(b)) for a, b in enm.get("core_windows") or []]
+    optimal_range_weapons = enm["optimal_range_weapons"]
+    optimal_range_windows = normalize_optimal_range_windows(enm.get("optimal_range_windows"))
+
+    def _update_optimal_range(t: float):
+        frame_t = round(t, 9)
+        active = [w for w in optimal_range_windows if w["from"] <= frame_t < w["to"]]
+        enm["optimal_range_weapons"] = (
+            {weapon for w in active for weapon in w["weapons"]}
+            if active else optimal_range_weapons
+        )
+
+    _update_optimal_range(0.0)
 
     def _update_core_exposure(t: float):
         # DT 누적으로 30초가 29.999999999…가 되어 경계가 한 프레임 밀리지 않게 한다.
@@ -2913,6 +2927,7 @@ def simulate(
 
     t = 0.0
     while t <= duration:
+        _update_optimal_range(t)
         _update_core_exposure(t)
         bm.tick(t)
         _sync_damage_accumulators(t)

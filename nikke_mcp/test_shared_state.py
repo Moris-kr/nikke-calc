@@ -47,6 +47,7 @@ class SharedTests(unittest.IsolatedAsyncioTestCase):
             'defenseRateWindows': [{'from': 6, 'to': 8, 'rate': 60}],
             'elementWindows': [{'from': 4, 'to': 5, 'code': '철갑'}],
             'normalHitCoeff': {'SMG': .8}, 'optimalRangeWeapons': ['SMG'],
+            'optimalRangeWindows': [{'from': 1, 'to': 2, 'weapons': []}],
             'burstSequence': [{'1': ['리타']}],
             'characters': {'리타': {'growthStage': 2, 'skillLevels': {'1': 7, '2': 8, '3': 9},
                                     'cube': {'name': '없음', 'level': 0},
@@ -62,6 +63,7 @@ class SharedTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(out['effectiveCharacters'][0]['console']['common_level'], 90)
         self.assertEqual(out['effectiveCharacters'][0]['burst_regen_time'], 3)
         self.assertEqual(out['request']['immuneWindows'], [{'from': 2, 'to': 3}])
+        self.assertEqual(out['request']['optimalRangeWindows'], [{'from': 1, 'to': 2, 'weapons': []}])
         self.assertEqual(out['request']['defenseRateWindows'], [{'from': 6, 'to': 8, 'rate': 60}])
 
 

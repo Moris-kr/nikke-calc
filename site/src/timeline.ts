@@ -48,6 +48,7 @@ export interface TimelineSeries {
   /** 바디 방어율 — 일반 대미지 감소 구간. 보라색 밴드로 깐다. */
   defenseRateWindows: Array<{ from: number; to: number; rate: number }>;
   coreWindows: Array<{ from: number; to: number }>;
+  optimalRangeWindows: Array<{ from: number; to: number; weapons: string[] }>;
   /** 족자 — 평타가 빗나가는 구간. 타임라인에 붉은 밴드로 깐다. */
   immuneWindows: Array<{ from: number; to: number }>;
   /** 속저 — 우월 코드만 통과하는 구간. 푸른 밴드로 깐다. */
@@ -131,6 +132,7 @@ export function buildSeries(
   phases: {
     defenseRateWindows?: Array<{ from: number; to: number; rate: number }>;
     coreWindows?: Array<{ from: number; to: number }>;
+    optimalRangeWindows?: Array<{ from: number; to: number; weapons: string[] }>;
     immuneWindows?: Array<{ from: number; to: number }>;
     elementWindows?: Array<{ from: number; to: number; code: string }>;
   } = {},
@@ -157,6 +159,7 @@ export function buildSeries(
     fullBurst: timeline.fullBurst,
     defenseRateWindows: phases.defenseRateWindows ?? [],
     coreWindows: phases.coreWindows ?? [],
+    optimalRangeWindows: phases.optimalRangeWindows ?? [],
     immuneWindows: phases.immuneWindows ?? [],
     elementWindows: phases.elementWindows ?? [],
     // 이 덱에 없는 사람이 건 버프는 색을 줄 수 없으니 뺀다(옛 결과에는 목록 자체가 없다).
@@ -496,6 +499,9 @@ class TimelineChart {
     };
     for (const w of this.series.defenseRateWindows) {
       band(w.from, w.to, 'rgba(192,132,252,0.16)', `바디 방어율 ${w.rate}%`);
+    }
+    for (const w of this.series.optimalRangeWindows) {
+      band(w.from, w.to, 'rgba(45,212,191,0.12)', `사거리 ${w.weapons.join('/') || '없음'}`);
     }
     for (const w of this.series.coreWindows) {
       band(w.from, w.to, 'rgba(74,222,128,0.12)', '코어 노출');
@@ -903,6 +909,7 @@ export function createTimelineBlock(
   const squad = entry.request.squad.filter(Boolean);
   const series = buildSeries(timeline, squad, entry.result.duration, {
     defenseRateWindows: entry.request.defenseRateWindows,
+    optimalRangeWindows: entry.request.optimalRangeWindows,
     coreWindows: entry.request.corePx > 0 ? entry.request.coreWindows : [],
     immuneWindows: entry.request.immuneWindows,
     elementWindows: entry.request.elementWindows,

@@ -20,6 +20,7 @@ from calculator.customization import (
     normalize_burst_reaction,
     normalize_burst_sequence,
     normalize_optimal_range,
+    normalize_optimal_range_windows,
     normalize_synchro_level,
 )
 # `_is_normal`은 히트 태그로 일반공격을 가려내는 엔진 정본이다. 포크에서 다시
@@ -620,6 +621,7 @@ def run_request(raw: str, include_effective: bool = False) -> str:
             payload.get("optimalRangeWeapons")
         ),
         # 보스 페이즈 — 족자(딜 차단)와 속저(우월 코드만 통과).
+        "optimal_range_windows": normalize_optimal_range_windows(payload.get("optimalRangeWindows")),
         "immune_windows": normalize_immune_windows(payload.get("immuneWindows")),
         "element_windows": normalize_element_windows(payload.get("elementWindows")),
     }

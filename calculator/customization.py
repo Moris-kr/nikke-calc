@@ -541,6 +541,33 @@ def normalize_hacks(raw: Any) -> dict[str, Any] | None:
     return cheats if from_config({"cheats": cheats}).on else None
 
 
+def normalize_optimal_range_windows(raw: Any) -> list[dict[str, Any]]:
+    """적정거리 구간 [from, to). 겹친 구간의 무기군은 합집합이다.
+
+    구간 밖은 상시 optimal_range_weapons로 돌아간다. weapons=[]인 구간은
+    상시 설정을 비우며, 구간 목록 자체가 비면 기존 상시 설정을 유지한다.
+    """
+    if raw is None:
+        return []
+    if not isinstance(raw, list) or len(raw) > 100:
+        raise ValueError("적정거리 설정은 최대 100개 구간의 배열이어야 한다")
+    out = []
+    for item in raw:
+        if not isinstance(item, dict) or set(item) != {"from", "to", "weapons"}:
+            raise ValueError("적정거리 구간은 from·to·weapons 객체여야 한다")
+        if any(isinstance(item[key], bool) for key in ("from", "to")):
+            raise ValueError("적정거리 구간에는 숫자가 필요하다")
+        try:
+            start, end = _window(item, "적정거리")
+        except OverflowError:
+            raise ValueError("적정거리 구간은 유한한 숫자여야 한다") from None
+        weapons = item["weapons"]
+        if not isinstance(weapons, list) or any(not isinstance(w, str) for w in weapons):
+            raise ValueError("적정거리 무기군은 문자열 배열이어야 한다")
+        out.append({"from": start, "to": end, "weapons": normalize_optimal_range(weapons)})
+    return out
+
+
 def normalize_immune_windows(raw: Any) -> list[list[float]]:
     """족자 — 그 구간 동안 평타가 적중하지 않는다."""
     if raw is None:

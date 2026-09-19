@@ -1105,12 +1105,14 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
               <legend>보스 페이즈</legend>
               <div class="phase-head">
                 <button type="button" class="phase-add" data-phase-add="defense">+리버렐리오 바디 방어율 구간</button>
+                <button type="button" class="phase-add" data-phase-add="range">+유효 사거리 구간</button>
                 <button type="button" class="phase-add" data-phase-add="core">+코어 노출 구간</button>
                 <button type="button" class="phase-add" data-phase-add="immune">족자 추가 <b>+</b></button>
                 <button type="button" class="phase-add" data-phase-add="element">속저 추가 <b>+</b></button>
               </div>
               <div class="phase-list" data-phase-list></div>
               <p class="field-note">바디 방어율은 <a href="https://arca.live/b/nikketgv/183364010" target="_blank" rel="noopener noreferrer">유저 실험</a> 기반 가정입니다. 기본 60%는 일반 최종 대미지를 40%로 줄이며 방어 무시 대미지는 통과합니다. 방어 무시 대미지 증가 버프만으로 일반 공격이 방어 무시로 바뀌지 않습니다. 받는 대미지 효과와 독립 적용하며 방어력 감소와의 상호작용은 미검증입니다. 겹친 구간은 가장 높은 방어율만 적용됩니다.</p>
+              <p class="field-note">유효 사거리 구간 안에서는 체크한 무기군에 적정거리 보너스를 적용합니다. 모두 해제하면 해당 구간은 보너스가 없으며, 구간 밖은 기본 적정거리 설정을 따릅니다. 겹치는 구간은 선택한 무기군을 합칩니다.</p>
               <p class="field-note">코어 노출 구간이 없으면 코어가 항상 노출됩니다. 구간을 추가하면 해당 시간에만 노출되며, 코어를 끄면 모든 구간에서 비활성화됩니다.</p>
               <p class="field-note"><b>족자</b>는 평타만 빗나갑니다. 지속 대미지·스킬 대미지와 평타로 발동한 후속 공격은 계속 들어갑니다. <b>속저</b>는 고른 속성에 <b>우월한</b> 캐릭터의 딜만 통과시킵니다 — 풍압으로 두면 작열 캐릭터만 들어갑니다. 인게임처럼 <b>우월 코드 버프</b>로 우월해진 캐릭터도 통과합니다(라피 : 레드 후드 «부착형 유탄» 등).</p>
             </fieldset>
@@ -3159,6 +3161,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   // 두고, 실행할 때 검증 메시지로 알린다.
   let defenseRateWindows: Array<PhaseWindow & { rate: number }> = [];
   let coreWindows: PhaseWindow[] = [];
+  let optimalRangeWindows: Array<PhaseWindow & { weapons: string[] }> = [];
   let immuneWindows: PhaseWindow[] = [];
   let elementWindows: ElementWindow[] = [];
 
@@ -3177,13 +3180,14 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       return input;
     };
 
-    const row = (kind: 'defense' | 'core' | 'immune' | 'element', index: number, from: number, to: number) => {
+    const row = (kind: 'range' | 'defense' | 'core' | 'immune' | 'element', index: number, from: number, to: number) => {
       const box = document.createElement('div');
       box.className = `phase-row is-${kind}`;
       box.dataset.phaseRow = `${kind}:${index}`;
-      box.append(createText('span', kind === 'defense' ? '바디 방어율' : kind === 'core' ? '코어 노출' : kind === 'immune' ? '족자' : '속저', 'phase-tag'));
+      box.append(createText('span', kind === 'range' ? '유효 사거리' : kind === 'defense' ? '바디 방어율' : kind === 'core' ? '코어 노출' : kind === 'immune' ? '족자' : '속저', 'phase-tag'));
       box.append(numberField(from, (v) => {
-        if (kind === 'defense') defenseRateWindows[index]!.from = v;
+        if (kind === 'range') optimalRangeWindows[index]!.from = v;
+        else if (kind === 'defense') defenseRateWindows[index]!.from = v;
         else if (kind === 'core') coreWindows[index]!.from = v;
         else if (kind === 'immune') immuneWindows[index]!.from = v;
         else elementWindows[index]!.from = v;
@@ -3191,7 +3195,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       }));
       box.append(createText('span', '~', 'phase-sep'));
       box.append(numberField(to, (v) => {
-        if (kind === 'defense') defenseRateWindows[index]!.to = v;
+        if (kind === 'range') optimalRangeWindows[index]!.to = v;
+        else if (kind === 'defense') defenseRateWindows[index]!.to = v;
         else if (kind === 'core') coreWindows[index]!.to = v;
         else if (kind === 'immune') immuneWindows[index]!.to = v;
         else elementWindows[index]!.to = v;
@@ -3216,6 +3221,20 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       drop.addEventListener('click', () => { defenseRateWindows.splice(index, 1); saveState(); renderPhases(); });
       box.append(drop);
       list.append(box);
+    });
+
+    optimalRangeWindows.forEach((w, index) => {
+      const box = row('range', index, w.from, w.to);
+      for (const weapon of settings.optimalRangeWeapons ?? ['AR', 'SMG', 'SG', 'MG', 'SR']) {
+        const label = document.createElement('label');
+        const check = document.createElement('input'); check.type = 'checkbox'; check.checked = w.weapons.includes(weapon);
+        check.ariaLabel = `유효 사거리 ${index + 1} ${weapon}`;
+        check.addEventListener('change', () => { w.weapons = check.checked ? [...w.weapons, weapon] : w.weapons.filter(v => v !== weapon); saveState(); });
+        label.append(check, document.createTextNode(weapon)); box.append(label);
+      }
+      const drop = document.createElement('button'); drop.type = 'button'; drop.className = 'phase-drop'; drop.textContent = '✕'; drop.ariaLabel = `유효 사거리 ${index + 1} 삭제`;
+      drop.addEventListener('click', () => { optimalRangeWindows.splice(index, 1); saveState(); renderPhases(); });
+      box.append(drop); list.append(box);
     });
 
     coreWindows.forEach((w, index) => {
@@ -3284,13 +3303,14 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     });
   };
 
-  for (const kind of ['defense', 'core', 'immune', 'element'] as const) {
+  for (const kind of ['range', 'defense', 'core', 'immune', 'element'] as const) {
     element<HTMLButtonElement>(root, `[data-phase-add="${kind}"]`).addEventListener('click', () => {
       // 마지막 구간 뒤를 기본값으로 잡아, 겹치지 않는 구간을 이어 붙이기 쉽게 한다.
-      const all = kind === 'defense' ? defenseRateWindows : kind === 'core' ? coreWindows : [...immuneWindows, ...elementWindows];
+      const all = kind === 'range' ? optimalRangeWindows : kind === 'defense' ? defenseRateWindows : kind === 'core' ? coreWindows : [...immuneWindows, ...elementWindows];
       const start = all.length > 0 ? Math.max(...all.map((w) => w.to)) : 0;
       const from = Math.min(start, 178);
-      if (kind === 'defense') defenseRateWindows.push({ from, to: Math.min(from + 2, 180), rate: 60 });
+      if (kind === 'range') optimalRangeWindows.push({ from, to: Math.min(from + 2, 180), weapons: readOptimalRange() });
+      else if (kind === 'defense') defenseRateWindows.push({ from, to: Math.min(from + 2, 180), rate: 60 });
       else if (kind === 'core') coreWindows.push({ from, to: Math.min(from + 2, 180) });
       else if (kind === 'immune') immuneWindows.push({ from, to: Math.min(from + 2, 180) });
       else elementWindows.push({ from, to: Math.min(from + 2, 180), code: '풍압' });
@@ -3444,6 +3464,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     // 배열은 화면이 아니라 이 변수가 정본이다 — 입력이 잘못돼도 지우지 않고
     // 그대로 실어 실행 시 검증 메시지로 알린다.
     defenseRateWindows: defenseRateWindows.map((w) => ({ ...w })),
+    optimalRangeWindows: optimalRangeWindows.map(w => ({ ...w, weapons: [...w.weapons] })),
     coreWindows: coreWindows.map((w) => ({ ...w })),
     immuneWindows: immuneWindows.map((w) => ({ ...w })),
     elementWindows: elementWindows.map((w) => ({ ...w })),
@@ -3478,6 +3499,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     element<HTMLInputElement>(root, '#seed').value = String(battle.seed);
     writeOptimalRange(battle.optimalRangeWeapons ?? []);
     defenseRateWindows = (battle.defenseRateWindows ?? []).map((w) => ({ ...w }));
+    optimalRangeWindows = (battle.optimalRangeWindows ?? []).map(w => ({ ...w, weapons: [...w.weapons] }));
     coreWindows = (battle.coreWindows ?? []).map((w) => ({ ...w }));
     immuneWindows = (battle.immuneWindows ?? []).map((w) => ({ ...w }));
     elementWindows = (battle.elementWindows ?? []).map((w) => ({ ...w }));
@@ -6994,12 +7016,22 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       settings,
       catalog: [...catalogByName.values()],
       simulate: (request) => client.simulate(request),
+      decks: () => decks.map(deck => ({ id: String(deck.id), name: deck.name || `덱 ${deck.id}`, squad: deck.squad.filter(Boolean) })),
+      currentDeckId: () => String(activeDeckId),
+      selectDeck: (id) => {
+        const selected = decks.find(deck => String(deck.id) === id); if (!selected) return;
+        activeDeckId = selected.id;
+        const empty = selected.squad.findIndex(member => !member); activeSlot = empty < 0 ? 0 : empty;
+        saveState(); renderDeckTabs(); renderSquad();
+      },
+      currentBurstSequence: () => requestForDeck(activeDeck(), readBattle()).burstSequence,
       currentSquad: () => activeDeck().squad.filter(Boolean),
       currentCharacters: () => Object.fromEntries(
         Object.entries(activeDeck().characters)
           .map(([name, value]) => [name, overridesForEngine(value)]),
       ),
       currentBattle: readBattle,
+      currentBurstRegenTime: () => { const battle = readBattle(); return battle.burstRegenPerDeck?.[activeDeckId] ?? battle.burstRegenTime; },
       // 값을 폼에 써넣는 것만으로는 남지 않는다 — 폼은 사람이 만질 때(change) 저장되는데
       // 프로그램이 넣은 값에는 그 이벤트가 없다. 보스 메이커에서 잡은 족자·속저가
       // 새로고침에 날아가던 이유라, 쓰는 자리에서 저장까지 함께 한다.

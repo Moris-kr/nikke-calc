@@ -378,8 +378,9 @@ describe('보스 메이커 화면', () => {
     // 아래 줄들이 모두 이 시각을 기준으로 읽히므로 시간이 맨 위여야 한다.
     expect(names[0]).toContain('초');
     expect(names[1]).toContain('조준');
-    expect(names[2]).toBe('족자');
-    expect(names[3]).toBe('속저');
+    expect(names[2]).toBe('코어 노출');
+    expect(names[3]).toBe('족자');
+    expect(names[4]).toBe('속저');
   });
 
   it('캐릭터별 탄환과 상태가 오른쪽 아래에 선다', async () => {
@@ -691,4 +692,68 @@ describe('보스 메이커 화면', () => {
 
     expect(host.querySelectorAll('.bm-handle')).toHaveLength(0);
   });
+});
+it('adds core exposure windows in boss controls and forwards them', async () => {
+  mount().open();
+  const add = [...host.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === '코어 노출 추가');
+  expect(add).toBeDefined();
+  add!.click();
+  expect(applied.coreWindows).toEqual([{ from: 10, to: 15 }]);
+  placeWith('core');
+  host.querySelector<HTMLButtonElement>('[data-bm-run]')!.click();
+  await vi.waitFor(() => expect(sent).toMatchObject({ coreWindows: [{ from: 10, to: 15 }] }));
+});
+it('calculates five decks and restores the selected deck', async () => {
+  applied = battle();
+  let selected = '0';
+  const simulate = vi.fn(async (_request: unknown) => ({ ...result(), squadTotal: (Number(selected) + 1) * 1_000_000 }));
+  const decks = Array.from({ length: 5 }, (_, i) => ({ id: String(i), name: `${i + 1}덱`, squad: ['리타'] }));
+  mountBossMaker(host, {
+    settings, catalog: [], simulate,
+    decks: () => decks, currentDeckId: () => selected, selectDeck: (id) => { selected = id; },
+    currentSquad: () => decks[Number(selected)]!.squad,
+    currentCharacters: () => ({ 리타: { attack: Number(selected) + 1 } } as never),
+    currentBattle: () => applied, applyBattle: (next) => { applied = next; },
+    imageOf: () => undefined, storage: () => localStorage,
+  }).open();
+  host.querySelector<HTMLButtonElement>('[data-bm-run-all]')!.click();
+  await vi.waitFor(() => expect(simulate).toHaveBeenCalledTimes(5));
+  await vi.waitFor(() => expect(selected).toBe('0'));
+  expect(host.querySelector('[data-bm-deck-results]')!.textContent).toContain('5덱');
+  const pick = host.querySelector<HTMLSelectElement>('[data-bm-deck]')!;
+  pick.value = '4';
+  pick.dispatchEvent(new Event('change', { bubbles: true }));
+  expect(selected).toBe('4');
+  expect(host.querySelector<HTMLElement>('[data-bm-run-note]')!.title).toContain('5,000,000');
+  expect(simulate.mock.calls.map(([request]) => (request as { characters: unknown }).characters)).toEqual(
+    Array.from({ length: 5 }, (_, i) => ({ 리타: { attack: i + 1 } })),
+  );
+});
+it('invalidates cached results after battle settings change', async () => {
+  const handle = mount();
+  handle.open();
+  host.querySelector<HTMLButtonElement>('[data-bm-run]')!.click();
+  await vi.waitFor(() => expect(host.querySelector<HTMLElement>('[data-bm-run-note]')!.title).toContain('1,800,000'));
+  applied = { ...applied, enemyDef: applied.enemyDef + 1 };
+  handle.close();
+  handle.open();
+  expect(host.querySelector<HTMLElement>('[data-bm-run-note]')!.title).toBe('');
+  expect(host.querySelector('[data-bm-run-note]')!.textContent).toContain('다시 계산');
+});
+it('discards an in-flight result when its deck changed', async () => {
+  applied = battle();
+  let selected = '0';
+  let complete!: (value: SimulationResult) => void;
+  mountBossMaker(host, {
+    settings, catalog: [], simulate: () => new Promise((resolve) => { complete = resolve; }),
+    currentDeckId: () => selected,
+    currentSquad: () => ['리타'], currentCharacters: () => ({}),
+    currentBattle: () => applied, applyBattle: (next) => { applied = next; },
+    imageOf: () => undefined, storage: () => localStorage,
+  }).open();
+  host.querySelector<HTMLButtonElement>('[data-bm-run]')!.click();
+  selected = '1';
+  complete(result());
+  await vi.waitFor(() => expect(host.querySelector('[data-bm-run-note]')!.textContent).toContain('다시 계산'));
+  expect(host.querySelector<HTMLElement>('[data-bm-run-note]')!.title).toBe('');
 });

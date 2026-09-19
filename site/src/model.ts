@@ -65,6 +65,7 @@ export function normalizeRequest(request: SimulationRequest): SimulationRequest 
     // 보스 페이즈는 시작 시각순으로 세운다 — 넣은 순서가 달라도 같은 설정이다.
     ...(request.defenseRateWindows?.length ? { defenseRateWindows:
       [...request.defenseRateWindows].sort((a, b) => a.from - b.from || a.to - b.to || a.rate - b.rate) } : {}),
+    ...(request.optimalRangeWindows?.length ? { optimalRangeWindows: request.optimalRangeWindows.map(w => ({ ...w, weapons: [...new Set(w.weapons)].sort() })).sort((a, b) => a.from - b.from || a.to - b.to || a.weapons.join(',').localeCompare(b.weapons.join(','))) } : {}),
     ...(request.coreWindows?.length ? { coreWindows:
       [...request.coreWindows].sort((a, b) => a.from - b.from || a.to - b.to) } : {}),
     ...(request.immuneWindows?.length ? { immuneWindows:
@@ -214,6 +215,7 @@ export function validateRequest(request: SimulationRequest): string[] {
   // 보스 페이즈 — 시작이 끝보다 뒤면 조용히 뒤집지 않고 막는다. 엔진도 같은 규칙이다.
   const windows: Array<[{ from: number; to: number }, string]> = [
     ...(request.defenseRateWindows ?? []).map((w) => [w, '바디 방어율'] as [typeof w, string]),
+    ...(request.optimalRangeWindows ?? []).map((w) => [w, '유효 사거리'] as [typeof w, string]),
     ...(request.coreWindows ?? []).map((w) => [w, '코어 노출'] as [typeof w, string]),
     ...(request.immuneWindows ?? []).map((w) => [w, '족자'] as [typeof w, string]),
     ...(request.elementWindows ?? []).map((w) => [w, '속저'] as [typeof w, string]),
@@ -225,6 +227,11 @@ export function validateRequest(request: SimulationRequest): string[] {
     } else if (w.from >= w.to) {
       errors.push(`${label} 구간은 시작이 끝보다 앞서야 합니다 (${w.from}~${w.to}).`);
     }
+  }
+
+  if ((request.optimalRangeWindows?.length ?? 0) > 100) errors.push('유효 사거리 구간은 최대 100개까지 지정할 수 있습니다.');
+  for (const w of request.optimalRangeWindows ?? []) {
+    if (!Array.isArray(w.weapons) || w.weapons.some(weapon => !['AR', 'SMG', 'SG', 'MG', 'SR', 'RL'].includes(weapon))) errors.push('유효 사거리 구간의 무기군을 확인해 주세요.');
   }
 
   if ((request.defenseRateWindows?.length ?? 0) > 100) errors.push('바디 방어율 구간은 최대 100개까지 지정할 수 있습니다.');
@@ -301,6 +308,7 @@ export function requestForDeck(
     seed: battle.seed,
     optimalRangeWeapons: battle.optimalRangeWeapons,
     coreWindows: battle.coreWindows,
+    optimalRangeWindows: battle.optimalRangeWindows,
     defenseRateWindows: battle.defenseRateWindows,
     immuneWindows: battle.immuneWindows,
     elementWindows: battle.elementWindows,
@@ -328,6 +336,13 @@ export function resetEnemy(battle: BattleSettings): BattleSettings {
     coreEnabled: false,
     corePx: 52,
     hasParts: false,
+    corePerDeck: {},
+    optimalRangeWeapons: [],
+    optimalRangeWindows: [],
+    coreWindows: [],
+    defenseRateWindows: [],
+    immuneWindows: [],
+    elementWindows: [],
   };
 }
 

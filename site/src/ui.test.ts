@@ -1593,6 +1593,24 @@ describe('calculator UI', () => {
     expect(JSON.parse(localStorage.getItem('nikke-state-v1')!).battle.defenseRateWindows).toEqual([]);
   });
 
+  it('유효 사거리 시간과 무기군을 저장하고 복원한다', () => {
+    const deps = { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage };
+    const dispose = mountCalculator(root, deps);
+    root.querySelector<HTMLButtonElement>('[data-phase-add="range"]')!.click();
+    const row = root.querySelector('[data-phase-row="range:0"]')!;
+    const inputs = row.querySelectorAll<HTMLInputElement>('input[type="number"]');
+    inputs[0]!.value = '30'; inputs[0]!.dispatchEvent(new Event('input'));
+    inputs[1]!.value = '60'; inputs[1]!.dispatchEvent(new Event('input'));
+    row.querySelector<HTMLInputElement>('[aria-label="유효 사거리 1 AR"]')!.click();
+    expect(JSON.parse(localStorage.getItem('nikke-state-v1')!).battle.optimalRangeWindows).toEqual([{ from: 30, to: 60, weapons: ['AR'] }]);
+    dispose(); root.replaceChildren();
+    const stop = mountCalculator(root, deps);
+    expect(root.querySelector<HTMLInputElement>('[aria-label="유효 사거리 1 AR"]')!.checked).toBe(true);
+    root.querySelector<HTMLButtonElement>('[aria-label="유효 사거리 1 삭제"]')!.click();
+    expect(JSON.parse(localStorage.getItem('nikke-state-v1')!).battle.optimalRangeWindows).toEqual([]);
+    stop();
+  });
+
   it('코어 노출 구간 두 개를 편집하고 복원하며 삭제한다', () => {
     const deps = { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage };
     const unmount = mountCalculator(root, deps);

@@ -124,6 +124,7 @@ export interface SimulationRequest {
   optimalRangeWeapons?: string[];
   // 보스 페이즈 — 족자(평타 빗나감)와 속저(우월 코드만 통과).
   coreWindows?: PhaseWindow[];
+  optimalRangeWindows?: OptimalRangeWindow[];
   defenseRateWindows?: DefenseRateWindow[];
   immuneWindows?: PhaseWindow[];
   elementWindows?: ElementWindow[];
@@ -207,6 +208,7 @@ export interface ShotTrack {
 
 /** 보스 페이즈 구간. `[from, to)` 반개구간이다. */
 export interface PhaseWindow { from: number; to: number }
+export interface OptimalRangeWindow extends PhaseWindow { weapons: string[] }
 export interface DefenseRateWindow extends PhaseWindow { rate: number }
 /** 속저 — 그 구간 동안 이 코드에 **우월한** 캐릭터의 딜만 들어간다. */
 export interface ElementWindow extends PhaseWindow { code: ElementCode }
@@ -231,6 +233,7 @@ export interface BattleSettings {
   /** 족자 — 그 구간 동안 평타가 적중하지 않는다. */
   /** Empty or absent means continuously exposed while core is enabled. */
   coreWindows?: PhaseWindow[];
+  optimalRangeWindows?: OptimalRangeWindow[];
   defenseRateWindows?: DefenseRateWindow[];
   immuneWindows: PhaseWindow[];
   /** 속저 — 그 구간 동안 우월 코드만 통과한다. */
@@ -540,7 +543,7 @@ export interface RecommendationOptions {
   include?: string[];
   exclude?: string[];
   scenarios?: Array<{ label: string; battle: Partial<Pick<BattleSettings,
-    'enemyDef' | 'corePx' | 'coreWindows' | 'hasParts' | 'defenseRateWindows' |
+    'enemyDef' | 'corePx' | 'coreWindows' | 'optimalRangeWindows' | 'hasParts' | 'defenseRateWindows' |
     'elementWindows' | 'immuneWindows' | 'burstRegenTime' | 'optimalRangeWeapons'>> }>;
 }
 

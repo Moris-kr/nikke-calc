@@ -284,7 +284,7 @@ describe('multi-deck model', () => {
       .toEqual({ '1': 7, '2': 9, '3': 10 });
   });
 
-  it('resets enemy values without changing battle duration or seed', () => {
+  it('resets enemy values and phases without changing battle duration or seed', () => {
     expect(resetEnemy({
       ...battle,
       duration: 60,
@@ -294,10 +294,18 @@ describe('multi-deck model', () => {
       coreEnabled: true,
       corePx: 77,
       hasParts: true,
+      corePerDeck: { 1: true },
+      coreWindows: [{ from: 10, to: 20 }],
+      defenseRateWindows: [{ from: 0, to: 20, rate: 60 }],
+      immuneWindows: [{ from: 20, to: 30 }],
+      elementWindows: [{ from: 30, to: 40, code: '작열' }],
+      optimalRangeWeapons: ['AR'],
+      optimalRangeWindows: [{ from: 0, to: 40, weapons: ['SR'] }],
     })).toEqual({
       ...battle,
       duration: 60,
       seed: 99,
+      corePerDeck: {}, optimalRangeWeapons: [], optimalRangeWindows: [], coreWindows: [], defenseRateWindows: [], immuneWindows: [], elementWindows: [],
     });
   });
 
@@ -466,5 +474,18 @@ describe('body defense rate windows', () => {
     expect(key).not.toBe(cacheKey({ ...valid, defenseRateWindows: [{ ...defenseRateWindows[0]!, rate: 50 }, defenseRateWindows[1]!] }, 'v1'));
     expect(cacheKey({ ...valid, defenseRateWindows: [] }, 'v1')).toBe(cacheKey(valid, 'v1'));
     expect(requestForDeck(deck(1, ['리타']), { ...battle, defenseRateWindows })).toMatchObject({ defenseRateWindows });
+  });
+});
+
+
+describe('optimal range windows', () => {
+  const optimalRangeWindows = [{ from: 30, to: 60, weapons: ['AR', 'SR'] }, { from: 90, to: 100, weapons: [] }];
+  it('validates and forwards time-based range overrides including no bonus windows', () => {
+    expect(validateRequest({ ...valid, optimalRangeWindows })).toEqual([]);
+    expect(validateRequest({ ...valid, optimalRangeWindows: [{ from: 30, to: 10, weapons: [] }] })).toContain('유효 사거리 구간은 시작이 끝보다 앞서야 합니다 (30~10).');
+    expect(validateRequest({ ...valid, optimalRangeWindows: [{ from: 0, to: 10, weapons: ['BAD'] }] })).toContain('유효 사거리 구간의 무기군을 확인해 주세요.');
+    expect(requestForDeck(deck(1, ['리타']), { ...battle, optimalRangeWindows }).optimalRangeWindows).toEqual(optimalRangeWindows);
+    expect(cacheKey({ ...valid, optimalRangeWindows }, 'v1')).not.toBe(cacheKey(valid, 'v1'));
+    expect(cacheKey({ ...valid, optimalRangeWindows }, 'v1')).toBe(cacheKey({ ...valid, optimalRangeWindows: [...optimalRangeWindows].reverse() }, 'v1'));
   });
 });

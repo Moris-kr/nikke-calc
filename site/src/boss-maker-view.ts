@@ -42,8 +42,13 @@ export interface BossMakerDeps {
   simulate: (request: SimulationRequest) => Promise<SimulationResult>;
   /** 지금 보고 있는 덱의 편성 */
   currentSquad: () => string[];
+  decks?: () => Array<{ id: string; name: string; squad: string[] }>;
+  currentDeckId?: () => string;
+  selectDeck?: (id: string) => void;
   /** 그 덱의 캐릭터 설정 — 시뮬 요청에 그대로 실린다 */
   currentCharacters: () => Record<string, CharacterOverrides>;
+  currentBurstSequence?: () => SimulationRequest['burstSequence'];
+  currentBurstRegenTime?: () => number;
   currentBattle: () => BattleSettings;
   /** 만든 보스를 전투 조건에 반영한다 */
   applyBattle: (battle: BattleSettings) => void;
@@ -160,6 +165,9 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   let lastResult: SimulationResult | null = null;
   let cursor = 0;
   let running = false;
+  let runningAll = false;
+  const deckErrors = new Map<string, string>();
+  const deckResults = new Map<string, { result: SimulationResult; note: string; title: string; signature: string }>();
   /**
    * 캐릭터별 «여기까지의 누적 딜». 칸마다 앞자리를 다 더해 둔 표라, 커서가 움직일
    * 때마다 1,800칸을 다시 더하지 않고 한 번만 읽는다.
@@ -186,6 +194,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   }
   /** 지금 판을 저장함에 밀어 넣고 통째로 적는다. 모든 손질이 이 한 곳을 지난다. */
   function save() {
+    if (invalidateChangedResult()) restoreDeckResult();
     breakCache = null;      // 그림이 바뀌면 파괴 시각도 다시 내야 한다
     library = putDesign(library, design);
     try {
@@ -201,6 +210,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     design = activeDesign(library);
     selectedId = null;
     shots = null;
+    restoreDeckResult();
     save();
     render();
   }
@@ -422,6 +432,9 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
 
       <footer class="bm-timeline">
         <div class="bm-timeline-head">
+          <select class="bm-input" data-bm-deck aria-label="보스 메이커 덱"></select>
+          <button type="button" class="bm-btn" data-bm-run-all>모든 덱 계산</button>
+          <div class="bm-note" data-bm-deck-results></div>
           <button type="button" class="bm-btn accent" data-bm-run>현재 덱으로 타임라인 구성</button>
           <span class="bm-timeline-note" data-bm-run-note>편성한 덱으로 한 판 돌려, 누가 언제 어디에 쏘는지 이 자리에 폅니다.</span>
         </div>
@@ -652,7 +665,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     }
 
     // 코어와 중앙.
-    if (design.core) {
+    if (design.core && (!(battle.coreWindows ?? []).length || (battle.coreWindows ?? []).some((w) => at >= w.from && at < w.to))) {
       const core = svgEl('circle');
       attrs(core, { cx: design.core.x, cy: design.core.y, r: design.core.d / 2 });
       core.setAttribute('class', `bm-core${selectedId === 'core' ? ' is-on' : ''}`);
@@ -1558,13 +1571,15 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
 
     // 보스 페이즈 — 타임라인에서 끌어 옮기는 그 구간이다.
     const phaseHead = el('div', 'bm-phase-head');
-    for (const [kind, label] of [['immune', '족자 추가'], ['element', '속저 추가']] as const) {
+    for (const [kind, label] of [['immune', '족자 추가'], ['element', '속저 추가'], ['core', '코어 노출 추가']] as const) {
       const button = el('button', 'bm-chip add', label);
       button.type = 'button';
       button.addEventListener('click', () => {
         const now = deps.currentBattle();
         const start = Math.min(now.duration - 5, 10);
-        if (kind === 'immune') {
+        if (kind === 'core') {
+          deps.applyBattle({ ...now, coreWindows: [...(now.coreWindows ?? []), { from: start, to: start + 5 }] });
+        } else if (kind === 'immune') {
           deps.applyBattle({
             ...now, immuneWindows: [...now.immuneWindows, { from: start, to: start + 5 }],
           });
@@ -1584,6 +1599,8 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     battlePane.append(el('p', 'bm-note',
       '족자 구간에는 무대에서 보스가 사라지고, 속저 구간에는 그 코드 색 방어막이 덮입니다. '
       + '아래 타임라인에서 끌어 옮기고 길이를 조절할 수 있습니다.'));
+
+    battlePane.append(el('p', 'bm-note', '코어 노출 구간이 비어 있으면 코어가 항상 노출됩니다. 아래 타임라인에서 구간을 조절하거나 두 번 눌러 삭제하세요.'));
 
     // 폭발 반경 — 참고선이라는 것을 분명히 적는다.
     const squad = deps.currentSquad().filter(Boolean);
@@ -1676,14 +1693,17 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
 
   // ── 타임라인 ──────────────────────────────────────────────────────────────
 
-  async function runTimeline() {
-    if (running) return;
+  async function runTimeline(fromAll = false) {
+    if (running || (runningAll && !fromAll)) return;
     const squad = deps.currentSquad().filter(Boolean);
     if (squad.length === 0) {
       runNote.textContent = '먼저 덱에 니케를 편성해 주세요.';
       return;
     }
+    const requestKey = resultKey();
+    const signature = resultSignature();
     running = true;
+    renderDecks();
     runNote.textContent = '계산하는 중…';
     try {
       const battle = deps.currentBattle();
@@ -1701,6 +1721,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       const request: SimulationRequest = {
         squad,
         characters: deps.currentCharacters(),
+        burstSequence: deps.currentBurstSequence?.(),
         duration: battle.duration,
         enemyDef: battle.enemyDef,
         enemyCode: battle.enemyCode,
@@ -1711,6 +1732,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
         // 겹친 도형은 합집합이다 — 보너스는 무기군마다 한 번만 붙는다.
         optimalRangeWeapons: aimRange ?? battle.optimalRangeWeapons,
         coreWindows: battle.coreWindows,
+        optimalRangeWindows: battle.optimalRangeWindows,
         defenseRateWindows: battle.defenseRateWindows,
         immuneWindows: battle.immuneWindows,
         elementWindows: battle.elementWindows,
@@ -1718,7 +1740,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
         immuneBlocksBurst: battle.immuneBlocksBurst,
         normalHitCoeff: battle.normalHitCoeff,
         synchroLevel: battle.synchroLevel,
-        burstRegenTime: battle.burstRegenTime,
+        burstRegenTime: deps.currentBurstRegenTime?.() ?? battle.burstRegenTime,
         burstReaction: battle.burstReaction,
         console: battle.console,
         // 켜 둔 핵은 여기서도 그대로 걸린다 — 같은 조건인데 판마다 다른 수가 나오면
@@ -1732,7 +1754,13 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
         // 누적 딜을 사격 트랙과 같은 0.1초 칸으로 읽으려면 잘게 나눈 표가 필요하다.
         fineTimeline: true,
       };
-      const result = await deps.simulate(request);
+      const result = await deps.simulate(structuredClone(request));
+      if (requestKey !== resultKey() || signature !== resultSignature()) {
+        restoreDeckResult();
+        runNote.textContent = '계산 중 설정이 바뀌었습니다. 다시 계산해 주세요.';
+        render();
+        return;
+      }
       lastResult = result;
       shots = result.shots ?? null;
       states = result.states ?? null;
@@ -1776,11 +1804,17 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       runNote.textContent = parts.join(' · ');
       runNote.title = `총딜 ${Math.round(result.squadTotal).toLocaleString('ko-KR')}`
         + ` · 초당 ${Math.round(dps).toLocaleString('ko-KR')}`;
+      deckErrors.delete(requestKey);
+      deckResults.set(requestKey, { result, note: runNote.textContent ?? '', title: runNote.title, signature });
       render();
     } catch (error) {
       runNote.textContent = error instanceof Error ? error.message : String(error);
+      deckErrors.set(requestKey, runNote.textContent);
+      deckResults.delete(requestKey);
+      if (requestKey !== resultKey()) restoreDeckResult();
     } finally {
       running = false;
+      renderDecks();
     }
   }
 
@@ -1816,9 +1850,20 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     tracks.append(aimTrack(duration));
 
     // 보스 상태 줄 — 족자·속저를 끌어 옮긴다.
-    const stateCount = battle.immuneWindows.length + battle.elementWindows.length;
-    tracks.append(groupHead('phase', '보스 상태 (족자 · 속저)', stateCount));
+    const stateCount = battle.immuneWindows.length + battle.elementWindows.length + (battle.coreWindows ?? []).length;
+    tracks.append(groupHead('phase', '보스 상태 (코어 · 족자 · 속저)', stateCount));
     if (!folded.has('phase')) {
+    tracks.append(phaseTrack('코어 노출', (battle.coreWindows ?? []).map((w, index) => ({
+      index, from: w.from, to: w.to, color: '#ffcf6a', label: '코어',
+    })), duration, (index, from, to) => {
+      const now = deps.currentBattle();
+      const next = [...(now.coreWindows ?? [])];
+      next[index] = { from, to };
+      deps.applyBattle({ ...now, coreWindows: next });
+    }, (index) => {
+      const now = deps.currentBattle();
+      deps.applyBattle({ ...now, coreWindows: (now.coreWindows ?? []).filter((_, at) => at !== index) });
+    }));
     tracks.append(phaseTrack('족자', battle.immuneWindows.map((w, index) => ({
       index, from: w.from, to: w.to, color: '#8ea9c4', label: '족자',
     })), duration, (index, from, to) => {
@@ -2576,7 +2621,85 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     }
   }
 
+  function resultKey() { return `${design.id}:${deps.currentDeckId?.() ?? ''}`; }
+
+  function resultSignature() {
+    return JSON.stringify([design, deps.currentBattle(), deps.currentSquad(), deps.currentCharacters(),
+      deps.currentBurstSequence?.(), deps.currentBurstRegenTime?.()]);
+  }
+
+  function invalidateChangedResult() {
+    const saved = deckResults.get(resultKey());
+    if (!saved || saved.signature === resultSignature()) return false;
+    deckResults.delete(resultKey());
+    deckErrors.set(resultKey(), '설정이 바뀌었습니다. 다시 계산해 주세요.');
+    return true;
+  }
+
+  function restoreDeckResult() {
+    invalidateChangedResult();
+    const saved = deckResults.get(`${design.id}:${deps.currentDeckId?.() ?? ''}`);
+    lastResult = saved?.result ?? null;
+    shots = lastResult?.shots ?? null;
+    states = lastResult?.states ?? null;
+    impactCache = null;
+    breakCache = null;
+    cumulative = {};
+    if (lastResult) buildCumulative(lastResult);
+    runNote.textContent = deckErrors.get(`${design.id}:${deps.currentDeckId?.() ?? ''}`) ?? saved?.note ?? '선택한 덱을 계산하면 타임라인과 결과가 표시됩니다.';
+    runNote.title = saved?.title ?? '';
+    cursor = 0;
+    setPlaying(false);
+  }
+
+  function renderDecks() {
+    if (invalidateChangedResult()) restoreDeckResult();
+    const decks = deps.decks?.() ?? [];
+    const select = q<HTMLSelectElement>('[data-bm-deck]');
+    select.hidden = !decks.length;
+    select.disabled = runningAll || running;
+    select.replaceChildren(...decks.map((deck) => {
+      const option = el('option', '', deck.name);
+      option.value = deck.id;
+      return option;
+    }));
+    select.value = deps.currentDeckId?.() ?? '';
+    const all = q<HTMLButtonElement>('[data-bm-run-all]');
+    all.hidden = !decks.length;
+    all.disabled = runningAll || running;
+    const results = q<HTMLElement>('[data-bm-deck-results]');
+    results.replaceChildren(...decks.map((deck) => {
+      const saved = deckResults.get(`${design.id}:${deck.id}`);
+      const button = el('button', 'bm-chip', `${deck.name} · ${deckErrors.has(`${design.id}:${deck.id}`) ? '계산 실패' : saved ? `지난 계산 ${formatDamage(saved.result.squadTotal)}` : '미계산'}`);
+      button.type = 'button';
+      button.disabled = runningAll || running;
+      button.addEventListener('click', () => { deps.selectDeck?.(deck.id); restoreDeckResult(); render(); });
+      return button;
+    }));
+  }
+
+  async function runAllDecks() {
+    if (running || runningAll || !deps.selectDeck) return;
+    const previous = deps.currentDeckId?.();
+    runningAll = true;
+    renderDecks();
+    try {
+      for (const deck of deps.decks?.() ?? []) {
+        if (!deck.squad.some(Boolean)) continue;
+        deps.selectDeck(deck.id);
+        restoreDeckResult();
+        await runTimeline(true);
+      }
+    } finally {
+      if (previous !== undefined) deps.selectDeck(previous);
+      runningAll = false;
+      restoreDeckResult();
+      render();
+    }
+  }
+
   function render() {
+    renderDecks();
     renderPicker();
     renderFilter();
     nameInput.value = design.name;
@@ -2633,6 +2756,12 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   helpPane.addEventListener('click', (event) => {
     if (event.target === helpPane) helpPane.hidden = true;
   });
+  q<HTMLSelectElement>('[data-bm-deck]').addEventListener('change', (event) => {
+    deps.selectDeck?.((event.target as HTMLSelectElement).value);
+    restoreDeckResult();
+    render();
+  });
+  q<HTMLButtonElement>('[data-bm-run-all]').addEventListener('click', () => { void runAllDecks(); });
   q<HTMLButtonElement>('[data-bm-run]').addEventListener('click', () => { void runTimeline(); });
   q<HTMLButtonElement>('[data-bm-close]').addEventListener('click', () => { close(); });
   q<HTMLButtonElement>('[data-bm-new]').addEventListener('click', () => {
@@ -2642,6 +2771,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     design = fresh;
     selectedId = null;
     shots = null;
+    restoreDeckResult();
     save();
     render();
   });
@@ -2660,6 +2790,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     design = activeDesign(library);
     selectedId = null;
     shots = null;
+    restoreDeckResult();
     save();
     render();
   });
@@ -2832,6 +2963,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   function open() {
     host.hidden = false;
     document.body.classList.add('bm-open');
+    restoreDeckResult();
     render();
     host.focus();
   }
