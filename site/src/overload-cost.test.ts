@@ -48,3 +48,13 @@ it('conditional expectation agrees with independent full roll simulation',()=>{
  const mean=actual/samples,standardError=Math.sqrt((squares/samples-mean*mean)/samples);
  expect(Math.abs(mean-estimate/samples)).toBeLessThan(4*standardError);
 });
+
+it('separates effect search from value refinement and charges single-use keys per roll',()=>{
+ const current=[row('atk_pct'),row('element_bonus'),row('crit_dmg',1)];
+ const result=evaluateRoute(current,['atk_pct','element_bonus','crit_dmg'],[0,1,2],0,seeded(1),'complete-line','keys');
+ expect(result.effect).toBe(0);expect(result.value).toBeCloseTo(264);expect(result.lock).toBe(0);expect(result.keys).toBeCloseTo(4400);
+ const found=evaluateRoute([row('atk_pct'),row('element_bonus'),row('def_pct',1)],['atk_pct','element_bonus','crit_dmg'],[0,1,2],0,seeded(1),'complete-line','keys');
+ expect(found.effect).toBeGreaterThan(0);expect(found.change).toBeCloseTo(found.effect+found.value);
+ expect(found.keys).toBeCloseTo(found.change/3*50);
+ expect(estimateModules(current,['atk_pct','element_bonus','crit_dmg'],3,4000,'keys').unlocked).toEqual([0,1]);
+});

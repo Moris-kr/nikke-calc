@@ -167,21 +167,28 @@ it('exports and imports every basic comparison without running browser calculati
  openGrowthEfficiency(saved,{settings:fullSettings,catalog:new Map(),deckName:()=> '덱 1',current:()=>({overloadLines:currentLines}),simulate});
  const {packet,prompt}=exportModuleExchange();expect(packet.jobs).toHaveLength(4);expect(prompt).toContain('run-battle.py');
  const result={format:'nikke-overload-result',version:1,model:packet.model,requestId:packet.requestId,engineVersion:packet.engineVersion,
-  results:packet.jobs.map(job=>({id:job.id,mode:'effects-first',target:job.target,order:[0,1,2],lock:3,change:100,total:103,error95:1,samples:4000,unlocked:[]})),
+  results:packet.jobs.map(job=>({currency:job.currency??'modules',effect:0,value:100,keys:0,id:job.id,mode:'effects-first',target:job.target,order:[0,1,2],lock:3,change:100,total:103,error95:1,samples:4000,unlocked:[]})),
   simulations:packet.simulations.map(sim=>({id:sim.id,result:{squadTotal:120,duration:sim.request.duration,hitCount:1,charTotals:{A:120}}}))};
  importModuleExchange(JSON.stringify(result));
  document.querySelector<HTMLButtonElement>('.growth-primary')!.click();
  await vi.waitFor(()=>expect(document.querySelector('.growth-cost-results')).not.toBeNull());
  expect(simulate).not.toHaveBeenCalled();expect(document.querySelector('.growth-output')!.textContent).toContain('외부 계산');
+ expect(document.querySelector('.growth-cost-results')!.textContent).toContain('목표 옵션 12줄 찾기 0.0개');
+ expect(document.querySelector('.growth-cost-results')!.textContent).toContain('Lv.15 수치작 400.0개');
+ expect(document.querySelector('.growth-cost-results')!.textContent).not.toContain('이미 있으면');
+ const currency=document.querySelector<HTMLSelectElement>('select[aria-label="잠금 재화"]')!;currency.value='keys';currency.dispatchEvent(new Event('change'));
+ expect(()=>importModuleExchange(JSON.stringify(result))).toThrow('먼저');
+ expect(exportModuleExchange().packet.jobs.every(job=>job.currency==='keys')).toBe(true);
  const select=document.querySelector<HTMLSelectElement>('.growth-line select')!;select.value='';select.dispatchEvent(new Event('change'));
  expect(()=>importModuleExchange(JSON.stringify(result))).toThrow('먼저');
 });
-it('allows a twelve-line composition and makes substitutions explicit',()=>{
+it('applies line counts immediately without compromise or apply buttons',()=>{
  const currentLines={머리:[{option:'atk',level:2}]};
  openGrowthEfficiency(batch,{settings,catalog:new Map(),deckName:()=> '덱 1',current:()=>({overloadLines:currentLines}),simulate:vi.fn()});
  const count=document.querySelector<HTMLSelectElement>('select[aria-label="덱 1 A 공격력 목표 줄 수"]')!;count.value='4';count.dispatchEvent(new Event('change'));
- const alternate=document.querySelector<HTMLSelectElement>('select[aria-label="덱 1 A 공격력 2순위 타협 옵션"]')!;alternate.value='ammo';alternate.dispatchEvent(new Event('change'));
- [...document.querySelectorAll<HTMLButtonElement>('.growth-goal-actions button')].find(b=>b.textContent==='2순위 타협안 적용')!.click();
- expect([...document.querySelectorAll<HTMLSelectElement>('.growth-line select')].filter(s=>s.value==='ammo')).toHaveLength(4);
- expect(document.querySelector('.growth-character .growth-goals')!.textContent).toContain('공격력 → 장탄 4줄 (2순위)');
+ expect([...document.querySelectorAll<HTMLSelectElement>('.growth-line select')].filter(s=>s.value==='atk')).toHaveLength(4);
+ expect(document.querySelector('select[aria-label*="타협 옵션"]')).toBeNull();
+ expect(document.querySelector('.growth-goal-actions')).toBeNull();
+ const slot=[...document.querySelectorAll<HTMLSelectElement>('.growth-line select')].find(s=>s.value==='atk')!;slot.value='ammo';slot.dispatchEvent(new Event('change'));
+ expect(count.value).toBe('3');expect(document.querySelector<HTMLSelectElement>('select[aria-label="덱 1 A 장탄 목표 줄 수"]')!.value).toBe('1');
 });

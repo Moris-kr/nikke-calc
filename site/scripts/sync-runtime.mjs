@@ -254,7 +254,7 @@ const solver = solverBuild.output[0].code + `
 import {readFileSync} from 'node:fs';
 const input=JSON.parse(readFileSync(0,'utf8'));
 if(input.format!=='nikke-overload-job'||input.version!==1)throw new Error('Unsupported job');
-const results=input.jobs.map(job=>({id:job.id,...estimateModules(job.current,job.target,job.locks)}));
+const results=input.jobs.map(job=>({id:job.id,...estimateModules(job.current,job.target,job.locks,4000,job.currency)}));
 process.stdout.write(JSON.stringify({format:'nikke-overload-result',version:1,model:input.model,requestId:input.requestId,results}));
 `;
 mkdirSync(join(siteDir,'src/generated'),{recursive:true});

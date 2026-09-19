@@ -1,13 +1,13 @@
 import type {OverloadLine} from './types';
 import type {ModuleRoute} from './overload-cost';
-export function analyzeModulePart(current:OverloadLine[],target:string[],locks:number):Promise<ModuleRoute>{
+export function analyzeModulePart(current:OverloadLine[],target:string[],locks:number,currency:'modules'|'keys'='modules'):Promise<ModuleRoute>{
  return new Promise((resolve,reject)=>{
   const worker=new Worker(new URL('./overload-cost.worker.ts',import.meta.url),{type:'module'});
   const timer=setTimeout(()=>{worker.terminate();reject(new Error('모듈 분석 시간이 초과되었습니다. 다시 시도해 주세요.'));},120000);
   const finish=()=>{clearTimeout(timer);worker.terminate();};
   worker.onmessage=event=>{finish();if(event.data.error)reject(new Error(event.data.error));else resolve(event.data.result);};
   worker.onerror=event=>{finish();reject(new Error(event.message||'모듈 분석 작업 오류'));};
-  worker.postMessage({current,target,locks});
+  worker.postMessage({current,target,locks,currency});
  });
 }
 /** Drain started work before reporting an error; never leave background work writing into a new run. */
