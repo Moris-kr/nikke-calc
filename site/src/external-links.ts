@@ -15,6 +15,7 @@ export interface ExternalLink {
 }
 
 export const EXTERNAL_LINKS: ExternalLink[] = [
+  { label: 'NIKKE SOLO', note: '솔로레이드 덱 편성 사이트', url: 'https://www.nikkesolo.com/' },
   {
     label: '렛츠도로',
     note: '니케 마이너 갤러리 유저 대상 협동전 및 종합관리 시스템',
