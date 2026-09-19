@@ -29,7 +29,7 @@
  * 곳에 집중»으로 본다 — 실제보다 코어 적중이 후하게 잡히는 쪽이며, 화면에 그렇게 적는다.
  */
 
-import { fromBase64Url, nameHash, toBase64Url } from './share-code';
+import { decodeBattleCode, fromBase64Url, nameHash, toBase64Url } from './share-code';
 import type { ElementCode } from './types';
 
 export type ShapeKind = 'circle' | 'rect' | 'triangle';
@@ -169,6 +169,10 @@ export interface BossImage {
 }
 
 export interface BossDesign {
+  /** Select whether drawing-derived geometry overrides common battle inputs. */
+  settingsSource?: 'drawing' | 'battle';
+  /** Public battle conditions only; excludes account growth and cheats. */
+  battleCode?: string;
   version: 1;
   /** 저장본을 가르는 열쇠. 이름은 겹쳐도 되지만 이것은 겹치지 않는다 */
   id: string;
@@ -764,6 +768,7 @@ function reviveDesign(value: unknown): BossDesign | null {
     version: 1,
     // 옛 저장본에는 id가 없다 — 그때는 새로 붙인다.
     id: typeof saved.id === 'string' && saved.id ? saved.id : base.id,
+    settingsSource: saved.settingsSource === 'battle' ? 'battle' : 'drawing',
     canvas: saved.canvas ?? base.canvas,
     shapes: (saved.shapes ?? []).map(liftWindows),
     parts: (Array.isArray(saved.parts) ? saved.parts : []).map(liftWindows),
@@ -950,6 +955,8 @@ function unpackShape(raw: unknown, color: string): BossShape | null {
  */
 export function encodeBossCode(design: BossDesign): string {
   const out: Record<string, unknown> = { n: design.name.slice(0, CODE_LIMITS.name) };
+  if (design.settingsSource === 'battle') out.bs = 'battle';
+  if (design.battleCode) { decodeBattleCode(design.battleCode); out.b = design.battleCode; }
   if (design.canvas.w !== DEFAULT_CANVAS.w || design.canvas.h !== DEFAULT_CANVAS.h) {
     out.c = [int(design.canvas.w), int(design.canvas.h)];
   }
@@ -1006,6 +1013,9 @@ export function decodeBossCode(code: string, catalogNames: string[] = []): BossD
   const design = emptyDesign(
     typeof raw.n === 'string' && raw.n.trim() ? raw.n.trim().slice(0, CODE_LIMITS.name) : '받은 보스',
   );
+  if (raw.bs === 'battle') design.settingsSource = 'battle';
+  if (typeof raw.b === 'string') { decodeBattleCode(raw.b); design.battleCode = raw.b; }
+
   const numbers = (value: unknown, count: number): number[] | null => {
     if (!Array.isArray(value) || value.length !== count) return null;
     const out = value.map((entry) => Number(entry));

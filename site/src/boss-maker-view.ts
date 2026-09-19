@@ -29,8 +29,8 @@ import {
 import type { StorageLike } from './cache';
 import { confirmTwice } from './confirm-twice';
 import { t } from './i18n';
-import { hacksForRequest } from './hacks';
-import { formatDamage, formatDps } from './model';
+import { formatDamage, formatDps, requestForDeck } from './model';
+import { decodeBattleCode, encodeBattleCode } from './share-code';
 import { mountSharePanel, type SharePanel } from './share-panel';
 import type { ShareServer } from './share-server';
 
@@ -50,6 +50,10 @@ export interface BossMakerDeps {
   currentBurstSequence?: () => SimulationRequest['burstSequence'];
   currentBurstRegenTime?: () => number;
   currentBattle: () => BattleSettings;
+  /** Normal calculator request is the source of truth for all present/future battle fields. */
+  currentRequest?: () => SimulationRequest;
+  /** Open the very same editor as the calculator, then refresh this view on close. */
+  openBattleEditor?: (onClose: () => void) => void;
   /** 만든 보스를 전투 조건에 반영한다 */
   applyBattle: (battle: BattleSettings) => void;
   imageOf: (name: string) => string | undefined;
@@ -166,6 +170,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   let cursor = 0;
   let running = false;
   let runningAll = false;
+  let editingBattle = false;
   const deckErrors = new Map<string, string>();
   const deckResults = new Map<string, { result: SimulationResult; note: string; title: string; signature: string }>();
   /**
@@ -254,7 +259,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
           <button type="button" class="bm-btn accent" data-bm-share-apply>새 보스로 받기</button>
         </div>
         <p class="bm-note bm-share-note">
-          도형·파츠·코어·중앙·조준 키프레임·탄착군·폭발 반경이 담깁니다. <b>밑그림은 담기지
+          도형·파츠·코어·중앙·조준 키프레임·탄착군·폭발 반경과 전투 조건이 담깁니다. 개인 육성·싱크로·콘솔·핵 설정은 담기지 않습니다. <b>밑그림은 담기지
           않습니다</b> — 그림 한 장이면 코드가 수만 자가 되어 붙여넣는 곳에서 잘립니다.
           받으면 <b>새 저장본</b>으로 들어오므로 지금 보스는 그대로 남습니다.
         </p>
@@ -1486,6 +1491,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
    * 돌리기 전에는 조준별 딜을 알 수 없어 스쿼드 총딜을 그대로 나눈 어림값을 쓴다.
    */
   function currentBreaks(): PartBreak[] {
+    if (design.settingsSource === 'battle') return [];
     if (breakCache) return breakCache;
     const duration = deps.currentBattle().duration;
     if (!shots || !lastResult?.fineTimeline) {
@@ -1510,6 +1516,27 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     const battle = deps.currentBattle();
     battlePane.replaceChildren();
     battlePane.append(el('h3', 'bm-card-title', '전투 조건'));
+    if (deps.openBattleEditor) {
+      const all = el('button', 'bm-btn', '전체 전투 조건 편집');
+      all.type = 'button';
+      all.dataset.bmAllBattle = '';
+      all.addEventListener('click', () => {
+        editingBattle = true;
+        deps.openBattleEditor!(() => {
+          // Escape must not also close the underlying maker in the same event.
+          queueMicrotask(() => { editingBattle = false; });
+          restoreDeckResult(); render(); battlePane.querySelector<HTMLButtonElement>('[data-bm-all-battle]')?.focus();
+        });
+      });
+      battlePane.append(all, el('p', 'bm-note', '계산기와 같은 창에서 모든 전투 조건·구간·콘솔·덱별 설정을 편집합니다. 추가되는 설정도 함께 표시됩니다.'));
+    }
+    const source = battleSelect('코어·파츠·적정거리 기준', design.settingsSource ?? 'drawing', [
+      ['drawing', '도형에서 계산'], ['battle', '전투 조건 입력값 사용'],
+    ], (value) => { design.settingsSource = value === 'battle' ? 'battle' : 'drawing'; save(); });
+    source.querySelector('select')!.dataset.bmSettingsSource = '';
+    battlePane.append(source, el('p', 'bm-note', design.settingsSource === 'battle'
+      ? '코어·파츠·적정거리는 전투 조건 입력값과 덱별 설정을 사용합니다. 도형은 참고 그림이며 파츠 파괴·관통 횟수는 계산에 넣지 않습니다.'
+      : '코어·파츠·기본 적정거리는 도형과 조준점을 사용합니다. 직접 입력한 값을 사용하려면 위 기준을 변경하세요. 모든 시간 구간과 나머지 전투 조건은 공통으로 적용됩니다.'));
 
     const grid = el('div', 'bm-grid');
     grid.append(battleNumber('전투 시간', battle.duration, 10, 180, '초', (value) => {
@@ -1718,38 +1745,22 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       // 어느 자리로 쟀는지를 결과 줄에 함께 적는다.
       const aimNow = aimAt(design, cursor);
       const pierce = aimNow ? pierceTargets(design, aimNow, shots ? cursor : 0) : null;
-      const request: SimulationRequest = {
-        squad,
-        characters: deps.currentCharacters(),
+      const base = deps.currentRequest?.() ?? requestForDeck({
+        id: Number(deps.currentDeckId?.() ?? 0), squad, characters: deps.currentCharacters(),
         burstSequence: deps.currentBurstSequence?.(),
-        duration: battle.duration,
-        enemyDef: battle.enemyDef,
-        enemyCode: battle.enemyCode,
-        corePx: derived.corePx,
-        hasParts: derived.hasParts,
-        seed: battle.seed,
-        // 도형에 적정거리를 걸어 뒀으면 **조준점이 놓인 도형**의 것이 이긴다.
-        // 겹친 도형은 합집합이다 — 보너스는 무기군마다 한 번만 붙는다.
-        optimalRangeWeapons: aimRange ?? battle.optimalRangeWeapons,
-        coreWindows: battle.coreWindows,
-        optimalRangeWindows: battle.optimalRangeWindows,
-        defenseRateWindows: battle.defenseRateWindows,
-        immuneWindows: battle.immuneWindows,
-        elementWindows: battle.elementWindows,
-        rngMode: battle.rngMode,
-        immuneBlocksBurst: battle.immuneBlocksBurst,
-        normalHitCoeff: battle.normalHitCoeff,
-        synchroLevel: battle.synchroLevel,
-        burstRegenTime: deps.currentBurstRegenTime?.() ?? battle.burstRegenTime,
-        burstReaction: battle.burstReaction,
-        console: battle.console,
-        // 켜 둔 핵은 여기서도 그대로 걸린다 — 같은 조건인데 판마다 다른 수가 나오면
-        // 어느 쪽이 진짜인지 알 수 없게 된다. 안 켰으면 이 키는 아예 빠진다.
-        ...(hacksForRequest(battle.hacks) ? { hacks: battle.hacks! } : {}),
-        ...(derived.partBreakInterval > 0
-          ? { partBreakInterval: derived.partBreakInterval } : {}),
-        ...(pierce && pierce.total > 1
-          ? { piercePass: { shapes: Math.max(1, pierce.shapes), parts: pierce.parts } } : {}),
+      }, battle);
+      const drawing = design.settingsSource !== 'battle';
+      const request: SimulationRequest = {
+        ...base,
+        ...(deps.currentBurstRegenTime ? { burstRegenTime: deps.currentBurstRegenTime() } : {}),
+        ...(drawing ? {
+          corePx: battle.corePerDeck?.[Number(deps.currentDeckId?.() ?? 0)] === false ? 0 : derived.corePx,
+          hasParts: derived.hasParts,
+          optimalRangeWeapons: aimRange ?? base.optimalRangeWeapons,
+          ...(derived.partBreakInterval > 0 ? { partBreakInterval: derived.partBreakInterval } : {}),
+          ...(pierce && pierce.total > 1
+            ? { piercePass: { shapes: Math.max(1, pierce.shapes), parts: pierce.parts } } : {}),
+        } : {}),
         shotTrack: true,
         // 누적 딜을 사격 트랙과 같은 0.1초 칸으로 읽으려면 잘게 나눈 표가 필요하다.
         fineTimeline: true,
@@ -1774,7 +1785,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       const dps = result.duration > 0 ? result.squadTotal / result.duration : 0;
       // 파괴 점수는 시뮬 밖에서 얹히는 값이다 — 총합에 더하되 얼마가 점수인지 함께 적는다.
       const score = scoreUntil(
-        partBreaks(design.parts, dps, battle.duration), battle.duration,
+        drawing ? partBreaks(design.parts, dps, battle.duration) : [], battle.duration,
       );
       const parts = [
         `${design.name} · ${squad.length}명 · ${result.duration}초`,
@@ -1782,23 +1793,22 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
           ? `총합 ${formatDamage(result.squadTotal + score)}(딜 ${formatDamage(result.squadTotal)} + 파괴 점수 ${formatDamage(score)}) · ${formatDps(dps)}`
           : `총딜 ${formatDamage(result.squadTotal)} · ${formatDps(dps)}`,
         `${result.hitCount.toLocaleString('ko-KR')}발`,
-        derived.corePx > 0 ? `코어 ${derived.corePx}px` : '코어 없음',
+        request.corePx > 0 ? `코어 ${request.corePx}px` : '코어 없음',
       ];
-      if (derived.hasParts) parts.push('파츠');
-      if (pierce && pierce.total > 1) {
+      if (request.hasParts) parts.push('파츠');
+      if (drawing && pierce && pierce.total > 1) {
         parts.push(`관통 ${pierce.total}중(몸통 ${pierce.shapes}·파츠 ${pierce.parts} · ${round(cursor)}초 조준 기준)`);
       }
-      if (aimRange) {
-        parts.push(aimRange.length > 0 ? `적정 ${aimRange.join('·')}` : '적정거리 없음(겨냥한 도형에 없음)');
-      }
+      const actualRange = request.optimalRangeWeapons ?? [];
+      parts.push(actualRange.length > 0 ? `적정 ${actualRange.join('·')}` : '적정거리 없음');
       // 파츠 파괴 시각은 «이 덱의 딜»에서 나오므로 **한 번 돌린 뒤에야** 알 수 있다.
       // 처음 돌릴 때는 넘길 값이 없었다는 사실을 숨기지 않고 적는다.
       // 파괴 시각은 이제 조준을 보고 낸다 — 방금 판으로 다시 내어 알려 준다.
       breakCache = null;
       const aimedFirst = currentBreaks().find((entry) => entry.at !== null);
-      if (derived.partBreakInterval === 0 && aimedFirst?.at) {
+      if (drawing && derived.partBreakInterval === 0 && aimedFirst?.at) {
         parts.push(`${aimedFirst.name}이(가) 약 ${round(aimedFirst.at)}초에 깨집니다 — 다시 돌리면 그 시각이 계산에 들어갑니다`);
-      } else if (design.parts.length > 0 && !aimedFirst) {
+      } else if (drawing && design.parts.length > 0 && !aimedFirst) {
         parts.push('이 조준으로는 깨지는 파츠가 없습니다');
       }
       runNote.textContent = parts.join(' · ');
@@ -1850,9 +1860,32 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     tracks.append(aimTrack(duration));
 
     // 보스 상태 줄 — 족자·속저를 끌어 옮긴다.
-    const stateCount = battle.immuneWindows.length + battle.elementWindows.length + (battle.coreWindows ?? []).length;
-    tracks.append(groupHead('phase', '보스 상태 (코어 · 족자 · 속저)', stateCount));
+    const stateCount = battle.immuneWindows.length + battle.elementWindows.length + (battle.coreWindows ?? []).length
+      + (battle.defenseRateWindows ?? []).length + (battle.optimalRangeWindows ?? []).length;
+    tracks.append(groupHead('phase', '보스 상태 (코어 · 방어율 · 사거리 · 족자 · 속저)', stateCount));
     if (!folded.has('phase')) {
+    tracks.append(phaseTrack('바디 방어율', (battle.defenseRateWindows ?? []).map((w, index) => ({
+      index, from: w.from, to: w.to, color: '#c39bed', label: `${w.rate}%`,
+    })), duration, (index, from, to) => {
+      const now = deps.currentBattle();
+      const next = [...(now.defenseRateWindows ?? [])];
+      next[index] = { ...next[index]!, from, to };
+      deps.applyBattle({ ...now, defenseRateWindows: next });
+    }, (index) => {
+      const now = deps.currentBattle();
+      deps.applyBattle({ ...now, defenseRateWindows: (now.defenseRateWindows ?? []).filter((_, at) => at !== index) });
+    }));
+    tracks.append(phaseTrack('유효 사거리', (battle.optimalRangeWindows ?? []).map((w, index) => ({
+      index, from: w.from, to: w.to, color: '#45d6d0', label: w.weapons.join('·') || '없음',
+    })), duration, (index, from, to) => {
+      const now = deps.currentBattle();
+      const next = [...(now.optimalRangeWindows ?? [])];
+      next[index] = { ...next[index]!, from, to };
+      deps.applyBattle({ ...now, optimalRangeWindows: next });
+    }, (index) => {
+      const now = deps.currentBattle();
+      deps.applyBattle({ ...now, optimalRangeWindows: (now.optimalRangeWindows ?? []).filter((_, at) => at !== index) });
+    }));
     tracks.append(phaseTrack('코어 노출', (battle.coreWindows ?? []).map((w, index) => ({
       index, from: w.from, to: w.to, color: '#ffcf6a', label: '코어',
     })), duration, (index, from, to) => {
@@ -2625,7 +2658,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
 
   function resultSignature() {
     return JSON.stringify([design, deps.currentBattle(), deps.currentSquad(), deps.currentCharacters(),
-      deps.currentBurstSequence?.(), deps.currentBurstRegenTime?.()]);
+      deps.currentBurstSequence?.(), deps.currentBurstRegenTime?.(), deps.currentRequest?.()]);
   }
 
   function invalidateChangedResult() {
@@ -2821,7 +2854,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       kind: 'maker',
       server: deps.shareServer,
       current: () => ({
-        code: encodeBossCode(design),
+        code: shareCode(),
         auto: bossSummary(),
       }),
       apply: (item) => { receiveCode(item.code, item.name); },
@@ -2843,10 +2876,20 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     return parts.join(' · ');
   }
 
+  function shareCode(): string {
+    return encodeBossCode({ ...design, battleCode: encodeBattleCode(deps.currentBattle(), deps.settings.normalHitCoeff ?? {}) });
+  }
+
   /** 받은 코드를 새 저장본으로 들인다. 코드 칸과 목록이 같은 길을 쓴다. */
   function receiveCode(code: string, label?: string) {
     // 받은 것은 **새 저장본**으로 들인다 — 지금 그리던 것을 덮어쓰면 되돌릴 길이 없다.
     const received = decodeBossCode(code, Object.keys(deps.settings.characters));
+    if (received.battleCode) {
+      const shared = decodeBattleCode(received.battleCode);
+      const mine = deps.currentBattle();
+      deps.applyBattle({ ...shared, normalHitCoeff: { ...deps.settings.normalHitCoeff, ...shared.normalHitCoeff },
+        console: mine.console, synchroLevel: mine.synchroLevel, hacks: mine.hacks });
+    }
     if (label) received.name = label.slice(0, 24);
     save();
     library = putDesign(library, received);
@@ -2862,7 +2905,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   q<HTMLButtonElement>('[data-bm-share-open]').addEventListener('click', () => {
     sharePane.hidden = !sharePane.hidden;
     if (!sharePane.hidden) {
-      shareOut.value = encodeBossCode(design);
+      shareOut.value = shareCode();
       setShareMsg('');
       sharePanel?.open();
     }
@@ -2882,6 +2925,10 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     }
   });
   q<HTMLButtonElement>('[data-bm-apply]').addEventListener('click', () => {
+    if (design.settingsSource === 'battle') {
+      runNote.textContent = '전투 조건 입력값을 그대로 사용 중입니다. 전체 전투 조건 편집에서 변경할 수 있습니다.';
+      return;
+    }
     const battle = deps.currentBattle();
     const derived = derivedEnemy(design, squadDps(), battle.duration);
     deps.applyBattle({
@@ -2889,6 +2936,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       coreEnabled: derived.corePx > 0,
       corePx: derived.corePx || battle.corePx,
       hasParts: derived.hasParts,
+      optimalRangeWeapons: derivedOptimalRange(design) ?? battle.optimalRangeWeapons,
     });
     // 무엇이 실제로 건너갔는지 적는다. 그림을 아무리 고쳐도 이 넷이 그대로면 계산
     // 결과가 같은데(그래서 저장된 결과가 그대로 나온다), 화면이 말해 주지 않으면
@@ -2975,7 +3023,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   }
 
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && !host.hidden) close();
+    if (event.key === 'Escape' && !host.hidden && !editingBattle && !event.defaultPrevented) close();
   });
 
   return { open, close };

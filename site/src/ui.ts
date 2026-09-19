@@ -1127,8 +1127,6 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <div class="hack-hero">
               <div class="hack-hero-bar" aria-hidden="true"></div>
               <b class="hack-hero-tag">CHEAT MODE</b>
-              <p class="hack-hero-line">7일만 쉬면 된다는 게임사의 공식적인 입장이 있었으니 마음껏 쓰세요</p>
-              <a class="hack-hero-link" href="https://gall.dcinside.com/mgallery/board/view/?id=gov&amp;no=6103271" target="_blank" rel="noreferrer noopener">공식적인 입장 보러 가기 ↗</a>
             </div>
             <div class="hack-grid">
               <label class="hack-card">
@@ -3620,11 +3618,16 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
   /** 첫 계산 전 강조. 한 번이라도 열어 봤거나 계산을 돌렸으면 더 붙잡지 않는다. */
   const settleBattleNote = () => { battleFirstNote.hidden = true; };
+  let battleReturn: (() => void) | undefined;
   const setBattleOpen = (open: boolean) => {
     battleOpen.setAttribute('aria-expanded', String(open));
     battleModal.hidden = !open;
     refreshBattleSummary();
     if (open) settleBattleNote();
+    else {
+      battleModal.classList.remove('from-boss-maker');
+      const done = battleReturn; battleReturn = undefined; done?.();
+    }
   };
   battleOpen.addEventListener('click', () => { setBattleOpen(true); showBattleTab('battle'); });
   element<HTMLButtonElement>(root, '[data-hack-open]').addEventListener('click', () => {
@@ -3637,7 +3640,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     if (hitBackdrop(event, battleModal)) setBattleOpen(false);
   });
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && !battleModal.hidden) setBattleOpen(false);
+    if (event.key === 'Escape' && !battleModal.hidden) { event.preventDefault(); setBattleOpen(false); }
   });
   /**
    * 창 안에서 엔터는 **계산이 아니라 「다 골랐다」**다.
@@ -7031,6 +7034,12 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           .map(([name, value]) => [name, overridesForEngine(value)]),
       ),
       currentBattle: readBattle,
+      currentRequest: () => requestForDeck(activeDeck(), readBattle(), customPayload()),
+      openBattleEditor: (done) => {
+        battleReturn = done;
+        battleModal.classList.add('from-boss-maker');
+        setBattleOpen(true); showBattleTab('battle');
+      },
       currentBurstRegenTime: () => { const battle = readBattle(); return battle.burstRegenPerDeck?.[activeDeckId] ?? battle.burstRegenTime; },
       // 값을 폼에 써넣는 것만으로는 남지 않는다 — 폼은 사람이 만질 때(change) 저장되는데
       // 프로그램이 넣은 값에는 그 이벤트가 없다. 보스 메이커에서 잡은 족자·속저가

@@ -19,6 +19,7 @@ from nikke_mcp.service import CalculatorService, engine_version, get_character a
 from nikke_mcp.errors import public_errors, InvalidSettingsError
 from nikke_mcp.browser_relay import BrowserRelay, install_routes, fail
 from nikke_mcp.enikk_guide import GuideMode, recommendation_guide
+from nikke_mcp.boss_code import BossCodeRequest, create_boss_code as build_boss_code
 
 
 def create_server(timeout: int = 60, max_concurrent: int = 2, browser_mode: bool = False) -> MCPServer:
@@ -34,6 +35,8 @@ def create_server(timeout: int = 60, max_concurrent: int = 2, browser_mode: bool
         '수치를 추측하지 마세요. 입력한 육성이 없으면 기본 육성이며 사용자 실제 계정으로 표현하지 마세요. '
         '육성 전후 예상 전투력은 compare_browser_growth로 비교하세요. 전용 MCP 도구가 없는 기능은 '
         'get_settings.browserFallback 지침에 따라 실제 계산기 UI를 확인하세요. 브라우저 접근 없이 조작했다고 말하지 마세요. '
+        '보스 만들기 요청은 create_boss_code로 검증된 NK5 코드를 만들어 전달하세요. 도형은 실측 근거와 가정을 구분하고, '
+        'settingsSource는 기본 drawing이며 전투 수치를 직접 쓸 때만 battle과 조건을 지정하세요. 코드 생성에는 브라우저 연결이 필요 없습니다. '
         '엔진 버전, 전투 조건, 기본 이탈과 프리뷰 경고를 명시하세요. 비교는 입력 후보만의 순위입니다. '
         '계산 호출은 반드시 순차 실행하세요. SERVER_BUSY는 기존 호출 완료 후 같은 입력으로 재시도하고, '
         'CALCULATION_TIMEOUT은 시간 제한입니다. 이 오류들을 특정 캐릭터의 계산 불가로 해석하지 마세요. '
@@ -49,6 +52,11 @@ def create_server(timeout: int = 60, max_concurrent: int = 2, browser_mode: bool
 
     calculation = ToolAnnotations(read_only_hint=True, destructive_hint=False,
                                   idempotent_hint=not browser_mode, open_world_hint=False)
+
+    @server.tool(annotations=read_only)
+    def create_boss_code(request: BossCodeRequest) -> dict[str, Any]:
+        """보스 도형·파츠·코어·조준점과 선택적 전투 조건을 검증해 가져오기용 NK5 공유 코드를 만듭니다. 브라우저나 시뮬레이션 없이 동작합니다. 좌표/크기는 px, 구간/aimKeys.t는 초. windows는 {from,to} 목록이며 비면 상시 표시. settingsSource=drawing(기본)은 그림에서 코어·파츠·사거리를 적용하고 battle은 제공한 battle 수치를 사용합니다. 실측 근거 없이 도형을 실측이라고 표현하지 말고 가정을 설명하세요. 이미지·계정 육성·캐릭터별 폭발 반경/탄착군은 지원하지 않습니다. 반환된 코드를 계산기 → 보스 메이커 → 공유 → 받은 코드 넣기 → 새 보스로 받기에 붙여넣고 검토하도록 안내하세요."""
+        return build_boss_code(request)
 
     @server.tool(annotations=read_only)
     def get_recommendation_guide(mode: GuideMode = 'overview') -> dict[str, Any]:

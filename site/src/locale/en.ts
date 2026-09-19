@@ -337,7 +337,6 @@ export const EN: Record<string, string> = {
   '우월 코드 버프': 'code-advantage buffs',
   '로 우월해진 캐릭터도 통과합니다(라피 : 레드 후드 «부착형 유탄» 등).': ' also count (Rapi: Red Hood\'s “Attachment Grenade”, and so on).',
   '계정 설정이라 스쿼드 전원에게 같이 적용됩니다. 클래스·기업은 인게임에서 소속별로 따로 크므로 각각 받습니다. 기업은 공격력, 공통·클래스는 체력을 올립니다 — 체력 계수를 쓰는 캐릭터(신데렐라 등)는 공통·클래스도 딜에 반영됩니다.': 'This is an account setting, so it applies to the whole squad. Class and manufacturer levels grow separately in game, so each is entered on its own. Manufacturer raises ATK; common and class raise HP — characters that scale on HP (Cinderella and friends) turn those into damage too.',
-  '7일만 쉬면 된다는 게임사의 공식적인 입장이 있었으니 마음껏 쓰세요': 'The publisher officially said it\'s only a 7-day break, so knock yourself out',
   '버충무한핵': 'Infinite Burst',
   '버스트 게이지 충전과 버스트 쿨타임이': 'Burst gauge charge and burst cooldown both become',
   '0초': '0s',

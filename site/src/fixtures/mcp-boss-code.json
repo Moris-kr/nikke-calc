@@ -1,0 +1,120 @@
+{
+  "request": {
+    "name": "MCP 호환 시험",
+    "canvas": {
+      "w": 1000,
+      "h": 700
+    },
+    "settingsSource": "battle",
+    "shapes": [
+      {
+        "kind": "triangle",
+        "x": 480,
+        "y": 310,
+        "w": 240,
+        "h": 180,
+        "rotation": -15,
+        "windows": [
+          {
+            "from": 0,
+            "to": 20.5
+          }
+        ],
+        "range": [
+          "SR",
+          "AR"
+        ]
+      }
+    ],
+    "parts": [
+      {
+        "kind": "rect",
+        "name": "시험 파츠",
+        "x": 300,
+        "y": 310,
+        "w": 60,
+        "h": 80,
+        "hp": 123456,
+        "score": 1234
+      }
+    ],
+    "core": {
+      "x": 480,
+      "y": 310,
+      "d": 52
+    },
+    "center": {
+      "x": 500,
+      "y": 350
+    },
+    "aimKeys": [
+      {
+        "t": 0,
+        "x": 480,
+        "y": 310
+      },
+      {
+        "t": 15.5,
+        "x": 300,
+        "y": 310
+      }
+    ],
+    "battle": {
+      "duration": 120,
+      "enemyDef": 54321,
+      "enemyCode": "수냉",
+      "coreEnabled": true,
+      "corePx": 80,
+      "hasParts": true,
+      "seed": 7,
+      "optimalRangeWeapons": [
+        "SR",
+        "AR"
+      ],
+      "normalHitCoeff": {
+        "AR": 0.8,
+        "SG": 1
+      },
+      "rngMode": "random",
+      "immuneBlocksBurst": false,
+      "burstRegenTime": 1.5,
+      "burstReaction": 0.15,
+      "coreWindows": [
+        {
+          "from": 1,
+          "to": 10.5
+        }
+      ],
+      "optimalRangeWindows": [
+        {
+          "from": 5,
+          "to": 15,
+          "weapons": [
+            "SG"
+          ]
+        }
+      ],
+      "defenseRateWindows": [
+        {
+          "from": 10,
+          "to": 20,
+          "rate": 60
+        }
+      ],
+      "immuneWindows": [
+        {
+          "from": 30,
+          "to": 35
+        }
+      ],
+      "elementWindows": [
+        {
+          "from": 40,
+          "to": 50,
+          "code": "철갑"
+        }
+      ]
+    }
+  },
+  "code": "NK5-eyJuIjoiTUNQIO2YuO2ZmCDsi5ztl5giLCJjIjpbMTAwMCw3MDBdLCJzIjpbeyJrIjoyLCJ4Ijo0ODAsInkiOjMxMCwidyI6MjQwLCJoIjoxODAsInIiOi0xNSwidiI6W1swLDIwNV1dLCJnIjpbIkFSIiwiU1IiXX1dLCJwIjpbeyJrIjoxLCJ4IjozMDAsInkiOjMxMCwidyI6NjAsImgiOjgwLCJuIjoi7Iuc7ZeYIO2MjOy4oCIsImhwIjoxMjM0NTYsInMiOjEyMzR9XSwiYSI6W1swLDQ4MCwzMTBdLFsxNTUsMzAwLDMxMF1dLCJrIjpbNDgwLDMxMCw1Ml0sIm0iOls1MDAsMzUwXSwiYiI6Ik5LMy1leUprSWpveE1qQXNJbVZrSWpvMU5ETXlNU3dpWldNaU9qSXNJbU5sSWpveExDSmpjQ0k2T0RBc0ltaHdJam94TENKeklqbzNMQ0p2Y2lJNld5SkJVaUlzSWxOU0lsMHNJbkp0SWpveExDSnBZaUk2TUN3aVluSWlPakUxTENKeWRDSTZNVFVzSW1oaklqcDdJa0ZTSWpvd0xqZ3NJbE5ISWpveExqQjlMQ0prZHlJNlcxc3hNREFzTWpBd0xEWXdMakJkWFN3aWNuY2lPbHRiTlRBc01UVXdMRnNpVTBjaVhWMWRMQ0pqZHlJNlcxc3hNQ3d4TURWZFhTd2lhWGNpT2x0Yk16QXdMRE0xTUYxZExDSmxkeUk2VzFzME1EQXNOVEF3TERWZFhYMCIsImJzIjoiYmF0dGxlIn0"
+}

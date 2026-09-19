@@ -2672,3 +2672,6 @@ img[src*="/temporary-characters/"][src$="-card.png"] { object-fit: contain; obje
 .squad-slot.is-preview.is-fictional::after { content: "임시 · 창작 스킬"; }
 
 .phase-row.is-range{flex-wrap:wrap}.phase-row.is-range label{display:inline-flex;align-items:center;gap:3px;font-size:11px}.phase-row.is-range input[type="checkbox"]{width:14px;min-height:14px;margin:0}.phase-row.is-range .phase-tag{color:var(--cyan)}
+
+/* Same battle editor remains inside the calculator form for persistence. */
+.custom-modal.from-boss-maker { z-index: 70; }

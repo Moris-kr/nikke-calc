@@ -1651,6 +1651,29 @@ describe('calculator UI', () => {
     expect(saved.battle.elementWindows).toHaveLength(1);
   });
 
+  it('보스 메이커가 동일한 전투 조건 편집기를 열고 Escape는 편집기만 닫는다', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const modal = root.querySelector<HTMLElement>('[data-battle-modal]')!;
+    const originalInputs = [...modal.querySelectorAll('input,select')];
+    root.querySelector<HTMLButtonElement>('[data-settings-tab="maker"]')!.click();
+    const open = root.querySelector<HTMLButtonElement>('[data-bm-all-battle]');
+    expect(open).not.toBeNull();
+    open!.click();
+    expect(modal.hidden).toBe(false);
+    expect(modal.classList.contains('from-boss-maker')).toBe(true);
+    expect([...modal.querySelectorAll('input,select')]).toEqual(originalInputs);
+    for (const kind of ['defense', 'range', 'core', 'immune', 'element']) {
+      modal.querySelector<HTMLButtonElement>(`[data-phase-add="${kind}"]`)!.click();
+    }
+    const saved = JSON.parse(localStorage.getItem('nikke-state-v1')!).battle;
+    for (const field of ['defenseRateWindows', 'optimalRangeWindows', 'coreWindows', 'immuneWindows', 'elementWindows']) {
+      expect(saved[field]).toHaveLength(1);
+    }
+    modal.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(modal.hidden).toBe(true);
+    expect(root.querySelector<HTMLElement>('[data-boss-maker]')!.hidden).toBe(false);
+  });
+
   it('보스 메이커는 전투 조건 옆의 탭으로 열고 닫는다', () => {
     // 조건판을 «대신 여는» 화면이라 단추가 아니라 탭이다 — 무엇을 보고 있는지가
     // 제목 자리에서 읽혀야 한다.

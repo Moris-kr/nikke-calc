@@ -3,7 +3,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { mountBossMaker } from './boss-maker-view';
-import type { BattleSettings, SettingsCatalog, SimulationResult } from './types';
+import type { BattleSettings, SettingsCatalog, SimulationResult, SimulationRequest } from './types';
+import { requestForDeck } from './model';
+import { decodeBossCode, encodeBossCode, emptyDesign } from './boss-maker';
+import { decodeBattleCode, encodeBattleCode } from './share-code';
+import mcpFixture from './fixtures/mcp-boss-code.json';
 
 const settings = {
   characters: {
@@ -370,7 +374,7 @@ describe('보스 메이커 화면', () => {
     expect(frame).toBeNull();
   });
 
-  it('시간 줄이 맨 위, 그다음이 조준·족자·속저다', () => {
+  it('시간 줄 다음에 조준과 모든 보스 구간을 표시한다', () => {
     const handle = mount();
     handle.open();
     const names = [...host.querySelectorAll('.bm-track .bm-track-name')]
@@ -378,9 +382,7 @@ describe('보스 메이커 화면', () => {
     // 아래 줄들이 모두 이 시각을 기준으로 읽히므로 시간이 맨 위여야 한다.
     expect(names[0]).toContain('초');
     expect(names[1]).toContain('조준');
-    expect(names[2]).toBe('코어 노출');
-    expect(names[3]).toBe('족자');
-    expect(names[4]).toBe('속저');
+    expect(names.slice(2, 7)).toEqual(['바디 방어율', '유효 사거리', '코어 노출', '족자', '속저']);
   });
 
   it('캐릭터별 탄환과 상태가 오른쪽 아래에 선다', async () => {
@@ -693,6 +695,25 @@ describe('보스 메이커 화면', () => {
     expect(host.querySelectorAll('.bm-handle')).toHaveLength(0);
   });
 });
+it('imports the Python MCP code including battle conditions without changing account settings', () => {
+  mount().open();
+  const previousConsole = applied.console;
+  const decoded = decodeBossCode(mcpFixture.code);
+  expect(decoded.name).toBe(mcpFixture.request.name);
+  expect(decoded.settingsSource).toBe('battle');
+  expect(decoded.core).toMatchObject(mcpFixture.request.core);
+  expect(decoded.shapes[0]).toMatchObject({ kind: 'triangle', x: 480, y: 310, w: 240, h: 180, rotation: -15, range: ['AR', 'SR'] });
+  const expectedBattle = { ...mcpFixture.request.battle, optimalRangeWeapons: ['AR', 'SR'] };
+  expect(decodeBattleCode(decoded.battleCode!)).toMatchObject(expectedBattle);
+  host.querySelector<HTMLButtonElement>('[data-bm-share]')!.click();
+  const input = host.querySelector<HTMLTextAreaElement>('[data-bm-share-in]')!;
+  input.value = mcpFixture.code;
+  host.querySelector<HTMLButtonElement>('[data-bm-share-apply]')!.click();
+  expect(applied).toMatchObject(expectedBattle);
+  expect(applied.console).toEqual(previousConsole);
+  expect(applied.synchroLevel).toBe(400);
+  expect(host.querySelector<HTMLSelectElement>('[data-bm-settings-source]')!.value).toBe('battle');
+});
 it('adds core exposure windows in boss controls and forwards them', async () => {
   mount().open();
   const add = [...host.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === '코어 노출 추가');
@@ -712,7 +733,7 @@ it('calculates five decks and restores the selected deck', async () => {
     settings, catalog: [], simulate,
     decks: () => decks, currentDeckId: () => selected, selectDeck: (id) => { selected = id; },
     currentSquad: () => decks[Number(selected)]!.squad,
-    currentCharacters: () => ({ 리타: { attack: Number(selected) + 1 } } as never),
+    currentCharacters: () => ({ 리타: { growthStage: Number(selected) + 1 } } as never),
     currentBattle: () => applied, applyBattle: (next) => { applied = next; },
     imageOf: () => undefined, storage: () => localStorage,
   }).open();
@@ -726,7 +747,7 @@ it('calculates five decks and restores the selected deck', async () => {
   expect(selected).toBe('4');
   expect(host.querySelector<HTMLElement>('[data-bm-run-note]')!.title).toContain('5,000,000');
   expect(simulate.mock.calls.map(([request]) => (request as { characters: unknown }).characters)).toEqual(
-    Array.from({ length: 5 }, (_, i) => ({ 리타: { attack: i + 1 } })),
+    Array.from({ length: 5 }, (_, i) => ({ 리타: { growthStage: i + 1 } })),
   );
 });
 it('invalidates cached results after battle settings change', async () => {
@@ -739,6 +760,54 @@ it('invalidates cached results after battle settings change', async () => {
   handle.open();
   expect(host.querySelector<HTMLElement>('[data-bm-run-note]')!.title).toBe('');
   expect(host.querySelector('[data-bm-run-note]')!.textContent).toContain('다시 계산');
+});
+it('uses every common request field in battle mode and preserves the mode in sharing', async () => {
+  applied = { ...battle(), coreEnabled: true, corePx: 83, hasParts: true,
+    corePerDeck: { 1: false }, burstRegenPerDeck: { 1: 4.2 },
+    normalHitCoeff: { AR: 0.75 }, optimalRangeWeapons: ['AR'],
+    coreWindows: [{ from: 30, to: 60 }], defenseRateWindows: [{ from: 10, to: 20, rate: 60 }],
+    optimalRangeWindows: [{ from: 20, to: 40, weapons: ['SR'] }],
+  };
+  const base = requestForDeck({ id: 1, squad: ['리타'], characters: {} }, applied);
+  // Future fields added to the common builder must not require a second maker list.
+  const common = { ...base, futureBattleField: 123 } as SimulationRequest;
+  mountBossMaker(host, {
+    settings, catalog: [], currentSquad: () => ['리타'], currentCharacters: () => ({}),
+    currentBattle: () => applied, currentRequest: () => common, currentDeckId: () => '1',
+    applyBattle: next => { applied = next; }, imageOf: () => undefined, storage: () => localStorage,
+    simulate: async request => { sent = request; return result(); },
+  }).open();
+  placeWith('core');
+  const source = host.querySelector<HTMLSelectElement>('[data-bm-settings-source]')!;
+  source.value = 'battle'; source.dispatchEvent(new Event('change', { bubbles: true }));
+  host.querySelector<HTMLButtonElement>('[data-bm-run]')!.click();
+  await vi.waitFor(() => expect(sent).toEqual({ ...common, shotTrack: true, fineTimeline: true }));
+  expect((sent as SimulationRequest).corePx).toBe(0);
+  expect(host.querySelector('[data-bm-run-note]')!.textContent).toContain('코어 없음');
+  expect(host.querySelector('[data-bm-run-note]')!.textContent).toContain('적정 AR');
+  expect(host.querySelector('[data-bm-run-note]')!.textContent).not.toContain('관통');
+  host.querySelector<HTMLButtonElement>('[data-bm-apply]')!.click();
+  expect(applied.corePx).toBe(83);
+  const design = { ...emptyDesign(), settingsSource: 'battle' as const, battleCode: encodeBattleCode(applied) };
+  const decoded = decodeBossCode(encodeBossCode(design));
+  expect(decoded.settingsSource).toBe('battle');
+  expect(decodeBattleCode(decoded.battleCode!).defenseRateWindows).toEqual(applied.defenseRateWindows);
+});
+it('discards an in-flight result when a common request field changes', async () => {
+  applied = battle();
+  let common = requestForDeck({ id: 1, squad: ['리타'], characters: {} }, applied);
+  let complete!: (value: SimulationResult) => void;
+  mountBossMaker(host, {
+    settings, catalog: [], simulate: () => new Promise(resolve => { complete = resolve; }),
+    currentSquad: () => ['리타'], currentCharacters: () => ({}), currentRequest: () => common,
+    currentBattle: () => applied, applyBattle: next => { applied = next; },
+    imageOf: () => undefined, storage: () => localStorage,
+  }).open();
+  host.querySelector<HTMLButtonElement>('[data-bm-run]')!.click();
+  common = { ...common, customCharacters: { 리타: { nikke: { attack: 123 }, skills: [] } } };
+  complete(result());
+  await vi.waitFor(() => expect(host.querySelector('[data-bm-run-note]')!.textContent).toContain('다시 계산'));
+  expect(host.querySelector<HTMLElement>('[data-bm-run-note]')!.title).toBe('');
 });
 it('discards an in-flight result when its deck changed', async () => {
   applied = battle();
