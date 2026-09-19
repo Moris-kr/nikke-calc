@@ -87,7 +87,7 @@ export function estimateModules(current:OverloadLine[],options:string[],initialL
   if(Object.values(targetLevels).some(level=>!Number.isInteger(level)||level<1||level>15))throw new Error('수치작 목표는 Lv.1~15로 설정해 주세요.');
   if(!['modules','keys'].includes(currency))throw new Error('잠금 재화가 올바르지 않습니다.');
   if(current.length!==3||options.length!==3||options.some(option=>option&&!OPTION_PROB[option])||new Set(options.filter(Boolean)).size!==options.filter(Boolean).length)throw new Error('부위 목표 효과는 중복 없이 최대 3줄까지 설정해 주세요.');
-  if(!current[0]?.option||new Set(current.filter(row=>row.option).map(row=>row.option)).size!==current.filter(row=>row.option).length)throw new Error('현재 장비의 첫 줄과 중복 효과를 확인해 주세요. 최초 오버로드 전환은 분석에 포함하지 않습니다.');
+  if((options.some(Boolean)&&!current[0]?.option)||new Set(current.filter(row=>row.option).map(row=>row.option)).size!==current.filter(row=>row.option).length)throw new Error('현재 장비의 첫 줄과 중복 효과를 확인해 주세요. 최초 오버로드 전환은 분석에 포함하지 않습니다.');
   if(current.some(row=>row.option&&(!OPTION_PROB[row.option]||!Number.isInteger(row.level)||row.level<1||row.level>15)))throw new Error('현재 옵션·레벨을 확인해 주세요.');
   if(!Number.isInteger(initialLocks)||initialLocks<0||initialLocks>7||count(initialLocks)>2||current.some((row,i)=>(initialLocks&(1<<i))&&!row.option))throw new Error('현재 잠금은 비어 있지 않은 옵션 최대 2줄까지 설정해 주세요.');
   if(!Number.isInteger(samples)||samples<2||samples>100000)throw new Error('표본 수가 올바르지 않습니다.');

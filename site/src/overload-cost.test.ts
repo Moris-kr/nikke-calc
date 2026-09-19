@@ -74,4 +74,5 @@ it('supports partial equipment goals without charging for unrelated lines',()=>{
  const current=[row('atk_pct',1),row('element_bonus',1),row('crit_dmg',1)];
  const result=estimateModules(current,['atk_pct','',''],0,4000,'modules',{atk_pct:10});
  expect(result.effect).toBe(0);expect(result.lock).toBe(0);expect(result.value).toBeCloseTo(.88/.12);
+ expect(estimateModules([row('',1),row('',1),row('',1)],['','','']).total).toBe(0);
 });

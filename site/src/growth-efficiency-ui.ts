@@ -350,7 +350,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
       if(costCheck.checked){
         const costSection=node('section','','growth-result growth-cost-results');costSection.append(node('h3','모듈 가성비 · 오버로드만 비교'));
         const methodLink=node('a','확률·계산식·전략의 범위 보기');methodLink.href='https://github.com/Moris-kr/nikke-calc/blob/master/docs/OVERLOAD_PLANNER.md';methodLink.target='_blank';methodLink.rel='noopener noreferrer';costSection.append(methodLink);
-        costSection.append(node('p','부위마다 목표 효과 3줄이 필요합니다. 최초 장비 개조는 제외합니다. 선택한 목표 레벨의 부위별 줄 배치 6가지 × 순서 6가지 × 두 가지 전략을 비교한 추정값입니다. 모든 행동의 전역 최적해는 아닙니다. ±값은 선택한 전략의 기대값 추정에 대한 95% 오차이며, 실제 소모량의 95% 범위가 아닙니다. 목표 효과 찾기와 목표 레벨 수치작을 따로 표시합니다. 효과 찾기 비용은 선택한 전체 육성 전략 중 효과변경에 쓴 비용으로, 효과만 먼저 맞추는 독립 계산은 아닙니다. 락 키는 모듈과 별도로 표시하며 모듈당 효율에는 키의 가치가 반영되지 않습니다. 대미지는 목표 레벨 기준이며 목표 이상으로 추첨되는 추가 수치의 평균 이득은 포함하지 않습니다. 현재 잠금 상태는 위에서 직접 확인해 주세요.','growth-note'));
+        costSection.append(node('p','부위마다 0~3줄의 목표를 설정할 수 있습니다. 목표에서 뺀 옵션은 보존하지 않는 조건이며, 대미지 비교에서도 제외합니다. 최초 장비 개조는 제외합니다. 선택한 목표 레벨의 부위별 줄 배치 6가지 × 순서 6가지 × 두 가지 전략을 비교한 추정값입니다. 모든 행동의 전역 최적해는 아닙니다. ±값은 선택한 전략의 기대값 추정에 대한 95% 오차이며, 실제 소모량의 95% 범위가 아닙니다. 목표 효과 찾기와 목표 레벨 수치작을 따로 표시합니다. 효과 찾기 비용은 선택한 전체 육성 전략 중 효과변경에 쓴 비용으로, 효과만 먼저 맞추는 독립 계산은 아닙니다. 락 키는 모듈과 별도로 표시하며 모듈당 효율에는 키의 가치가 반영되지 않습니다. 대미지는 목표 레벨 기준이며 목표 이상으로 추첨되는 추가 수치의 평균 이득은 포함하지 않습니다. 현재 잠금 상태는 위에서 직접 확인해 주세요.','growth-note'));
         const costRows:{element:HTMLElement;efficiency:number}[]=[];
         const jobs=pairs.flatMap((pair,index)=>[...pair.singles.keys()].map(name=>({pair,index,name})));
         completed=0;totalRuns=jobs.length;
@@ -374,29 +374,31 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
             const goalText=goalNotes[index]![name]??[...counts].map(([key,n])=>`${deps.settings.overloadFields[key]?.label??key} ${n}줄`).join(' · ');
             costHistory.set(`${index}:${name}:${JSON.stringify(targetLevels[index]![name])}:${currencySelect.value}:${JSON.stringify(lockMasks[index]![name])}:${JSON.stringify(goal)}`,{name:`${deps.deckName(pair.before.deckId)} · ${name}`,goal:`${goalText} · ${currencySelect.selectedOptions[0]!.textContent} · 옵션 찾기 ${effect.toFixed(1)} / 수치작 ${value.toFixed(1)} / 잠금 ${lock.toFixed(1)} / 키 ${keys.toFixed(1)}`,gain,total,efficiency});
             if(costHistory.size>50)costHistory.delete(costHistory.keys().next().value!);
-            const summary=`목표 옵션 12줄 찾기 ${effect.toFixed(1)}개 + 목표 레벨 수치작 ${value.toFixed(1)}개 + 잠금 ${lock.toFixed(1)}개 = 모듈 평균 ${total.toFixed(1)}개 (추정 오차 ±${error.toFixed(1)})${currencySelect.value==='keys'?` · 커스텀 락 키 별도 ${keys.toFixed(1)}개`:''}`;
-            const breakdown=node('ul');for(const text of [`목표 옵션 12줄 찾기 ${effect.toFixed(1)}개`,`목표 레벨 수치작 ${value.toFixed(1)}개`,`잠금 모듈 ${lock.toFixed(1)}개`])breakdown.append(node('li',text));if(currencySelect.value==='keys')breakdown.append(node('li',`커스텀 락 키 별도 ${keys.toFixed(1)}개 (모듈 합계에 미포함)`));
+            const goalCount=[...counts.values()].reduce((sum,n)=>sum+n,0);
+            const summary=`목표 옵션 ${goalCount}줄 찾기 ${effect.toFixed(1)}개 + 목표 레벨 수치작 ${value.toFixed(1)}개 + 잠금 ${lock.toFixed(1)}개 = 모듈 평균 ${total.toFixed(1)}개 (추정 오차 ±${error.toFixed(1)})${currencySelect.value==='keys'?` · 커스텀 락 키 별도 ${keys.toFixed(1)}개`:''}`;
+            const breakdown=node('ul');for(const text of [`목표 옵션 ${goalCount}줄 찾기 ${effect.toFixed(1)}개`,`목표 레벨 수치작 ${value.toFixed(1)}개`,`잠금 모듈 ${lock.toFixed(1)}개`])breakdown.append(node('li',text));if(currencySelect.value==='keys')breakdown.append(node('li',`커스텀 락 키 별도 ${keys.toFixed(1)}개 (모듈 합계에 미포함)`));
             article.append(node('strong',`모듈 합계 평균 ${total.toFixed(1)}개 · 추정 오차 ±${error.toFixed(1)}`),breakdown,node('p',`오버로드만 육성: 덱 ${percent(pair.before.result.squadTotal,isolated.squadTotal)} · ${gain>=0?'+':''}${formatDamage(gain)} / ${total>0?`모듈 1개당 기대 딜 증가 ${formatDamage(efficiency)}`:'이미 목표 달성 · 추가 비용 없음'}`));
             pair.reportGaps.push(`${name} 모듈: ${summary}`,`${name} 오버로드만: 덱 ${percent(pair.before.result.squadTotal,isolated.squadTotal)} · 모듈당 ${formatDamage(efficiency)}`);
             const details=node('details');details.append(node('summary','자세히 보기 · 줄 배치와 진행 과정'));
             routes.forEach((route,p)=>{
               const part=GROWTH_PARTS[p]!;details.append(node('h4',`${part} · 옵션 찾기 ${route.effect.toFixed(1)} / 수치작 ${route.value.toFixed(1)} / 잠금 ${route.lock.toFixed(1)} = 모듈 ${route.total.toFixed(1)}개${route.currency==='keys'?` · 락 키 ${route.keys.toFixed(1)}개`:''}`));
               if(route.currency==='keys')details.append(node('p','잠금은 변경 1회 후 풀립니다. 아래에서 보호하는 줄을 매 변경 직전에 키로 다시 잠급니다. 1줄 20개, 2줄 총 50개가 매번 필요합니다.'));
-              details.append(node('p',`권장 배치: ${route.target.map((key,slot)=>`${slot+1}번 ${deps.settings.overloadFields[key]?.label??key} Lv.${route.levels[slot]} 이상`).join(' / ')}`));
+              details.append(node('p',`권장 배치: ${route.target.map((key,slot)=>key?`${slot+1}번 ${deps.settings.overloadFields[key]?.label??key} Lv.${route.levels[slot]} 이상`:`${slot+1}번 목표 없음`).join(' / ')}`));
               if(route.unlocked.length)details.append(node('p',`${route.unlocked.map(i=>i+1).join('·')}번 현재 잠금은 이 전략에서 해제합니다. 다시 잠그는 비용은 포함했습니다.`));
               const instructions=node('ol');
-              const effectsReady=route.target.every((key,slot)=>current[part][slot]!.option===key);
-              const allReady=effectsReady&&current[part].every((row,i)=>row.level>=route.levels[i]!);
+              const effectsReady=route.target.every((key,slot)=>!key||current[part][slot]!.option===key);
+              const allReady=effectsReady&&current[part].every((row,i)=>!route.target[i]||row.level>=route.levels[i]!);
               if(allReady)details.append(node('p','이미 목표 달성 · 변경/추가 잠금이 필요 없습니다.'));
-              else if(route.mode==='effects-first'&&effectsReady)details.append(node('p','현재 세 효과가 이미 맞으므로 효과변경과 효과 확보용 잠금을 생략하고 수치 단계로 진행합니다.'));
+              else if(route.mode==='effects-first'&&effectsReady)details.append(node('p','현재 목표 효과가 이미 맞으므로 효과변경과 효과 확보용 잠금을 생략하고 수치 단계로 진행합니다.'));
               (allReady||(route.mode==='effects-first'&&effectsReady)?[]:route.order).forEach(slot=>{
+                if(!route.target[slot])return;
                 const target=deps.settings.overloadFields[route.target[slot]!]!.label;
                 const old=current[part][slot]!;const displaced=old.option&&old.option!==route.target[slot]?`현재 ${deps.settings.overloadFields[old.option]?.label??old.option}을 잃을 수 있습니다. `:'';
                 const matches=old.option===route.target[slot];
                 if(matches){if(route.mode==='complete-line'&&old.level<route.levels[slot]!)instructions.append(node('li',`${slot+1}번 ${target}: 현재 Lv.${old.level} → Lv.${route.levels[slot]} 이상 수치작 후 나머지 작업 동안 보호합니다.`));else if(!allReady)instructions.append(node('li',`${slot+1}번 ${target}: 확보된 ${route.mode==='complete-line'?'목표 수치 옵션':'효과'}를 다른 줄 작업 동안 보호합니다.`));}
                 else instructions.append(node('li',`${slot+1}번에서 ${target} 확보. ${displaced}해당 줄에 나올 때까지 효과변경하고 실패한 결과는 채택하지 않습니다. ${route.mode==='complete-line'?`이 줄을 Lv.${route.levels[slot]} 이상으로 수치변경한 뒤`:'효과를 찾으면'} 나머지 목표가 남았을 때 잠급니다.`));
               });
-              if(route.mode==='effects-first'&&!allReady)instructions.append(node('li','세 효과가 갖춰지면 각 목표 레벨 미만 줄의 잠금을 해제합니다. 목표 이상 줄은 잠그고 나머지 수치를 변경합니다. 새로 목표 레벨 이상을 달성한 줄이 하나 이상 나온 결과만 채택하고 반복합니다.'));
+              if(route.mode==='effects-first'&&!allReady)instructions.append(node('li','목표 효과가 갖춰지면 목표가 없는 줄과 목표 레벨 미만 줄의 잠금을 해제합니다. 목표 이상 줄은 잠그고 나머지 수치를 변경합니다. 새로 목표 레벨 이상을 달성한 줄이 하나 이상 나온 결과만 채택하고 반복합니다.'));
               details.append(instructions,node('p','효과변경은 잠그지 않은 다른 줄의 효과·수치도 바꿉니다. 설명은 현재 장비 기준이며 앞 단계에서 미잠금 옵션을 잃으면 다시 확보해야 합니다. 다른 줄의 목표도 함께 완성되면 해당 변경은 생략합니다. 전부 완성된 후에는 추가 잠금을 하지 않습니다. 실패 결과를 채택하거나 다른 목표로 변경하면 기대값을 다시 계산해야 합니다.','growth-note'));
             });
             article.append(details);costRows.push({element:article,efficiency});
