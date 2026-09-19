@@ -21,6 +21,9 @@ export interface Notice {
 
 /** 최신이 맨 앞. */
 export const NOTICES: Notice[] = [
+  {id:'2026-09-19-share-all-default',date:'2026-09-19',title:'조합 공유 기본 범위 변경',items:[
+    {tag:'개선',text:'조합 공유의 기본 범위를 <b>모든 덱</b>으로 변경했습니다. 한 덱만 가져오려면 <b>이 덱만</b>을 선택하면 됩니다.'},
+  ]},
   {id:'2026-09-19-console-restore',date:'2026-09-19',title:'콘솔 연동값 복원',items:[
     {tag:'새 기능',text:'콘솔 설정에 <b>불러온 값으로 되돌리기</b>를 추가했습니다. 마지막 블라블라링크 연동값으로 복원하며, 원본이 없는 경우 다시 연동한 뒤 사용할 수 있습니다.'},
   ]},

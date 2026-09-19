@@ -1374,8 +1374,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           <p class="custom-desc">누가 편성됐는지(캐릭터 조합)만 주고받습니다. <b>오버로드·공격력·돌파 같은 개인 스펙과 전투 조건은 담기지 않습니다</b> — 적용하면 캐릭터만 바뀌고 스펙은 각자 자기 설정(CSV 로스터를 넣었다면 그 값)이 그대로 쓰입니다. ${SHARE_API ? '<b>서버로는 «올리기»를 누를 때만 전송됩니다.</b>' : '서버로 전송되지 않습니다.'}</p>
           <div class="share-scope" data-share-scope>
             <span class="share-scope-label">범위</span>
-            <button type="button" class="share-scope-pick is-on" data-share-scope-pick="one">이 덱만</button>
-            <button type="button" class="share-scope-pick" data-share-scope-pick="all">모든 덱</button>
+            <button type="button" class="share-scope-pick" data-share-scope-pick="one">이 덱만</button>
+            <button type="button" class="share-scope-pick is-on" data-share-scope-pick="all">모든 덱</button>
             <span class="share-scope-note" data-share-scope-note></span>
           </div>
           ${SHARE_API ? '<div class="share-tabs" data-share-tabs></div>' : ''}
@@ -4012,7 +4012,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
    * 첫 덱이 지금 보고 있는 덱에 들어가고 나머지 덱은 그대로 남는다.
    */
   type ShareScope = 'one' | 'all';
-  let shareScope: ShareScope = 'one';
+  let shareScope: ShareScope = 'all';
   const scopeBox = element<HTMLElement>(root, '[data-share-scope]');
   const scopeNote = element<HTMLElement>(root, '[data-share-scope-note]');
 

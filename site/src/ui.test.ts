@@ -1074,16 +1074,11 @@ describe('calculator UI', () => {
     root.querySelector<HTMLButtonElement>('[data-share-open]')!.click();
     const scope = root.querySelector<HTMLElement>('[data-share-scope]')!;
     expect(scope).not.toBeNull();
-    // 기본은 「이 덱만」이다 — 덱 하나를 옮기는 일이 판 전체를 옮기는 일보다 잦다.
-    expect(scope.querySelector('.share-scope-pick.is-on')?.textContent).toBe('이 덱만');
-    expect(root.querySelector('[data-share-scope-note]')?.textContent)
-      .toContain('덱 1에만 들어갑니다');
-
-    // 「모든 덱」로 바꾸면 안내도 따라 바뀐다.
-    root.querySelector<HTMLButtonElement>('[data-share-scope-pick="all"]')!.click();
     expect(scope.querySelector('.share-scope-pick.is-on')?.textContent).toBe('모든 덱');
-    expect(root.querySelector('[data-share-scope-note]')?.textContent)
-      .toContain('판 전체가 바뀝니다');
+    expect(root.querySelector('[data-share-scope-note]')?.textContent).toContain('판 전체가 바뀝니다');
+    root.querySelector<HTMLButtonElement>('[data-share-scope-pick="one"]')!.click();
+    expect(scope.querySelector('.share-scope-pick.is-on')?.textContent).toBe('이 덱만');
+    expect(root.querySelector('[data-share-scope-note]')?.textContent).toContain('덱 1에만 들어갑니다');
   });
 
   it('프리셋은 어느 범위로 저장했는지 함께 알린다', () => {
@@ -1092,6 +1087,7 @@ describe('calculator UI', () => {
     });
 
     root.querySelector<HTMLButtonElement>('[data-share-open]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-share-scope-pick="one"]')!.click();
     root.querySelector<HTMLInputElement>('[data-preset-name]')!.value = '한 덱짜리';
     root.querySelector<HTMLButtonElement>('[data-preset-save]')!.click();
     expect(root.querySelector('[data-share-msg]')?.textContent).toContain('덱 1만');
