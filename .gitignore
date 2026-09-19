@@ -25,3 +25,5 @@ site/src/generated/overload-solver.txt
 site/public/overload-solver.mjs
 
 site/public/external-engine-*.zip
+
+site/src/generated/overload-version.json

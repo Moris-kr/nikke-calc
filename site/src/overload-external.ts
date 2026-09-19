@@ -1,5 +1,5 @@
 import battleRunner from './overload-external-runner.txt?raw';
-import manifest from '../public/runtime/manifest.json';
+import manifest from './generated/overload-version.json';
 import type {SimulationRequest,SimulationResult} from './types';
 import solver from './generated/overload-solver.txt?raw';
 import type {OverloadLine} from './types';

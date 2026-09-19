@@ -263,6 +263,7 @@ writeFileSync(join(publicDir,'overload-solver.mjs'),solver);
 
 // Public, versioned engine bundle for external code execution; only public runtime files.
 const engineVersion=JSON.parse(readFileSync(join(runtimeDir,'manifest.json'),'utf8')).version;
+writeFileSync(join(siteDir,'src/generated/overload-version.json'),JSON.stringify({version:engineVersion}));
 execFileSync('python',['-c',`import pathlib,sys,zipfile
 root=pathlib.Path(sys.argv[1])
 with zipfile.ZipFile(sys.argv[2],'w',zipfile.ZIP_DEFLATED) as archive:
