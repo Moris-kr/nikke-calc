@@ -2222,6 +2222,22 @@ describe('calculator UI', () => {
     expect(root.querySelectorAll('[data-timeline-stage] [data-timeline]')).toHaveLength(2);
   });
 
+  it('풀버스트 요약에서 전투 종료로 잘린 마지막 구간을 표시한다', async () => {
+    const client = new FakeClient();
+    client.simulate = async () => ({ ...calculated, timeline: {
+      bucket: 1, buckets: 2, damage: { 리타: [100, 200] }, bursts: {}, fullBurst: [[1, 2]],
+      fullBurstSummary: { count: 1, lastStart: 1, lastDuration: 1, lastPlannedDuration: 10, lastTruncated: true },
+    } });
+    mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });
+    root.querySelector<HTMLFormElement>('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await flush();
+    const summary = root.querySelector('[data-full-burst-summary]')!;
+    expect(summary.textContent).toContain('풀버스트 1회');
+    expect(summary.textContent).toContain('실제 지속 1.00초');
+    expect(summary.textContent).toContain('전투 종료로 단축');
+    expect(summary.classList.contains('is-truncated')).toBe(true);
+  });
+
   it('0.1초 버킷에서도 고정 Y축 상한은 그래프와 같은 단위를 쓴다', async () => {
     const client = new FakeClient();
     client.simulate = async () => ({ ...calculated, timeline: {

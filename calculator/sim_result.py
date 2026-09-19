@@ -97,6 +97,7 @@ class BurstLogEntry:
                 #   "full_burst 시작" — 풀버스트 진입
                 #   "full_burst 종료" — 풀버스트 종료
     caster: str # 스킬 사용자 캐릭터명 ("full_burst 시작/종료"는 빈 문자열)
+    planned_end: float | None = None  # 풀버스트 시작 시 확정된 종료 시각
 
 
 @dataclass

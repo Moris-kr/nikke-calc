@@ -187,8 +187,11 @@ def _build_timeline(result, names: list[str], bucket: float = TIMELINE_BUCKET) -
 
     bursts = {name: [] for name in names}
     full_burst: list[list[float]] = []
+    summary = {"count": 0, "lastStart": None, "lastDuration": None,
+               "lastPlannedDuration": None, "lastTruncated": False}
     if result.log is not None:
         pending_start: float | None = None
+        planned_end: float | None = None
         for event in result.log.burst_log:
             if event.caster and event.caster in bursts and "사용" in event.event:
                 stage = ""
@@ -201,9 +204,20 @@ def _build_timeline(result, names: list[str], bucket: float = TIMELINE_BUCKET) -
                 bursts[event.caster].append(entry)
             elif event.event == "full_burst 시작":
                 pending_start = event.t
+                planned_end = event.planned_end
+                summary["count"] += 1
+                summary["lastStart"] = round(event.t, 2)
+                summary["lastPlannedDuration"] = (
+                    round(planned_end - event.t, 2) if planned_end is not None else None)
             elif event.event == "full_burst 종료" and pending_start is not None:
                 full_burst.append([round(pending_start, 2), round(event.t, 2)])
+                summary["lastDuration"] = round(event.t - pending_start, 2)
                 pending_start = None
+        if pending_start is not None:
+            end = min(result.duration, planned_end) if planned_end is not None else result.duration
+            full_burst.append([round(pending_start, 2), round(end, 2)])
+            summary["lastDuration"] = round(max(0, end - pending_start), 2)
+            summary["lastTruncated"] = planned_end is not None and planned_end > result.duration + 1e-8
 
     return {
         "bucket": bucket,
@@ -211,6 +225,7 @@ def _build_timeline(result, names: list[str], bucket: float = TIMELINE_BUCKET) -
         "damage": damage,
         "bursts": bursts,
         "fullBurst": full_burst,
+        "fullBurstSummary": summary,
         "buffs": _build_buff_spans(result, names),
     }
 

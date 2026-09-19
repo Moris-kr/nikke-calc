@@ -324,6 +324,13 @@ export interface BattleTimeline {
   damage: Record<string, number[]>;
   bursts: Record<string, BurstCast[]>;
   fullBurst: [number, number][];
+  fullBurstSummary?: {
+    count: number;
+    lastStart: number | null;
+    lastDuration: number | null;
+    lastPlannedDuration: number | null;
+    lastTruncated: boolean;
+  };
   /** 버프가 걸려 있던 구간. 구버전 캐시에는 없다. */
   buffs?: BuffTrack[];
 }

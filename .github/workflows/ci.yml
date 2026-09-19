@@ -54,7 +54,9 @@ jobs:
 
       - name: 브리지 스모크 테스트
         working-directory: site
-        run: python scripts/test-bridge.py
+        run: |
+          python scripts/test-bridge.py
+          python scripts/test-mechanics-audit.py
 
       - name: 브라우저 사이트 테스트
         working-directory: site

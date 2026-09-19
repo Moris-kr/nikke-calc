@@ -10,6 +10,11 @@
  *    대만·홍콩 공식 클라이언트 표기를 따른다(그 말로 찾는다).
  */
 export const ZH_TW: Record<string, string> = {
+  "풀버스트 0회": "全爆裂0次",
+  "풀버스트 {count}회 · 마지막 시작 {start}초 · 실제 지속 {duration}초": "全爆裂{count}次 · 最後開始{start}秒 · 實際持續{duration}秒",
+  " / 예정 {duration}초 · 전투 종료로 단축": " / 預定{duration}秒 · 因戰鬥結束而縮短",
+  "풀버스트 요약은 다시 계산하면 표시됩니다.": "重新計算後會顯示全爆裂摘要。",
+
   // Skill upgrade planner
   "편의 기능": "便利功能",
   "편의 기능 고르기": "選擇便利功能",

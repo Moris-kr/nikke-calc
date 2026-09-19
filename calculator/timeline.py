@@ -1331,7 +1331,8 @@ class CharState:
                 duration_bullets = wc_ammo_full
         if duration_bullets is not None and self._wc_shots >= duration_bullets:
             # 원래 무기로 돌아오면 charge_phase를 ready로 초기화
-            self._charge_phase = "ready"
+            if not wc_eff.get("refill_on_exit"):
+                self._charge_phase = "ready"
             if wc_fire_mode in ("auto", "auto_warmup"):
                 # 마지막 발과 같은 tick에 잡힌 변경 무기 재장전 예약은 무효
                 # (변경 무기는 재장전하지 않는다 — 장탄 소진이 곧 모드 종료)
@@ -1355,7 +1356,9 @@ class CharState:
         self._reload_in_weapon_change = False
         self._pending_auto_reload = False
         self._post_reload_end_t = -1.0
-        self._charge_phase = "ready"
+        # 탄창 복구는 마지막 사격이 예약한 후딜을 취소하지 않는다.
+        if self._charge_phase != "post_delay" or self._post_delay_end_t <= t:
+            self._charge_phase = "ready"
         self._charge_full_t = -1.0
         self._hold_release_t = -1.0
         self._wc_refill_on_exit = False
@@ -2098,7 +2101,8 @@ class BurstController:
             # 버스트 스킬 대미지: full_burst_start 버프 적용 후 계산
             events.extend(self._fire_pending_burst_dmg(t, bm))
             if self._log is not None:
-                self._log.burst_log.append(BurstLogEntry(t=t, event="full_burst 시작", caster=""))
+                self._log.burst_log.append(BurstLogEntry(
+                    t=t, event="full_burst 시작", caster="", planned_end=self._full_burst_end_t))
                 snap = BuffSnapshot(t=t, buffs_by_char={})
                 for n in self.squad_names:
                     entries = []

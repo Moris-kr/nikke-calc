@@ -4503,6 +4503,18 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         createText('small', dps(entry.result.squadTotal / entry.result.duration)),
       );
       section.append(deckHeader);
+      const fb = entry.result.timeline?.fullBurstSummary;
+      if (fb) {
+        const summary = createText('p', fb.count === 0 ? t('풀버스트 0회') :
+          t('풀버스트 {count}회 · 마지막 시작 {start}초 · 실제 지속 {duration}초', {
+            count: fb.count, start: fb.lastStart?.toFixed(2) ?? '—', duration: fb.lastDuration?.toFixed(2) ?? '—',
+          }) + (fb.lastTruncated ? t(' / 예정 {duration}초 · 전투 종료로 단축', { duration: fb.lastPlannedDuration?.toFixed(2) ?? '—' }) : ''),
+          fb.lastTruncated ? 'full-burst-summary is-truncated' : 'full-burst-summary');
+        summary.dataset.fullBurstSummary = '';
+        section.append(summary);
+      } else if (entry.result.timeline) {
+        section.append(createText('p', '풀버스트 요약은 다시 계산하면 표시됩니다.', 'full-burst-summary'));
+      }
       if (ranking.size > 1) {
         const rank = ranking.get(entry.deckId)!;
         const gap = best > 0 ? (entry.result.squadTotal / best - 1) * 100 : 0;

@@ -35,8 +35,8 @@ def _names(value, label):
 
 
 def _diagnostics(result):
-    # The bridge currently publishes completed full-burst spans only. Do not
-    # invent the final open interval: expose that limitation alongside metrics.
+    # Older cached results contain completed spans only; new bridge results
+    # include the final interval clipped to the battle duration.
     spans = result.get('timeline', {}).get('fullBurst', [])
     duration = float(result['duration'])
     if not math.isfinite(duration) or duration <= 0:
@@ -51,7 +51,7 @@ def _diagnostics(result):
     return {'fullBurstCount': len(valid),
             'gaps': [max(0., b[0] - a[1]) for a, b in zip(valid, valid[1:])],
             'uptime': sum(max(0., end - start) for start, end in valid) / duration,
-            'completedSpansOnly': True}
+            'completedSpansOnly': 'fullBurstSummary' not in result.get('timeline', {})}
 
 
 def run_recommendation(raw: str) -> str:

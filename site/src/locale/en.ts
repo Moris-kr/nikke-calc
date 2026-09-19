@@ -10,6 +10,11 @@
  *    Synchro Device) as NIKKE writes it in English — players search by those words.
  */
 export const EN: Record<string, string> = {
+  "풀버스트 0회": "Full Burst: 0",
+  "풀버스트 {count}회 · 마지막 시작 {start}초 · 실제 지속 {duration}초": "Full Burst: {count} · Last start: {start}s · Actual duration: {duration}s",
+  " / 예정 {duration}초 · 전투 종료로 단축": " / Planned: {duration}s · Cut short by battle end",
+  "풀버스트 요약은 다시 계산하면 표시됩니다.": "Recalculate to display the Full Burst summary.",
+
   // Skill upgrade planner
   "편의 기능": "Utilities",
   "편의 기능 고르기": "Choose a utility",

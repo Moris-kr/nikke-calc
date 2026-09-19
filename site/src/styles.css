@@ -2688,3 +2688,6 @@ img[src*="/temporary-characters/"][src$="-card.png"] { object-fit: contain; obje
 
 /* Same battle editor remains inside the calculator form for persistence. */
 .custom-modal.from-boss-maker { z-index: 70; }
+
+.full-burst-summary { color: #a7c8eb; margin: 8px 0 14px; font-size: .9rem; overflow-wrap: anywhere; }
+.full-burst-summary.is-truncated { color: #ffcf78; }
