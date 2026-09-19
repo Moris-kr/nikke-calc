@@ -2,7 +2,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { validatePickupHistory } from './pickup-history';
+import { eventNames, validatePickupHistory } from './pickup-history';
 
 const publicDir = new URL('../public/', import.meta.url);
 const read = (path: string) => JSON.parse(readFileSync(new URL(path, publicDir), 'utf8'));
@@ -11,7 +11,7 @@ describe('published pickup archive', () => {
     const data = validatePickupHistory(read('pickup-history.json'));
     const catalog = read('catalog.json') as { name: string; image: string }[];
     const byName = new Map(catalog.map(c => [c.name, c]));
-    for (const name of new Set(data.events.flatMap(e => e.names))) {
+    for (const name of new Set(data.events.flatMap(eventNames))) {
       expect(byName.has(name), name).toBe(true);
       expect(existsSync(new URL(byName.get(name)!.image, publicDir)), name).toBe(true);
     }

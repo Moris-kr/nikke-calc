@@ -274,6 +274,11 @@
       "id": "winter-2023-patch",
       "url": "https://blog.prydwen.gg/2023/12/04/nikke-winter-limited-units-are-here/",
       "title": "December 7 2023 update notice mirror"
+    },
+    {
+      "id": "gift-himeno-2023",
+      "url": "https://www.siliconera.com/chainsaw-mans-makima-himeno-and-power-seem-like-niche-nikke-units/",
+      "title": "Chainsaw Man event: Himeno login and story rewards (2023-02-23)"
     }
   ],
   "events": [
@@ -416,8 +421,13 @@
       "limited": true,
       "collab": true,
       "sourceIds": [
-        "bannerhistory-schedule"
-      ]
+        "bannerhistory-schedule",
+        "gift-himeno-2023"
+      ],
+      "gifts": [
+        "히메노"
+      ],
+      "giftNote": "BULLET X CHAINSAW 이벤트 배포. 14일 출석 이벤트와 스토리 진행 보상으로 획득하며, 표기일은 이벤트 시작일입니다."
     },
     {
       "id": "p202302-04",
@@ -648,7 +658,11 @@
       "sourceIds": [
         "bannerhistory-schedule",
         "official-70"
-      ]
+      ],
+      "gifts": [
+        "파스칼"
+      ],
+      "giftNote": "OuteR:Automata 이벤트 배포. 21일 출석 이벤트 등 이벤트 보상으로 획득하며, 표기일은 이벤트 시작일입니다."
     },
     {
       "id": "p202309-02",
@@ -944,7 +958,11 @@
       "sourceIds": [
         "bannerhistory-schedule",
         "official-62"
-      ]
+      ],
+      "gifts": [
+        "람"
+      ],
+      "giftNote": "Re:CIPE FOR YOU 이벤트 배포. 14일 출석 이벤트 등 이벤트 보상으로 획득하며, 표기일은 이벤트 시작일입니다."
     },
     {
       "id": "p202403-03",
@@ -1152,7 +1170,11 @@
         "bannerhistory-schedule",
         "official-56",
         "official-57"
-      ]
+      ],
+      "gifts": [
+        "미사토"
+      ],
+      "giftNote": "YOU CAN (NOT) EVADE. 이벤트 배포. 21일 출석 이벤트 등 이벤트 보상으로 획득하며, 표기일은 이벤트 시작일입니다."
     },
     {
       "id": "p202408-03",
@@ -1427,7 +1449,12 @@
         "bannerhistory-schedule",
         "official-43",
         "official-44"
-      ]
+      ],
+      "gifts": [
+        "사쿠라 (SR)",
+        "미사토"
+      ],
+      "giftNote": "SECOND QUEST 이벤트에서 사쿠라 (SR)를 배포하고, 미사토는 이벤트 상점에서 다시 교환할 수 있습니다. 표기일은 이벤트 시작일이며 획득 조건을 달성해야 합니다."
     },
     {
       "id": "p202502-03",
@@ -1597,7 +1624,11 @@
         "official-38",
         "patch-2025-07-03"
       ],
-      "note": "7월 3일 공지에서 모집 종료가 7월 10일로 연장됨."
+      "note": "7월 3일 공지에서 모집 종료가 7월 10일로 연장됨.",
+      "gifts": [
+        "릴리"
+      ],
+      "giftNote": "MEMORIES TELLER 이벤트 배포. 14일 출석 이벤트 등 이벤트 보상으로 획득하며, 표기일은 이벤트 시작일입니다."
     },
     {
       "id": "p202506-02",
@@ -1629,7 +1660,11 @@
         "official-36",
         "official-37",
         "patch-2025-07-03"
-      ]
+      ],
+      "gifts": [
+        "파스칼"
+      ],
+      "giftNote": "OuteR:Automata 복각 이벤트에서 다시 획득할 수 있습니다. 표기일은 복각 이벤트 시작일이며 이벤트 획득 조건을 달성해야 합니다."
     },
     {
       "id": "p202507-02",
@@ -1834,7 +1869,11 @@
         "bannerhistory-schedule",
         "official-31",
         "official-32"
-      ]
+      ],
+      "gifts": [
+        "클레어"
+      ],
+      "giftNote": "REBORN EVIL 이벤트 배포. 14일 출석 이벤트 등 이벤트 보상으로 획득하며, 표기일은 이벤트 시작일입니다."
     },
     {
       "id": "p202510-01",
@@ -1994,6 +2033,7 @@
     "Types and canonical names require review. No assumption of complete independent official verification.",
     "Corrected source archive errors: Modernia debut KST dates; Tactical Upgrade identities and staggered debuts; Evangelion rerun stagger; Nier rerun stagger; EVE banner extension.",
     "Multi-name records can represent concurrent separate pickups, not necessarily a single shared selector banner.",
-    "Coverage gap: historical base archive not fully independently audited; source inaccuracies may remain in older end dates."
+    "Coverage gap: historical base archive not fully independently audited; source inaccuracies may remain in older end dates.",
+    "Collaboration gifts mark the first event day, not immediate receipt of every copy. Official update bodies were checked through the public publisher CMS on 2026-09-19; Himeno uses contemporary reporting. Lily in May 2026 is an Archives unlock reward, independent of the rerun banner end date."
   ]
 }

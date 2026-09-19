@@ -211,7 +211,11 @@
         "bannerhistory-schedule",
         "official-22",
         "official-23"
-      ]
+      ],
+      "gifts": [
+        "쿠루미"
+      ],
+      "giftNote": "Lie cause Recoil 이벤트 배포. 14일 출석 이벤트 등 이벤트 보상으로 획득하며, 표기일은 이벤트 시작일입니다."
     },
     {
       "id": "p202602-02",
@@ -336,7 +340,11 @@
         "bannerhistory-schedule",
         "official-14",
         "official-15"
-      ]
+      ],
+      "gifts": [
+        "릴리"
+      ],
+      "giftNote": "2026-05-14 업데이트 후 아카이브에서 MEMORIES TELLER 스토리 이벤트를 개방하면 획득할 수 있습니다. 픽업 종료일과 별개인 아카이브 보상입니다."
     },
     {
       "id": "p202605-03",
@@ -520,7 +528,11 @@
         "bannerhistory-schedule",
         "official-4",
         "official-5"
-      ]
+      ],
+      "gifts": [
+        "아이기스"
+      ],
+      "giftNote": "PERSONA ON FRONTLINE 이벤트 배포. 14일 출석 이벤트 등 이벤트 보상으로 획득하며, 표기일은 이벤트 시작일입니다."
     },
     {
       "id": "p202608-02",
@@ -612,7 +624,8 @@
   "researchNotes": [
     "BannerHistory public archive, parsed exact KST timestamps rather than date-only fields (those can be UTC). Publisher links are archive-provided and require independent verification.",
     "End is calendar date of official timestamp, often 04:59 KST; it is not necessarily a full final day.",
-    "Types and canonical names require review. No assumption of complete independent official verification."
+    "Types and canonical names require review. No assumption of complete independent official verification.",
+    "Collaboration gifts mark the first event day, not immediate receipt of every copy. Official update bodies were checked through the public publisher CMS on 2026-09-19; Himeno uses contemporary reporting. Lily in May 2026 is an Archives unlock reward, independent of the rerun banner end date."
   ],
   "verificationNote": "2026-09-19 공식 6/11·7/23·9/17 공지 직접 대조. 나머지는 공개 일정 아카이브 및 연결된 공지 근거이며 전 건 개별 원문 재검수는 아님. 날짜는 한국 시간, 점검 종료 시각은 임의의 18시로 표시하지 않음."
 }

@@ -2,7 +2,7 @@ import type { CharacterMeta } from './types';
 import { initials, squash } from './nikke-search';
 import './pickup-history.css';
 
-export interface PickupEvent { id: string; start: string; end?: string; names: string[]; kind: 'new' | 'rerun'; limited?: boolean; collab?: boolean; sourceIds: string[]; note?: string; tags?: string[] }
+export interface PickupEvent { id: string; start: string; end?: string; names: string[]; kind: 'new' | 'rerun'; limited?: boolean; collab?: boolean; sourceIds: string[]; note?: string; tags?: string[]; gifts?: string[]; giftNote?: string }
 export interface PickupHistory { updatedAt: string; coverageNote: string; sources: { id: string; url: string; title: string }[]; events: PickupEvent[] }
 export interface PickupFilters { year: string; kind: string; query: string; order: 'asc' | 'desc' }
 type SearchCharacter = Pick<CharacterMeta, 'name' | 'aliases'>;
@@ -21,19 +21,28 @@ export function validatePickupHistory(value: unknown): PickupHistory {
   for (const e of d.events) {
     if (!e || typeof e.id !== 'string' || events.has(e.id) || !validDate(e.start) || (e.end !== undefined && (!validDate(e.end) || e.end < e.start)) || !['new', 'rerun'].includes(e.kind) || !Array.isArray(e.names) || !e.names.length || !e.names.every(n => typeof n === 'string' && n.trim()) || !Array.isArray(e.sourceIds) || !e.sourceIds.length || !e.sourceIds.every(id => ids.has(id)) || (e.note !== undefined && typeof e.note !== 'string') || (e.tags !== undefined && (!Array.isArray(e.tags) || !e.tags.every(t => typeof t === 'string'))) || (e.limited !== undefined && typeof e.limited !== 'boolean') || (e.collab !== undefined && typeof e.collab !== 'boolean')) return fail();
     events.add(e.id);
+    if (e.gifts !== undefined && (!e.collab || !Array.isArray(e.gifts) || !e.gifts.length || !e.gifts.every(n => typeof n === 'string' && n.trim() && !e.names.includes(n)) || new Set(e.gifts).size !== e.gifts.length)) return fail();
+    if (e.giftNote !== undefined && (typeof e.giftNote !== 'string' || !e.gifts?.length)) return fail();
   }
   return d;
 }
 export function filterPickupEvents(events: PickupEvent[], f: PickupFilters, catalog: SearchCharacter[]): PickupEvent[] {
   const q = squash(f.query);
   const aliases = new Map(catalog.map(c => [c.name, c.aliases ?? []]));
-  return events.filter(e => (!f.year || e.start.startsWith(f.year)) && (!f.kind || (f.kind === 'limited' ? e.limited : f.kind === 'collab' ? e.collab : e.kind === f.kind)) && (!q || e.names.some(n => [n, ...(aliases.get(n) ?? [])].some(s => squash(s).includes(q) || squash(initials(s)).includes(q)))))
+  return events.filter(e => (!f.year || e.start.startsWith(f.year)) && (!f.kind || (f.kind === 'limited' ? e.limited : f.kind === 'collab' ? e.collab : e.kind === f.kind)) && (!q || eventNames(e).some(n => [n, ...(aliases.get(n) ?? [])].some(s => squash(s).includes(q) || squash(initials(s)).includes(q)))))
     .sort((a, b) => (a.start.localeCompare(b.start) || a.id.localeCompare(b.id)) * (f.order === 'asc' ? 1 : -1));
 }
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '', cls = ''): HTMLElementTagNameMap[K] => {
   const node = document.createElement(tag); node.textContent = text; if (cls) node.className = cls; return node;
 };
 const labels = (e: PickupEvent) => [e.kind === 'new' ? '신규' : '복각', ...(e.limited ? ['한정'] : []), ...(e.collab ? ['콜라보'] : [])];
+export const eventNames = (e: PickupEvent): string[] => [...e.names, ...(e.gifts ?? [])];
+export function pickupHonor(e: PickupEvent, catalog: Map<string, Pick<CharacterMeta, 'manufacturer'>>): string {
+  const titles = [];
+  if (e.names.some(n => catalog.get(n)?.manufacturer === '필그림')) titles.push('필그림');
+  if (e.tags?.includes('오버스펙')) titles.push('오버스펙');
+  return titles.join(' · ');
+}
 function portraitUrl(char: CharacterMeta | undefined): string | undefined {
   if (!char?.image) return;
   const url = new URL(`${import.meta.env.BASE_URL}${char.image}`, location.href);
@@ -54,6 +63,9 @@ export async function renderPickupHistory(host: HTMLElement, catalog: CharacterM
   const byName = new Map(catalog.map(c => [c.name, c]));
   const state: PickupFilters = { year: '', kind: '', query: '', order: 'asc' };
   const root = el('section', '', 'pickup-history');
+  let dark = false;
+  try { dark = localStorage.getItem('nikke-pickup-theme') === 'dark'; } catch { /* Storage can be disabled. */ }
+  root.dataset.theme = dark ? 'dark' : 'light';
   const heading = el('div', '', 'pickup-heading');
   heading.append(el('span', 'RECRUITMENT ARCHIVE', 'pickup-eyebrow'), el('h2', '니케 픽업 타임라인'), el('p', '날짜순으로 살펴보고, 캐릭터를 눌러 기록과 출처를 확인하세요.'));
   const controls = el('div', '', 'pickup-controls');
@@ -64,7 +76,8 @@ export async function renderPickupHistory(host: HTMLElement, catalog: CharacterM
   const order = select('날짜 정렬', [['asc', '오래된 순'], ['desc', '최신 순']]);
   const reset = el('button', '초기화'); reset.type = 'button';
   const download = el('button', 'PNG 저장', 'pickup-export'); download.type = 'button';
-  controls.append(search, year, kind, order, reset, download);
+  const theme = el('button', '다크모드', 'pickup-theme'); theme.type = 'button'; theme.setAttribute('aria-pressed', String(dark));
+  controls.append(search, year, kind, order, reset, theme, download);
   const summary = el('p', '', 'pickup-summary'); summary.setAttribute('aria-live', 'polite');
   const grid = el('div', '', 'pickup-grid');
   const status = el('p', '', 'pickup-status'); status.setAttribute('aria-live', 'polite');
@@ -75,14 +88,15 @@ export async function renderPickupHistory(host: HTMLElement, catalog: CharacterM
   const close = el('button', '닫기', 'pickup-close'); close.type = 'button'; close.onclick = () => dialog.close();
   const details = el('div'); dialog.append(close, details);
   const openDetails = (event: PickupEvent) => {
-    details.replaceChildren(el('h3', event.names.join(' · ')), el('p', `${event.start} ~ ${event.end ?? '종료일 미확인'} · ${labels(event).join(' / ')}`));
+    details.replaceChildren(el('h3', eventNames(event).join(' · ')), el('p', `모집 기간 ${event.start} ~ ${event.end ?? '종료일 미확인'} · ${labels(event).join(' / ')}`));
     if (event.note) details.append(el('p', event.note));
-    event.names.forEach(name => {
-      const history = data.events.filter(e => e.names.includes(name)).sort((a, b) => a.start.localeCompare(b.start));
+    if (event.gifts?.length) details.append(el('p', `콜라보 배포: ${event.gifts.join(' · ')}. ${event.giftNote ?? '콜라보 첫날에 함께 표시하며, 수령 조건은 출처 공지를 확인하세요.'}`, 'pickup-gift-note'));
+    eventNames(event).forEach(name => {
+      const history = data.events.filter(e => eventNames(e).includes(name)).sort((a, b) => a.start.localeCompare(b.start));
       const latest = history.filter(e => e.start <= today).at(-1);
-      details.append(el('h4', `${name} · 수록된 픽업 ${history.length}회`));
-      if (latest) { const days = Math.floor((Date.parse(today) - Date.parse(latest.start)) / 86400000); details.append(el('p', `수록된 마지막 픽업 시작: ${latest.start} (${today} KST 기준 ${days}일 경과)`)); }
-      const list = el('ul'); history.forEach(e => list.append(el('li', `${e.start} · ${labels(e).join(' / ')}`))); details.append(list);
+      details.append(el('h4', `${name} · 수록된 모집/배포 ${history.length}회`));
+      if (latest) { const days = Math.floor((Date.parse(today) - Date.parse(latest.start)) / 86400000); details.append(el('p', `수록된 마지막 모집/배포 시작: ${latest.start} (${today} KST 기준 ${days}일 경과)`)); }
+      const list = el('ul'); history.forEach(e => list.append(el('li', `${e.start} · ${e.gifts?.includes(name) ? '콜라보 배포' : labels(e).join(' / ')}`))); details.append(list);
     });
     details.append(el('h4', '이 기록의 출처'));
     event.sourceIds.forEach(id => { const source = data.sources.find(s => s.id === id)!; const a = el('a', source.title); a.href = source.url; a.target = '_blank'; a.rel = 'noopener noreferrer'; details.append(a); });
@@ -99,14 +113,17 @@ export async function renderPickupHistory(host: HTMLElement, catalog: CharacterM
     grid.replaceChildren();
     if (!filtered.length) grid.append(el('p', '조건에 맞는 픽업 기록이 없습니다.', 'pickup-empty'));
     filtered.forEach(event => {
-      const special = event.tags?.length || event.names.some(n => byName.get(n)?.manufacturer === '필그림');
-      const card = el('button', '', 'pickup-card' + (event.limited ? ' pickup-limited' : '') + (special ? ' pickup-special' : '')); card.type = 'button'; card.setAttribute('aria-label', `${event.start} ${event.names.join(', ')} 픽업 상세`);
+      const honor = pickupHonor(event, byName);
+      const card = el('button', '', 'pickup-card' + (event.limited ? ' pickup-limited' : '') + (honor ? ' pickup-special' : '') + (honor && event.limited ? ' pickup-prestige' : '')); card.type = 'button'; card.setAttribute('aria-label', `${event.start} ${eventNames(event).join(', ')} 픽업 상세`);
       const date = el('time', event.start.replaceAll('-', '.'), 'pickup-date'); date.dateTime = event.start; card.append(date);
-      const faces = el('div', '', 'pickup-faces' + (event.names.length > 1 ? ' pickup-multiple' : ''));
-      event.names.forEach(name => {
+      if (honor) card.append(el('span', `${event.limited ? '✦ 한정 ' : '★ '}${honor}`, 'pickup-honor'));
+      const faces = el('div', '', 'pickup-faces' + (eventNames(event).length > 1 ? ' pickup-multiple' : ''));
+      eventNames(event).forEach(name => {
         const figure = el('span', '', 'pickup-person'); const face = el('span', 'N', 'pickup-face'); const url = portraitUrl(byName.get(name));
         if (url) { const image = el('img'); image.src = url; image.alt = ''; image.loading = 'lazy'; image.onerror = () => image.remove(); face.append(image); }
-        figure.append(face, el('span', name, 'pickup-name')); faces.append(figure);
+        figure.append(face, el('span', name, 'pickup-name'));
+        if (event.gifts?.includes(name)) { figure.classList.add('pickup-gift'); figure.append(el('span', '배포', 'pickup-gift-badge')); }
+        faces.append(figure);
       });
       const badges = el('span', '', 'pickup-badges'); [...labels(event), ...(event.start > today ? ['예정'] : []), ...(event.tags ?? [])].forEach(label => badges.append(el('span', label, `pickup-badge${label === '복각' ? ' pickup-rerun' : ''}`)));
       card.append(faces, badges); card.onclick = () => openDetails(event); grid.append(card);
@@ -115,13 +132,18 @@ export async function renderPickupHistory(host: HTMLElement, catalog: CharacterM
   search.oninput = () => { state.query = search.value; draw(); };
   year.onchange = () => { state.year = year.value; draw(); }; kind.onchange = () => { state.kind = kind.value; draw(); }; order.onchange = () => { state.order = order.value as 'asc' | 'desc'; draw(); };
   reset.onclick = () => { search.value = year.value = kind.value = ''; order.value = 'asc'; Object.assign(state, { query: '', year: '', kind: '', order: 'asc' }); draw(); };
+  theme.onclick = () => {
+    dark = !dark; root.dataset.theme = dark ? 'dark' : 'light'; theme.setAttribute('aria-pressed', String(dark));
+    try { localStorage.setItem('nikke-pickup-theme', dark ? 'dark' : 'light'); } catch { /* Still works for this visit. */ }
+    draw();
+  };
   download.onclick = async () => {
     exporting = true;
     const requestedRevision = revision;
     downloadUrls.forEach(url => URL.revokeObjectURL(url)); downloadUrls = [];
     download.disabled = true; status.textContent = '이미지를 만드는 중…';
     try {
-      const pages = await exportPickupPages(filterPickupEvents(data.events, state, catalog), byName, data.updatedAt);
+      const pages = await exportPickupPages(filterPickupEvents(data.events, state, catalog), byName, data.updatedAt, dark);
       if (requestedRevision !== revision) return;
       status.replaceChildren(document.createTextNode(`${pages.length}개 이미지 준비 완료. 각 파일을 눌러 저장하세요. `));
       pages.forEach((blob, i) => { const a = el('a', `PNG ${i + 1} 저장`); const url = URL.createObjectURL(blob); downloadUrls.push(url); a.href = url; a.download = `nikke-pickup-${data.updatedAt}-${i + 1}.png`; status.append(a, document.createTextNode(' ')); });
@@ -131,9 +153,9 @@ export async function renderPickupHistory(host: HTMLElement, catalog: CharacterM
   root.append(heading, controls, summary, el('p', data.coverageNote, 'pickup-coverage'), status, grid, dialog); host.replaceChildren(root); draw();
 }
 
-async function exportPickupPages(events: PickupEvent[], catalog: Map<string, CharacterMeta>, updatedAt: string): Promise<Blob[]> {
+async function exportPickupPages(events: PickupEvent[], catalog: Map<string, CharacterMeta>, updatedAt: string, dark: boolean): Promise<Blob[]> {
   const cache = new Map<string, HTMLImageElement | null>();
-  await Promise.all([...new Set(events.flatMap(e => e.names))].map(async name => {
+  await Promise.all([...new Set(events.flatMap(eventNames))].map(async name => {
     const url = portraitUrl(catalog.get(name)); if (!url) return;
     const image = new Image();
     await new Promise<void>(resolve => { const timer = setTimeout(() => { image.src = ''; resolve(); }, 5000); image.onload = () => { clearTimeout(timer); cache.set(name, image); resolve(); }; image.onerror = () => { clearTimeout(timer); resolve(); }; image.src = url; });
@@ -143,22 +165,28 @@ async function exportPickupPages(events: PickupEvent[], catalog: Map<string, Cha
   const today = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul' }).format(new Date());
   for (let offset = 0; offset < events.length; offset += 24) {
     const page = events.slice(offset, offset + 24);
-    const rowHeight = Math.max(220, 80 + Math.max(...page.map(e => e.names.length)) * 68);
+    const rowHeight = Math.max(240, 116 + Math.max(...page.map(e => eventNames(e).length)) * 68);
     const canvas = document.createElement('canvas'); canvas.width = 1200; canvas.height = 160 + Math.ceil(page.length / 6) * rowHeight;
     if (canvas.height > 8192) throw new Error('이 기록은 이미지 저장 한도를 초과합니다.');
     const ctx = canvas.getContext('2d'); if (!ctx) throw new Error('canvas');
-    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = '#172532'; ctx.font = 'bold 30px sans-serif'; ctx.fillText('NIKKE · 픽업 타임라인', 30, 48); ctx.font = '16px sans-serif'; ctx.fillText(`자료 확인 ${updatedAt} · 선택 ${events.length}건 · ${offset + 1}–${offset + page.length} / 날짜는 픽업 시작일 (KST)`, 30, 80); ctx.fillText('수록 기록 기준 · 상세 출처는 사이트에서 확인', 30, 106);
+    ctx.fillStyle = dark ? '#101923' : '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = dark ? '#e4edf5' : '#172532'; ctx.font = 'bold 30px sans-serif'; ctx.fillText('NIKKE · 픽업 타임라인', 30, 48); ctx.font = '16px sans-serif'; ctx.fillText(`자료 확인 ${updatedAt} · 선택 ${events.length}건 · ${offset + 1}–${offset + page.length} / 날짜는 픽업 시작일 (KST)`, 30, 80); ctx.fillText('★ 필그림/오버스펙 · ✦ 한정 특수 · 배포는 콜라보 첫날에 표시 (수령 조건은 상세 참고)', 30, 106);
     page.forEach((event, i) => {
       const x = 20 + (i % 6) * 196; const y = 136 + Math.floor(i / 6) * rowHeight;
-      const special = event.tags?.length || event.names.some(n => catalog.get(n)?.manufacturer === '필그림');
-      ctx.strokeStyle = event.limited ? '#d97878' : special ? '#c4a14f' : '#dfe5e9'; ctx.strokeRect(x, y, 182, rowHeight - 16); ctx.fillStyle = '#233a4e'; ctx.font = 'bold 17px sans-serif'; ctx.fillText(event.start.replaceAll('-', '.'), x + 12, y + 27);
-      event.names.forEach((name, j) => {
-        const py = y + 42 + j * 68; const image = cache.get(name); ctx.fillStyle = '#eef2f5'; ctx.fillRect(x + 10, py, 48, 54);
+      const honor = pickupHonor(event, catalog); const prestige = !!honor && event.limited;
+      ctx.fillStyle = prestige ? (dark ? '#452135' : '#ffe6e7') : honor ? (dark ? '#342b18' : '#fff1c7') : (dark ? '#1b2938' : '#fff'); ctx.fillRect(x, y, 182, rowHeight - 16);
+      ctx.lineWidth = prestige ? 4 : honor ? 3 : 1;
+      ctx.strokeStyle = prestige ? '#f078ac' : honor ? '#d5a62f' : event.limited ? '#d97878' : (dark ? '#455b71' : '#dfe5e9'); ctx.strokeRect(x, y, 182, rowHeight - 16);
+      if (prestige) { ctx.lineWidth = 1; ctx.strokeStyle = '#efc655'; ctx.strokeRect(x + 5, y + 5, 172, rowHeight - 26); }
+      ctx.fillStyle = dark ? '#edf3fa' : '#233a4e'; ctx.font = 'bold 17px sans-serif'; ctx.fillText(event.start.replaceAll('-', '.'), x + 12, y + 27);
+      if (honor) { ctx.fillStyle = dark ? '#ffe08c' : '#86470d'; ctx.font = 'bold 13px sans-serif'; ctx.fillText(`${prestige ? '✦ 한정 ' : '★ '}${honor}`, x + 12, y + 51); }
+      eventNames(event).forEach((name, j) => {
+        const py = y + 65 + j * 68; const image = cache.get(name); ctx.fillStyle = dark ? '#35495c' : '#eef2f5'; ctx.fillRect(x + 10, py, 48, 54);
         if (image) { const scale = Math.max(48 / image.width, 54 / image.height); const sw = 48 / scale; const sh = 54 / scale; ctx.drawImage(image, (image.width - sw) / 2, (image.height - sh) * .2, sw, sh, x + 10, py, 48, 54); }
-        ctx.fillStyle = '#172532'; ctx.font = 'bold 12px sans-serif'; let line = ''; let row = 0;
+        ctx.fillStyle = dark ? '#e4edf5' : '#172532'; ctx.font = 'bold 12px sans-serif'; let line = ''; let row = 0;
         for (const char of name) { if (ctx.measureText(line + char).width > 106) { ctx.fillText(line, x + 65, py + 15 + row * 15); row++; line = ''; } line += char; } ctx.fillText(line, x + 65, py + 15 + row * 15);
+        if (event.gifts?.includes(name)) { ctx.fillStyle = dark ? '#87edce' : '#00674f'; ctx.font = 'bold 11px sans-serif'; ctx.fillText('배포', x + 65, py + 59); }
       });
-      ctx.fillStyle = '#5f7586'; ctx.font = '12px sans-serif'; ctx.fillText([...labels(event), ...(event.start > today ? ['예정'] : [])].join(' · '), x + 12, y + rowHeight - 28);
+      ctx.fillStyle = dark ? '#adc2d4' : '#5f7586'; ctx.font = '12px sans-serif'; ctx.fillText([...labels(event), ...(event.start > today ? ['예정'] : [])].join(' · '), x + 12, y + rowHeight - 28);
     });
     blobs.push(await new Promise<Blob>((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('png')), 'image/png')));
   }

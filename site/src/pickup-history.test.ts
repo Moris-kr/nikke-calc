@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { renderPickupHistory, filterPickupEvents, validatePickupHistory, type PickupHistory } from './pickup-history';
+import { renderPickupHistory, filterPickupEvents, validatePickupHistory, pickupHonor, type PickupHistory } from './pickup-history';
+import type { CharacterMeta } from './types';
 
 const data: PickupHistory = {
   updatedAt: '2026-09-19', coverageNote: '확인된 기록',
@@ -11,7 +12,30 @@ const data: PickupHistory = {
   ],
 };
 describe('pickup history', () => {
-  afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
+  afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); localStorage.clear(); });
+  it('places and searches the free character beside the collab pickup without relabeling it as a pickup', async () => {
+    const fixture = { ...data, events: [{ ...data.events[0]!, collab: true, gifts: ['배포 캐릭터'], giftNote: '출석 보상' }] };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => fixture }));
+    const host = document.createElement('div'); await renderPickupHistory(host, []);
+    expect([...host.querySelectorAll('.pickup-person')].map(n => n.textContent)).toEqual(['N시험 캐릭터', 'N배포 캐릭터배포']);
+    expect(filterPickupEvents(fixture.events, { year: '', kind: 'collab', query: '배포', order: 'desc' }, [])).toHaveLength(1);
+    expect(() => validatePickupHistory({ ...fixture, events: [{ ...fixture.events[0], gifts: ['시험 캐릭터'] }] })).toThrow();
+  });
+  it('distinguishes special limited cards, ignores unrelated tags, and remembers dark mode', async () => {
+    const fixture = { ...data, events: [{ ...data.events[0]!, tags: ['오버스펙'] }, { ...data.events[1]!, tags: ['기타'] }] };
+    const catalog = [{ name: '시험 캐릭터', manufacturer: '필그림' }] as CharacterMeta[];
+    expect(pickupHonor(fixture.events[1]!, new Map())).toBe('');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => fixture }));
+    const host = document.createElement('div'); await renderPickupHistory(host, catalog);
+    expect(host.querySelectorAll('.pickup-special')).toHaveLength(2);
+    expect(host.querySelectorAll('.pickup-prestige')).toHaveLength(1);
+    expect(host.querySelector('.pickup-prestige .pickup-honor')?.textContent).toBe('✦ 한정 필그림 · 오버스펙');
+    host.querySelector<HTMLButtonElement>('.pickup-theme')!.click();
+    expect(host.querySelector('.pickup-history')?.getAttribute('data-theme')).toBe('dark');
+    await renderPickupHistory(host, catalog);
+    expect(host.querySelector('.pickup-theme')?.getAttribute('aria-pressed')).toBe('true');
+    expect(host.querySelector('.pickup-history')?.getAttribute('data-theme')).toBe('dark');
+  });
   it('marks upcoming pickups against the current KST date, not the last data update', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-09-23T14:59:00Z'));
