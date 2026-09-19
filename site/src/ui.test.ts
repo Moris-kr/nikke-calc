@@ -213,6 +213,17 @@ describe('calculator UI', () => {
     localStorage.clear();
   });
 
+  it('restores imported console levels without changing battle conditions',()=>{
+    const levels={common_level:123,class_level:Object.fromEntries(settings.consoleClasses.map(key=>[key,45])),company_level:Object.fromEntries(settings.consoleCompanies.map(key=>[key,67]))};
+    localStorage.setItem('nikke-imported-console-v1',JSON.stringify(levels));
+    const dispose=mountCalculator(root,{catalog,settings,version:'v1',client:new FakeClient(),storage:localStorage});
+    const common=root.querySelector<HTMLInputElement>('#console-common')!;common.value='999';common.dispatchEvent(new Event('change',{bubbles:true}));
+    root.querySelector<HTMLButtonElement>('[data-console-restore]')!.click();
+    expect(common.value).toBe('123');
+    expect([...root.querySelectorAll<HTMLInputElement>('[data-console-bucket]')].map(input=>Number(input.value))).toEqual([67,67,67,67,67,45,45,45]);
+    expect(JSON.parse(localStorage.getItem('nikke-imported-console-v1')!)).toEqual(levels);
+    dispose();
+  });
   it('opens utility URLs directly and syncs clicks and history without resetting the squad', () => {
     history.replaceState(null, '', '#/utilities/skills');
     const dispose = mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });

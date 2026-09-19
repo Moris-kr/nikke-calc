@@ -461,6 +461,12 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     const source = typeof storage === 'function' ? storage() : storage;
     return source ?? null;
   };
+  const IMPORTED_CONSOLE_KEY='nikke-imported-console-v1';
+  let importedConsole:ReturnType<typeof consoleFrom>=null;
+  try{const raw=resolveStorage()?.getItem(IMPORTED_CONSOLE_KEY);const value=raw?JSON.parse(raw):null;
+    const valid=(n:unknown)=>typeof n==='number'&&Number.isInteger(n)&&n>=0&&n<=1000;
+    if(value&&valid(value.common_level)&&settings.consoleClasses.every(key=>valid(value.class_level?.[key]))&&settings.consoleCompanies.every(key=>valid(value.company_level?.[key])))importedConsole=value;
+  }catch{}
   const ACCOUNT_SYNCHRO_KEY = 'nikke-account-synchro-v1';
   let accountSynchro: number | null = null;
   let useAccountSynchro = true;
@@ -1120,6 +1126,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           </div>
           <section class="console-editor">
             <h3>콘솔 <span>전초기지 재활용 연구실</span></h3>
+            <button type="button" class="text-button" data-console-restore>불러온 값으로 되돌리기</button>
+            <p class="field-note" data-console-restore-note></p>
             <div class="console-grid" data-console-grid></div>
             <p class="field-note">계정 설정이라 스쿼드 전원에게 같이 적용됩니다. 클래스·기업은 인게임에서 소속별로 따로 크므로 각각 받습니다. 기업은 공격력, 공통·클래스는 체력을 올립니다 — 체력 계수를 쓰는 캐릭터(신데렐라 등)는 공통·클래스도 딜에 반영됩니다.</p>
           </section>
@@ -3077,6 +3085,10 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     );
   };
   renderConsole();
+  const consoleRestore=element<HTMLButtonElement>(root,'[data-console-restore]');
+  const consoleRestoreNote=element<HTMLElement>(root,'[data-console-restore-note]');
+  const refreshConsoleRestore=()=>{consoleRestore.disabled=!importedConsole;consoleRestoreNote.textContent=importedConsole?'마지막으로 연동한 콘솔 레벨로 되돌립니다.':'되돌릴 콘솔 원본이 없습니다. 블라블라링크에서 전초기지를 공개하고 다시 연동해 주세요.';};
+  refreshConsoleRestore();
 
   const readConsoleBuckets = (axis: 'class' | 'company'): Record<string, number> =>
     Object.fromEntries([...consoleInputs[axis]].map(([bucket, input]) => [bucket, Number(input.value)]));
@@ -5034,6 +5046,12 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       scheduleSquadPower();
     }
   });
+  consoleRestore.addEventListener('click',()=>{
+    if(!importedConsole)return;
+    writeBattle({...readBattle(),console:structuredClone(importedConsole)});
+    saveState();refreshBattleSummary();scheduleSquadPower();
+    consoleRestoreNote.textContent='불러온 콘솔 레벨로 되돌렸습니다.';
+  });
   // ── 전투 조건 공유 ──────────────────────────────────────────────────────
   const battleShareModal = element<HTMLElement>(root, '[data-battle-share-modal]');
   const battleShareOut = element<HTMLTextAreaElement>(root, '[data-battle-share-out]');
@@ -5767,7 +5785,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   element<HTMLButtonElement>(root, '[data-reset-confirm]').addEventListener('click', () => {
     cache.clear();
     const store = resolveStorage();
-    for (const key of [STATE_KEY, ROSTER_KEY, CUSTOM_KEY, ACCOUNT_SYNCHRO_KEY, PLANNER_KEY]) {
+    for (const key of [STATE_KEY, ROSTER_KEY, CUSTOM_KEY, ACCOUNT_SYNCHRO_KEY, IMPORTED_CONSOLE_KEY, PLANNER_KEY]) {
       try {
         store?.removeItem(key);
       } catch {
@@ -5918,6 +5936,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         // 콘솔은 계정 단위라 전투 설정 쪽에 있다. 전초기지가 비공개면 안 오고, 그때는
         // 손대지 않는 게 맞다 — 0으로 덮으면 멀쩡하던 값이 사라진다.
         const consoleLevels = consoleFrom(area);
+        importedConsole=consoleLevels?structuredClone(consoleLevels):null;
+        try{resolveStorage()?.setItem(IMPORTED_CONSOLE_KEY,JSON.stringify(importedConsole));}catch{}
+        refreshConsoleRestore();
         // 계정 레벨과 이번 계산의 레벨은 따로 보관한다. 재동기화해도 400 선택을 지킨다.
         const syncedLevel = synchroFrom(area);
         accountSynchro = syncedLevel !== null && syncedLevel <= SYNCHRO_MAX ? syncedLevel : null;

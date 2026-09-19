@@ -21,6 +21,9 @@ export interface Notice {
 
 /** 최신이 맨 앞. */
 export const NOTICES: Notice[] = [
+  {id:'2026-09-19-console-restore',date:'2026-09-19',title:'콘솔 연동값 복원',items:[
+    {tag:'새 기능',text:'콘솔 설정에 <b>불러온 값으로 되돌리기</b>를 추가했습니다. 마지막 블라블라링크 연동값으로 복원하며, 원본이 없는 경우 다시 연동한 뒤 사용할 수 있습니다.'},
+  ]},
   {id:'2026-09-19-guide-part-costs',date:'2026-09-19',title:'옵작 가이드 부위별 비용 분리',items:[
     {tag:'개선',text:'머리·몸통·팔·다리 각각의 <b>효과 찾기와 수치작 비용</b>을 모듈·락 키로 나누고, 잠금 설정에 드는 모듈도 따로 표시합니다.'},
   ]},
