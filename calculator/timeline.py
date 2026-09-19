@@ -763,7 +763,7 @@ class CharState:
 
         # hit_count: 발사 1회당 1회 (펠릿 수와 무관). pellet_hit은 루프 내 펠릿마다 발생
         bm.notify(f"multi_hit:{hit_count}", t, self.name)
-        bm.notify("hit_count", t, self.name)
+        bm.notify("hit_count", t, self.name, core_frac=core_frac)
         bm.notify("on_attack", t, self.name)
         if not self._wc_is_skill_damage():
             bm.consume_bullet_buffs(self.name, t)
@@ -1047,7 +1047,7 @@ class CharState:
         if self._sim_log is not None:
             self._sim_log.ammo_log.append(AmmoLogEntry(t=t, caster=self.name, ammo=self.ammo))
         bm.notify("squad_ammo_consume", t, self.name)
-        bm.notify("hit_count", t, self.name)
+        bm.notify("hit_count", t, self.name, core_frac=P_core if expected else float(is_core))
         if is_full:
             bm.notify("full_charge_hit", t, self.name)
         else:

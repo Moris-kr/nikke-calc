@@ -26,7 +26,7 @@ class RosterBatch05Test(unittest.TestCase):
 
     def test_winter_guillotine_levels_from_xp_and_spends_reward(self):
         manager=BuffManager(build_squad(["길로틴 : 윈터 슬레이어"]),{"enemy":{}});manager.battle_start()
-        for i in range(60): manager.notify_team_hit("squad_body_hit",i/100,"길로틴 : 윈터 슬레이어")
+        for i in range(60): manager.notify("hit_count",i/100,"길로틴 : 윈터 슬레이어",core_frac=0.0)
         level=next(ab for ab in manager._active if ab.effect.get("name")=="용사 레벨")
         self.assertEqual(2,level.stack)
         self.assertTrue(manager._has_self_state("길로틴 : 윈터 슬레이어","용사의 자질 3"))

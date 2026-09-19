@@ -1756,6 +1756,19 @@ class BuffManager:
                 # 확률 근사가 아니라 실제 롤 결과를 읽는다 (율리아 `마르카토 2`).
                 if not self._notify_ctx.get("hit_crit"):
                     return False
+            elif cond == "not_core":
+                # Gate the triggering hit, not the normal-hit counter. In expected
+                # mode accumulate only the eligible (e.g. every sixth) hit's share.
+                core_frac = self._notify_ctx.get("core_frac")
+                if core_frac is None or core_frac >= 1.0:
+                    return False
+                if core_frac > 0.0:
+                    acc = self.state.setdefault("rng_acc", {})
+                    key = ("not_core", id(eff), caster)
+                    acc[key] = acc.get(key, 0.0) + 1.0 - core_frac
+                    if acc[key] < 1.0:
+                        return False
+                    acc[key] -= 1.0
             elif cond == "burst_casted":
                 if not self.state.get("burst_casted", {}).get(burst_check_char):
                     return False
@@ -2420,7 +2433,13 @@ class BuffManager:
         name = eff.get("name", "")
         existing = None
         for ab in self._active:
-            if ab.effect is eff and ab.caster == caster:
+            # Explicitly linked trigger clauses can apply the same named stack.
+            # Unrelated effects retain their original identity-based behavior.
+            same_effect = ab.effect is eff or (
+                bool(eff.get("stack_group"))
+                and ab.effect.get("stack_group") == eff["stack_group"]
+            )
+            if same_effect and ab.caster == caster:
                 if lazy or use_per_target or ab.target_chars == targets:
                     existing = ab
                     break

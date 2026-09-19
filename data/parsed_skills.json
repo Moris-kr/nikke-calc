@@ -34736,9 +34736,11 @@
       "name": "경험치",
       "trigger": {
         "timing": [
-          "body_hit_count:6"
+          "hit_count:6"
         ],
-        "condition": []
+        "condition": [
+          "not_core"
+        ]
       },
       "target": "self",
       "stat": "atk_pct",
@@ -34756,7 +34758,8 @@
       },
       "duration": -1,
       "polarity": "beneficial",
-      "max_stack": 100
+      "max_stack": 100,
+      "stack_group": "경험치"
     },
     {
       "source": "스킬2",
@@ -34784,7 +34787,8 @@
       },
       "duration": -1,
       "polarity": "beneficial",
-      "max_stack": 100
+      "max_stack": 100,
+      "stack_group": "경험치"
     },
     {
       "source": "스킬2",
