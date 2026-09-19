@@ -3,6 +3,17 @@ import { maximumRequest, optionGap, verifiedLines, growthPercent } from './growt
 import type { SimulationRequest } from './types';
 const steps = { atk: Array.from({length:15}, (_,i)=>i+1), ammo: Array.from({length:15}, (_,i)=>(i+1)*10) };
 describe('growth efficiency', () => {
+ it('applies target breakthrough but leaves excluded characters untouched', () => {
+  const request = {squad:['A','B'],characters:{A:{growthStage:2,overload:{atk:2}},B:{growthStage:3,overload:{atk:4}}}} as unknown as SimulationRequest;
+  const next = maximumRequest(request, {A:{머리:[{option:'atk',level:2}]}},steps,{growthStages:{A:10,B:10},excluded:new Set(['B']),equipment:{A:{머리:5},B:{머리:5}},extras:{A:{skillLevels:{'1':10,'2':10,'3':10},collection:{stage:'SR15',favorite:3}},B:{collection:{stage:'SR15',favorite:3}}}});
+  expect(next.characters?.A?.growthStage).toBe(10);
+  expect(next.characters?.A?.overload).toEqual({atk:15});
+  expect(next.characters?.A?.equipLevels?.머리).toBe(5);
+  expect(next.characters?.A?.skillLevels?.['1']).toBe(10);
+  expect(next.characters?.A?.collection?.favorite).toBe(3);
+  expect(next.characters?.B).toEqual(request.characters?.B);
+  expect(request.characters?.A?.growthStage).toBe(2);
+ });
  it('changes only overload without mutating the baseline', () => {
   const request = { squad:['A'], duration:180, enemyDef:63000, enemyCode:'', corePx:0, hasParts:false, seed:42, characters:{A:{overload:{atk:2},skillLevels:{'1':7,'2':8,'3':9}}} } as SimulationRequest;
   const next = maximumRequest(request, {A:{머리:[{option:'ammo',level:1}]}}, steps);

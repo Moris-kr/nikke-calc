@@ -2,8 +2,9 @@ import { overloadLinesOf } from './character-settings';
 import { GROWTH_PARTS, growthPercent, maximumRequest, optionGap, verifiedLines, type GrowthTargets } from './growth-efficiency';
 import { formatDamage } from './model';
 import { canvasToBlob, downloadImage, loadPortraits, renderReport } from './report';
-import type { BatchResult, CharacterMeta, CharacterOverrides, DeckResultEntry, OverloadLines, SettingsCatalog, SimulationRequest, SimulationResult } from './types';
+import type { BatchResult, CharacterMeta, CharacterOverrides, DeckResultEntry, EquipSetting, OverloadLines, SettingsCatalog, SimulationRequest, SimulationResult } from './types';
 import './growth-efficiency.css';
+import { recommendGrowth, type GrowthPriority } from './growth-priority';
 interface Deps {
   settings: SettingsCatalog;
   catalog: Map<string, CharacterMeta>;
@@ -11,13 +12,41 @@ interface Deps {
   deckName: (id: number) => string;
   simulate: (request: SimulationRequest) => Promise<SimulationResult>;
 }
-interface Pair { before: DeckResultEntry; after: DeckResultEntry; gaps: string[]; reportGaps: string[] }
+interface Pair { before: DeckResultEntry; after: DeckResultEntry; gaps: string[]; reportGaps: string[]; excluded: string[]; priority: GrowthPriority[] }
 const node = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '', cls = '') => {
   const el = document.createElement(tag); el.textContent = text; el.className = cls; return el;
 };
 const percent = (a: number, b: number) => {
   const n = growthPercent(a, b); return n === null ? '비교 불가 (기존 딜 0)' : `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`;
 };
+export const growthLabel = (before: number, after: number): string => {
+  const value = growthPercent(before, after);
+  if (value === null) return '풀 육성 시 상승률 계산 불가 (기존 딜 0)';
+  return `풀 육성 시 ${Math.abs(value).toFixed(2)}% ${value < 0 ? '감소' : '상승'}`;
+};
+export function openGrowthReportPreview(blob: Blob, onClose: () => void = () => {}): () => void {
+  const overlay = node('div', '', 'growth-overlay growth-report-overlay');
+  const panel = node('section', '', 'growth-dialog growth-report-dialog');
+  panel.role = 'dialog'; panel.setAttribute('aria-modal', 'true'); panel.setAttribute('aria-label', '육성효율 보고서 이미지');
+  const header = node('header'); const close = node('button', '닫기', 'growth-report-close');
+  header.append(node('h2', '육성효율 보고서 이미지'), close);
+  const image = node('img', '', 'growth-report-image');
+  const url = URL.createObjectURL(blob); image.src = url; image.alt = '현재 덱과 최대수치 덱을 나란히 비교한 육성효율 보고서';
+  const download = node('button', 'PNG 다운로드', 'growth-primary');
+  download.onclick = () => downloadImage(blob, `니케-육성효율-${new Date().toISOString().slice(0,10)}.png`);
+  const footer = node('footer'); footer.append(download); panel.append(header, image, footer); overlay.append(panel);
+  let disposed = false;
+  const dismiss = () => { if (disposed) return; disposed = true; URL.revokeObjectURL(url); overlay.remove(); document.removeEventListener('keydown', keydown, true); onClose(); };
+  const keydown = (event: KeyboardEvent) => {
+    if (event.key === 'Escape') { event.stopImmediatePropagation(); dismiss(); }
+    if (event.key === 'Tab' && ((event.shiftKey && document.activeElement === close) || (!event.shiftKey && document.activeElement === download))) {
+      event.preventDefault(); (event.shiftKey ? download : close).focus();
+    }
+  };
+  close.onclick = dismiss; overlay.onclick = event => { if (event.target === overlay) dismiss(); };
+  document.body.append(overlay); document.addEventListener('keydown', keydown, true); close.focus();
+  return dismiss;
+}
 export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
   const steps = deps.settings.overloadSteps ?? {};
   const snapshot = structuredClone(batch);
@@ -26,7 +55,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
   const dialog = node('section', '', 'growth-dialog'); dialog.role = 'dialog'; dialog.setAttribute('aria-modal', 'true'); dialog.setAttribute('aria-label', '육성효율 계산하기');
   const header = node('header'); const title = node('div'); title.append(node('small', 'OVERLOAD · GROWTH REPORT'), node('h2', '각 니케별 유효옵션을 설정해주세요'));
   const close = node('button', '닫기', 'growth-close'); header.append(title, close);
-  const intro = node('p', '결과에 저장된 덱과 전투 조건을 기준으로 비교합니다. 선택한 효과는 모두 Lv.15로 계산하며, 빈 옵션은 비워 둡니다. 스킬·큐브·장비 강화 등 다른 육성은 그대로 유지합니다.', 'growth-note');
+  const intro = node('p', '풀 육성은 이 창에서 설정한 목표 육성과 오버로드 Lv.15를 적용한 상태입니다. 돌파·스킬·소장품·장비레벨은 현재 값으로 시작합니다. 큐브·운용·전투 조건은 기존 결과와 동일하며, 실제 육성은 덮어쓰지 않습니다.', 'growth-note');
   const editor = node('div'); const footer = node('footer');
   const calculate = node('button', '계산하기', 'growth-primary');
   const save = node('button', '보고서 이미지 만들기', 'growth-secondary'); save.disabled = true;
@@ -34,11 +63,17 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
   const output = node('div', '', 'growth-output'); footer.append(calculate, save);
   dialog.append(header, intro, editor, footer, message, output); overlay.append(dialog); document.body.append(overlay);
   let closed = false, busy = false, pairs: Pair[] = [];
+  let closePreview: (() => void) | null = null;
   const targets: GrowthTargets[] = [];
+  const growthStages: Record<string, number>[] = [];
+  const excluded: Set<string>[] = [];
+  const equipment: Record<string, CharacterOverrides['equipLevels']>[] = [];
+  const extras: Record<string, Pick<CharacterOverrides, 'skillLevels' | 'collection'>>[] = [];
   const originals: Record<string, OverloadLines | undefined>[] = [];
   const acknowledgments: HTMLInputElement[] = [];
-  const closeDialog = () => { closed = true; overlay.remove(); document.removeEventListener('keydown', onKey, true); opener?.focus(); };
+  const closeDialog = () => { closed = true; closePreview?.(); overlay.remove(); document.removeEventListener('keydown', onKey, true); opener?.focus(); };
   const onKey = (event: KeyboardEvent) => {
+    if (closePreview) return;
     if (event.key === 'Escape') { event.stopImmediatePropagation(); closeDialog(); }
     if (event.key === 'Tab') {
       const focusable = [...dialog.querySelectorAll<HTMLElement>('button:not(:disabled),select:not(:disabled),input:not(:disabled),summary')];
@@ -50,8 +85,13 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
   document.addEventListener('keydown', onKey, true); close.onclick = closeDialog;
   overlay.onclick = event => { if (event.target === overlay) closeDialog(); }; close.focus();
   const invalidate = () => { pairs = []; save.disabled = true; output.replaceChildren(); message.textContent = '옵션이 변경되었습니다. 다시 계산해 주세요.'; };
+  const lockEditor = (locked: boolean) => {
+    editor.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>('input,select,button').forEach(el => {
+      el.disabled = locked || (!el.classList.contains('growth-exclude') && el.closest<HTMLElement>('.growth-character')?.dataset.excluded === 'true');
+    });
+  };
   snapshot.decks.forEach((entry, index) => {
-    targets[index] = {}; originals[index] = {};
+    targets[index] = {}; originals[index] = {}; growthStages[index] = {}; excluded[index] = new Set(); equipment[index] = {}; extras[index] = {};
     const group = node('section', '', 'growth-deck'); group.append(node('h3', deps.deckName(entry.deckId)));
     for (const name of entry.request.squad.filter(Boolean)) {
       const totals = entry.request.characters?.[name]?.overload ?? deps.settings.characters[name]?.overload ?? {};
@@ -62,15 +102,74 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
       const summary = node('summary');
       const image = deps.catalog.get(name)?.image;
       if (image) { const img = node('img'); img.src = `${import.meta.env.BASE_URL}${image}`; img.alt = ''; summary.append(img); }
-      summary.append(node('strong', name), node('span', source ? '현재 옵션 → Lv.15 목표' : '부위 정보 없음', 'growth-note')); card.append(summary);
+      summary.append(node('strong', name), node('span', source ? '현재 옵션 → Lv.15 목표' : '부위 정보 없음', 'growth-note'));
+      const defaults = deps.settings.characters[name];
+      const currentStage = entry.request.characters?.[name]?.growthStage ?? defaults?.growthStage ?? 0;
+      growthStages[index]![name] = currentStage;
+      const stageLabel = node('label', '', 'growth-stage'); stageLabel.append(node('span', '목표 돌파'));
+      const stageSelect = node('select'); stageSelect.setAttribute('aria-label', `${deps.deckName(entry.deckId)} ${name} 목표 돌파`);
+      const stageOptions = defaults?.growthOptions ?? [{value:currentStage,label:`${currentStage}단계`}];
+      for (const option of stageOptions) stageSelect.add(new Option(option.label, String(option.value)));
+      if (!stageOptions.some(option => option.value === currentStage)) stageSelect.add(new Option(`현재 ${currentStage}단계`, String(currentStage)));
+      stageSelect.value = String(currentStage);
+      stageSelect.onclick = event => event.stopPropagation();
+      stageSelect.onchange = () => { growthStages[index]![name] = Number(stageSelect.value); invalidate(); };
+      stageLabel.append(stageSelect); summary.append(stageLabel);
+      const exclude = node('button', '육성 대상 제외', 'growth-exclude'); exclude.type = 'button'; exclude.setAttribute('aria-label', `${deps.deckName(entry.deckId)} ${name} 육성 대상 제외`);
+      exclude.onclick = event => {
+        event.preventDefault(); event.stopPropagation();
+        const omit = !excluded[index]!.has(name);
+        if (omit) excluded[index]!.add(name); else excluded[index]!.delete(name);
+        card.dataset.excluded = String(omit); card.open = !omit;
+        exclude.textContent = omit ? '육성 대상 포함' : '육성 대상 제외';
+        exclude.setAttribute('aria-label', `${deps.deckName(entry.deckId)} ${name} ${exclude.textContent}`);
+        lockEditor(false); invalidate();
+      };
+      summary.addEventListener('click', event => { if (excluded[index]!.has(name)) event.preventDefault(); });
+      card.addEventListener('toggle', () => { if (excluded[index]!.has(name)) card.open = false; });
+      summary.append(exclude); card.append(summary);
+      const current = entry.request.characters?.[name];
+      const skillLevels = { ...(current?.skillLevels ?? defaults?.skillLevels ?? {'1':10,'2':10,'3':10}) };
+      const collection = { ...(current?.collection ?? defaults?.collection ?? {stage:'SR15',favorite:0}) };
+      extras[index]![name] = {skillLevels,collection};
+      const growthFields = node('div', '', 'growth-fields');
+      for (const [key, text] of [['1','목표 스킬1'],['2','목표 스킬2'],['3','목표 버스트']] as const) {
+        const label = node('label'); label.append(node('span', text));
+        const select = node('select'); select.setAttribute('aria-label', `${deps.deckName(entry.deckId)} ${name} ${text}`);
+        for(let lv=1;lv<=10;lv++) if (!defaults?.skillLevelsLocked || lv===10) select.add(new Option(`Lv.${lv}`,String(lv)));
+        if (defaults?.skillLevelsLocked) skillLevels[key]=10;
+        select.value=String(skillLevels[key]);
+        select.onchange=()=>{skillLevels[key]=Number(select.value);invalidate();};
+        label.append(select); if(defaults?.skillLevelsLocked) label.append(node('small','미공개 · Lv.10 고정')); growthFields.append(label);
+      }
+      const collectionLabel = node('label'); collectionLabel.append(node('span','목표 소장품 · 애장품'));
+      const collectionSelect = node('select'); collectionSelect.setAttribute('aria-label', `${deps.deckName(entry.deckId)} ${name} 목표 소장품`);
+      for(const stage of deps.settings.collectionStages ?? [collection.stage]) collectionSelect.add(new Option(stage,`stage:${stage}`));
+      if(defaults?.favoriteItem) for(let stage=1;stage<=3;stage++) collectionSelect.add(new Option(`애장품 ${stage}단계`,`favorite:${stage}`));
+      const collectionValue = collection.favorite>0 ? `favorite:${collection.favorite}` : `stage:${collection.stage}`;
+      if (![...collectionSelect.options].some(option=>option.value===collectionValue)) collectionSelect.add(new Option(`현재 ${collection.favorite>0 ? `애장품 ${collection.favorite}단계` : collection.stage}`,collectionValue));
+      collectionSelect.value=collectionValue;
+      collectionSelect.onchange=()=>{const [kind,raw]=collectionSelect.value.split(':'); collection.favorite=kind==='favorite'?Number(raw):0; collection.stage=kind==='favorite'?'SR15':raw!;invalidate();};
+      collectionLabel.append(collectionSelect); growthFields.append(collectionLabel); card.append(growthFields);
       if (!source) {
         card.append(node('p', `현재 합계: ${Object.entries(totals).filter(([,v])=>v).map(([key,v])=>`${deps.settings.overloadFields[key]?.label ?? key} ${v}%`).join(' · ') || '없음'}`, 'growth-note'));
         const label = node('label', '', 'growth-confirm'); const check = node('input'); check.type = 'checkbox';
         label.append(check, document.createTextNode('부위별 원본을 확인할 수 없습니다. 아래에 목표 옵션을 직접 설정했습니다.')); card.append(label); acknowledgments.push(check);
       }
       const parts = node('div', '', 'growth-parts');
+      equipment[index]![name] = {};
       for (const part of GROWTH_PARTS) {
-        const area = node('section', '', 'growth-part'); area.append(node('h4', part));
+        const area = node('section', '', 'growth-part');
+        const partHeader = node('div', '', 'growth-part-header'); partHeader.append(node('h4', part));
+        const equip = node('select'); equip.setAttribute('aria-label', `${deps.deckName(entry.deckId)} ${name} ${part} 목표 장비레벨`);
+        equip.add(new Option('미장착','없음'));
+        for (let lv=0;lv<=5;lv++) equip.add(new Option(`Lv.${lv}`, String(lv)));
+        const currentEquip = entry.request.characters?.[name]?.equipLevels?.[part] ?? 5;
+        if (typeof currentEquip === 'string' && currentEquip !== '없음') equip.add(new Option(`${currentEquip} (현재)`,currentEquip));
+        equip.value = String(currentEquip); equipment[index]![name]![part] = currentEquip;
+        equip.title = '목표 장비 강화 레벨 · 오버로드 옵션 Lv.15와 별개입니다.';
+        equip.onchange = () => { const value = equip.value; equipment[index]![name]![part] = /^\d$/.test(value) ? Number(value) : value as EquipSetting; invalidate(); };
+        partHeader.append(equip); area.append(partHeader);
         lines[part].forEach((row, rowIndex) => {
           const original = source ? overloadLinesOf(source)[part][rowIndex] : undefined;
           const line = node('div', '', 'growth-line');
@@ -92,6 +191,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
   const gapsFor = (index: number): string[] => {
     const result: string[] = [];
     for (const [name, target] of Object.entries(targets[index]!)) {
+      if (excluded[index]!.has(name)) continue;
       const source = originals[index]![name];
       for (const part of GROWTH_PARTS) for (const [i, row] of overloadLinesOf(target)[part].entries()) {
         const gap = optionGap(source ? overloadLinesOf(source)[part][i] : undefined, row.option, steps);
@@ -102,6 +202,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
     return result;
   };
   const reportGapsFor = (index: number): string[] => Object.entries(targets[index]!).flatMap(([name, target]) => {
+    if (excluded[index]!.has(name)) return [];
     const source = originals[index]![name];
     let effects = 0, values = 0;
     for (const part of GROWTH_PARTS) for (const [i, row] of overloadLinesOf(target)[part].entries()) {
@@ -109,45 +210,65 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
       if (gap.includes('효과변경') || gap.includes('효과 제거')) effects++;
       if (gap.includes('수치변경')) values++;
     }
-    return [`${name} · ${source ? `효과변경 ${effects}줄 / 수치변경 ${values}줄 필요` : '부위 원본 없음 · 직접 설정한 목표 기준'}`];
+    if (!source) return [`${name} · 부위 원본 없음 · 직접 설정한 목표 기준`];
+    const changes = [effects ? '효과변경' : '', values ? '수치변경' : ''].filter(Boolean);
+    return changes.length ? [`${name} · ${changes.join(' / ')}`] : [];
   });
   calculate.onclick = async () => {
     if (busy) return;
     try {
-      if (acknowledgments.some(check=>!check.checked)) throw new Error('부위 정보가 없는 니케의 목표 옵션을 설정하고 확인란을 체크해 주세요.');
-      const requests = snapshot.decks.map((entry,i)=>maximumRequest(entry.request,targets[i]!,steps));
+      if (acknowledgments.some(check=>check.closest<HTMLElement>('.growth-character')?.dataset.excluded !== 'true' && !check.checked)) throw new Error('부위 정보가 없는 니케의 목표 옵션을 설정하고 확인란을 체크해 주세요.');
+      const requests = snapshot.decks.map((entry,i)=>maximumRequest(entry.request,targets[i]!,steps,{growthStages:growthStages[i]!,excluded:excluded[i]!,equipment:equipment[i]!,extras:extras[i]!}));
       busy = true; calculate.disabled = true; save.disabled = true; pairs = []; output.replaceChildren();
-      editor.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input,select').forEach(el=>el.disabled=true);
+      lockEditor(true);
       for (const [i, entry] of snapshot.decks.entries()) {
         message.textContent = `${i+1}/${snapshot.decks.length}덱 · 현재 옵션 계산 중…`;
         const before = {...entry, result: await deps.simulate(structuredClone(entry.request))};
         if (closed) return;
-        message.textContent = `${i+1}/${snapshot.decks.length}덱 · Lv.15 목표 계산 중…`;
+        message.textContent = `${i+1}/${snapshot.decks.length}덱 · 목표 육성 계산 중…`;
         const after = {...entry, request: requests[i]!, result: await deps.simulate(requests[i]!)};
         if (closed) return;
-        const pair = {before, after, gaps:gapsFor(i), reportGaps:reportGapsFor(i)}; pairs.push(pair);
+        const priority = await recommendGrowth(before.request, after.request, before.result, after.result,
+          entry.request.squad.filter(name=>name && !excluded[i]!.has(name)),
+          async request => { if (closed) throw new Error('창이 닫혔습니다.'); return deps.simulate(request); },
+          name => { message.textContent = `${i+1}/${snapshot.decks.length}덱 · ${name} 육성 우선순위 계산 중…`; });
+        if (closed) return;
+        const pair = {before, after, gaps:gapsFor(i), reportGaps:reportGapsFor(i), excluded:[...excluded[i]!],priority} ; pairs.push(pair);
         const result = node('section', '', 'growth-result');
         result.append(node('h3', deps.deckName(entry.deckId)), node('strong', percent(before.result.squadTotal,after.result.squadTotal), 'growth-gain'), node('p', `${formatDamage(before.result.squadTotal)} → ${formatDamage(after.result.squadTotal)}`));
         if (before.result.previewNote || after.result.previewNote) result.append(node('p', after.result.previewNote || before.result.previewNote, 'growth-note'));
-        const table = node('table'); const head = node('tr'); for (const text of ['니케','현재','Lv.15 목표','변화']) head.append(node('th',text)); table.append(head);
-        for (const name of entry.request.squad.filter(Boolean)) { const a=before.result.charTotals[name]??0,b=after.result.charTotals[name]??0; const row=node('tr'); for(const text of [name,formatDamage(a),formatDamage(b),percent(a,b)]) row.append(node('td',text)); table.append(row); }
-        const gaps = node('details'); gaps.append(node('summary', `옵션 괴리 · ${pair.gaps.length}줄`));
+        const table = node('table'); const head = node('tr'); for (const text of ['니케','현재','목표 육성','변화']) head.append(node('th',text)); table.append(head);
+        for (const name of entry.request.squad.filter(Boolean)) { const a=before.result.charTotals[name]??0,b=after.result.charTotals[name]??0; const row=node('tr'); const omitted = pair.excluded.includes(name); const stage = deps.settings.characters[name]?.growthOptions?.find(option=>option.value===after.request.characters?.[name]?.growthStage)?.label; for(const text of [omitted ? `${name} (육성 제외)` : stage ? `${name} (목표 ${stage})` : name,formatDamage(a),formatDamage(b),omitted ? `파티 변화 ${percent(a,b)}` : growthLabel(a,b)]) row.append(node('td',text)); table.append(row); }
+        const gaps = node('details'); gaps.append(node('summary', '옵션 괴리'));
         for(const gap of pair.gaps) gaps.append(node('p',gap));
-        if (!pair.gaps.length) gaps.append(node('p','설정한 옵션이 모두 최대수치입니다.'));
-        result.append(table,gaps); output.append(result);
+        result.append(table); if (pair.gaps.length) result.append(gaps); output.append(result);
         const deviations = node('details'); deviations.append(node('summary', '기본 스펙 이탈 내역'));
-        deviations.append(node('h4', '현재'), node('pre', before.result.deviations || '없음'), node('h4', 'Lv.15 목표'), node('pre', after.result.deviations || '없음'));
+        deviations.append(node('h4', '현재'), node('pre', before.result.deviations || '없음'), node('h4', '목표 육성'), node('pre', after.result.deviations || '없음'));
         result.append(deviations);
+        if (priority.length) {
+          const ranking = node('section','','growth-priority'); ranking.append(node('h4','육성 우선순위 · 덱 대미지 기준'));
+          ranking.append(node('p','한 명씩 목표 육성을 적용해 덱 총딜 증가가 가장 큰 후보부터 선택하고, 다음 후보를 다시 계산합니다. 버프·시너지도 포함됩니다. 각 단계의 증가량을 합하면 전체 목표 증가량이 됩니다. 재료 비용을 반영한 가성비나 모든 육성 순서의 최적해는 아닙니다.','growth-note'));
+          if (entry.request.rngMode !== 'expected') ranking.append(node('p','현재 RNG 설정의 단일 시드 비교입니다. 안정적인 우선순위 비교에는 expected RNG를 권장합니다.','growth-note'));
+          const list = node('ol');
+          for (const row of priority) {
+            const item = node('li');
+            item.append(node('strong',`${row.name} · ${row.gain > 0 ? '육성 추천' : row.gain < 0 ? '육성 보류 · 딜 감소' : '상승 효과 없음'}`));
+            item.append(node('p',`앞 순위 육성 후 덱 ${percent(row.previousTotal,row.total)} · ${row.gain>=0?'+':''}${formatDamage(row.gain)} → 총 ${formatDamage(row.total)}`));
+            item.append(node('small',`이 니케만 먼저 육성: 덱 ${percent(before.result.squadTotal,before.result.squadTotal+row.standaloneGain)} · 누적 상승 ${percent(before.result.squadTotal,row.total)}`));
+            list.append(item);
+          }
+          ranking.append(list); result.append(ranking);
+        }
       }
-      message.textContent = '비교 완료 · 선택한 옵션의 최대수치 비교이며, 최적 조합이나 딜 상승을 보장하지 않습니다.'; save.disabled = false;
+      message.textContent = '비교 완료 · 설정한 목표 육성과 덱별 육성 우선순위를 확인하세요.'; save.disabled = false;
       output.scrollIntoView({behavior:'smooth',block:'start'});
     } catch(error) { pairs=[]; save.disabled=true; output.replaceChildren(); message.textContent = `계산 실패: ${error instanceof Error ? error.message : String(error)}`; }
-    finally { busy=false; calculate.disabled=false; editor.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input,select').forEach(el=>el.disabled=false); }
+    finally { busy=false; calculate.disabled=false; lockEditor(false); }
   };
   save.onclick = async () => {
     if (busy || !pairs.length) return;
     busy = true; save.disabled = true; calculate.disabled = true;
-    editor.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input,select').forEach(el=>el.disabled=true);
+    lockEditor(true);
     try {
       message.textContent = '한 장짜리 보고서 이미지를 만드는 중…';
       await document.fonts?.ready;
@@ -155,31 +276,57 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
       if (closed) return;
       const sections = pairs.map(pair => {
         const make = (entry: DeckResultEntry, suffix: string) => renderReport({total:entry.result.squadTotal,decks:[entry]}, {siteUrl:'moris-kr.github.io/nikke-calc',deckNames:{[entry.deckId]:`${deps.deckName(entry.deckId)} · ${suffix}`}},portraits);
-        const left=make(pair.before,'현재'),right=make(pair.after,'Lv.15 목표');
+        const left=make(pair.before,'현재'),right=make(pair.after,'목표 육성');
         const height=Math.max(left.height/left.width,right.height/right.width)*568;
         return {pair,left,right,height};
       });
       const canvas = document.createElement('canvas'); canvas.width=2400;
-      canvas.height=Math.ceil(112+sections.reduce((sum,s)=>sum+100+s.height+Math.max(1,s.pair.reportGaps.length)*23+35,0))*2;
+      canvas.height=Math.ceil(112+sections.reduce((sum,s)=>sum+100+s.height+s.pair.before.request.squad.filter(Boolean).length*48+30+Math.max(1,s.pair.reportGaps.length)*23+35+(s.pair.priority.length ? 65+s.pair.priority.length*48 : 0),0))*2;
       if(canvas.height>32000) throw new Error('보고서가 너무 깁니다. 덱 수를 줄여 주세요.');
       const ctx=canvas.getContext('2d'); if(!ctx) throw new Error('이미지 생성이 지원되지 않습니다.');
       ctx.fillStyle='#080e19'; ctx.fillRect(0,0,canvas.width,canvas.height);
       ctx.scale(2,2);
       const write=(text:string,x:number,y:number,size=16,color='#d9e5f3')=>{ctx.fillStyle=color;ctx.font=`${size}px Pretendard, sans-serif`;ctx.fillText(text,x,y,1140);};
       write('육성효율 보고서 · OVERLOAD Lv.15',28,43,28,'#ad9cff');
-      write('현재 육성 / 선택 옵션 최대수치 · 전투 조건과 다른 육성은 동일',28,76);
+      write('풀 육성 = 설정한 목표 돌파·스킬·소장품·장비 + 오버로드 Lv.15 · 전투 조건 동일',28,76);
       let y=112;
       for(const s of sections) {
         write(`${deps.deckName(s.pair.before.deckId)}   ${percent(s.pair.before.result.squadTotal,s.pair.after.result.squadTotal)}`,28,y+26,24,'#ad9cff');
         ctx.drawImage(s.left,24,y+48,568,s.left.height/s.left.width*568);
         ctx.drawImage(s.right,608,y+48,568,s.right.height/s.right.width*568);
-        y+=s.height+80; write('옵션 괴리',28,y,18,'#ffce80'); y+=25;
+        y+=s.height+80;
+        for (const name of s.pair.before.request.squad.filter(Boolean)) {
+          const stage = deps.settings.characters[name]?.growthOptions?.find(option=>option.value===s.pair.after.request.characters?.[name]?.growthStage)?.label;
+          const a = s.pair.before.result.charTotals[name] ?? 0, b = s.pair.after.result.charTotals[name] ?? 0;
+          const omitted = s.pair.excluded.includes(name);
+          const gear = GROWTH_PARTS.map(part=>s.pair.after.request.characters?.[name]?.equipLevels?.[part] ?? 5).join('/');
+          write(`${name}${omitted ? ' (육성 제외)' : ` (목표 ${stage ?? ''} · 장비 ${gear})`} · ${omitted ? `파티 변화 ${percent(a,b)}` : growthLabel(a,b)}`,28,y,17,'#b9a7ff'); y+=25;
+          if (!omitted) {
+            const target=s.pair.after.request.characters?.[name];
+            const skills=target?.skillLevels; const item=target?.collection;
+            write(`스킬 ${skills?.['1'] ?? 10}/${skills?.['2'] ?? 10}/${skills?.['3'] ?? 10} · ${item?.favorite ? `애장품 ${item.favorite}단계` : `소장품 ${item?.stage ?? 'SR15'}`}`,28,y,14,'#a2b2c9');
+          }
+          y+=23;
+        }
+        y+=25;
+        if (s.pair.reportGaps.length) { write('옵션 괴리',28,y,18,'#ffce80'); y+=25; }
         for(const gap of s.pair.reportGaps) {write(gap,28,y,15);y+=23;}
         y+=30;
+        if (s.pair.priority.length) {
+          write('육성 우선순위 · 앞 순위 육성 후 다음 후보 재계산',28,y,18,'#ad9cff'); y+=24;
+          write('덱 총딜 증가 기준 · 비용 미반영 · 전체 순서의 최적해는 아님',28,y,14,'#a2b2c9'); y+=25;
+          s.pair.priority.forEach((row,index)=>{
+            write(`${index+1}. ${row.name} · ${row.gain>0?'추천':row.gain<0?'보류 · 딜 감소':'상승 효과 없음'} · 덱 ${percent(row.previousTotal,row.total)} (${row.gain>=0?'+':''}${formatDamage(row.gain)})`,28,y,16); y+=24;
+            write(`총 ${formatDamage(row.total)} · 누적 ${percent(s.pair.before.result.squadTotal,row.total)} · 단독 육성 ${percent(s.pair.before.result.squadTotal,s.pair.before.result.squadTotal+row.standaloneGain)}`,28,y,14,'#a2b2c9');y+=24;
+          }); y+=16;
+        }
       }
-      downloadImage(await canvasToBlob(canvas),`니케-육성효율-${new Date().toISOString().slice(0,10)}.png`);
-      message.textContent='덱마다 현재·최대수치를 나란히 묶은 PNG 한 장을 저장했습니다.';
+      const blob = await canvasToBlob(canvas);
+      if (closed) return;
+      dialog.inert = true;
+      closePreview = openGrowthReportPreview(blob, () => { closePreview = null; dialog.inert = false; save.focus(); });
+      message.textContent='보고서 미리보기 창에서 확인한 뒤 PNG를 다운로드하세요.';
     } catch(error) { message.textContent=`이미지 생성 실패: ${error instanceof Error ? error.message : String(error)}`; }
-    finally { busy=false; calculate.disabled=false; save.disabled = pairs.length === 0; editor.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input,select').forEach(el=>el.disabled=false); }
+    finally { busy=false; calculate.disabled=false; save.disabled = pairs.length === 0; lockEditor(false); }
   };
 }

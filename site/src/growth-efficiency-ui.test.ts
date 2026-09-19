@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { openGrowthEfficiency } from './growth-efficiency-ui';
+import { growthLabel, openGrowthEfficiency, openGrowthReportPreview } from './growth-efficiency-ui';
 import type { BatchResult, SettingsCatalog, SimulationRequest, SimulationResult } from './types';
 const steps = Array.from({length:15},(_,i)=>i+1);
 const settings = {overloadSteps:{atk:steps,ammo:steps},overloadFields:{atk:{label:'공격력'},ammo:{label:'장탄'}},characters:{A:{overload:{atk:2}}}} as unknown as SettingsCatalog;
@@ -10,12 +10,31 @@ const result = (n:number)=>({squadTotal:n,charTotals:{A:n}} as unknown as Simula
 const close=()=>document.querySelector<HTMLButtonElement>('.growth-close')?.click();
 afterEach(()=>{close();vi.restoreAllMocks();});
 describe('growth efficiency dialog',()=>{
+ it('previews without downloading and downloads only on request, releasing the image when closed', () => {
+  const create = vi.fn(()=>'blob:test'); const revoke = vi.fn();
+  vi.stubGlobal('URL', {createObjectURL:create,revokeObjectURL:revoke});
+  const click = vi.spyOn(HTMLAnchorElement.prototype,'click').mockImplementation(()=>{});
+  const done = vi.fn(); const dismiss = openGrowthReportPreview(new Blob(['png']), done);
+  expect(document.querySelector('.growth-report-image')?.getAttribute('src')).toBe('blob:test');
+  expect(click).not.toHaveBeenCalled();
+  document.querySelector<HTMLButtonElement>('.growth-report-dialog .growth-primary')!.click();
+  expect(click).toHaveBeenCalledOnce();
+  document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}));
+  expect(document.querySelector('.growth-report-overlay')).toBeNull();
+  expect(revoke).toHaveBeenCalledWith('blob:test');
+  dismiss(); expect(done).toHaveBeenCalledOnce(); vi.unstubAllGlobals();
+ });
+ it('labels personal gains and decreases accurately', () => {
+  expect(growthLabel(100,120)).toBe('풀 육성 시 20.00% 상승');
+  expect(growthLabel(100,80)).toBe('풀 육성 시 20.00% 감소');
+  expect(growthLabel(0,80)).toContain('계산 불가');
+ });
  it('recalculates both sides with the saved conditions and invalidates edited reports',async()=>{
   HTMLElement.prototype.scrollIntoView=vi.fn();
   const simulate=vi.fn().mockResolvedValueOnce(result(100)).mockResolvedValueOnce(result(120));
   openGrowthEfficiency(batch,{settings,catalog:new Map(),deckName:()=> '덱 1',current:()=>({overloadLines:{머리:[{option:'atk',level:2}]}}),simulate});
   expect(document.querySelectorAll('.growth-part')).toHaveLength(4);
-  expect(document.querySelector('select')?.value).toBe('atk');
+  expect(document.querySelector<HTMLSelectElement>('.growth-line select')?.value).toBe('atk');
   document.querySelector<HTMLButtonElement>('.growth-primary')!.click();
   await vi.waitFor(()=>expect(document.querySelector('.growth-gain')?.textContent).toBe('+20.00%'));
   expect(simulate).toHaveBeenCalledTimes(2);
@@ -23,7 +42,7 @@ describe('growth efficiency dialog',()=>{
   expect(simulate.mock.calls[1]![0].defenseRateWindows).toEqual(request.defenseRateWindows);
   expect(simulate.mock.calls[1]![0].characters.A.overload).toEqual({atk:15});
   expect(batch.decks[0]!.request.characters!.A!.overload).toEqual({atk:2});
-  const select=document.querySelector('select')!;select.value='ammo';select.dispatchEvent(new Event('change'));
+  const select=document.querySelector<HTMLSelectElement>('.growth-line select')!;select.value='ammo';select.dispatchEvent(new Event('change'));
   expect(document.querySelector('.growth-output')?.textContent).toBe('');
   expect(document.querySelector<HTMLButtonElement>('.growth-secondary')?.disabled).toBe(true);
  });
@@ -35,13 +54,56 @@ describe('growth efficiency dialog',()=>{
   expect(simulate).not.toHaveBeenCalled();
   expect(document.querySelector('.growth-status')?.textContent).toContain('확인란');
  });
+ it('collapses excluded characters, preserves their build, and restores target controls',async()=>{
+  HTMLElement.prototype.scrollIntoView=vi.fn();
+  const simulate=vi.fn().mockResolvedValue(result(100));
+  openGrowthEfficiency(batch,{settings,catalog:new Map(),deckName:()=> '덱 1',current:()=>undefined,simulate});
+  const toggle=document.querySelector<HTMLButtonElement>('.growth-exclude')!;
+  toggle.click();
+  expect(document.querySelector<HTMLDetailsElement>('.growth-character')?.open).toBe(false);
+  document.querySelector<HTMLButtonElement>('.growth-primary')!.click();
+  await vi.waitFor(()=>expect(simulate).toHaveBeenCalledTimes(2));
+  expect(simulate.mock.calls[1]![0].characters).toEqual(request.characters);
+  expect(document.querySelector('.growth-output')?.textContent).toContain('육성 제외');
+  expect(document.querySelector('.growth-output')?.textContent).not.toContain('옵션 괴리');
+  expect(document.querySelector<HTMLSelectElement>('.growth-stage select')?.disabled).toBe(true);
+  toggle.click();
+  expect(document.querySelector<HTMLDetailsElement>('.growth-character')?.open).toBe(true);
+  expect(document.querySelector<HTMLSelectElement>('.growth-stage select')?.disabled).toBe(false);
+ });
+ it('starts at the current breakthrough and sends the chosen target',async()=>{
+  const configured=structuredClone(settings);
+  configured.characters.A!.growthStage=2;
+  configured.characters.A!.growthOptions=[{value:2,label:'2돌',affinity:30},{value:10,label:'코강 7',affinity:30}];
+  const simulate=vi.fn().mockResolvedValue(result(100));
+  openGrowthEfficiency(batch,{settings:configured,catalog:new Map(),deckName:()=> '덱 1',current:()=>({overloadLines:{머리:[{option:'atk',level:2}]}}),simulate});
+  const stage=document.querySelector<HTMLSelectElement>('.growth-stage select')!;
+  expect(stage.value).toBe('2'); stage.value='10';stage.dispatchEvent(new Event('change'));
+  document.querySelector<HTMLButtonElement>('.growth-primary')!.click();
+  await vi.waitFor(()=>expect(simulate).toHaveBeenCalledTimes(2));
+  expect(simulate.mock.calls[1]![0].characters.A.growthStage).toBe(10);
+  expect(document.querySelector('.growth-output')?.textContent).toContain('목표 코강 7');
+ });
  it('clears incomplete comparisons after failure',async()=>{
   const simulate=vi.fn().mockResolvedValueOnce(result(100)).mockRejectedValueOnce(new Error('시험 오류'));
   openGrowthEfficiency(batch,{settings,catalog:new Map(),deckName:()=> '덱 1',current:()=>({overloadLines:{머리:[{option:'atk',level:2}]}}),simulate});
   document.querySelector<HTMLButtonElement>('.growth-primary')!.click();
   await vi.waitFor(()=>expect(document.querySelector('.growth-status')?.textContent).toContain('시험 오류'));
   expect(document.querySelector<HTMLButtonElement>('.growth-secondary')?.disabled).toBe(true);
-  expect(document.querySelector<HTMLSelectElement>('select')?.disabled).toBe(false);
+  expect(document.querySelector<HTMLSelectElement>('.growth-line select')?.disabled).toBe(false);
+ });
+ it('sends chosen skills, collection and equipment while preserving the current build',async()=>{
+  const configured=structuredClone(settings); configured.collectionStages=['없음','SR0','SR15'];
+  configured.characters.A!.collection={stage:'SR0',favorite:0};
+  configured.characters.A!.skillLevels={'1':4,'2':5,'3':6};
+  const simulate=vi.fn().mockResolvedValue(result(100));
+  openGrowthEfficiency(batch,{settings:configured,catalog:new Map(),deckName:()=> '덱 1',current:()=>({overloadLines:{머리:[{option:'atk',level:2}]}}),simulate});
+  const select=(label:string,value:string)=>{const el=document.querySelector<HTMLSelectElement>(`select[aria-label="덱 1 A ${label}"]`)!;el.value=value;el.dispatchEvent(new Event('change'));};
+  expect(document.querySelector<HTMLSelectElement>('select[aria-label="덱 1 A 목표 스킬1"]')!.value).toBe('4');
+  select('목표 스킬1','10');select('목표 스킬2','9');select('목표 버스트','8');select('목표 소장품','stage:SR15');select('머리 목표 장비레벨','3');
+  document.querySelector<HTMLButtonElement>('.growth-primary')!.click();
+  await vi.waitFor(()=>expect(simulate).toHaveBeenCalledTimes(2));
+  expect(simulate.mock.calls[1]![0].characters.A).toMatchObject({skillLevels:{'1':10,'2':9,'3':8},collection:{stage:'SR15',favorite:0},equipLevels:{머리:3}});
+  expect(simulate.mock.calls[0]![0]).toEqual(request);
  });
 });
-

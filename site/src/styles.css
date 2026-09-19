@@ -1160,6 +1160,14 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
 .share-name { margin: 0; font-size: 13px; font-weight: 800; color: var(--ink); }
 .share-auto { margin: 4px 0 0; color: #a9c7cb; font: 11px/1.5 ui-monospace, monospace;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.share-auto-text { display: inline-block; }
+.share-auto:hover, .share-auto:focus { text-overflow: clip; }
+.share-auto:focus-visible { outline: 1px solid var(--cyan); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce), (hover: none) {
+  .share-auto { overflow-x: auto; text-overflow: clip; }
+  .share-auto-text { transform: none !important; }
+  .share-auto:focus { white-space: normal; overflow-wrap: anywhere; }
+}
 .share-by { margin: 5px 0 0; color: var(--muted); font-size: 10.5px; }
 .share-by .anon { opacity: .75; font-style: italic; }
 .share-uses { color: #8fb6bd; }

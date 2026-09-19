@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { agoText, mountSharePanel, rankItems, squadPreview } from './share-panel';
 import type { ShareItem, ShareListResult, ShareVoteResult } from './share-server';
@@ -84,6 +84,22 @@ const tab = (host: HTMLElement, key: string) =>
 describe('share panel', () => {
   beforeEach(() => {
     document.body.replaceChildren();
+  });
+
+  it('scrolls overflowing conditions on hover and focus, keeping the full accessible text', async () => {
+    const {host,panel}=mount(new FakeServer()); panel.open(); await flush();
+    const summary=host.querySelector<HTMLElement>('.share-auto')!;
+    const text=summary.querySelector<HTMLElement>('.share-auto-text')!;
+    const cancel=vi.fn(); const animate=vi.fn(()=>({cancel} as unknown as Animation));
+    Object.defineProperty(summary,'clientWidth',{value:80});
+    Object.defineProperty(text,'scrollWidth',{value:400});
+    text.animate=animate;
+    expect(summary.title).toBe('90초 · 적 수냉'); expect(summary.tabIndex).toBe(0);
+    summary.dispatchEvent(new MouseEvent('mouseenter'));
+    expect(animate).toHaveBeenCalledOnce();
+    summary.dispatchEvent(new MouseEvent('mouseleave'));expect(cancel).toHaveBeenCalledOnce();
+    summary.focus();expect(animate).toHaveBeenCalledTimes(2);
+    summary.blur();expect(cancel).toHaveBeenCalledTimes(2);
   });
 
   it('does not touch the server until the modal opens', async () => {

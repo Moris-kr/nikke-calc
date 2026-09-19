@@ -282,7 +282,27 @@ export function mountSharePanel(hosts: SharePanelHosts, deps: SharePanelDeps): S
         preview.title = item.auto;
         body.append(preview);
       } else if (item.auto) {
-        body.append(el('p', 'share-auto', item.auto));
+        const summary = el('p', 'share-auto');
+        const text = el('span', 'share-auto-text', item.auto);
+        summary.append(text); summary.title = item.auto; summary.tabIndex = 0;
+        let animation: Animation | undefined;
+        const stop = () => { animation?.cancel(); animation = undefined; };
+        const start = () => {
+          stop();
+          if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+          const distance = text.scrollWidth - summary.clientWidth;
+          if (distance <= 0 || !text.animate) return;
+          animation = text.animate([
+            {transform:'translateX(0)',offset:0},
+            {transform:'translateX(0)',offset:0.08},
+            {transform:`translateX(-${distance}px)`,offset:0.9},
+            {transform:`translateX(-${distance}px)`,offset:1},
+          ], {duration:Math.max(4000,distance/45*1000),iterations:Infinity,direction:'alternate'});
+        };
+        summary.addEventListener('mouseenter',start); summary.addEventListener('focus',start);
+        summary.addEventListener('mouseleave',()=>{ if(document.activeElement!==summary) stop(); });
+        summary.addEventListener('blur',stop);
+        body.append(summary);
       }
       const by = el('p', 'share-by');
       if (item.by) by.append(el('span', undefined, item.by));
