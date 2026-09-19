@@ -76,6 +76,10 @@ describe('growth efficiency dialog',()=>{
   expect(growthLabel(100,120)).toBe('풀 육성 시 20.00% 상승');
   expect(growthLabel(100,80)).toBe('풀 육성 시 20.00% 감소');
   expect(growthLabel(0,80)).toContain('계산 불가');
+  expect(growthLabel(100,120,1000)).toBe('풀 육성 시 20.00% 상승 · 총딜 대비 2.00% (20) 상승');
+  expect(growthLabel(100,80,1000)).toContain('총딜 대비 2.00% (20) 감소');
+  expect(growthLabel(0,80,1000)).toContain('총딜 대비 8.00% (80) 상승');
+  expect(growthLabel(0,80,0)).toContain('총딜 대비 비율 계산 불가 (80) 상승');
  });
  it('recalculates both sides with the saved conditions and invalidates edited reports',async()=>{
   HTMLElement.prototype.scrollIntoView=vi.fn();

@@ -25,10 +25,13 @@ const node = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '', cls = ''
 const percent = (a: number, b: number) => {
   const n = growthPercent(a, b); return n === null ? '비교 불가 (기존 딜 0)' : `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`;
 };
-export const growthLabel = (before: number, after: number): string => {
+export const growthLabel = (before: number, after: number, squadTotal?: number): string => {
   const value = growthPercent(before, after);
-  if (value === null) return '풀 육성 시 상승률 계산 불가 (기존 딜 0)';
-  return `풀 육성 시 ${Math.abs(value).toFixed(2)}% ${value < 0 ? '감소' : '상승'}`;
+  const personal = value === null ? '풀 육성 시 상승률 계산 불가 (기존 딜 0)' : `풀 육성 시 ${Math.abs(value).toFixed(2)}% ${value < 0 ? '감소' : '상승'}`;
+  if (squadTotal === undefined) return personal;
+  const delta = after - before;
+  const share = squadTotal > 0 ? `${(Math.abs(delta) / squadTotal * 100).toFixed(2)}%` : '비율 계산 불가';
+  return `${personal} · 총딜 대비 ${share} (${formatDamage(Math.abs(delta))}) ${delta < 0 ? '감소' : '상승'}`;
 };
 export function openGrowthReportPreview(blob: Blob, onClose: () => void = () => {}): () => void {
   const overlay = node('div', '', 'growth-overlay growth-report-overlay');
@@ -299,7 +302,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
         result.append(node('h3', deps.deckName(entry.deckId)), node('strong', percent(before.result.squadTotal,after.result.squadTotal), 'growth-gain'), node('p', `${formatDamage(before.result.squadTotal)} → ${formatDamage(after.result.squadTotal)}`));
         if (before.result.previewNote || after.result.previewNote) result.append(node('p', after.result.previewNote || before.result.previewNote, 'growth-note'));
         const table = node('table'); const head = node('tr'); for (const text of ['니케','현재','목표 육성','변화']) head.append(node('th',text)); table.append(head);
-        for (const name of entry.request.squad.filter(Boolean)) { const a=before.result.charTotals[name]??0,b=after.result.charTotals[name]??0; const row=node('tr'); const omitted = pair.excluded.includes(name); const stage = deps.settings.characters[name]?.growthOptions?.find(option=>option.value===after.request.characters?.[name]?.growthStage)?.label; for(const text of [omitted ? `${name} (육성 제외)` : stage ? `${name} (목표 ${stage})` : name,formatDamage(a),formatDamage(b),omitted ? `파티 변화 ${percent(a,b)}` : growthLabel(a,b)]) row.append(node('td',text)); table.append(row); }
+        for (const name of entry.request.squad.filter(Boolean)) { const a=before.result.charTotals[name]??0,b=after.result.charTotals[name]??0; const row=node('tr'); const omitted = pair.excluded.includes(name); const stage = deps.settings.characters[name]?.growthOptions?.find(option=>option.value===after.request.characters?.[name]?.growthStage)?.label; for(const text of [omitted ? `${name} (육성 제외)` : stage ? `${name} (목표 ${stage})` : name,formatDamage(a),formatDamage(b),omitted ? `파티 변화 ${percent(a,b)}` : growthLabel(a,b,before.result.squadTotal)]) row.append(node('td',text)); table.append(row); }
         const gaps = node('details'); gaps.append(node('summary', '옵션 괴리'));
         for(const gap of pair.gaps) gaps.append(node('p',gap));
         result.append(table); if (pair.gaps.length) result.append(gaps); output.append(result);
@@ -462,7 +465,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
           const a = s.pair.before.result.charTotals[name] ?? 0, b = s.pair.after.result.charTotals[name] ?? 0;
           const omitted = s.pair.excluded.includes(name);
           const gear = GROWTH_PARTS.map(part=>s.pair.after.request.characters?.[name]?.equipLevels?.[part] ?? 5).join('/');
-          write(`${name}${omitted ? ' (육성 제외)' : ` (목표 ${stage ?? ''} · 장비 ${gear})`} · ${omitted ? `파티 변화 ${percent(a,b)}` : growthLabel(a,b)}`,28,y,17,'#b9a7ff'); y+=25;
+          write(`${name}${omitted ? ' (육성 제외)' : ` (목표 ${stage ?? ''} · 장비 ${gear})`} · ${omitted ? `파티 변화 ${percent(a,b)}` : growthLabel(a,b,s.pair.before.result.squadTotal)}`,28,y,17,'#b9a7ff'); y+=25;
           if (!omitted) {
             const target=s.pair.after.request.characters?.[name];
             const skills=target?.skillLevels; const item=target?.collection;
