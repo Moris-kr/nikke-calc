@@ -5,13 +5,26 @@ import type { BatchResult, SettingsCatalog, SimulationRequest, SimulationResult 
 const steps = Array.from({length:15},(_,i)=>i+1);
 const settingsTemplate = {overloadSteps:{atk:steps,ammo:steps},overloadFields:{atk:{label:'공격력'},ammo:{label:'장탄'}},characters:{A:{overload:{atk:2}}}} as unknown as SettingsCatalog;
 let settings:SettingsCatalog;
-beforeEach(()=>{settings=structuredClone(settingsTemplate);});
+beforeEach(()=>{localStorage.clear();settings=structuredClone(settingsTemplate);});
 const request = {squad:['A'],characters:{A:{overload:{atk:2}}},duration:180,enemyDef:63000,enemyCode:'작열',corePx:52,hasParts:false,seed:42,rngMode:'expected',defenseRateWindows:[{start:30,end:60,rate:50}]} as unknown as SimulationRequest;
 const batch = {total:100,decks:[{deckId:1,request,result:{squadTotal:100,charTotals:{A:100}}}]} as unknown as BatchResult;
 const result = (n:number)=>({squadTotal:n,charTotals:{A:n}} as unknown as SimulationResult);
 const close=()=>document.querySelector<HTMLButtonElement>('.growth-close')?.click();
 afterEach(()=>{close();vi.restoreAllMocks();});
 describe('growth efficiency dialog',()=>{
+ it('persists per-character target options and levels across new sessions and resets them',()=>{
+  const deps={settings,catalog:new Map(),deckName:()=> '덱 1',current:()=>({overloadLines:{머리:[{option:'atk',level:2}]}}),simulate:vi.fn()};
+  openGrowthEfficiency(batch,deps);
+  const pick=()=>document.querySelector<HTMLSelectElement>('select[aria-label="덱 1 A 머리 1번 목표 옵션"]')!;
+  pick().value='ammo';pick().dispatchEvent(new Event('change'));
+  const level=document.querySelector<HTMLSelectElement>('select[aria-label="덱 1 A 장탄 수치작 타협레벨"]')!;level.value='10';level.dispatchEvent(new Event('change'));
+  close();const next=structuredClone(batch);next.decks[0]!.request.duration=60;openGrowthEfficiency(next,deps);
+  expect(pick().value).toBe('ammo');
+  expect(document.querySelector<HTMLSelectElement>('select[aria-label="덱 1 A 장탄 수치작 타협레벨"]')!.value).toBe('10');
+  document.querySelector<HTMLButtonElement>('button[aria-label="덱 1 A 목표 옵션 리셋"]')!.click();
+  expect(pick().value).toBe('atk');expect(localStorage.getItem('nikke-growth-target:v1:A')).toBeNull();
+  expect(document.querySelector<HTMLSelectElement>('select[aria-label="덱 1 A 장탄 수치작 타협레벨"]')!.value).toBe('15');
+ });
  it('restores targets and completed results on reopen without running simulations again',async()=>{
   HTMLElement.prototype.scrollIntoView=vi.fn();
   const simulate=vi.fn().mockResolvedValue(result(120));

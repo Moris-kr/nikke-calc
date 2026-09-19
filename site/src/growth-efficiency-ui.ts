@@ -1,4 +1,5 @@
 import {registerGrowthMcp} from './growth-mcp';
+import {loadGrowthTarget,saveGrowthTarget,clearGrowthTarget} from './growth-target-storage';
 import {overloadGoalEditor} from './overload-goals-ui';
 import {analyzeModulePart,mapLimited} from './overload-cost-client';
 import { overloadLinesOf } from './character-settings';
@@ -69,7 +70,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
   const header = node('header'); const title = node('div'); title.append(node('small', 'OVERLOAD · GROWTH REPORT'), node('h2', '각 니케별 유효옵션을 설정해주세요'));
   const close = node('button', '닫기', 'growth-close'); header.append(title, close);
   const intro = node('p', '풀 육성은 이 창에서 설정한 목표 육성과 선택한 오버로드 수치작 목표를 적용한 상태입니다. 돌파·스킬·소장품·장비레벨은 현재 값으로 시작합니다. 큐브·운용·전투 조건은 기존 결과와 동일하며, 실제 육성은 덮어쓰지 않습니다.', 'growth-note');
-  intro.append(document.createTextNode(' 창을 닫아도 입력·결과와 진행 중인 계산은 유지됩니다. 페이지를 새로고침하거나 기준 전투 결과가 바뀌면 새 비교로 시작합니다.'));
+  intro.append(document.createTextNode(' 창을 닫아도 입력·결과와 진행 중인 계산은 유지됩니다. 페이지를 새로고침하거나 기준 전투 결과가 바뀌면 새 비교로 시작하며, 니케별 목표 옵션과 수치작 타협레벨은 저장값을 불러옵니다.'));
   const costLabel=node('label','','growth-confirm');const costCheck=node('input');costCheck.type='checkbox';costCheck.setAttribute('aria-label','모듈 가성비 분석');costLabel.append(costCheck,document.createTextNode('모듈 가성비 분석 · 추가 전투/확률 계산으로 시간이 늘어날 수 있습니다.'));
   const currencyLabel=node('label','','growth-confirm');currencyLabel.append(node('span','잠금 재화'));const currencySelect=node('select');currencySelect.setAttribute('aria-label','잠금 재화');for(const [value,label] of [['modules','커스텀 모듈'],['keys','커스텀 락 키']]){const option=node('option',label);option.value=value!;currencySelect.append(option);}currencyLabel.append(currencySelect,node('span','락 키: 매 변경마다 1줄 20개 / 2줄 50개. 변경 모듈은 별도 2개 / 3개. 기존 모듈 잠금은 해제하고 키로 다시 잠그는 방식입니다.','growth-note'));
   const allLevelLabel=node('label','','growth-confirm');allLevelLabel.append(node('span','모든 수치작 타협레벨'));const allLevelSelect=node('select');allLevelSelect.setAttribute('aria-label','모든 수치작 타협레벨');for(let n=1;n<=15;n++)allLevelSelect.add(new Option(`Lv.${n} 이상`,String(n)));allLevelSelect.value='15';allLevelLabel.append(allLevelSelect);
@@ -149,7 +150,11 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
       const totals = entry.request.characters?.[name]?.overload ?? deps.settings.characters[name]?.overload ?? {};
       const source = verifiedLines(totals, entry.request.characters?.[name]?.overloadLines ?? deps.current(entry.deckId, name)?.overloadLines, steps);
       originals[index]![name] = source;lockMasks[index]![name]={};targetLevels[index]![name]={};
-      const lines = overloadLinesOf(source);for(const rows of Object.values(lines))for(const row of rows)row.level=15; targets[index]![name] = lines;
+      const savedTarget=loadGrowthTarget(name,deps.settings.overloadFields);
+      if(savedTarget)Object.assign(targetLevels[index]![name]!,savedTarget.levels);
+      const lines = overloadLinesOf(savedTarget?.lines??source);for(const [part,rows] of Object.entries(lines))for(const [i,row] of rows.entries()){const original=source?.[part as keyof OverloadLines]?.[i];row.level=Math.max(targetLevels[index]![name]![row.option]??15,original?.option===row.option?original.level:1);} targets[index]![name] = lines;
+      let resetting=false;
+      const persistTarget=()=>{if(!resetting&&!saveGrowthTarget(name,lines,targetLevels[index]![name]!))message.textContent='브라우저 저장 공간에 목표 옵션을 저장하지 못했습니다.';};
       const card = node('details', '', 'growth-character'); card.open = true;
       const summary = node('summary');
       const image = deps.catalog.get(name)?.image;
@@ -237,10 +242,10 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
           line.append(node('small', `${rowIndex+1}번 · 현재 ${oldLabel}`));
           const select = node('select'); select.setAttribute('aria-label', `${deps.deckName(entry.deckId)} ${name} ${part} ${rowIndex+1}번 목표 옵션`);
           select.add(new Option('옵션 없음', ''));
-          for (const [key, field] of Object.entries(deps.settings.overloadFields)) if (steps[key]?.length === 15) select.add(new Option(`${field.label} · ${steps[key]![14]}%`, key));
+          for (const [key, field] of Object.entries(deps.settings.overloadFields)) if (steps[key]?.length === 15) select.add(new Option(`${field.label} · Lv.${targetLevels[index]![name]![key]??15} · ${steps[key]![(targetLevels[index]![name]![key]??15)-1]}%`, key));
           select.value = row.option;targetSelects.push(select);
-          const gap = node('span', optionGap(original, row.option, steps), 'growth-gap');
-          select.onchange = () => { delete goalNotes[index]![name];appliedGoal.textContent='';row.option = select.value;goalEditor.dispatchEvent(new Event('goals-changed')); row.level=Math.max(targetLevels[index]![name]![row.option]??15,original?.option===row.option?original.level:1);for(const option of select.options)if(option.value)option.textContent=`${deps.settings.overloadFields[option.value]!.label} · Lv.${targetLevels[index]![name]![option.value]??15} · ${steps[option.value]![(targetLevels[index]![name]![option.value]??15)-1]}%`;gap.textContent = optionGap(original, row.option, steps,row.level); invalidate(); };
+          const gap = node('span', optionGap(original, row.option, steps,row.level), 'growth-gap');
+          select.onchange = () => { delete goalNotes[index]![name];appliedGoal.textContent='';row.option = select.value;goalEditor.dispatchEvent(new Event('goals-changed')); row.level=Math.max(targetLevels[index]![name]![row.option]??15,original?.option===row.option?original.level:1);for(const option of select.options)if(option.value)option.textContent=`${deps.settings.overloadFields[option.value]!.label} · Lv.${targetLevels[index]![name]![option.value]??15} · ${steps[option.value]![(targetLevels[index]![name]![option.value]??15)-1]}%`;gap.textContent = optionGap(original, row.option, steps,row.level); invalidate(); persistTarget(); };
           const lockLabel=node('label','','growth-lock');const lockCheck=node('input');lockCheck.type='checkbox';lockCheck.setAttribute('aria-label',`${deps.deckName(entry.deckId)} ${name} ${part} ${rowIndex+1}번 현재 잠금`);
           lockCheck.disabled=!original?.option;lockCheck.dataset.unavailable=String(!original?.option);
           lockCheck.onchange=()=>{const mask=lockMasks[index]![name]![part]??0;lockMasks[index]![name]![part]=lockCheck.checked?mask|(1<<rowIndex):mask&~(1<<rowIndex);invalidate();};
@@ -248,7 +253,9 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
           line.append(select, gap,lockLabel); area.append(line);
         }); parts.append(area);
       }
-      card.append(parts); group.append(card);
+      const resetTarget=node('button','목표 옵션 리셋','growth-secondary');resetTarget.type='button';resetTarget.setAttribute('aria-label',`${deps.deckName(entry.deckId)} ${name} 목표 옵션 리셋`);
+      resetTarget.onclick=()=>{resetting=true;for(const key of Object.keys(targetLevels[index]![name]!))delete targetLevels[index]![name]![key];const defaults=overloadLinesOf(source);let slot=0;for(const part of GROWTH_PARTS)for(const row of defaults[part]){const select=targetSelects[slot++]!;select.value=row.option;select.dispatchEvent(new Event('change'));}resetting=false;goalEditor.dispatchEvent(new Event('goals-changed'));message.textContent=clearGrowthTarget(name)?'목표 옵션을 현재 장비 구성 · Lv.15로 초기화했습니다.':'목표를 초기화했지만 브라우저 저장값을 삭제하지 못했습니다.';};
+      card.append(resetTarget,node('p','목표 옵션과 수치작 타협레벨은 니케별로 이 브라우저에 자동 저장됩니다. 리셋하면 현재 장비 구성 · Lv.15로 돌아갑니다.','growth-note'),parts); group.append(card);
     }
     editor.append(group);
   });
