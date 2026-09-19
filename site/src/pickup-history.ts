@@ -1,10 +1,16 @@
 import type { CharacterMeta } from './types';
 import { initials, squash } from './nikke-search';
 import './pickup-history.css';
+import fire from './assets/icon-code-fire.png';
+import water from './assets/icon-code-water.png';
+import wind from './assets/icon-code-wind.png';
+import electronic from './assets/icon-code-electronic.png';
+import iron from './assets/icon-code-iron.png';
+const elementIcons: Record<string, string> = { 작열: fire, 수냉: water, 풍압: wind, 전격: electronic, 철갑: iron };
 
 export interface PickupEvent { id: string; start: string; end?: string; names: string[]; kind: 'new' | 'rerun'; limited?: boolean; collab?: boolean; sourceIds: string[]; note?: string; tags?: string[]; gifts?: string[]; giftNote?: string }
 export interface PickupHistory { updatedAt: string; coverageNote: string; sources: { id: string; url: string; title: string }[]; events: PickupEvent[] }
-export interface PickupFilters { year: string; kind: string; query: string; order: 'asc' | 'desc' }
+export interface PickupFilters { year: string; kind: string; query: string; element?: string; order: 'asc' | 'desc' }
 export interface PickupCard extends PickupEvent { isGift?: boolean }
 
 // Expand after chronological sorting so gifts stay directly after their pickup in either direction.
@@ -17,6 +23,14 @@ export function expandPickupCards(events: PickupEvent[]): PickupCard[] {
       note: event.giftNote ?? '콜라보 시작일 기준입니다. 실제 수령 조건은 출처 공지를 확인하세요.',
     })),
   ]);
+}
+
+export function filterPickupCards(events: PickupEvent[], filters: PickupFilters, catalog: CharacterMeta[]): PickupCard[] {
+  const byName = new Map(catalog.map(c => [c.name, c]));
+  return expandPickupCards(filterPickupEvents(events, filters, catalog)).flatMap(card => {
+    const names = card.names.filter(name => !filters.element || byName.get(name)?.elementCode === filters.element);
+    return names.length ? [{ ...card, names }] : [];
+  });
 }
 
 export function pickupExportLayout(cards: PickupCard[]) {
@@ -100,11 +114,12 @@ export async function renderPickupHistory(host: HTMLElement, catalog: CharacterM
   const select = (label: string, options: [string, string][]) => { const node = el('select'); node.setAttribute('aria-label', label); options.forEach(([value, text]) => { const opt = el('option', text); opt.value = value; node.append(opt); }); return node; };
   const year = select('픽업 연도', [['', '전체 연도'], ...[...new Set(data.events.map(e => e.start.slice(0, 4)))].sort().reverse().map(y => [y, `${y}년`] as [string, string])]);
   const kind = select('픽업 유형', [['', '전체 유형'], ['new', '신규'], ['rerun', '복각'], ['limited', '한정'], ['collab', '콜라보']]);
+  const element = select('픽업 속성', [['', '전체 속성'], ...Object.keys(elementIcons).map(code => [code, code] as [string, string])]);
   const order = select('날짜 정렬', [['asc', '오래된 순'], ['desc', '최신 순']]);
   const reset = el('button', '초기화'); reset.type = 'button';
   const download = el('button', 'PNG 저장', 'pickup-export'); download.type = 'button';
   const theme = el('button', '다크모드', 'pickup-theme'); theme.type = 'button'; theme.setAttribute('aria-pressed', String(dark));
-  controls.append(search, year, kind, order, reset, theme, download);
+  controls.append(search, year, kind, element, order, reset, theme, download);
   const summary = el('p', '', 'pickup-summary'); summary.setAttribute('aria-live', 'polite');
   const grid = el('div', '', 'pickup-grid');
   const status = el('p', '', 'pickup-status'); status.setAttribute('aria-live', 'polite');
@@ -134,12 +149,11 @@ export async function renderPickupHistory(host: HTMLElement, catalog: CharacterM
     revision++;
     downloadUrls.forEach(url => URL.revokeObjectURL(url)); downloadUrls = [];
     status.replaceChildren();
-    const filtered = filterPickupEvents(data.events, state, catalog);
-    const cards = expandPickupCards(filtered);
-    summary.textContent = `${filtered.length}건 / 전체 ${data.events.length}건 · 배포 포함 ${cards.length}카드 · 자료 확인 ${data.updatedAt} · 날짜 KST`;
-    download.disabled = exporting || !filtered.length;
+    const cards = filterPickupCards(data.events, state, catalog);
+    summary.textContent = `${cards.length}카드 표시 · 전체 모집 기록 ${data.events.length}건 · 자료 확인 ${data.updatedAt} · 날짜 KST`;
+    download.disabled = exporting || !cards.length;
     grid.replaceChildren();
-    if (!filtered.length) grid.append(el('p', '조건에 맞는 픽업 기록이 없습니다.', 'pickup-empty'));
+    if (!cards.length) grid.append(el('p', '조건에 맞는 픽업 기록이 없습니다.', 'pickup-empty'));
     cards.forEach(event => {
       const honor = pickupHonor(event, byName);
       const card = el('button', '', 'pickup-card' + (event.isGift ? ' pickup-gift-card' : '') + (event.limited ? ' pickup-limited' : '') + (honor ? ' pickup-special' : '') + (honor && event.limited ? ' pickup-prestige' : '')); card.type = 'button'; card.setAttribute('aria-label', `${event.start} ${eventNames(event).join(', ')} ${event.isGift ? '배포' : '픽업'} 상세`);
@@ -149,6 +163,8 @@ export async function renderPickupHistory(host: HTMLElement, catalog: CharacterM
       eventNames(event).forEach(name => {
         const figure = el('span', '', 'pickup-person'); const face = el('span', 'N', 'pickup-face'); const url = portraitUrl(byName.get(name));
         if (url) { const image = el('img'); image.src = url; image.alt = ''; image.loading = 'lazy'; image.onerror = () => image.remove(); face.append(image); }
+        const code = byName.get(name)?.elementCode;
+        if (code && elementIcons[code]) { const icon = el('img', '', 'pickup-element'); icon.src = elementIcons[code]!; icon.alt = code; icon.title = code; face.append(icon); }
         figure.append(face, el('span', name, 'pickup-name'));
         faces.append(figure);
       });
@@ -158,7 +174,8 @@ export async function renderPickupHistory(host: HTMLElement, catalog: CharacterM
   };
   search.oninput = () => { state.query = search.value; draw(); };
   year.onchange = () => { state.year = year.value; draw(); }; kind.onchange = () => { state.kind = kind.value; draw(); }; order.onchange = () => { state.order = order.value as 'asc' | 'desc'; draw(); };
-  reset.onclick = () => { search.value = year.value = kind.value = ''; order.value = 'asc'; Object.assign(state, { query: '', year: '', kind: '', order: 'asc' }); draw(); };
+  element.onchange = () => { state.element = element.value; draw(); };
+  reset.onclick = () => { search.value = year.value = kind.value = element.value = ''; order.value = 'asc'; Object.assign(state, { query: '', year: '', kind: '', element: '', order: 'asc' }); draw(); };
   theme.onclick = () => {
     dark = !dark; root.dataset.theme = dark ? 'dark' : 'light'; theme.setAttribute('aria-pressed', String(dark));
     try { localStorage.setItem('nikke-pickup-theme', dark ? 'dark' : 'light'); } catch { /* Still works for this visit. */ }
@@ -170,12 +187,12 @@ export async function renderPickupHistory(host: HTMLElement, catalog: CharacterM
     downloadUrls.forEach(url => URL.revokeObjectURL(url)); downloadUrls = [];
     download.disabled = true; status.textContent = '이미지를 만드는 중…';
     try {
-      const blob = await exportPickupImage(expandPickupCards(filterPickupEvents(data.events, state, catalog)), byName, data.updatedAt, dark);
+      const blob = await exportPickupImage(filterPickupCards(data.events, state, catalog), byName, data.updatedAt, dark);
       if (requestedRevision !== revision) return;
       status.replaceChildren(document.createTextNode('전체 연표 이미지 준비 완료. '));
       const a = el('a', 'PNG 한 장 저장'); const url = URL.createObjectURL(blob); downloadUrls.push(url); a.href = url; a.download = `nikke-pickup-${data.updatedAt}.png`; status.append(a);
     } catch { if (requestedRevision === revision) status.textContent = '이미지 생성에 실패했습니다. 다시 시도해 주세요.'; }
-    finally { exporting = false; download.disabled = !filterPickupEvents(data.events, state, catalog).length; }
+    finally { exporting = false; download.disabled = !filterPickupCards(data.events, state, catalog).length; }
   };
   root.append(heading, controls, summary, el('p', data.coverageNote, 'pickup-coverage'), status, grid, dialog); host.replaceChildren(root); draw();
 }
@@ -186,6 +203,11 @@ async function exportPickupImage(events: PickupCard[], catalog: Map<string, Char
     const url = portraitUrl(catalog.get(name)); if (!url) return;
     const image = new Image();
     await new Promise<void>(resolve => { const timer = setTimeout(() => { image.src = ''; resolve(); }, 5000); image.onload = () => { clearTimeout(timer); cache.set(name, image); resolve(); }; image.onerror = () => { clearTimeout(timer); resolve(); }; image.src = url; });
+  }));
+  const icons = new Map<string, HTMLImageElement>();
+  await Promise.all(Object.entries(elementIcons).map(async ([code, url]) => {
+    const icon = new Image();
+    await new Promise<void>(resolve => { const timer = setTimeout(() => { icon.src = ''; resolve(); }, 5000); icon.onload = () => { clearTimeout(timer); icons.set(code, icon); resolve(); }; icon.onerror = () => { clearTimeout(timer); resolve(); }; icon.src = url; });
   }));
   const today = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul' }).format(new Date());
     const layout = pickupExportLayout(events);
@@ -207,6 +229,8 @@ async function exportPickupImage(events: PickupCard[], catalog: Map<string, Char
       eventNames(event).forEach((name, j) => {
         const py = y + 65 + j * 68; const image = cache.get(name); ctx.fillStyle = dark ? '#35495c' : '#eef2f5'; ctx.fillRect(x + 10, py, 48, 54);
         if (image) { const scale = Math.max(48 / image.width, 54 / image.height); const sw = 48 / scale; const sh = 54 / scale; ctx.drawImage(image, (image.width - sw) / 2, (image.height - sh) * .2, sw, sh, x + 10, py, 48, 54); }
+        const icon = icons.get(catalog.get(name)?.elementCode ?? '');
+        if (icon) { ctx.fillStyle = '#14202bdd'; ctx.fillRect(x + 10, py + 36, 18, 18); ctx.drawImage(icon, x + 11, py + 37, 16, 16); }
         ctx.fillStyle = dark ? '#e4edf5' : '#172532'; ctx.font = 'bold 12px sans-serif'; let line = ''; let row = 0;
         for (const char of name) { if (ctx.measureText(line + char).width > 106) { ctx.fillText(line, x + 65, py + 15 + row * 15); row++; line = ''; } line += char; } ctx.fillText(line, x + 65, py + 15 + row * 15);
         if (event.gifts?.includes(name)) { ctx.fillStyle = dark ? '#87edce' : '#00674f'; ctx.font = 'bold 11px sans-serif'; ctx.fillText('배포', x + 65, py + 59); }

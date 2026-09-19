@@ -22,6 +22,14 @@ export interface Notice {
 /** 최신이 맨 앞. */
 export const NOTICES: Notice[] = [
   {
+    id: '2026-09-19-pickup-elements', date: '2026-09-19',
+    title: '픽업 연표 · 속성 표시와 필터',
+    items: [
+      { tag: '새 기능', text: '픽업·배포 초상화의 <b>왼쪽 아래에 속성 아이콘</b>을 표시합니다. 전체 속성 메뉴에서 원하는 속성만 골라 볼 수 있으며, 배포 캐릭터도 자신의 속성으로 분류합니다.' },
+      { tag: '개선', text: 'PNG 한 장 저장에도 <b>속성 아이콘과 현재 필터 결과</b>가 반영됩니다.' },
+    ],
+  },
+  {
     id: '2026-09-19-pickup-gift-cards', date: '2026-09-19',
     title: '배포 카드 분리 · 연표 PNG 한 장 저장',
     items: [

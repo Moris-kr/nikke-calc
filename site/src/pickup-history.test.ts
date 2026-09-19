@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { renderPickupHistory, filterPickupEvents, validatePickupHistory, pickupHonor, expandPickupCards, pickupExportLayout, type PickupHistory } from './pickup-history';
+import { renderPickupHistory, filterPickupCards, filterPickupEvents, validatePickupHistory, pickupHonor, expandPickupCards, pickupExportLayout, type PickupHistory } from './pickup-history';
 import type { CharacterMeta } from './types';
 
 const data: PickupHistory = {
@@ -26,6 +26,24 @@ describe('pickup history', () => {
     expect(cards[1]!.classList.contains('pickup-limited')).toBe(false);
     expect(filterPickupEvents(fixture.events, { year: '', kind: 'collab', query: '배포', order: 'desc' }, [])).toHaveLength(1);
     expect(() => validatePickupHistory({ ...fixture, events: [{ ...fixture.events[0], gifts: ['시험 캐릭터'] }] })).toThrow();
+  });
+  it('filters pickup and giveaway portraits by their own element and resets the selection', async () => {
+    const fixture = { ...data, events: [{ ...data.events[0]!, names: ['시험 캐릭터', '다른 캐릭터'], collab: true, gifts: ['배포 캐릭터'] }] };
+    const catalog = [{ name: '시험 캐릭터', elementCode: '작열' }, { name: '다른 캐릭터', elementCode: '풍압' }, { name: '배포 캐릭터', elementCode: '수냉' }] as CharacterMeta[];
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => fixture }));
+    const host = document.createElement('div'); await renderPickupHistory(host, catalog);
+    expect([...host.querySelectorAll<HTMLImageElement>('.pickup-element')].map(icon => icon.alt)).toEqual(['작열', '풍압', '수냉']);
+    const select = host.querySelector<HTMLSelectElement>('[aria-label="픽업 속성"]')!;
+    select.value = '수냉'; select.dispatchEvent(new Event('change'));
+    expect(host.querySelectorAll('.pickup-card')).toHaveLength(1);
+    expect(host.querySelector('.pickup-gift-card .pickup-name')?.textContent).toBe('배포 캐릭터');
+    const filters = { year: '', kind: '', query: '', order: 'asc' as const, element: '작열' };
+    expect(filterPickupCards(fixture.events, filters, catalog).map(card => card.names)).toEqual([['시험 캐릭터']]);
+    select.value = '철갑'; select.dispatchEvent(new Event('change'));
+    expect(host.querySelector<HTMLButtonElement>('.pickup-export')!.disabled).toBe(true);
+    [...host.querySelectorAll('button')].find(button => button.textContent === '초기화')!.click();
+    expect(select.value).toBe('');
+    expect(host.querySelectorAll('.pickup-element')).toHaveLength(3);
   });
   it('uses separate adjacent gift cards for both chronological directions and PNG input', () => {
     const events = [{ ...data.events[0]!, collab: true, gifts: ['배포1', '배포2'] }, data.events[1]!];
