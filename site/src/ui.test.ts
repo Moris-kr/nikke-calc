@@ -207,9 +207,29 @@ describe('calculator UI', () => {
   let root: HTMLElement;
 
   beforeEach(() => {
+    history.replaceState(null, '', location.pathname);
     root = document.createElement('main');
     document.body.append(root);
     localStorage.clear();
+  });
+
+  it('opens utility URLs directly and syncs clicks and history without resetting the squad', () => {
+    history.replaceState(null, '', '#/utilities/skills');
+    const dispose = mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    expect(root.querySelector<HTMLElement>('[data-view="fun"]')!.hidden).toBe(false);
+    expect(root.querySelector('[data-fun-tab="skills"]')?.getAttribute('aria-selected')).toBe('true');
+    root.querySelector<HTMLButtonElement>('[data-fun-tab="mcp"]')!.click();
+    expect(location.hash).toBe('#/utilities/mcp');
+    root.querySelector<HTMLButtonElement>('[data-view-tab="links"]')!.click();
+    expect(location.hash).toBe('#/links');
+    history.replaceState(null, '', '#/utilities/overload');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    expect(root.querySelector('[data-fun-tab="lab"]')?.getAttribute('aria-selected')).toBe('true');
+    history.replaceState(null, '', '#/not-a-tab');
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    expect(location.hash).toBe('#/calculator');
+    expect(root.querySelector<HTMLElement>('[data-view="calc"]')!.hidden).toBe(false);
+    dispose();
   });
 
   it('preserves bundled temporary settings when a same-name local character exists', () => {

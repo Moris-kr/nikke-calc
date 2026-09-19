@@ -1,3 +1,4 @@
+import { parseViewHash, viewHash, type ViewName, type FunView } from './view-route';
 import { openCharacterInfo, customSkillInfo } from './character-info';
 import {
   ANNOUNCEMENT_KEY, announcementToShow, countdownClock, countdownDone, countdownToShow,
@@ -7100,10 +7101,15 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   // ── 화면 전환 ───────────────────────────────────────────────────────────
   // 유니온 탭이 없는 배포(프록시 미설정)에서는 손잡이도 없다.
   /** 위쪽 탭이 고를 수 있는 화면. 「외부고리」는 우리 것이 아닌 곳으로 나가는 판이다. */
-  type ViewName = 'calc' | 'union' | 'enikk' | 'fun' | 'links';
 
-  function switchView(view: ViewName) {
+
+  function writeViewUrl(replace = false) {
+    const hash = viewHash(currentView, funView);
+    if (location.hash !== hash) history[replace ? 'replaceState' : 'pushState'](null, '', location.pathname + location.search + hash);
+  }
+  function switchView(view: ViewName, updateUrl = true) {
     currentView = view;
+    if (updateUrl) writeViewUrl();
     // 개인용은 계산기에 잡아 둔 내 스펙으로 돈다 — 탭에 들어올 때 다시 읽는다.
     // 모드를 켤 때 한 번만 읽으면, 그 뒤 전투 조건에서 싱크로를 바꿔도 옛 값으로 돈다.
     if (view === 'union') unionHandle?.refreshMe();
@@ -7151,7 +7157,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     { key: 'mcp', label: 'MCP', note: 'ChatGPT·Claude에서 계산기를 사용하는 방법' },
     { key: 'vision', label: '오버옵 시각화', note: '불러온 프로필의 오버로드 옵션을 초상화 크기로 봅니다' },
   ] as const;
-  type FunView = (typeof FUN_VIEWS)[number]['key'];
+
   let funView: FunView = 'skills';
   let visionMetric: VisionMetric = 'element';
   /**
@@ -7427,7 +7433,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       button.title = view.note;
       button.textContent = view.label;
       if (view.key === 'lab') button.append(createText('b', 'BETA', 'tab-beta'));
-      button.addEventListener('click', () => { funView = view.key; renderFun(); });
+      button.addEventListener('click', () => { funView = view.key; renderFun(); writeViewUrl(); });
       funTabs.append(button);
     }
     funBody.hidden = funView === 'lab';
@@ -7669,6 +7675,17 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     shareModal.hidden = false;
   }
 
+  const restoreViewUrl = () => {
+    if (!root.isConnected) return;
+    const route = parseViewHash(location.hash);
+    if (route.utility) funView = route.utility;
+    switchView(route.view === 'union' && !blablaProxy ? 'calc' : route.view, false);
+    writeViewUrl(true);
+  };
+  restoreViewUrl();
+  window.addEventListener('popstate', restoreViewUrl);
+  window.addEventListener('hashchange', restoreViewUrl);
+
   // 취소하면 작업 스레드가 죽고 새로 서므로 이 약속도 다시 세워야 한다 — 옛 약속은
   // 이미 «준비됨»이라 그대로 두면 다음 계산이 안 올라온 런타임에 요청을 던진다.
   let prepared = client.prepare()
@@ -7810,5 +7827,5 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     }
   });
 
-  return () => { stopCountdown(); stopLocalize(); client.dispose(); browserMcp.disconnect(); window.removeEventListener('pagehide', disconnectMcp); };
+  return () => { window.removeEventListener('popstate', restoreViewUrl); window.removeEventListener('hashchange', restoreViewUrl); stopCountdown(); stopLocalize(); client.dispose(); browserMcp.disconnect(); window.removeEventListener('pagehide', disconnectMcp); };
 }
