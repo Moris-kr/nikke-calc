@@ -72,6 +72,7 @@ import { startPresence } from './presence';
 import { mountUnionRaid, type UnionHandle } from './union-raid';
 import { mountBossMaker, type BossMakerHandle } from './boss-maker-view';
 import { mountOverloadLab } from './overload-lab';
+import { openGrowthEfficiency } from './growth-efficiency-ui';
 import { EXTERNAL_LINKS, hostOf } from './external-links';
 import {
   BURST_STAGES,
@@ -4427,7 +4428,17 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       renderBatchResult(batch);
     });
     detailLabel.append(detailBox, createText('span', '자세히 보기'));
-    reportTools.append(historySave, historyOpen, reportButton, csvButton, detailLabel);
+    const growthButton = document.createElement('button');
+    growthButton.type = 'button';
+    growthButton.className = 'report-open growth-open';
+    growthButton.dataset.growthEfficiency = '';
+    growthButton.textContent = '육성효율 계산하기';
+    growthButton.addEventListener('click', () => openGrowthEfficiency(batch, {
+      settings, catalog: catalogByName, deckName: deckNameOf,
+      current: (id, name) => decks.find(deck => deck.id === id)?.characters[name] ?? roster[name],
+      simulate: request => client.simulate(request),
+    }));
+    reportTools.append(historySave, historyOpen, reportButton, csvButton, growthButton, detailLabel);
     // 덱끼리 견주기 — 막대를 재는 자를 «그 덱의 1등»에서 «다섯 덱 통틀어 1등»으로
     // 바꾼다. 덱마다 제 1등을 100%로 그리면 어느 덱을 봐도 막대가 꽉 차서, 정작
     // 덱 사이의 차이가 그림에서 사라진다. 덱이 하나뿐이면 견줄 것이 없다.
