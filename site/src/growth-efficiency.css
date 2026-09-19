@@ -12,3 +12,4 @@
 .growth-priority { margin-top:18px;padding:16px;background:#17182c;border:1px solid #7661b9;border-radius:10px; }
 .growth-priority ol { padding-left:24px; }.growth-priority li { padding:10px 0;border-bottom:1px solid #35304a; }
 .growth-priority li:last-child { border:0; }.growth-priority li p { margin:6px 0; }.growth-priority li small { color:#a2b2c9; }
+.growth-progress { flex:1;min-width:100px;height:10px;accent-color:#ad9cff; }.growth-progress[hidden]{display:none}.growth-dialog footer{flex-wrap:wrap}.growth-dialog footer .growth-status{flex-basis:100%;margin:0;font-size:12px;color:#cbbcff}.growth-global-priority li{padding:8px 0}.growth-global-priority li p{margin:4px 0}

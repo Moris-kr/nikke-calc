@@ -10,6 +10,24 @@ const result = (n:number)=>({squadTotal:n,charTotals:{A:n}} as unknown as Simula
 const close=()=>document.querySelector<HTMLButtonElement>('.growth-close')?.click();
 afterEach(()=>{close();vi.restoreAllMocks();});
 describe('growth efficiency dialog',()=>{
+ it('uses the faster global ranking by default and computes deck synergy only on click',async()=>{
+  HTMLElement.prototype.scrollIntoView=vi.fn();
+  const many=structuredClone(batch);many.decks[0]!.request.squad=['A','B','C'];
+  for(const name of ['B','C'])many.decks[0]!.request.characters![name]={overload:{atk:2}};
+  const totals:Record<string,number>={'':100,A:120,B:110,C:115,AB:160,AC:140,BC:130,ABC:170};
+  const simulate=vi.fn(async(request:SimulationRequest)=>result(totals[Object.entries(request.characters!).filter(([,v])=>v.overload?.atk===15).map(([k])=>k).sort().join('')]!));
+  openGrowthEfficiency(many,{settings,catalog:new Map(),deckName:()=> '덱 1',current:()=>({overloadLines:{머리:[{option:'atk',level:2}]}}),simulate});
+  document.querySelector<HTMLButtonElement>('.growth-primary')!.click();
+  await vi.waitFor(()=>expect(document.querySelector('.growth-status')?.textContent).toContain('100% · 5/5회 완료'));
+  expect(simulate).toHaveBeenCalledTimes(5);
+  expect([...document.querySelectorAll('.growth-global-priority li strong')].map(el=>el.textContent)).toEqual(['덱 1 · A','덱 1 · C','덱 1 · B']);
+  expect(document.querySelector('.growth-priority')).toBeNull();
+  document.querySelector<HTMLButtonElement>('.growth-priority-button')!.click();
+  await vi.waitFor(()=>expect(document.querySelector('.growth-status')?.textContent).toContain('100% · 2/2회 완료'));
+  expect(simulate).toHaveBeenCalledTimes(7);
+  expect([...document.querySelectorAll('.growth-priority li strong')].map(el=>el.textContent?.split(' · ')[0])).toEqual(['A','B','C']);
+  expect(document.querySelector<HTMLProgressElement>('.growth-progress')!.value).toBe(100);
+ });
  it('previews without downloading and downloads only on request, releasing the image when closed', () => {
   const create = vi.fn(()=>'blob:test'); const revoke = vi.fn();
   vi.stubGlobal('URL', {createObjectURL:create,revokeObjectURL:revoke});
