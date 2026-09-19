@@ -37,3 +37,10 @@ describe('growth efficiency', () => {
  });
 });
 
+
+it('keeps existing unrelated options in unrequired slots without raising their levels',()=>{
+ const request={squad:['A'],characters:{A:{overloadLines:{머리:[{option:'atk',level:12},{option:'ammo',level:3}]}}}} as unknown as SimulationRequest;
+ const next=maximumRequest(request,{A:{머리:[{option:'atk',level:15}]}},steps,{useTargetLevels:true});
+ expect(next.characters!.A!.overload).toEqual({atk:15,ammo:30});
+ expect(optionGap({option:'ammo',level:3},'',steps)).toBe('목표 미지정 · 제거 불필요');
+});

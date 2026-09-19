@@ -74,6 +74,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
   const costLabel=node('label','','growth-confirm');const costCheck=node('input');costCheck.type='checkbox';costCheck.checked=true;costCheck.setAttribute('aria-label','모듈 가성비 분석');costLabel.append(costCheck,document.createTextNode('모듈 가성비 분석 · 추가 전투/확률 계산으로 시간이 늘어날 수 있습니다.'));
   const currencyLabel=node('label','','growth-confirm');currencyLabel.append(node('span','잠금 재화'));const currencySelect=node('select');currencySelect.setAttribute('aria-label','잠금 재화');for(const [value,label] of [['modules','커스텀 모듈'],['keys','커스텀 락 키']]){const option=node('option',label);option.value=value!;currencySelect.append(option);}currencyLabel.append(currencySelect,node('span','락 키: 매 변경마다 1줄 20개 / 2줄 50개. 변경 모듈은 별도 2개 / 3개. 기존 모듈 잠금은 해제하고 키로 다시 잠그는 방식입니다.','growth-note'));
   const allLevelLabel=node('label','','growth-confirm');allLevelLabel.append(node('span','모든 수치작 타협레벨'));const allLevelSelect=node('select');allLevelSelect.setAttribute('aria-label','모든 수치작 타협레벨');for(let n=1;n<=15;n++)allLevelSelect.add(new Option(`Lv.${n} 이상`,String(n)));allLevelSelect.value='15';allLevelLabel.append(allLevelSelect);
+  const eightLines=node('button','모두 8줄작 하기','growth-secondary growth-eight-lines');eightLines.type='button';
   const resetAll=node('button','전체 목표 옵션 리셋','growth-secondary growth-reset-all');resetAll.type='button';
   const resetTargets:Array<()=>boolean>=[];
   const editor = node('div'); const footer = node('footer');
@@ -92,7 +93,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
     label.append(select);
     performance.append(label,node('p','여러 후보를 내 컴퓨터의 CPU 코어로 동시에 계산합니다. 개수를 늘리면 CPU·메모리 사용과 발열이 증가합니다. 처음에는 계산 엔진 준비 시간이 추가되며, 코어 수나 남은 작업 수보다 늘려도 더 빨라지지 않을 수 있습니다. 느려지거나 다른 작업에 지장이 생기면 줄여 주세요.','growth-note'));
   }
-  dialog.append(header, intro, performance, costLabel, currencyLabel, allLevelLabel, resetAll, editor, footer, output); overlay.append(dialog); document.body.append(overlay);
+  dialog.append(header, intro, performance, costLabel, currencyLabel, allLevelLabel, eightLines, resetAll, editor, footer, output); overlay.append(dialog); document.body.append(overlay);
   let closed = false, busy = false, pairs: Pair[] = [];
   let unregister=()=>{};let calculationError='';let moduleResults:Record<string,unknown>[]=[];
   let closePreview: (() => void) | null = null;
@@ -137,7 +138,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
   allLevelSelect.onchange=()=>{editor.querySelectorAll('.growth-goals').forEach(host=>host.dispatchEvent(new CustomEvent('set-all-levels',{detail:Number(allLevelSelect.value)})));};
   costCheck.onchange=invalidate;currencySelect.onchange=invalidate;
   const lockEditor = (locked: boolean) => {
-    resetAll.disabled=locked;costCheck.disabled=locked;allLevelSelect.disabled=locked;currencySelect.disabled=locked;
+    eightLines.disabled=locked;resetAll.disabled=locked;costCheck.disabled=locked;allLevelSelect.disabled=locked;currencySelect.disabled=locked;
     performance.querySelectorAll<HTMLSelectElement>('select').forEach(select=>{select.disabled=locked;});
     output.querySelectorAll<HTMLButtonElement>('.growth-priority-button').forEach(button=>{button.disabled=locked;});
     editor.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>('input,select,button').forEach(el => {
@@ -260,6 +261,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
     }
     editor.append(group);
   });
+  eightLines.onclick=()=>{if(busy)return;editor.querySelectorAll('.growth-goals').forEach(host=>host.dispatchEvent(new Event('set-eight-lines')));message.textContent='모든 니케의 목표를 우월코드 대미지 4줄 · 공격력 4줄로 설정했습니다. 다른 옵션은 제거하지 않아도 됩니다.';};
   resetAll.onclick=()=>{if(busy)return;const results=resetTargets.map(reset=>reset());allLevelSelect.value='15';message.textContent=results.every(Boolean)?'모든 덱의 목표 옵션을 현재 장비 구성 · Lv.15로 초기화했습니다.':'목표를 초기화했지만 일부 브라우저 저장값을 삭제하지 못했습니다.';};
   lockEditor(false);
   const gapsFor = (index: number): string[] => {
@@ -269,7 +271,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
       const source = originals[index]![name];
       for (const part of GROWTH_PARTS) for (const [i, row] of overloadLinesOf(target)[part].entries()) {
         const gap = optionGap(source ? overloadLinesOf(source)[part][i] : undefined, row.option, steps,row.level);
-        if (gap === '빈 옵션 유지' || (gap === '최대수치 달성'||gap==='목표수치 달성') || (!source && !row.option)) continue;
+        if (gap === '목표 미지정 · 제거 불필요' || gap === '빈 옵션 유지' || (gap === '최대수치 달성'||gap==='목표수치 달성') || (!source && !row.option)) continue;
         result.push(`${name} · ${part} ${i+1}번 → ${deps.settings.overloadFields[row.option]?.label ?? '없음'}: ${gap}`);
       }
     }
@@ -281,7 +283,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
     let effects = 0, values = 0;
     for (const part of GROWTH_PARTS) for (const [i, row] of overloadLinesOf(target)[part].entries()) {
       const gap = optionGap(source ? overloadLinesOf(source)[part][i] : undefined, row.option, steps,row.level);
-      if (gap.includes('효과변경') || gap.includes('효과 제거')) effects++;
+      if (gap.includes('효과변경')) effects++;
       if (gap.includes('수치변경')) values++;
     }
     if (!source) return [`${name} · 부위 원본 없음 · 직접 설정한 목표 기준`];
@@ -293,7 +295,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
     calculationError='';moduleResults=[];
     try {
       if (acknowledgments.some(check=>check.closest<HTMLElement>('.growth-character')?.dataset.excluded !== 'true' && !check.checked)) throw new Error('부위 정보가 없는 니케의 목표 옵션을 설정하고 확인란을 체크해 주세요.');
-      const requests = snapshot.decks.map((entry,i)=>maximumRequest(entry.request,targets[i]!,steps,{useTargetLevels:true,growthStages:growthStages[i]!,excluded:excluded[i]!,equipment:equipment[i]!,extras:extras[i]!}));
+      const requests = snapshot.decks.map((entry,i)=>maximumRequest(entry.request,targets[i]!,steps,{useTargetLevels:true,originals:originals[i]!,growthStages:growthStages[i]!,excluded:excluded[i]!,equipment:equipment[i]!,extras:extras[i]!}));
       busy = true; calculate.disabled = true; save.disabled = true; pairs = []; output.replaceChildren();
       completed=0; totalRuns=snapshot.decks.reduce((sum,entry,i)=>{const n=entry.request.squad.filter(name=>name&&!excluded[i]!.has(name)).length;return sum+2+(n>1?n:0);},0);
       lockEditor(true);
@@ -307,6 +309,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
           after.result,(request,name)=>run(request,`${deps.deckName(entry.deckId)} · ${name} 단독 육성`));
         if (closed) return;
         const pair:Pair = {before, after, gaps:gapsFor(i), reportGaps:reportGapsFor(i), moduleReport:[], excluded:[...excluded[i]!],priority:[],singles} ; pairs.push(pair);
+        if(Object.entries(targets[i]!).some(([name,target])=>!excluded[i]!.has(name)&&Object.values(overloadLinesOf(target)).some(rows=>rows.some(row=>!row.option))))pair.reportGaps.push('목표 미지정 줄: 기존 옵션 유지 가정으로 딜 비교 · 실제 재추첨 결과는 달라질 수 있음');
         pair.reportGaps.push(...Object.entries(goalNotes[i]!).filter(([name])=>!excluded[i]!.has(name)).map(([name,note])=>`${name} 목표: ${note}`));
         const result = node('section', '', 'growth-result');
         result.append(node('h3', deps.deckName(entry.deckId)), node('strong', percent(before.result.squadTotal,after.result.squadTotal), 'growth-gain'), node('p', `${formatDamage(before.result.squadTotal)} → ${formatDamage(after.result.squadTotal)}`));
@@ -353,7 +356,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
       if(costCheck.checked){
         const costSection=node('section','','growth-result growth-cost-results');costSection.append(node('h3','모듈 가성비 · 오버로드만 비교'));
         const methodLink=node('a','확률·계산식·전략의 범위 보기');methodLink.href='https://github.com/Moris-kr/nikke-calc/blob/master/docs/OVERLOAD_PLANNER.md';methodLink.target='_blank';methodLink.rel='noopener noreferrer';costSection.append(methodLink);
-        costSection.append(node('p','부위마다 0~3줄의 목표를 설정할 수 있습니다. 목표에서 뺀 옵션은 보존하지 않는 조건이며, 대미지 비교에서도 제외합니다. 최초 장비 개조는 제외합니다. 선택한 목표 레벨의 부위별 줄 배치 6가지 × 순서 6가지 × 두 가지 전략을 비교한 추정값입니다. 모든 행동의 전역 최적해는 아닙니다. ±값은 선택한 전략의 기대값 추정에 대한 95% 오차이며, 실제 소모량의 95% 범위가 아닙니다. 목표 효과 찾기와 목표 레벨 수치작을 따로 표시합니다. 효과 찾기 비용은 선택한 전체 육성 전략 중 효과변경에 쓴 비용으로, 효과만 먼저 맞추는 독립 계산은 아닙니다. 락 키는 모듈과 별도로 표시하며 모듈당 효율에는 키의 가치가 반영되지 않습니다. 대미지는 목표 레벨 기준이며 목표 이상으로 추첨되는 추가 수치의 평균 이득은 포함하지 않습니다. 현재 잠금 상태는 위에서 직접 확인해 주세요.','growth-note'));
+        costSection.append(node('p','부위마다 0~3줄의 목표를 설정할 수 있습니다. 0줄은 제거가 아니라 목표 미지정입니다. 지정한 옵션·최소 레벨을 충족하면 다른 옵션을 지우기 위해 추가로 돌리지 않습니다. 대미지 비교는 목표 배치의 남는 줄에 있는 기존 옵션을 현재 수치로 유지한 참고값입니다. 잠그지 않은 줄은 실제 효과변경·수치변경 과정에서 달라질 수 있습니다. 최초 장비 개조는 제외합니다. 선택한 목표 레벨의 부위별 줄 배치 6가지 × 순서 6가지 × 두 가지 전략을 비교한 추정값입니다. 모든 행동의 전역 최적해는 아닙니다. ±값은 선택한 전략의 기대값 추정에 대한 95% 오차이며, 실제 소모량의 95% 범위가 아닙니다. 목표 효과 찾기와 목표 레벨 수치작을 따로 표시합니다. 효과 찾기 비용은 선택한 전체 육성 전략 중 효과변경에 쓴 비용으로, 효과만 먼저 맞추는 독립 계산은 아닙니다. 락 키는 모듈과 별도로 표시하며 모듈당 효율에는 키의 가치가 반영되지 않습니다. 대미지는 목표 레벨 기준이며 목표 이상으로 추첨되는 추가 수치의 평균 이득은 포함하지 않습니다. 현재 잠금 상태는 위에서 직접 확인해 주세요.','growth-note'));
         const costRows:{element:HTMLElement;efficiency:number}[]=[];
         const jobs=pairs.flatMap((pair,index)=>[...pair.singles.keys()].map(name=>({pair,index,name})));
         completed=0;totalRuns=jobs.length;

@@ -76,3 +76,8 @@ it('supports partial equipment goals without charging for unrelated lines',()=>{
  expect(result.effect).toBe(0);expect(result.lock).toBe(0);expect(result.value).toBeCloseTo(.88/.12);
  expect(estimateModules([row('',1),row('',1),row('',1)],['','','']).total).toBe(0);
 });
+
+it('requires no rolls to remove an unrelated third line after an eight-line goal is met',()=>{
+ const result=estimateModules([row('atk_pct',15),row('element_bonus',15),row('crit_dmg',1)],['atk_pct','element_bonus',''],0,4000);
+ expect(result.total).toBe(0);expect(result.keys).toBe(0);expect(result.effect).toBe(0);expect(result.value).toBe(0);
+});

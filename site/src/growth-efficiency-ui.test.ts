@@ -249,3 +249,17 @@ it('resets all displayed deck goals including excluded characters and clears sav
  expect(bulk.value).toBe('15');expect(localStorage.getItem('nikke-growth-target:v1:A')).toBeNull();
  expect(document.querySelector<HTMLElement>('.growth-character')!.dataset.excluded).toBe('true');
 });
+
+it('sets every character to eight required lines while preserving thresholds and exclusions',()=>{
+ const keys=['element_bonus','atk_pct','crit_dmg'];
+ const configured={...settingsTemplate,overloadSteps:Object.fromEntries(keys.map(k=>[k,steps])),overloadFields:Object.fromEntries(keys.map(k=>[k,{label:k}])),characters:{A:{overload:{}}}} as unknown as SettingsCatalog;
+ const multiple=structuredClone(batch);multiple.decks.push({...structuredClone(multiple.decks[0]!),deckId:2});
+ openGrowthEfficiency(multiple,{settings:configured,catalog:new Map(),deckName:id=>`덱 ${id}`,current:()=>({}),simulate:vi.fn()});
+ const bulk=document.querySelector<HTMLSelectElement>('select[aria-label="모든 수치작 타협레벨"]')!;bulk.value='10';bulk.dispatchEvent(new Event('change'));
+ document.querySelector<HTMLButtonElement>('.growth-exclude')!.click();
+ document.querySelector<HTMLButtonElement>('.growth-eight-lines')!.click();
+ for(const key of keys)expect([...document.querySelectorAll<HTMLSelectElement>(`select[aria-label$="${key} 목표 줄 수"]`)].map(x=>x.value)).toEqual(key==='crit_dmg'?['0','0']:['4','4']);
+ expect([...document.querySelectorAll<HTMLSelectElement>('.growth-goal-level')].every(x=>x.value==='10')).toBe(true);
+ expect(document.querySelector<HTMLElement>('.growth-character')!.dataset.excluded).toBe('true');
+ expect(localStorage.getItem('nikke-growth-target:v1:A')).toContain('element_bonus');
+});

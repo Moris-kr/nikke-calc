@@ -4,6 +4,7 @@ export const GROWTH_PARTS: EquipPart[] = ['머리', '몸통', '팔', '다리'];
 export type GrowthTargets = Record<string, OverloadLines>;
 export interface GrowthPlan {
   useTargetLevels?:boolean;
+  originals?:Record<string,OverloadLines|undefined>;
   growthStages?: Record<string, number>;
   excluded?: ReadonlySet<string>;
   equipment?: Record<string, CharacterOverrides['equipLevels']>;
@@ -24,6 +25,7 @@ export function maximumRequest(request: SimulationRequest, targets: GrowthTarget
     const source = targets[name];
     if (!source) throw new Error(`${name}: 목표 옵션을 설정해 주세요.`);
     const lines = overloadLinesOf(source);
+    const original=overloadLinesOf(plan.originals?.[name] ?? request.characters?.[name]?.overloadLines);
     for (const part of GROWTH_PARTS) {
       const seen = new Set<string>();
       for (const row of lines[part]) {
@@ -32,6 +34,15 @@ export function maximumRequest(request: SimulationRequest, targets: GrowthTarget
         if (seen.has(row.option)) throw new Error(`${name} · ${part}: 같은 효과는 부위 내에 중복할 수 없습니다.`);
         seen.add(row.option);
         if(plan.useTargetLevels){if(!Number.isInteger(row.level)||row.level<1||row.level>15)throw new Error(`${name}: 수치작 목표 레벨이 올바르지 않습니다.`);}else row.level = 15;
+      }
+    }
+    // Unrequired slots are not removal targets. Keep their known current value
+    // for the damage comparison; actual rerolls may change these unprotected slots.
+    for(const part of GROWTH_PARTS){
+      const used=new Set(lines[part].map(row=>row.option).filter(Boolean));
+      for(const [i,row] of lines[part].entries()){
+        const old=original[part][i];
+        if(!row.option&&old?.option&&!used.has(old.option)){lines[part][i]={...old};used.add(old.option);}
       }
     }
     next.characters[name] = { ...next.characters[name], overload: overloadTotals(lines, steps) };
@@ -48,9 +59,9 @@ export function maximumRequest(request: SimulationRequest, targets: GrowthTarget
   return next;
 }
 export function optionGap(current: OverloadLine | undefined, target: string, steps: Record<string, number[]>,level=15): string {
-  if (!current) return target ? '부위 정보 없음 · 효과/수치 확인 필요' : '부위 정보 없음';
-  if (current.option !== target) return target ? `효과변경 필요 · 변경 후 Lv.${level} 목표` : '효과 제거 필요';
-  if (!target) return '빈 옵션 유지';
+  if (!target) return '목표 미지정 · 제거 불필요';
+  if (!current) return '부위 정보 없음 · 효과/수치 확인 필요';
+  if (current.option !== target) return `효과변경 필요 · 변경 후 Lv.${level} 목표`;
   const delta = (steps[target]?.[level-1] ?? 0) - (steps[target]?.[current.level - 1] ?? 0);
   return delta > 0.0001 ? `수치변경 ${Number(delta.toFixed(2))}%p 상승 필요` : level===15?'최대수치 달성':'목표수치 달성';
 }
