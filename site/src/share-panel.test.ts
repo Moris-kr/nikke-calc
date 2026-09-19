@@ -105,7 +105,10 @@ describe('share panel', () => {
     expect(summary.title).toBe('90초 · 적 수냉'); expect(summary.tabIndex).toBe(0);
     summary.dispatchEvent(new MouseEvent('mouseenter'));
     expect(animate).toHaveBeenCalledOnce();
+    expect(animate).toHaveBeenCalledWith(expect.any(Array),expect.objectContaining({iterations:Infinity,easing:'linear'}));
+    expect(summary.querySelector('.share-auto-copy')?.getAttribute('aria-hidden')).toBe('true');
     summary.dispatchEvent(new MouseEvent('mouseleave'));expect(cancel).toHaveBeenCalledOnce();
+    expect(summary.querySelector('.share-auto-copy')).toBeNull();
     summary.focus();expect(animate).toHaveBeenCalledTimes(2);
     summary.blur();expect(cancel).toHaveBeenCalledTimes(2);
   });

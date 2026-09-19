@@ -1152,20 +1152,22 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
 .share-search { flex: 1; min-height: 34px; padding: 0 10px; background: rgba(3,9,16,.7);
   border: 1px solid var(--line); border-radius: 8px; color: var(--ink); font: inherit; font-size: 12px; }
 .share-search:focus { border-color: rgba(69,214,208,.5); }
-.share-list { display: grid; gap: 8px; margin-top: 12px; }
-.share-item { display: flex; gap: 12px; align-items: center; padding: 11px 12px;
+.share-list { display: grid; gap: 8px; margin-top: 12px; min-width: 0; }
+.share-item { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; min-width: 0; gap: 12px; align-items: center; padding: 11px 12px;
   border: 1px solid var(--line); border-radius: 10px; background: rgba(7,15,25,.55); }
 .share-item:hover { border-color: rgba(69,214,208,.4); }
 .share-body { flex: 1; min-width: 0; }
-.share-name { margin: 0; font-size: 13px; font-weight: 800; color: var(--ink); }
+.share-name { margin: 0; font-size: 13px; font-weight: 800; color: var(--ink); overflow-wrap: anywhere; }
 .share-auto { margin: 4px 0 0; color: #a9c7cb; font: 11px/1.5 ui-monospace, monospace;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .share-auto-text { display: inline-block; }
+.share-auto-copy { display: inline-block; padding-left: 32px; }
 .share-auto:hover, .share-auto:focus { text-overflow: clip; }
 .share-auto:focus-visible { outline: 1px solid var(--cyan); outline-offset: 3px; }
 @media (prefers-reduced-motion: reduce), (hover: none) {
-  .share-auto { overflow-x: auto; text-overflow: clip; }
+  .share-auto { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; }
   .share-auto-text { transform: none !important; }
+  .share-auto-copy { display: none; }
   .share-auto:focus { white-space: normal; overflow-wrap: anywhere; }
 }
 .share-by { margin: 5px 0 0; color: var(--muted); font-size: 10.5px; }
