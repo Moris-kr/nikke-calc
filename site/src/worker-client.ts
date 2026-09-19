@@ -193,6 +193,8 @@ export class CalculatorPool {
     reject: (error: Error) => void;
   }> = [];
   private size = 1;
+  private creating = 0;
+  private generation = 0;
 
   constructor(
     private readonly workerFactory: () => WorkerLike = defaultWorkerFactory,
@@ -256,6 +258,7 @@ export class CalculatorPool {
   }
 
   private tearDown(kill: (client: CalculatorWorkerClient) => void, reason: Error): void {
+    this.generation++; this.creating=0;
     for (const client of this.clients) kill(client);
     this.clients.length = 0;
     this.idle.length = 0;
@@ -265,15 +268,32 @@ export class CalculatorPool {
   }
 
   private async acquire(): Promise<CalculatorWorkerClient> {
-    const free = this.idle.pop();
+    const active = this.clients.length - this.idle.length + this.creating;
+    const free = active < this.size ? this.idle.pop() : undefined;
     if (free) return free;
-    if (this.clients.length < this.size) {
+    if (this.clients.length + this.creating < this.size) {
+      const generation = this.generation;
+      this.creating++;
       // **첫 워커가 준비된 뒤에** 새로 띄운다. 동시에 띄우면 브라우저 캐시가 비어 있어
       // 같은 런타임(3MB)을 워커 수만큼 내려받는다 — 한 번 받아 두면 나머지는 캐시로 뜬다.
-      await this.clients[0]!.prepare();
-      const extra = new CalculatorWorkerClient(this.workerFactory, this.onProgress);
+      try { await this.clients[0]!.prepare(); } catch(error) {
+        if(generation === this.generation){this.creating--;for(const waiting of this.waiting.splice(0)) waiting.reject(error as Error);}
+        throw error;
+      }
+      if (generation !== this.generation) throw new CalculationCancelled();
+      let extra:CalculatorWorkerClient;
+      try { extra=new CalculatorWorkerClient(this.workerFactory,this.onProgress); }
+      catch(error){this.creating--;for(const waiting of this.waiting.splice(0))waiting.reject(error as Error);throw error;}
       this.clients.push(extra);
-      await extra.prepare();
+      this.creating--;
+      try { await extra.prepare(); } catch(error) {
+        const index = this.clients.indexOf(extra);
+        if(index >= 0) this.clients.splice(index,1);
+        extra.dispose();
+        if(generation === this.generation)for(const waiting of this.waiting.splice(0)) waiting.reject(error as Error);
+        throw error;
+      }
+      if (!this.clients.includes(extra)) throw new CalculationCancelled();
       return extra;
     }
     return new Promise<CalculatorWorkerClient>((resolve, reject) => {
@@ -285,7 +305,7 @@ export class CalculatorPool {
     // 죽은 워커는 돌려받지 않는다. 취소로 판을 갈아 끼운 뒤에도 돌던 계산이 `finally`로
     // 여기 오는데, 그것을 그대로 넣으면 다음 계산이 **끝난 워커**에게 간다.
     if (!this.clients.includes(client)) return;
-    const next = this.waiting.shift();
+    const next = this.clients.length - this.idle.length <= this.size ? this.waiting.shift() : undefined;
     if (next) next.resolve(client);
     else this.idle.push(client);
   }

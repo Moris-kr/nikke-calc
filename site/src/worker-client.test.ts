@@ -170,6 +170,17 @@ describe('CalculatorPool', () => {
     expect(made).toHaveLength(1);
   });
 
+  it('caps workers when many requests arrive during preparation', async () => {
+    const {pool,made}=spawn();pool.setPoolSize(2);
+    const tasks=Array.from({length:8},()=>pool.simulate(request));
+    const settled=Promise.allSettled(tasks);
+    await Promise.resolve();ready(made[0]!);
+    await new Promise(done=>setTimeout(done,0));
+    const count=made.length;
+    pool.cancel();await settled;
+    expect(count).toBe(2);
+  });
+
   it('상한을 넘겨 잡아도 상한에서 멈춘다', () => {
     const { pool } = spawn();
     pool.setPoolSize(99);

@@ -1,3 +1,4 @@
+import {exportModuleExchange,importModuleExchange} from './overload-external';
 import type { McpShare } from './mcp-share';
 import type { SimulationRequest, SimulationResult, GrowthComparisonRequest, RecommendationOptions, RecommendationRequest } from './types';
 import { CalculatorWorkerClient } from './worker-client';
@@ -6,7 +7,8 @@ const RELAY = import.meta.env.DEV && import.meta.env.VITE_MCP_RELAY_URL
   ? import.meta.env.VITE_MCP_RELAY_URL : 'https://nikke-calc-mcp.onrender.com/browser';
 export interface BrowserJob {
   id: string;
-  kind: 'inspect' | 'simulate' | 'shared' | 'growth' | 'recommend';
+  kind: 'inspect' | 'simulate' | 'shared' | 'growth' | 'recommend' | 'module-export' | 'module-import';
+  moduleResult?: string;
   options?: RecommendationOptions;
   name?: string;
   scenarios?: GrowthComparisonRequest['scenarios'];
@@ -27,6 +29,8 @@ export interface ConnectionState { code: string; message: string; connecting: bo
 
 /** Only allowlisted data jobs; nothing received from the relay is executable code. */
 export async function executeBrowserJob(job: BrowserJob, getShare: () => McpShare, engine: BrowserEngine): Promise<Record<string, unknown>> {
+  if(job.kind==='module-export')return {...exportModuleExchange(),execution:'export-only',instructions:'코드를 AI의 Node.js와 Python 실행 환경에서 실행하세요. 브라우저/서버에서 모듈 탐색을 수행하지 않습니다. 반환 JSON을 import_overload_plan_result로 전달하세요.'};
+  if(job.kind==='module-import')return importModuleExchange(job.moduleResult??'');
   if (job.kind === 'inspect') return { ...getShare() };
   if (job.kind === 'recommend') {
     if (!job.options?.candidates || !engine.recommend) throw new Error('추천 후보를 확인하고 계산기 페이지를 새로고침해 주세요.');

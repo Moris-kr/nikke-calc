@@ -4437,6 +4437,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       settings, catalog: catalogByName, deckName: deckNameOf,
       current: (id, name) => decks.find(deck => deck.id === id)?.characters[name] ?? roster[name],
       simulate: request => client.simulate(request),
+      performance: {max:client.maxPoolSize ?? 1,recommended:client.defaultPoolSize?.() ?? 1,
+        get:()=>parallelOn?parallelCount:1,
+        set:count=>{parallelCount=count;parallelOn=count>1;applyParallel(true);}},
     }));
     reportTools.append(historySave, historyOpen, reportButton, csvButton, growthButton, detailLabel);
     // 덱끼리 견주기 — 막대를 재는 자를 «그 덱의 1등»에서 «다섯 덱 통틀어 1등»으로

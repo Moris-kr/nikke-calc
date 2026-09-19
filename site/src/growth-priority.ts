@@ -14,22 +14,23 @@ export const rankGlobalGrowth = (rows: GlobalGrowthPriority[]): GlobalGrowthPrio
 
 export async function standaloneGrowth(before: SimulationRequest, target: SimulationRequest, names: string[], full: SimulationResult,
   simulate: (request: SimulationRequest, name: string) => Promise<SimulationResult>): Promise<Map<string, SimulationResult>> {
-  const results = new Map<string, SimulationResult>();
-  for (const name of names) {
+  const results = await Promise.allSettled(names.map(async name => {
     const request = structuredClone(before); request.characters ??= {};
     request.characters[name] = structuredClone(target.characters?.[name] ?? {});
     const result = names.length === 1 ? full : await simulate(request, name);
     if (!Number.isFinite(result.squadTotal)) throw new Error('단독 육성 계산 결과가 올바르지 않습니다.');
-    results.set(name, result);
-  }
-  return results;
+    return [name, result] as const;
+  }));
+  const failed = results.find(row => row.status === 'rejected');
+  if (failed?.status === 'rejected') throw failed.reason;
+  return new Map(results.flatMap(row => row.status === 'fulfilled' ? [row.value] : []));
 }
 
 /** Greedy marginal team damage, re-evaluated after each chosen upgrade. No invented weights. */
 export async function recommendGrowth(
   before: SimulationRequest, target: SimulationRequest,
   baseline: SimulationResult, full: SimulationResult, names: string[],
-  simulate: (request: SimulationRequest) => Promise<SimulationResult>,
+  simulate: (request: SimulationRequest, name: string) => Promise<SimulationResult>,
   progress: (name: string) => void = () => {},
   singles: Map<string, SimulationResult> = new Map(),
 ): Promise<GrowthPriority[]> {
@@ -42,7 +43,7 @@ export async function recommendGrowth(
   let previous = baseline.squadTotal;
   while (selected.length < candidates.length) {
     let best: {name: string; total: number} | undefined;
-    for (const name of candidates.filter(name => !selected.includes(name))) {
+    const round = await Promise.allSettled(candidates.filter(name => !selected.includes(name)).map(async name => {
       progress(name);
       const upgraded = [...selected, name];
       const key = upgraded.slice().sort().join('\0');
@@ -51,14 +52,17 @@ export async function recommendGrowth(
         const request = structuredClone(before);
         request.characters ??= {};
         for (const chosen of upgraded) request.characters[chosen] = structuredClone(target.characters?.[chosen] ?? {});
-        result = await simulate(request);
+        result = await simulate(request, name);
         cache.set(key, result);
       }
       if (!Number.isFinite(result.squadTotal)) throw new Error('육성 우선순위 계산 결과가 올바르지 않습니다.');
       if (!selected.length) standalone.set(name, result.squadTotal - baseline.squadTotal);
-      // Equal gains retain squad order; personal damage does not penalize buffers.
-      if (!best || result.squadTotal > best.total) best = {name, total: result.squadTotal};
-    }
+      return {name, total:result.squadTotal};
+    }));
+    const failed = round.find(row => row.status === 'rejected');
+    if (failed?.status === 'rejected') throw failed.reason;
+    // Arrival order never changes ties or the next greedy round.
+    for (const row of round) if (row.status === 'fulfilled' && (!best || row.value.total > best.total)) best = row.value;
     if (!best) break;
     rows.push({name:best.name, gain:best.total-previous, standaloneGain:standalone.get(best.name) ?? 0, previousTotal:previous, total:best.total});
     selected.push(best.name); previous = best.total;

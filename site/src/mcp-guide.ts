@@ -63,6 +63,11 @@ export function renderMcpGuide(host: HTMLElement, connection?: BrowserMcpConnect
         <p>코어 노출은 전투 설정의 고급 설정에서 여러 구간으로 지정할 수 있습니다. 예를 들어 “코어는 30~60초, 90~120초에만 노출되도록 계산해 줘”라고 요청하세요. 구간이 없으면 코어가 상시 노출되며, 코어 없음 설정이 우선합니다.</p>
         <p>전용 MCP 도구가 없는 기능도 AI가 브라우저 조작 도구를 갖고 있다면 계산기 화면을 확인해 진행할 수 있습니다. 실제 육성이 있는 탭을 사용해야 하며, 브라우저 조작이 불가능하면 직접 따라 할 메뉴와 입력 방법을 안내합니다.</p>
       </section>
+      <section><h4>모듈 가성비 · 외부 AI 코드 실행으로 계산하기</h4>
+        <ol><li>계산 결과의 <strong>육성효율 계산하기</strong>를 열고 12줄 목표·타협 옵션·현재 잠금을 설정합니다.</li><li>수동 전달: <strong>ChatGPT · Claude에 모듈 계산 맡기기</strong>에서 프롬프트를 만들어 복사합니다. 코드 실행 기능이 있는 AI에 전달하고, 인터넷 접근이 없다면 같은 곳의 공개 엔진 ZIP도 첨부합니다.</li><li>MCP 전달: AI 연결을 켜고 아래 예시로 요청합니다. AI는 <code>export_overload_plan</code> → <code>get_browser_result</code>로 입력과 코드를 받은 뒤 자체 Node.js·Python 환경에서 실행합니다.</li><li>결과 JSON을 창에 붙여넣거나 <code>import_overload_plan_result</code>로 반환합니다. <strong>계산하기</strong>를 누르면 가져온 모듈·기본 대미지 결과를 표시합니다.</li></ol>
+        <div class="mcp-example"><p>export_overload_plan으로 현재 육성효율 목표를 받아줘. 반환된 Node.js와 Python 코드를 실제 실행해서 모듈 기대값과 육성 비교 대미지를 계산하고, 결과 JSON을 import_overload_plan_result로 돌려줘. 실행 도구가 없으면 수치를 추측하지 말고 알려줘.</p></div>
+        <p>AI의 대화 능력만으로 계산하는 기능이 아닙니다. 실제 코드 실행 환경이 필요하며, 이용 중인 AI 요금제의 사용량을 소모할 수 있습니다. 현재 육성·편성·전투 조건은 전달되지만 계정 ID·프로필 사진·대화 내역은 포함하지 않습니다. 가져온 결과는 형식을 검사해도 실행 사실을 증명할 수 없어 <strong>외부 계산 · 미검증</strong>으로 표시합니다. 목표를 수정하면 다시 내보내야 합니다. 추가로 요청하는 덱 내 우선순위는 브라우저에서 계산합니다.</p>
+      </section>
       <section><h4>AI로 보스 메이커 구성하기</h4>
         <p><code>create_boss_code</code>로 보스의 몸통·코어·파츠·노출 시간과 전투 조건을 구성한 <strong>NK5- 공유 코드</strong>를 받을 수 있습니다. 코드 생성에는 브라우저 연결 코드가 필요하지 않습니다. 실제 대미지 계산은 보스 메이커에서 내 브라우저로 실행합니다.</p>
         <div class="mcp-example"><p>create_boss_code로 테스트용 보스를 만들어줘. 180초, 작열, 방어력 31784, 코어 직경 52px, 파츠 없음, 코어는 30~60초와 90~120초만 노출. 60~90초에는 바디 방어율 60%, 0~30초에는 AR만 적정거리. 코어·파츠·적정거리는 전투 조건 입력값을 쓰도록 settingsSource를 battle로 설정하고, NK5 코드를 생략 없이 줘. 도형은 설명용 예시임을 밝혀줘.</p></div>

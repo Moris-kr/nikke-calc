@@ -1,3 +1,7 @@
+import {createModulePacket,modulePrompt,parseModuleResult,parseExternalSimulations,registerModuleExchange,type ModulePacket,type ModuleJob,type ExternalSimulation} from './overload-external';
+import type {ModuleRoute} from './overload-cost';
+import {overloadGoalEditor} from './overload-goals-ui';
+import {analyzeModulePart,mapLimited} from './overload-cost-client';
 import { overloadLinesOf } from './character-settings';
 import { GROWTH_PARTS, growthPercent, maximumRequest, optionGap, verifiedLines, type GrowthTargets } from './growth-efficiency';
 import { formatDamage } from './model';
@@ -10,6 +14,7 @@ interface Deps {
   catalog: Map<string, CharacterMeta>;
   current: (deckId: number, name: string) => CharacterOverrides | undefined;
   deckName: (id: number) => string;
+  performance?: { max: number; recommended: number; get: () => number; set: (count: number) => void };
   simulate: (request: SimulationRequest) => Promise<SimulationResult>;
 }
 interface Pair { before: DeckResultEntry; after: DeckResultEntry; gaps: string[]; reportGaps: string[]; excluded: string[]; priority: GrowthPriority[]; singles: Map<string, SimulationResult> }
@@ -63,27 +68,51 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
   const close = node('button', '닫기', 'growth-close'); header.append(title, close);
   const intro = node('p', '풀 육성은 이 창에서 설정한 목표 육성과 오버로드 Lv.15를 적용한 상태입니다. 돌파·스킬·소장품·장비레벨은 현재 값으로 시작합니다. 큐브·운용·전투 조건은 기존 결과와 동일하며, 실제 육성은 덮어쓰지 않습니다.', 'growth-note');
   intro.append(document.createTextNode(' 창을 닫아도 입력·결과와 진행 중인 계산은 유지됩니다. 페이지를 새로고침하거나 기준 전투 결과가 바뀌면 새 비교로 시작합니다.'));
+  const costLabel=node('label','','growth-confirm');const costCheck=node('input');costCheck.type='checkbox';costCheck.setAttribute('aria-label','모듈 가성비 분석');costLabel.append(costCheck,document.createTextNode('모듈 가성비 분석 · 추가 전투/확률 계산으로 시간이 늘어날 수 있습니다.'));
+  const exchange=node('details','','growth-goals growth-external');exchange.append(node('summary','ChatGPT · Claude에 모듈 계산 맡기기 / 결과 가져오기'));
+  exchange.append(node('p','코드 실행 기능이 있는 AI에 계산 코드와 현재 장비·목표·잠금·편성·전투 조건 등 계산에 필요한 육성 정보를 전달합니다. 대화 내역·계정 ID·프로필 사진은 포함하지 않습니다. 모듈 탐색과 기본 육성 비교 대미지를 AI의 코드 실행 환경에서 계산합니다. Node.js·Python과 공개 엔진 파일이 필요합니다. 선택적으로 누르는 덱 내 우선순위 계산은 브라우저에서 진행합니다. 결과 숫자의 정확성은 형식 검사만으로 보증할 수 없습니다.','growth-note'));
+  const exportButton=node('button','계산 프롬프트 만들기','growth-secondary');const copyPrompt=node('button','프롬프트 복사','growth-secondary');copyPrompt.disabled=true;
+  const promptArea=node('textarea');promptArea.readOnly=true;promptArea.rows=4;promptArea.setAttribute('aria-label','외부 계산 프롬프트');
+  const resultArea=node('textarea');resultArea.rows=4;resultArea.placeholder='AI가 실행해 반환한 결과 JSON 전체';resultArea.setAttribute('aria-label','외부 계산 결과 JSON');
+  const importButton=node('button','계산 결과 가져오기','growth-secondary');const externalStatus=node('p','','growth-note');externalStatus.setAttribute('aria-live','polite');
+  const engineDownload=node('a','AI 실행용 공개 엔진 ZIP 다운로드');engineDownload.href=`${import.meta.env.BASE_URL}external-engine-${createModulePacket([]).engineVersion}.zip`;engineDownload.download='';
+  exchange.append(exportButton,copyPrompt,engineDownload,promptArea,resultArea,importButton,externalStatus);
   const editor = node('div'); const footer = node('footer');
   const calculate = node('button', '계산하기', 'growth-primary');
   const save = node('button', '보고서 이미지 만들기', 'growth-secondary'); save.disabled = true;
   const message = node('p', '', 'growth-status'); message.setAttribute('aria-live', 'polite');
   const progress = node('progress', '', 'growth-progress'); progress.max=100; progress.value=0; progress.hidden=true; progress.setAttribute('aria-label','육성 계산 진행률');
   const output = node('div', '', 'growth-output'); footer.append(calculate, save, progress, message);
-  dialog.append(header, intro, editor, footer, output); overlay.append(dialog); document.body.append(overlay);
+  const performance = node('div', '', 'growth-performance');
+  if (deps.performance) {
+    const label=node('label','동시 계산 수 ');
+    const select=node('select');select.setAttribute('aria-label','육성 동시 계산 수');
+    for(let n=1;n<=deps.performance.max;n++){const option=node('option',`${n}개${n===deps.performance.recommended?' · 권장':''}`);option.value=String(n);select.append(option);}
+    select.value=String(deps.performance.get());
+    select.onchange=()=>deps.performance!.set(Number(select.value));
+    label.append(select);
+    performance.append(label,node('p','여러 후보를 내 컴퓨터의 CPU 코어로 동시에 계산합니다. 개수를 늘리면 CPU·메모리 사용과 발열이 증가합니다. 처음에는 계산 엔진 준비 시간이 추가되며, 코어 수나 남은 작업 수보다 늘려도 더 빨라지지 않을 수 있습니다. 느려지거나 다른 작업에 지장이 생기면 줄여 주세요.','growth-note'));
+  }
+  dialog.append(header, intro, performance, costLabel, exchange, editor, footer, output); overlay.append(dialog); document.body.append(overlay);
   let closed = false, busy = false, pairs: Pair[] = [];
+  let packet:ModulePacket|undefined;let imported=new Map<string,ModuleRoute>();let externalSimulations=new Map<string,SimulationResult>();let unregister=()=>{};
   let closePreview: (() => void) | null = null;
   const targets: GrowthTargets[] = [];
+  const lockMasks:Record<string,Record<string,number>>[]=[];
+  const goalNotes:Record<string,string>[]=[];
   const growthStages: Record<string, number>[] = [];
   const excluded: Set<string>[] = [];
   const equipment: Record<string, CharacterOverrides['equipLevels']>[] = [];
   const extras: Record<string, Pick<CharacterOverrides, 'skillLevels' | 'collection'>>[] = [];
   const originals: Record<string, OverloadLines | undefined>[] = [];
   const globalRows = () => rankGlobalGrowth(pairs.flatMap(pair=>[...pair.singles].map(([name,result])=>({deckId:pair.before.deckId,name,before:pair.before.result.squadTotal,after:result.squadTotal,gain:result.squadTotal-pair.before.result.squadTotal}))));
+  const costHistory=new Map<string,{name:string;goal:string;gain:number;total:number;efficiency:number;external:boolean}>();
   let completed=0, totalRuns=0;
   const updateProgress=(label:string)=>{ const value=totalRuns ? Math.floor(completed/totalRuns*100) : 100;progress.hidden=false;progress.value=value;message.textContent=`${value}% · ${completed}/${totalRuns}회 완료 · ${label}`; };
   const run = async (request:SimulationRequest,label:string):Promise<SimulationResult> => {
     if(closed) throw new Error('창이 닫혔습니다.'); updateProgress(label);
-    const result=await deps.simulate(structuredClone(request));completed++;updateProgress(label);return result;
+    const input=structuredClone(request);for(const character of Object.values(input.characters??{}))delete character.overloadLines;
+    const result=externalSimulations.get(JSON.stringify(request))??await deps.simulate(input);completed++;updateProgress(label);return result;
   };
   const acknowledgments: HTMLInputElement[] = [];
   let savedScroll=0;
@@ -101,23 +130,27 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
   document.addEventListener('keydown', onKey, true); close.onclick = closeDialog;
   sessions.set(deps.settings,{key:sessionKey,
     reopen:()=>{if(overlay.isConnected){close.focus();return;}opener=document.activeElement as HTMLElement|null;document.body.append(overlay);document.addEventListener('keydown',onKey,true);close.focus({preventScroll:true});dialog.scrollTop=savedScroll;},
-    dispose:()=>{closed=true;closePreview?.();overlay.remove();document.removeEventListener('keydown',onKey,true);},
+    dispose:()=>{unregister();closed=true;closePreview?.();overlay.remove();document.removeEventListener('keydown',onKey,true);},
   });
   overlay.onclick = event => { if (event.target === overlay) closeDialog(); }; close.focus();
-  const invalidate = () => { pairs = []; save.disabled = true; progress.hidden=true; output.replaceChildren(); message.textContent = '옵션이 변경되었습니다. 다시 계산해 주세요.'; };
+  const invalidate = () => { packet=undefined;imported.clear();externalSimulations.clear();promptArea.value='';copyPrompt.disabled=true;externalStatus.textContent='목표나 잠금이 바뀌면 외부 결과도 다시 계산해야 합니다.';pairs = []; save.disabled = true; progress.hidden=true; output.replaceChildren(); message.textContent = '옵션이 변경되었습니다. 다시 계산해 주세요.'; };
+  costCheck.onchange=invalidate;
   const lockEditor = (locked: boolean) => {
+    costCheck.disabled=locked;exportButton.disabled=locked;importButton.disabled=locked;resultArea.disabled=locked;
+    performance.querySelectorAll<HTMLSelectElement>('select').forEach(select=>{select.disabled=locked;});
     output.querySelectorAll<HTMLButtonElement>('.growth-priority-button').forEach(button=>{button.disabled=locked;});
     editor.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>('input,select,button').forEach(el => {
-      el.disabled = locked || (!el.classList.contains('growth-exclude') && el.closest<HTMLElement>('.growth-character')?.dataset.excluded === 'true');
+      el.disabled = locked || el.dataset.unavailable==='true' || (!el.classList.contains('growth-exclude') && el.closest<HTMLElement>('.growth-character')?.dataset.excluded === 'true');
     });
   };
   snapshot.decks.forEach((entry, index) => {
+    lockMasks[index]={};goalNotes[index]={};
     targets[index] = {}; originals[index] = {}; growthStages[index] = {}; excluded[index] = new Set(); equipment[index] = {}; extras[index] = {};
     const group = node('section', '', 'growth-deck'); group.append(node('h3', deps.deckName(entry.deckId)));
     for (const name of entry.request.squad.filter(Boolean)) {
       const totals = entry.request.characters?.[name]?.overload ?? deps.settings.characters[name]?.overload ?? {};
       const source = verifiedLines(totals, entry.request.characters?.[name]?.overloadLines ?? deps.current(entry.deckId, name)?.overloadLines, steps);
-      originals[index]![name] = source;
+      originals[index]![name] = source;lockMasks[index]![name]={};
       const lines = overloadLinesOf(source); targets[index]![name] = lines;
       const card = node('details', '', 'growth-character'); card.open = true;
       const summary = node('summary');
@@ -177,6 +210,14 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
         const label = node('label', '', 'growth-confirm'); const check = node('input'); check.type = 'checkbox';
         label.append(check, document.createTextNode('부위별 원본을 확인할 수 없습니다. 아래에 목표 옵션을 직접 설정했습니다.')); card.append(label); acknowledgments.push(check);
       }
+      const targetSelects:HTMLSelectElement[]=[];
+      const appliedGoal=node('p','','growth-note');
+      const goalEditor=overloadGoalEditor(Object.fromEntries(Object.entries(deps.settings.overloadFields).filter(([key])=>steps[key]?.length===15)),()=>lines,(allocated,description)=>{
+        const next=overloadLinesOf(allocated);let slot=0;
+        for(const part of GROWTH_PARTS)for(const row of next[part]){const select=targetSelects[slot++]!;select.value=row.option;select.dispatchEvent(new Event('change'));}
+        goalNotes[index]![name]=description;appliedGoal.textContent=description;
+      },`${deps.deckName(entry.deckId)} ${name}`);
+      card.append(goalEditor,appliedGoal);
       const parts = node('div', '', 'growth-parts');
       equipment[index]![name] = {};
       for (const part of GROWTH_PARTS) {
@@ -199,16 +240,49 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
           const select = node('select'); select.setAttribute('aria-label', `${deps.deckName(entry.deckId)} ${name} ${part} ${rowIndex+1}번 목표 옵션`);
           select.add(new Option('옵션 없음', ''));
           for (const [key, field] of Object.entries(deps.settings.overloadFields)) if (steps[key]?.length === 15) select.add(new Option(`${field.label} · ${steps[key]![14]}%`, key));
-          select.value = row.option;
+          select.value = row.option;targetSelects.push(select);
           const gap = node('span', optionGap(original, row.option, steps), 'growth-gap');
-          select.onchange = () => { row.option = select.value; gap.textContent = optionGap(original, row.option, steps); invalidate(); };
-          line.append(select, gap); area.append(line);
+          select.onchange = () => { delete goalNotes[index]![name];appliedGoal.textContent='';row.option = select.value; gap.textContent = optionGap(original, row.option, steps); invalidate(); };
+          const lockLabel=node('label','','growth-lock');const lockCheck=node('input');lockCheck.type='checkbox';lockCheck.setAttribute('aria-label',`${deps.deckName(entry.deckId)} ${name} ${part} ${rowIndex+1}번 현재 잠금`);
+          lockCheck.disabled=!original?.option;lockCheck.dataset.unavailable=String(!original?.option);
+          lockCheck.onchange=()=>{const mask=lockMasks[index]![name]![part]??0;lockMasks[index]![name]![part]=lockCheck.checked?mask|(1<<rowIndex):mask&~(1<<rowIndex);invalidate();};
+          lockLabel.append(lockCheck,document.createTextNode('현재 잠금 (직접 확인)'));
+          line.append(select, gap,lockLabel); area.append(line);
         }); parts.append(area);
       }
       card.append(parts); group.append(card);
     }
     editor.append(group);
   });
+  const exportData=()=>{
+    if(busy)throw new Error('계산 완료 후 프롬프트를 내보내 주세요.');
+    if(!packet){const jobs:ModuleJob[]=[];const simulations:ExternalSimulation[]=[];const requests=new Set<string>();
+      const add=(request:SimulationRequest)=>{const key=JSON.stringify(request);if(!requests.has(key)){requests.add(key);simulations.push({id:String(simulations.length),request});}};
+      snapshot.decks.forEach((entry,index)=>{
+        const full=maximumRequest(entry.request,targets[index]!,steps,{growthStages:growthStages[index]!,excluded:excluded[index]!,equipment:equipment[index]!,extras:extras[index]!});add(entry.request);add(full);
+        for(const name of entry.request.squad.filter(name=>name&&!excluded[index]!.has(name))){
+        const single=structuredClone(entry.request);single.characters??={};single.characters[name]=structuredClone(full.characters![name]!);add(single);
+        const overload=structuredClone(entry.request);overload.characters??={};overload.characters[name]={...overload.characters[name],overload:structuredClone(full.characters![name]!.overload)};delete overload.characters[name]!.overloadLines;add(overload);
+        const original=originals[index]![name];if(!original)throw new Error(`${name}: 현재 부위별 옵션이 필요합니다.`);
+        const current=overloadLinesOf(original),target=overloadLinesOf(targets[index]![name]);
+        for(const part of GROWTH_PARTS){const effects=target[part].map(row=>row.option);if(effects.some(effect=>!effect)||new Set(effects).size!==3)throw new Error(`${name} ${part}: 서로 다른 목표 효과 3줄을 설정해 주세요.`);
+          jobs.push({id:`${index}:${name}:${part}`,current:current[part],target:effects,locks:lockMasks[index]![name]![part]??0});}
+      }});
+      if(!jobs.length)throw new Error('육성 대상이 없습니다.');packet=createModulePacket(jobs,simulations);
+    }
+    return {packet,prompt:modulePrompt(packet)};
+  };
+  const acceptExternal=(raw:string)=>{
+    if(busy)throw new Error('계산 완료 후 외부 결과를 가져와 주세요.');
+    if(!packet)throw new Error('먼저 현재 목표로 프롬프트를 만들어 주세요.');
+    const result=parseModuleResult(raw,packet);const simulations=parseExternalSimulations(raw,packet);
+    pairs=[];output.replaceChildren();save.disabled=true;progress.hidden=true;imported=result;externalSimulations=simulations;costCheck.checked=true;
+    externalStatus.textContent=`${result.size}개 부위 가져오기 완료 · 외부 계산(실행 여부 미검증). 계산하기를 누르면 모듈 탐색·기본 대미지 재계산 없이 결과를 표시합니다.`;
+  };
+  exportButton.onclick=()=>{try{promptArea.value=exportData().prompt;copyPrompt.disabled=false;externalStatus.textContent='프롬프트를 AI에 전달하고 결과 JSON을 아래에 붙여넣으세요. 현재 잠금 상태를 먼저 확인해 주세요.';}catch(error){externalStatus.textContent=error instanceof Error?error.message:String(error);}};
+  copyPrompt.onclick=async()=>{try{await navigator.clipboard.writeText(promptArea.value);externalStatus.textContent='복사했습니다.';}catch{promptArea.focus();promptArea.select();externalStatus.textContent='복사 권한이 없습니다. 선택된 내용을 직접 복사해 주세요.';}};
+  importButton.onclick=()=>{try{acceptExternal(resultArea.value);}catch(error){externalStatus.textContent=error instanceof Error?error.message:String(error);}};
+  unregister=registerModuleExchange({export:exportData,import:acceptExternal});
   const gapsFor = (index: number): string[] => {
     const result: string[] = [];
     for (const [name, target] of Object.entries(targets[index]!)) {
@@ -253,8 +327,10 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
           after.result,(request,name)=>run(request,`${deps.deckName(entry.deckId)} · ${name} 단독 육성`));
         if (closed) return;
         const pair:Pair = {before, after, gaps:gapsFor(i), reportGaps:reportGapsFor(i), excluded:[...excluded[i]!],priority:[],singles} ; pairs.push(pair);
+        pair.reportGaps.push(...Object.entries(goalNotes[i]!).filter(([name])=>!excluded[i]!.has(name)).map(([name,note])=>`${name} 목표: ${note}`));
         const result = node('section', '', 'growth-result');
         result.append(node('h3', deps.deckName(entry.deckId)), node('strong', percent(before.result.squadTotal,after.result.squadTotal), 'growth-gain'), node('p', `${formatDamage(before.result.squadTotal)} → ${formatDamage(after.result.squadTotal)}`));
+        if(externalSimulations.size)result.append(node('p','외부 계산 · 실행 여부 미검증','growth-note'));
         if (before.result.previewNote || after.result.previewNote) result.append(node('p', after.result.previewNote || before.result.previewNote, 'growth-note'));
         const table = node('table'); const head = node('tr'); for (const text of ['니케','현재','목표 육성','변화']) head.append(node('th',text)); table.append(head);
         for (const name of entry.request.squad.filter(Boolean)) { const a=before.result.charTotals[name]??0,b=after.result.charTotals[name]??0; const row=node('tr'); const omitted = pair.excluded.includes(name); const stage = deps.settings.characters[name]?.growthOptions?.find(option=>option.value===after.request.characters?.[name]?.growthStage)?.label; for(const text of [omitted ? `${name} (육성 제외)` : stage ? `${name} (목표 ${stage})` : name,formatDamage(a),formatDamage(b),omitted ? `파티 변화 ${percent(a,b)}` : growthLabel(a,b)]) row.append(node('td',text)); table.append(row); }
@@ -272,10 +348,9 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
             if(busy)return;busy=true;calculate.disabled=true;save.disabled=true;lockEditor(true);
             completed=0; const n=singles.size; totalRuns=Math.max(0,n*(n-1)/2-1);updateProgress(`${deps.deckName(entry.deckId)} · 덱 내 순위 시작`);
             try {
-              let candidate='';
               pair.priority=await recommendGrowth(before.request,after.request,before.result,after.result,[...singles.keys()],
-                request=>run(request,`${deps.deckName(entry.deckId)} · ${candidate} · 다음 순위 비교`),
-                name=>{candidate=name;},singles);
+                (request,name)=>run(request,`${deps.deckName(entry.deckId)} · ${name} · 다음 순위 비교`),
+                ()=>{},singles);
               if(closed)return;
               priorityHost.replaceChildren();
           const ranking = node('section','','growth-priority'); ranking.append(node('h4','육성 우선순위 · 덱 대미지 기준'));
@@ -295,6 +370,66 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
             finally {busy=false;calculate.disabled=false;save.disabled=false;lockEditor(false);}
           };
         }
+      }
+      if(costCheck.checked){
+        const costSection=node('section','','growth-result growth-cost-results');costSection.append(node('h3','모듈 가성비 · 오버로드만 비교'));
+        const methodLink=node('a','확률·계산식·전략의 범위 보기');methodLink.href='https://github.com/Moris-kr/nikke-calc/blob/master/docs/OVERLOAD_PLANNER.md';methodLink.target='_blank';methodLink.rel='noopener noreferrer';costSection.append(methodLink);
+        costSection.append(node('p','부위마다 목표 효과 3줄이 필요합니다. 최초 장비 개조는 제외합니다. Lv.15 목표의 부위별 줄 배치 6가지 × 순서 6가지 × 두 가지 전략을 비교한 추정값입니다. 모든 행동의 전역 최적해는 아닙니다. ±값은 선택한 전략의 기대값 추정에 대한 95% 오차이며, 실제 소모량의 95% 범위가 아닙니다. 비용은 커스텀 모듈 기준이며 커스텀 락은 포함하지 않습니다. 현재 잠금 상태는 위에서 직접 확인해 주세요.','growth-note'));
+        const costRows:{element:HTMLElement;efficiency:number}[]=[];
+        const jobs=pairs.flatMap((pair,index)=>[...pair.singles.keys()].map(name=>({pair,index,name})));
+        completed=0;totalRuns=jobs.length;
+        for(const {pair,index,name} of jobs){
+          if(closed)return;updateProgress(`${deps.deckName(pair.before.deckId)} · ${name} 모듈 분석`);
+          const article=node('article');article.append(node('h4',`${deps.deckName(pair.before.deckId)} · ${name}`));
+          const source=originals[index]![name];
+          try{
+            if(!source)throw new Error('부위별 원본이 없어 기대값을 계산할 수 없습니다. 현재 장비 옵션을 등록한 뒤 다시 계산해 주세요.');
+            const current=overloadLinesOf(source),goal=overloadLinesOf(targets[index]![name]);
+            const routes=await mapLimited(GROWTH_PARTS,deps.performance?.get()??1,part=>{const external=imported.get(`${index}:${name}:${part}`);return external?Promise.resolve(external):analyzeModulePart(current[part],goal[part].map(row=>row.option),lockMasks[index]![name]![part]??0);});
+            if(closed)return;
+            const request=structuredClone(pair.before.request);request.characters??={};request.characters[name]={...request.characters[name],overload:structuredClone(pair.after.request.characters?.[name]?.overload)};delete request.characters[name]!.overloadLines;
+            const isolated=externalSimulations.get(JSON.stringify(request))??await deps.simulate(request);if(!Number.isFinite(isolated.squadTotal))throw new Error('오버로드 비교 대미지가 올바르지 않습니다.');
+            const gain=isolated.squadTotal-pair.before.result.squadTotal;
+            const lock=routes.reduce((sum,r)=>sum+r.lock,0),change=routes.reduce((sum,r)=>sum+r.change,0),total=lock+change,error=routes.reduce((sum,r)=>sum+r.error95,0);
+            const efficiency=total>0?gain/total:0;
+            const counts=new Map<string,number>();for(const rows of Object.values(goal))for(const row of rows)if(row.option)counts.set(row.option,(counts.get(row.option)??0)+1);
+            const goalText=goalNotes[index]![name]??[...counts].map(([key,n])=>`${deps.settings.overloadFields[key]?.label??key} ${n}줄`).join(' · ');
+            costHistory.set(`${index}:${name}:${JSON.stringify(goal)}`,{name:`${deps.deckName(pair.before.deckId)} · ${name}`,goal:goalText,gain,total,efficiency,external:imported.size>0});
+            if(costHistory.size>50)costHistory.delete(costHistory.keys().next().value!);
+            const summary=`${imported.size?'[외부 계산 · 미검증] ':''}잠금 ${lock.toFixed(1)}개 + 변경 ${change.toFixed(1)}개 = 평균 ${total.toFixed(1)}개 (추정 오차 ±${error.toFixed(1)})`;
+            article.append(node('strong',summary),node('p',`오버로드만 육성: 덱 ${percent(pair.before.result.squadTotal,isolated.squadTotal)} · ${gain>=0?'+':''}${formatDamage(gain)} / ${total>0?`모듈 1개당 기대 딜 증가 ${formatDamage(efficiency)}`:'이미 목표 달성 · 추가 비용 없음'}`));
+            pair.reportGaps.push(`${name} 모듈: ${summary}`,`${name} 오버로드만: 덱 ${percent(pair.before.result.squadTotal,isolated.squadTotal)} · 모듈당 ${formatDamage(efficiency)}`);
+            const details=node('details');details.append(node('summary','자세히 보기 · 줄 배치와 진행 과정'));
+            routes.forEach((route,p)=>{
+              const part=GROWTH_PARTS[p]!;details.append(node('h4',`${part} · 평균 ${route.total.toFixed(1)}개`));
+              details.append(node('p',`권장 배치: ${route.target.map((key,slot)=>`${slot+1}번 ${deps.settings.overloadFields[key]?.label??key}`).join(' / ')}`));
+              if(route.unlocked.length)details.append(node('p',`${route.unlocked.map(i=>i+1).join('·')}번 현재 잠금은 이 전략에서 해제합니다. 다시 잠그는 비용은 포함했습니다.`));
+              const instructions=node('ol');
+              const effectsReady=route.target.every((key,slot)=>current[part][slot]!.option===key);
+              const allReady=effectsReady&&current[part].every(row=>row.level===15);
+              if(allReady)details.append(node('p','이미 목표 달성 · 변경/추가 잠금이 필요 없습니다.'));
+              else if(route.mode==='effects-first'&&effectsReady)details.append(node('p','현재 세 효과가 이미 맞으므로 효과변경과 효과 확보용 잠금을 생략하고 수치 단계로 진행합니다.'));
+              (allReady||(route.mode==='effects-first'&&effectsReady)?[]:route.order).forEach(slot=>{
+                const target=deps.settings.overloadFields[route.target[slot]!]!.label;
+                const old=current[part][slot]!;const displaced=old.option&&old.option!==route.target[slot]?`현재 ${deps.settings.overloadFields[old.option]?.label??old.option}을 잃을 수 있습니다. `:'';
+                instructions.append(node('li',`${slot+1}번에서 ${target} 확보. ${displaced}이미 있으면 효과변경을 생략합니다. 없으면 해당 줄에 나올 때까지 효과변경하고, 실패한 결과는 유지하지 않습니다. ${route.mode==='complete-line'?'이 줄을 Lv.15까지 수치변경한 뒤':'효과를 찾으면'} 나머지 목표가 남았을 때 잠급니다.`));
+              });
+              if(route.mode==='effects-first'&&!allReady)instructions.append(node('li','세 효과가 갖춰지면 Lv.15 미만 줄의 잠금을 해제합니다. Lv.15 줄은 잠그고 나머지 수치를 변경합니다. 새 Lv.15 줄이 하나 이상 나온 결과만 채택하고, 새로 완성된 줄을 잠가 반복합니다.'));
+              details.append(instructions,node('p','효과변경은 잠그지 않은 다른 줄의 효과·수치도 바꿉니다. 다른 줄의 목표도 함께 완성되면 해당 변경은 생략합니다. 전부 완성된 후에는 추가 잠금을 하지 않습니다. 실패 결과를 채택하거나 다른 목표로 변경하면 기대값을 다시 계산해야 합니다.','growth-note'));
+            });
+            article.append(details);costRows.push({element:article,efficiency});
+          }catch(error){article.append(node('p',`분석 제외: ${error instanceof Error?error.message:String(error)}`,'growth-note'));costRows.push({element:article,efficiency:-Infinity});}
+          completed++;updateProgress(`${deps.deckName(pair.before.deckId)} · ${name} 모듈 분석 완료`);
+        }
+        for(const row of costRows.sort((a,b)=>b.efficiency-a.efficiency))costSection.append(row.element);
+        if(costHistory.size>1){
+          const history=node('details');history.append(node('summary','목표·타협안 비교 기록 (최근 50건)'));
+          history.append(node('p','이 기준 전투 결과에서 직접 계산한 목표를 보관합니다. 원래 목표와 타협안을 각각 적용해 계산하면 비용과 딜을 나란히 비교할 수 있습니다.','growth-note'));
+          const table=node('table');const head=node('tr');for(const text of ['대상 · 목표','모듈 기대값','덱 딜 증가','모듈당 딜'])head.append(node('th',text));table.append(head);
+          for(const record of costHistory.values()){const row=node('tr');for(const text of [`${record.name} · ${record.goal}${record.external?' (외부·미검증)':''}`,record.total.toFixed(1),formatDamage(record.gain),record.total>0?formatDamage(record.efficiency):'이미 달성'])row.append(node('td',text));table.append(row);}
+          history.append(table);costSection.append(history);
+        }
+        output.prepend(costSection);
       }
       const global=node('section','','growth-result growth-global-priority');global.append(node('h3','전체 덱 육성 우선순위'));
       global.append(node('p','현재 육성에서 한 니케만 목표 육성했을 때의 덱 총딜 증가량 순입니다. 버프 효과를 포함하며, 후보별 증가량을 합산하면 안 됩니다. 같은 니케도 덱·목표가 다르면 따로 표시합니다. 재료 비용은 미반영입니다.','growth-note'));
@@ -332,7 +467,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
       ctx.fillStyle='#080e19'; ctx.fillRect(0,0,canvas.width,canvas.height);
       ctx.scale(2,2);
       const write=(text:string,x:number,y:number,size=16,color='#d9e5f3')=>{ctx.fillStyle=color;ctx.font=`${size}px Pretendard, sans-serif`;ctx.fillText(text,x,y,1140);};
-      write('육성효율 보고서 · OVERLOAD Lv.15',28,43,28,'#ad9cff');
+      write(`육성효율 보고서 · OVERLOAD Lv.15${externalSimulations.size?' · 외부 계산 미검증':''}`,28,43,28,'#ad9cff');
       write('풀 육성 = 설정한 목표 돌파·스킬·소장품·장비 + 오버로드 Lv.15 · 전투 조건 동일',28,76);
       let y=112;
       if(unified.length){

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {exportModuleExchange,importModuleExchange} from './overload-external';
 import { growthLabel, openGrowthEfficiency, openGrowthReportPreview } from './growth-efficiency-ui';
 import type { BatchResult, SettingsCatalog, SimulationRequest, SimulationResult } from './types';
 const steps = Array.from({length:15},(_,i)=>i+1);
@@ -92,7 +93,7 @@ describe('growth efficiency dialog',()=>{
   expect(batch.decks[0]!.request.characters!.A!.overload).toEqual({atk:2});
   const select=document.querySelector<HTMLSelectElement>('.growth-line select')!;select.value='ammo';select.dispatchEvent(new Event('change'));
   expect(document.querySelector('.growth-output')?.textContent).toBe('');
-  expect(document.querySelector<HTMLButtonElement>('.growth-secondary')?.disabled).toBe(true);
+  expect(document.querySelector<HTMLButtonElement>('footer .growth-secondary')?.disabled).toBe(true);
  });
  it('requires acknowledgment for absent or stale part information',()=>{
   const simulate=vi.fn();
@@ -137,7 +138,7 @@ describe('growth efficiency dialog',()=>{
   openGrowthEfficiency(batch,{settings,catalog:new Map(),deckName:()=> '덱 1',current:()=>({overloadLines:{머리:[{option:'atk',level:2}]}}),simulate});
   document.querySelector<HTMLButtonElement>('.growth-primary')!.click();
   await vi.waitFor(()=>expect(document.querySelector('.growth-status')?.textContent).toContain('시험 오류'));
-  expect(document.querySelector<HTMLButtonElement>('.growth-secondary')?.disabled).toBe(true);
+  expect(document.querySelector<HTMLButtonElement>('footer .growth-secondary')?.disabled).toBe(true);
   expect(document.querySelector<HTMLSelectElement>('.growth-line select')?.disabled).toBe(false);
  });
  it('sends chosen skills, collection and equipment while preserving the current build',async()=>{
@@ -154,4 +155,33 @@ describe('growth efficiency dialog',()=>{
   expect(simulate.mock.calls[1]![0].characters.A).toMatchObject({skillLevels:{'1':10,'2':9,'3':8},collection:{stage:'SR15',favorite:0},equipLevels:{머리:3}});
   expect(simulate.mock.calls[0]![0]).toEqual(request);
  });
+});
+
+it('exports and imports every basic comparison without running browser calculations',async()=>{
+ HTMLElement.prototype.scrollIntoView=vi.fn();
+ const keys=['atk_pct','element_bonus','crit_dmg'];
+ const fullSettings={...settingsTemplate,overloadSteps:Object.fromEntries(keys.map(k=>[k,steps])),overloadFields:Object.fromEntries(keys.map(k=>[k,{label:k}])),characters:{A:{overload:Object.fromEntries(keys.map(k=>[k,4]))}}} as unknown as SettingsCatalog;
+ const currentLines=Object.fromEntries(['머리','몸통','팔','다리'].map(part=>[part,keys.map(option=>({option,level:1}))]));
+ const saved=structuredClone(batch);saved.decks[0]!.request.characters={A:{overload:Object.fromEntries(keys.map(k=>[k,4])),overloadLines:currentLines}};
+ const simulate=vi.fn();
+ openGrowthEfficiency(saved,{settings:fullSettings,catalog:new Map(),deckName:()=> '덱 1',current:()=>({overloadLines:currentLines}),simulate});
+ const {packet,prompt}=exportModuleExchange();expect(packet.jobs).toHaveLength(4);expect(prompt).toContain('run-battle.py');
+ const result={format:'nikke-overload-result',version:1,model:packet.model,requestId:packet.requestId,engineVersion:packet.engineVersion,
+  results:packet.jobs.map(job=>({id:job.id,mode:'effects-first',target:job.target,order:[0,1,2],lock:3,change:100,total:103,error95:1,samples:4000,unlocked:[]})),
+  simulations:packet.simulations.map(sim=>({id:sim.id,result:{squadTotal:120,duration:sim.request.duration,hitCount:1,charTotals:{A:120}}}))};
+ importModuleExchange(JSON.stringify(result));
+ document.querySelector<HTMLButtonElement>('.growth-primary')!.click();
+ await vi.waitFor(()=>expect(document.querySelector('.growth-cost-results')).not.toBeNull());
+ expect(simulate).not.toHaveBeenCalled();expect(document.querySelector('.growth-output')!.textContent).toContain('외부 계산');
+ const select=document.querySelector<HTMLSelectElement>('.growth-line select')!;select.value='';select.dispatchEvent(new Event('change'));
+ expect(()=>importModuleExchange(JSON.stringify(result))).toThrow('먼저');
+});
+it('allows a twelve-line composition and makes substitutions explicit',()=>{
+ const currentLines={머리:[{option:'atk',level:2}]};
+ openGrowthEfficiency(batch,{settings,catalog:new Map(),deckName:()=> '덱 1',current:()=>({overloadLines:currentLines}),simulate:vi.fn()});
+ const count=document.querySelector<HTMLSelectElement>('select[aria-label="덱 1 A 공격력 목표 줄 수"]')!;count.value='4';count.dispatchEvent(new Event('change'));
+ const alternate=document.querySelector<HTMLSelectElement>('select[aria-label="덱 1 A 공격력 2순위 타협 옵션"]')!;alternate.value='ammo';alternate.dispatchEvent(new Event('change'));
+ [...document.querySelectorAll<HTMLButtonElement>('.growth-goal-actions button')].find(b=>b.textContent==='2순위 타협안 적용')!.click();
+ expect([...document.querySelectorAll<HTMLSelectElement>('.growth-line select')].filter(s=>s.value==='ammo')).toHaveLength(4);
+ expect(document.querySelector('.growth-character .growth-goals')!.textContent).toContain('공격력 → 장탄 4줄 (2순위)');
 });

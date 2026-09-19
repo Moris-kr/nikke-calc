@@ -37,3 +37,12 @@ describe('growth priority',()=>{
     expect(await recommendGrowth(before,target,result(100),result(100),[],simulate)).toEqual([]);
   });
 });
+
+it('runs independent single upgrades concurrently but retains squad order',async()=>{
+  const finishes: Array<()=>void> = [];
+  const simulate=vi.fn(()=>new Promise<SimulationResult>(resolve=>finishes.push(()=>resolve(result(120)))));
+  const pending=standaloneGrowth(before,target,['A','B','C'],result(170),simulate);
+  expect(simulate).toHaveBeenCalledTimes(3);
+  finishes.reverse().forEach(finish=>finish());
+  expect([...(await pending).keys()]).toEqual(['A','B','C']);
+});
