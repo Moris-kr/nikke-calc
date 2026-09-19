@@ -67,3 +67,27 @@ describe('검색엔진에 걸리는 자리', () => {
     expect(sitemap).toContain('<loc>https://moris-kr.github.io/nikke-calc/</loc>');
   });
 });
+
+describe('기능별 검색 가이드',()=>{
+ const pages=JSON.parse(readFileSync(join(root,'content/guides.json'),'utf8')) as {slug:string;title:string;route:string}[];
+ it('every guide has indexable HTML, a unique canonical and a working app destination',()=>{
+  const titles=new Set<string>();
+  for(const page of pages){
+   const source=readFileSync(join(root,'public/guides',page.slug,'index.html'),'utf8');
+   expect(source).toContain(`<h1>${page.title}</h1>`);
+   expect(source).toContain(`rel="canonical" href="https://moris-kr.github.io/nikke-calc/guides/${page.slug}/"`);
+   expect(source).toContain(`href="/nikke-calc/#${page.route}"`);
+   expect(source).not.toContain('noindex');expect(source).not.toContain('http-equiv="refresh"');
+   const blocks=[...source.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)];
+   expect(blocks.length).toBeGreaterThan(0);for(const block of blocks)expect(()=>JSON.parse(block[1]!)).not.toThrow();
+   titles.add(/<title>(.*?)<\/title>/.exec(source)![1]!);
+  }
+  expect(titles.size).toBe(pages.length);
+ });
+ it('lists every guide in the sitemap and keeps discovery links outside the app mount',()=>{
+  const sitemap=readFileSync(join(root,'public/sitemap.xml'),'utf8');
+  for(const page of pages)expect(sitemap).toContain(`/guides/${page.slug}/</loc>`);
+  expect(sitemap).not.toContain('#/');
+  expect(html.slice(html.indexOf('</main>'))).toContain('href="/nikke-calc/guides/"');
+ });
+});

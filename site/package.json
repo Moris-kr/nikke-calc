@@ -4,17 +4,18 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "predev": "npm run sync-runtime",
+    "predev": "npm run sync-runtime && npm run build-guides",
     "dev": "vite",
-    "pretest": "npm run sync-runtime",
+    "pretest": "npm run sync-runtime && npm run build-guides",
     "test": "vitest",
     "sync-runtime": "node scripts/sync-runtime.mjs",
     "build-pickup-history": "node scripts/build-pickup-history.mjs",
     "check-runtime": "node scripts/check-runtime.mjs",
     "check-pages": "node scripts/check-pages.mjs",
-    "prebuild": "npm run sync-runtime && npm run check-runtime",
+    "prebuild": "npm run sync-runtime && npm run check-runtime && npm run build-guides",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build-guides": "node scripts/build-guides.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",
