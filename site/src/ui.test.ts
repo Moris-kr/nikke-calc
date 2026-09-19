@@ -969,7 +969,7 @@ describe('calculator UI', () => {
     expect(saved.decks[0]!.burstSequence).toBeUndefined();
   });
 
-  it('외부고리 탭이 네 곳으로 새 탭에서 나간다', () => {
+  it('외부고리 탭이 다섯 곳으로 새 탭에서 나간다', () => {
     mountCalculator(root, {
       catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
     });
@@ -984,9 +984,9 @@ describe('calculator UI', () => {
     expect(root.querySelector<HTMLElement>('form[data-view="calc"]')!.hidden).toBe(true);
 
     const cards = [...root.querySelectorAll<HTMLAnchorElement>('.link-card')];
-    expect(cards).toHaveLength(4);
+    expect(cards).toHaveLength(5);
     expect(cards.map((card) => card.querySelector('.link-name')?.textContent))
-      .toEqual(['렛츠도로', '딜도로', '솔레 금서고', '도로파티']);
+      .toEqual(['NIKKE SOLO', '렛츠도로', '딜도로', '솔레 금서고', '도로파티']);
     for (const card of cards) {
       expect(card.target).toBe('_blank');
       // 남의 페이지에 우리 창을 넘기지 않는다.
