@@ -3,6 +3,8 @@ import {GUIDE_PARTS,type GuideGoal,type GuideResult,type GuideMethod} from './ov
 import type {CharacterOverrides,SettingsCatalog,OverloadLine} from './types';
 const el=<K extends keyof HTMLElementTagNameMap>(tag:K,text='',cls='')=>{const node=document.createElement(tag);node.textContent=text;node.className=cls;return node;};
 export function openOverloadGuide(name:string,catalog:SettingsCatalog,current:CharacterOverrides):void{
+ const storageKey=`nikke-overload-guide:v1:${name}`;
+ let saved:any=null;try{saved=JSON.parse(localStorage.getItem(storageKey)??'null');}catch{}
  const previous=document.activeElement as HTMLElement|null;
  const overlay=el('div','','og-overlay');const dialog=el('section','','og-dialog');dialog.role='dialog';dialog.setAttribute('aria-modal','true');dialog.setAttribute('aria-label',`${name} 옵작 가이드`);
  const close=el('button','닫기');close.type='button';const header=el('header');header.append(el('h2',`${name} · 옵작 가이드`),close);
@@ -14,19 +16,20 @@ export function openOverloadGuide(name:string,catalog:SettingsCatalog,current:Ch
  const inputs=el('div');const source=el('details');source.open=true;source.append(el('summary','현재 옵션과 잠금 상태'));const locks=[0,0,0,0];
  const sourceGrid=el('div','','og-parts');rows.forEach((part,p)=>{const box=el('section');box.append(el('h4',GUIDE_PARTS[p]));part.forEach((row,i)=>{const label=el('label','','og-current');const lock=el('input');lock.type='checkbox';lock.disabled=!row.option;lock.dataset.unavailable=String(!row.option);lock.setAttribute('aria-label',`${GUIDE_PARTS[p]} ${i+1}번 현재 잠금`);lock.onchange=()=>{locks[p]=lock.checked?locks[p]!|(1<<i):locks[p]!&~(1<<i);invalidate();};label.append(lock,document.createTextNode(`${i+1}번 ${row.option?`${catalog.overloadFields[row.option]?.label??row.option} Lv.${row.level}`:'빈 옵션'}`));box.append(label);});sourceGrid.append(box);});source.append(sourceGrid,el('p','현재 잠금은 연동되지 않으므로 직접 체크해 주세요. 첫 옵션이 없는 부위는 미개조로 보고 목표 배치에서 제외합니다. 최초 장비 개조 비용은 포함하지 않습니다.','og-note'));inputs.append(source);
  const counts=new Map<string,number>();for(const row of rows.flat())if(row.option)counts.set(row.option,(counts.get(row.option)??0)+1);
- const goals:GuideGoal[]=fields.map(([option])=>({option,count:counts.get(option)??0,level:15,alternatives:[]}));
+ const goals:GuideGoal[]=fields.map(([option])=>{const old=Array.isArray(saved?.goals)?saved.goals.find((g:any)=>g?.option===option):undefined;return {option,count:Number.isInteger(old?.count)&&old.count>=0&&old.count<=4?old.count:counts.get(option)??0,level:Number.isInteger(old?.level)&&old.level>=1&&old.level<=15?old.level:15,alternatives:Array.isArray(old?.alternatives)?[...new Set<string>(old.alternatives.filter((key:any)=>key!==option&&fields.some(([field])=>field===key)))]:[]};});
  const bulkLabel=el('label','','og-bulk');bulkLabel.append(el('span','모든 최소 레벨 설정'));const bulk=el('select');for(let level=1;level<=15;level++)bulk.add(new Option(`Lv.${level} 이상`,String(level)));bulk.value='15';bulk.setAttribute('aria-label','옵작 가이드 모든 최소 레벨');bulkLabel.append(bulk);inputs.append(bulkLabel);
  const goalTable=el('div','','og-goals');const levels:HTMLSelectElement[]=[];
  goals.forEach((goal)=>{const line=el('section','','og-goal');line.append(el('strong',catalog.overloadFields[goal.option]!.label));const count=el('select');count.setAttribute('aria-label',`${catalog.overloadFields[goal.option]!.label} 목표 줄 수`);for(let n=0;n<=4;n++)count.add(new Option(`${n}줄`,String(n)));count.value=String(goal.count);count.onchange=()=>{goal.count=Number(count.value);invalidate();};
-  const level=el('select');level.setAttribute('aria-label',`${catalog.overloadFields[goal.option]!.label} 최소 레벨`);for(let n=1;n<=15;n++)level.add(new Option(`Lv.${n} · ${catalog.overloadSteps![goal.option]![n-1]}% 이상`,String(n)));level.value='15';level.onchange=()=>{goal.level=Number(level.value);invalidate();};levels.push(level);
-  const alternatives=el('details');alternatives.append(el('summary','허용할 타협 옵션'));const checks=el('div','','og-alternatives');for(const [option,meta] of fields)if(option!==goal.option){const label=el('label');const checkbox=el('input');checkbox.type='checkbox';checkbox.setAttribute('aria-label',`${catalog.overloadFields[goal.option]!.label} 대신 ${meta.label}`);checkbox.onchange=()=>{goal.alternatives=checkbox.checked?[...goal.alternatives,option]:goal.alternatives.filter(k=>k!==option);invalidate();};label.append(checkbox,document.createTextNode(meta.label));checks.append(label);}alternatives.append(checks,el('small','대체 효과에도 같은 최소 레벨을 적용합니다.'));line.append(count,level,alternatives);goalTable.append(line);
+  const level=el('select');level.setAttribute('aria-label',`${catalog.overloadFields[goal.option]!.label} 최소 레벨`);for(let n=1;n<=15;n++)level.add(new Option(`Lv.${n} · ${catalog.overloadSteps![goal.option]![n-1]}% 이상`,String(n)));level.value=String(goal.level);level.onchange=()=>{goal.level=Number(level.value);invalidate();};levels.push(level);
+  const alternatives=el('details');alternatives.append(el('summary','허용할 타협 옵션'));const checks=el('div','','og-alternatives');for(const [option,meta] of fields)if(option!==goal.option){const label=el('label');const checkbox=el('input');checkbox.type='checkbox';checkbox.checked=goal.alternatives.includes(option);checkbox.setAttribute('aria-label',`${catalog.overloadFields[goal.option]!.label} 대신 ${meta.label}`);checkbox.onchange=()=>{goal.alternatives=checkbox.checked?[...goal.alternatives,option]:goal.alternatives.filter(k=>k!==option);invalidate();};label.append(checkbox,document.createTextNode(meta.label));checks.append(label);}alternatives.append(checks,el('small','대체 효과에도 같은 최소 레벨을 적용합니다.'));line.append(count,level,alternatives);goalTable.append(line);
  });inputs.append(goalTable);
- const weightLabel=el('label','','og-bulk');weightLabel.append(el('span','혼합 비교: 모듈 1개와 동등하게 볼 락 키 개수'));const weight=el('input');weight.type='number';weight.min='1';weight.max='10000';weight.value='20';weight.setAttribute('aria-label','혼합 재화 가중치');weight.oninput=()=>invalidate();weightLabel.append(weight);inputs.append(weightLabel,el('p','공식 환산율이 아닌 비교 선호도입니다. 혼합 점수 = 모듈 + 락 키 ÷ 입력값. 값을 키우면 락 키를 더 쓰더라도 모듈을 아끼는 쪽을 선호합니다.','og-note'));
+ const weightLabel=el('label','','og-bulk');weightLabel.append(el('span','혼합 비교: 모듈 1개와 동등하게 볼 락 키 개수'));const weight=el('input');weight.type='number';weight.min='1';weight.max='10000';weight.value=String(Number.isFinite(saved?.keyValue)&&saved.keyValue>=1&&saved.keyValue<=10000?saved.keyValue:20);weight.setAttribute('aria-label','혼합 재화 가중치');weight.oninput=()=>invalidate();weightLabel.append(weight);inputs.append(weightLabel,el('p','공식 환산율이 아닌 비교 선호도입니다. 혼합 점수 = 모듈 + 락 키 ÷ 입력값. 값을 키우면 락 키를 더 쓰더라도 모듈을 아끼는 쪽을 선호합니다.','og-note'));
  const actions=el('footer');const run=el('button','가이드 계산하기','og-primary');const cancel=el('button','계산 취소');cancel.hidden=true;const status=el('p','','og-status');status.setAttribute('aria-live','polite');const progress=el('progress');progress.max=100;progress.hidden=true;actions.append(run,cancel,progress,status);const output=el('div','','og-results');
+ inputs.append(el('p','목표 줄 수·최소 레벨·타협 옵션·재화 가중치는 니케별로 이 브라우저에 자동 저장됩니다. 현재 잠금은 매번 직접 확인해 주세요.','og-note'));
  dialog.append(header,intro,inputs,actions,output);overlay.append(dialog);document.body.append(overlay);
  let worker:Worker|undefined,disposed=false;const cleanup=()=>{worker?.terminate();worker=undefined;};
  const lockInputs=(busy:boolean)=>{run.disabled=busy||!known;cancel.hidden=!busy;inputs.querySelectorAll<HTMLInputElement|HTMLSelectElement>('input,select').forEach(input=>{input.disabled=busy||input.dataset.unavailable==='true';});};
- function invalidate(){output.replaceChildren();progress.hidden=true;status.textContent=`목표 ${goals.reduce((s,g)=>s+g.count,0)}/12줄 · 설정을 변경했습니다. 계산을 눌러 주세요.`;}
+ function invalidate(){try{localStorage.setItem(storageKey,JSON.stringify({goals,keyValue:Number(weight.value)}));}catch{}output.replaceChildren();progress.hidden=true;status.textContent=`목표 ${goals.reduce((s,g)=>s+g.count,0)}/12줄 · 설정을 변경했습니다. 계산을 눌러 주세요.`;}
  bulk.onchange=()=>{goals.forEach((goal,i)=>{goal.level=Number(bulk.value);levels[i]!.value=bulk.value;});invalidate();};
  const dismiss=()=>{if(disposed)return;disposed=true;cleanup();overlay.remove();document.removeEventListener('keydown',keydown,true);previous?.focus();};
  const keydown=(event:KeyboardEvent)=>{if(event.key==='Escape'){event.stopImmediatePropagation();dismiss();}if(event.key==='Tab'){const items=[...dialog.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled),summary')].filter(node=>node.getClientRects().length);const first=items[0],last=items.at(-1);if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}}};document.addEventListener('keydown',keydown,true);close.onclick=dismiss;overlay.onclick=event=>{if(event.target===overlay)dismiss();};close.focus();
@@ -43,12 +46,20 @@ export function openOverloadGuide(name:string,catalog:SettingsCatalog,current:Ch
     const steps=el('ol');
     const kept=plan.target.map((option,i)=>option&&(locks[p]!&(1<<i))&&rows[p]![i]!.option===option&&(plan.mode==='effects-first'||rows[p]![i]!.level>=plan.levels[option]!)?i:-1).filter(i=>i>=0);
     const lineNames=(slots:number[])=>slots.map(i=>`${i+1}번 줄`).join(' · ');
-    steps.append(el('li',kept.length?`${lineNames(kept)} 잠금은 유지하고, 나머지 줄의 잠금은 해제하세요.`:'현재 잠금을 모두 해제하세요.'));
+    const released=[0,1,2].filter(i=>(locks[p]!&(1<<i))&&!kept.includes(i));
+    if(released.length)steps.append(el('li',`${lineNames(released)}의 잠금을 해제하세요. 이 줄은 이번 목표와 다르거나 수치작이 필요합니다.`));
+    const knownEffects:(string|null)[]=rows[p]!.map(row=>row.option);const knownLevels=rows[p]!.map(row=>row.level);
+    if(plan.target.every((option,i)=>!option||(knownEffects[i]===option&&knownLevels[i]!>=plan.levels[option]!))){details.append(el('p','이미 목표 달성 · 변경하거나 새로 잠글 필요 없습니다.'));card.append(details);return;}
     for(const slot of plan.order){const option=plan.target[slot];if(!option||kept.includes(slot))continue;
       const label=catalog.overloadFields[option]!.label;const level=plan.levels[option]!;const value=catalog.overloadSteps?.[option]?.[level-1];
       const protectedText=kept.length?`${lineNames(kept)}을 잠근 상태로`:'아무 줄도 잠그지 않고';
-      steps.append(el('li',`${protectedText}, ${slot+1}번 줄에 ${label}이 나올 때까지 ‘효과변경’을 하세요. 이미 ${label}이면 이 작업은 건너뛰세요.`));
-      if(plan.mode==='complete-line')steps.append(el('li',`${protectedText}, ${slot+1}번 줄이 Lv.${level}${value===undefined?'':` (${value}%)`} 이상 나올 때까지 ‘수치변경’을 하세요. 이미 목표 이상이면 건너뛰세요.`));
+      if(knownEffects[slot]!==option){
+        steps.append(el('li',`${protectedText}, ${slot+1}번 줄에 ${label}이 나올 때까지 ‘효과변경’을 하세요.${knownEffects[slot]===null?' 앞 작업 후 이미 이 효과가 있으면 건너뛰세요.':''}`));
+        const lost=[0,1,2].filter(i=>i!==slot&&!kept.includes(i)&&plan.target[i]&&knownEffects[i]===plan.target[i]);
+        if(lost.length)steps.append(el('li',`이 경로는 ${lineNames(lost)}의 기존 옵션을 잠그지 않고 진행하므로 바뀔 수 있습니다. 바뀌면 뒤 단계에서 다시 맞춥니다.`));
+        for(let i=0;i<3;i++)if(!kept.includes(i)){knownEffects[i]=null;knownLevels[i]=0;}knownEffects[slot]=option;
+      }
+      if(plan.mode==='complete-line'&&knownLevels[slot]!<level){steps.append(el('li',`${protectedText}, ${slot+1}번 줄이 Lv.${level}${value===undefined?'':` (${value}%)`} 이상 나올 때까지 ‘수치변경’을 하세요. 이미 목표 이상이면 건너뛰세요.`));for(let i=0;i<3;i++)if(!kept.includes(i))knownLevels[i]=0;knownLevels[slot]=level;}
       kept.push(slot);
     }
     if(plan.mode==='effects-first'){

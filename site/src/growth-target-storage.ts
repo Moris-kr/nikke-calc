@@ -15,3 +15,9 @@ export function saveGrowthTarget(name:string,lines:OverloadLines,levels:Record<s
 export function clearGrowthTarget(name:string):boolean{
  try{localStorage.removeItem(key(name));return true;}catch{return false;}
 }
+export function loadGrowthExcluded(name:string):boolean{
+ try{return localStorage.getItem(`nikke-growth-excluded:v1:${name}`)==='true';}catch{return false;}
+}
+export function saveGrowthExcluded(name:string,excluded:boolean):boolean{
+ try{localStorage.setItem(`nikke-growth-excluded:v1:${name}`,String(excluded));return true;}catch{return false;}
+}

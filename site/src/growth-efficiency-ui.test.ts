@@ -12,6 +12,18 @@ const result = (n:number)=>({squadTotal:n,charTotals:{A:n}} as unknown as Simula
 const close=()=>document.querySelector<HTMLButtonElement>('.growth-close')?.click();
 afterEach(()=>{close();vi.restoreAllMocks();});
 describe('growth efficiency dialog',()=>{
+ it('restores counts and excluded state in a new comparison',()=>{
+  const deps={settings,catalog:new Map(),deckName:()=> '덱 1',current:()=>({overloadLines:{머리:[{option:'atk',level:2}]}}),simulate:vi.fn()};
+  openGrowthEfficiency(batch,deps);
+  const count=document.querySelector<HTMLSelectElement>('select[aria-label="덱 1 A 공격력 목표 줄 수"]')!;count.value='4';count.dispatchEvent(new Event('change'));
+  document.querySelector<HTMLButtonElement>('.growth-exclude')!.click();close();
+  const next=structuredClone(batch);next.decks[0]!.request.duration=90;openGrowthEfficiency(next,deps);
+  expect(document.querySelector<HTMLSelectElement>('select[aria-label="덱 1 A 공격력 목표 줄 수"]')!.value).toBe('4');
+  expect(document.querySelector<HTMLElement>('.growth-character')!.dataset.excluded).toBe('true');
+  expect(document.querySelector<HTMLButtonElement>('.growth-exclude')!.disabled).toBe(false);
+  document.querySelector<HTMLButtonElement>('.growth-exclude')!.click();
+  expect(document.querySelector<HTMLSelectElement>('select[aria-label="덱 1 A 공격력 목표 줄 수"]')!.disabled).toBe(false);
+ });
  it('persists per-character target options and levels across new sessions and resets them',()=>{
   const deps={settings,catalog:new Map(),deckName:()=> '덱 1',current:()=>({overloadLines:{머리:[{option:'atk',level:2}]}}),simulate:vi.fn()};
   openGrowthEfficiency(batch,deps);

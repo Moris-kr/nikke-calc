@@ -1,5 +1,5 @@
 import {registerGrowthMcp} from './growth-mcp';
-import {loadGrowthTarget,saveGrowthTarget,clearGrowthTarget} from './growth-target-storage';
+import {loadGrowthTarget,saveGrowthTarget,clearGrowthTarget,loadGrowthExcluded,saveGrowthExcluded} from './growth-target-storage';
 import {overloadGoalEditor} from './overload-goals-ui';
 import {analyzeModulePart,mapLimited} from './overload-cost-client';
 import { overloadLinesOf } from './character-settings';
@@ -154,7 +154,8 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
       if(savedTarget)Object.assign(targetLevels[index]![name]!,savedTarget.levels);
       const lines = overloadLinesOf(savedTarget?.lines??source);for(const [part,rows] of Object.entries(lines))for(const [i,row] of rows.entries()){const original=source?.[part as keyof OverloadLines]?.[i];row.level=Math.max(targetLevels[index]![name]![row.option]??15,original?.option===row.option?original.level:1);} targets[index]![name] = lines;
       let resetting=false;
-      const persistTarget=()=>{if(!resetting&&!saveGrowthTarget(name,lines,targetLevels[index]![name]!))message.textContent='브라우저 저장 공간에 목표 옵션을 저장하지 못했습니다.';};
+      const savedNote=node('small',savedTarget?'목표 옵션 저장값 불러옴':'목표 옵션 변경 시 자동 저장','growth-note');
+      const persistTarget=()=>{if(resetting)return;const ok=saveGrowthTarget(name,lines,targetLevels[index]![name]!);savedNote.textContent=ok?'목표 옵션 · 줄 수 · 타협레벨 저장됨':'저장 실패 · 브라우저 저장 공간을 확인해 주세요.';if(!ok)message.textContent=savedNote.textContent;};
       const card = node('details', '', 'growth-character'); card.open = true;
       const summary = node('summary');
       const image = deps.catalog.get(name)?.image;
@@ -180,7 +181,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
         card.dataset.excluded = String(omit); card.open = !omit;
         exclude.textContent = omit ? '육성 대상 포함' : '육성 대상 제외';
         exclude.setAttribute('aria-label', `${deps.deckName(entry.deckId)} ${name} ${exclude.textContent}`);
-        lockEditor(false); invalidate();
+        lockEditor(false); invalidate();if(!saveGrowthExcluded(name,omit))message.textContent='육성 제외 여부를 저장하지 못했습니다.';
       };
       summary.addEventListener('click', event => { if (excluded[index]!.has(name)) event.preventDefault(); });
       card.addEventListener('toggle', () => { if (excluded[index]!.has(name)) card.open = false; });
@@ -255,10 +256,12 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
       }
       const resetTarget=node('button','목표 옵션 리셋','growth-secondary');resetTarget.type='button';resetTarget.setAttribute('aria-label',`${deps.deckName(entry.deckId)} ${name} 목표 옵션 리셋`);
       resetTarget.onclick=()=>{resetting=true;for(const key of Object.keys(targetLevels[index]![name]!))delete targetLevels[index]![name]![key];const defaults=overloadLinesOf(source);let slot=0;for(const part of GROWTH_PARTS)for(const row of defaults[part]){const select=targetSelects[slot++]!;select.value=row.option;select.dispatchEvent(new Event('change'));}resetting=false;goalEditor.dispatchEvent(new Event('goals-changed'));message.textContent=clearGrowthTarget(name)?'목표 옵션을 현재 장비 구성 · Lv.15로 초기화했습니다.':'목표를 초기화했지만 브라우저 저장값을 삭제하지 못했습니다.';};
-      card.append(resetTarget,node('p','목표 옵션과 수치작 타협레벨은 니케별로 이 브라우저에 자동 저장됩니다. 리셋하면 현재 장비 구성 · Lv.15로 돌아갑니다.','growth-note'),parts); group.append(card);
+      if(loadGrowthExcluded(name)){excluded[index]!.add(name);card.dataset.excluded='true';card.open=false;exclude.textContent='육성 대상 포함';exclude.setAttribute('aria-label',`${deps.deckName(entry.deckId)} ${name} 육성 대상 포함`);}
+      card.append(savedNote,resetTarget,node('p','목표 옵션과 수치작 타협레벨은 니케별로 이 브라우저에 자동 저장됩니다. 리셋하면 현재 장비 구성 · Lv.15로 돌아갑니다.','growth-note'),parts); group.append(card);
     }
     editor.append(group);
   });
+  lockEditor(false);
   const gapsFor = (index: number): string[] => {
     const result: string[] = [];
     for (const [name, target] of Object.entries(targets[index]!)) {
