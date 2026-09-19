@@ -43,6 +43,7 @@ export function openOverloadGuide(name:string,catalog:SettingsCatalog,current:Ch
    answer.parts.forEach((offer,p)=>{const {plan,profile}=offer;const details=el('details');details.append(el('summary',`${GUIDE_PARTS[p]} · 모듈 ${plan.modules.toFixed(1)} / 키 ${plan.keys.toFixed(1)}`));
     if(!plan.target.some(Boolean)){details.append(el('p','이 부위는 작업하지 않습니다.'));card.append(details);return;}
     for(const [slot,option] of plan.target.entries())if(option){const group=profile.assignments[profile.target.indexOf(option)]!;const originalGoal=goals.filter(g=>g.count)[group]!;details.append(el('p',`${slot+1}번: ${catalog.overloadFields[option]!.label} Lv.${plan.levels[option]} 이상${option!==originalGoal.option?` (${catalog.overloadFields[originalGoal.option]!.label}의 타협 옵션)`:''}`));}
+    details.append(el('p','아래 순서는 시뮬레이션에서 선택한 옵션을 기준으로 한 진행 예시입니다. 실제 옵작에서는 직접 설정한 타협 옵션도 함께 확인해 주세요. 허용한 타협 옵션으로 목표 줄 수와 최소 레벨을 충족했다면, 예시에 적힌 옵션만 찾으려고 계속 돌릴 필요는 없습니다. 선택을 바꾸면 이후 순서와 예상 비용은 달라질 수 있습니다.','og-note'));
     const steps=el('ol');
     const kept=plan.target.map((option,i)=>option&&(locks[p]!&(1<<i))&&rows[p]![i]!.option===option&&(plan.mode==='effects-first'||rows[p]![i]!.level>=plan.levels[option]!)?i:-1).filter(i=>i>=0);
     const lineNames=(slots:number[])=>slots.map(i=>`${i+1}번 줄`).join(' · ');
@@ -73,7 +74,7 @@ export function openOverloadGuide(name:string,catalog:SettingsCatalog,current:Ch
     const schedule=Array.from({length:6},(_,i)=>`${i+1}번째 작업: ${plan.schedule&(1<<i)?'락 키':'모듈'}`).join(' → ');
     details.append(el('p',plan.schedule===0?'잠금은 모두 모듈을 사용하세요.':plan.schedule===63?'잠금은 모두 락 키를 사용하세요. 돌릴 때마다 같은 줄을 다시 잠그세요.':`잠금 방식: ${schedule}`));
     if(plan.schedule!==0&&plan.schedule!==63)details.append(el('p','한 목표가 나올 때까지 반복해서 돌리는 것을 작업 1회로 셉니다. 이미 맞춰져서 건너뛴 작업은 세지 않습니다. 모듈→락 키로 바꿀 때는 잠금을 해제한 뒤 키로 다시 잠그세요. 락 키→모듈로 바꿀 때는 모듈로 새로 잠그세요.','og-note'));
-    details.append(el('p','타협 옵션 중 이번 비용 계산에서 선택한 효과를 위 순서에 표시했습니다. 다른 효과로 바꾸면 비용도 달라집니다.','og-note'));card.append(details);
+    card.append(details);
    });output.append(card);
   }
  };
