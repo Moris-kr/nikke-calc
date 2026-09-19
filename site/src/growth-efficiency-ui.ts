@@ -214,14 +214,14 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
         const label = node('label', '', 'growth-confirm'); const check = node('input'); check.type = 'checkbox';
         label.append(check, document.createTextNode('부위별 원본을 확인할 수 없습니다. 아래에 목표 옵션을 직접 설정했습니다.')); card.append(label); acknowledgments.push(check);
       }
-      const targetSelects:HTMLSelectElement[]=[];
+      const applyTargets=(allocated:OverloadLines)=>{const next=overloadLinesOf(allocated);for(const part of GROWTH_PARTS)for(const [i,row] of next[part].entries()){const original=source?.[part]?.[i];lines[part][i]={option:row.option,level:Math.max(targetLevels[index]![name]![row.option]??15,original?.option===row.option?original.level:1)};}invalidate();persistTarget();};
       const appliedGoal=node('p','','growth-note');
       const goalEditor=overloadGoalEditor(Object.fromEntries(Object.entries(deps.settings.overloadFields).filter(([key])=>steps[key]?.length===15)),()=>lines,(allocated,description)=>{
-        const next=overloadLinesOf(allocated);let slot=0;
-        for(const part of GROWTH_PARTS)for(const row of next[part]){const select=targetSelects[slot++]!;select.value=row.option;select.dispatchEvent(new Event('change'));}
+        applyTargets(allocated);
         goalNotes[index]![name]=description;appliedGoal.textContent=description;
       },`${deps.deckName(entry.deckId)} ${name}`,targetLevels[index]![name]);
-      card.append(goalEditor,appliedGoal);
+      (goalEditor as HTMLDetailsElement).open=true;
+      card.append(node('h4','오버로드 목표 설정'),node('p','아래에서 원하는 옵션의 줄 수와 최소 레벨만 선택하세요. 부위별 현재 옵션은 참고용이며 목표에 따라 바뀌지 않습니다.','growth-note'),goalEditor,appliedGoal);
       const parts = node('div', '', 'growth-parts');
       equipment[index]![name] = {};
       for (const part of GROWTH_PARTS) {
@@ -236,28 +236,23 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
         equip.title = '목표 장비 강화 레벨 · 오버로드 수치작 레벨과 별개입니다.';
         equip.onchange = () => { const value = equip.value; equipment[index]![name]![part] = /^\d$/.test(value) ? Number(value) : value as EquipSetting; invalidate(); };
         partHeader.append(equip); area.append(partHeader);
-        lines[part].forEach((row, rowIndex) => {
+        lines[part].forEach((_row, rowIndex) => {
           const original = source ? overloadLinesOf(source)[part][rowIndex] : undefined;
           const line = node('div', '', 'growth-line');
           const oldLabel = original?.option ? `${deps.settings.overloadFields[original.option]?.label ?? original.option} · Lv.${original.level} · ${steps[original.option]?.[original.level-1] ?? '?'}%` : source ? '빈 옵션' : '확인 불가';
           line.append(node('small', `${rowIndex+1}번 · 현재 ${oldLabel}`));
-          const select = node('select'); select.setAttribute('aria-label', `${deps.deckName(entry.deckId)} ${name} ${part} ${rowIndex+1}번 목표 옵션`);
-          select.add(new Option('옵션 없음', ''));
-          for (const [key, field] of Object.entries(deps.settings.overloadFields)) if (steps[key]?.length === 15) select.add(new Option(`${field.label} · Lv.${targetLevels[index]![name]![key]??15} · ${steps[key]![(targetLevels[index]![name]![key]??15)-1]}%`, key));
-          select.value = row.option;targetSelects.push(select);
-          const gap = node('span', optionGap(original, row.option, steps,row.level), 'growth-gap');
-          select.onchange = () => { delete goalNotes[index]![name];appliedGoal.textContent='';row.option = select.value;goalEditor.dispatchEvent(new Event('goals-changed')); row.level=Math.max(targetLevels[index]![name]![row.option]??15,original?.option===row.option?original.level:1);for(const option of select.options)if(option.value)option.textContent=`${deps.settings.overloadFields[option.value]!.label} · Lv.${targetLevels[index]![name]![option.value]??15} · ${steps[option.value]![(targetLevels[index]![name]![option.value]??15)-1]}%`;gap.textContent = optionGap(original, row.option, steps,row.level); invalidate(); persistTarget(); };
+          const select = node('select');select.setAttribute('aria-label',`${deps.deckName(entry.deckId)} ${name} ${part} ${rowIndex+1}번 현재 옵션`);select.add(new Option(oldLabel,original?.option??''));select.disabled=true;select.dataset.unavailable='true';
           const lockLabel=node('label','','growth-lock');const lockCheck=node('input');lockCheck.type='checkbox';lockCheck.setAttribute('aria-label',`${deps.deckName(entry.deckId)} ${name} ${part} ${rowIndex+1}번 현재 잠금`);
           lockCheck.disabled=!original?.option;lockCheck.dataset.unavailable=String(!original?.option);
           lockCheck.onchange=()=>{const mask=lockMasks[index]![name]![part]??0;lockMasks[index]![name]![part]=lockCheck.checked?mask|(1<<rowIndex):mask&~(1<<rowIndex);invalidate();};
           lockLabel.append(lockCheck,document.createTextNode('현재 잠금 (직접 확인)'));
-          line.append(select, gap,lockLabel); area.append(line);
+          line.append(select,lockLabel); area.append(line);
         }); parts.append(area);
       }
       const resetTarget=node('button','목표 옵션 리셋','growth-secondary');resetTarget.type='button';resetTarget.setAttribute('aria-label',`${deps.deckName(entry.deckId)} ${name} 목표 옵션 리셋`);
-      resetTarget.onclick=()=>{resetting=true;for(const key of Object.keys(targetLevels[index]![name]!))delete targetLevels[index]![name]![key];const defaults=overloadLinesOf(source);let slot=0;for(const part of GROWTH_PARTS)for(const row of defaults[part]){const select=targetSelects[slot++]!;select.value=row.option;select.dispatchEvent(new Event('change'));}resetting=false;goalEditor.dispatchEvent(new Event('goals-changed'));message.textContent=clearGrowthTarget(name)?'목표 옵션을 현재 장비 구성 · Lv.15로 초기화했습니다.':'목표를 초기화했지만 브라우저 저장값을 삭제하지 못했습니다.';};
+      resetTarget.onclick=()=>{resetting=true;for(const key of Object.keys(targetLevels[index]![name]!))delete targetLevels[index]![name]![key];applyTargets(overloadLinesOf(source));resetting=false;goalEditor.dispatchEvent(new Event('goals-changed'));message.textContent=clearGrowthTarget(name)?'목표 옵션을 현재 장비 구성 · Lv.15로 초기화했습니다.':'목표를 초기화했지만 브라우저 저장값을 삭제하지 못했습니다.';};
       if(loadGrowthExcluded(name)){excluded[index]!.add(name);card.dataset.excluded='true';card.open=false;exclude.textContent='육성 대상 포함';exclude.setAttribute('aria-label',`${deps.deckName(entry.deckId)} ${name} 육성 대상 포함`);}
-      card.append(savedNote,resetTarget,node('p','목표 옵션과 수치작 타협레벨은 니케별로 이 브라우저에 자동 저장됩니다. 리셋하면 현재 장비 구성 · Lv.15로 돌아갑니다.','growth-note'),parts); group.append(card);
+      card.append(savedNote,resetTarget,node('p','목표 옵션과 수치작 타협레벨은 니케별로 이 브라우저에 자동 저장됩니다. 리셋하면 현재 장비 구성 · Lv.15로 돌아갑니다.','growth-note'),node('h4','현재 장비 옵션 · 참고용'),node('p','옵션은 위의 12줄 목표 구성에서 설정하세요. 여기서는 목표 장비레벨과 현재 잠금만 변경할 수 있습니다.','growth-note'),parts); group.append(card);
     }
     editor.append(group);
   });

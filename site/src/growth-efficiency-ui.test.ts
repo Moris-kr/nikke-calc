@@ -27,14 +27,14 @@ describe('growth efficiency dialog',()=>{
  it('persists per-character target options and levels across new sessions and resets them',()=>{
   const deps={settings,catalog:new Map(),deckName:()=> '덱 1',current:()=>({overloadLines:{머리:[{option:'atk',level:2}]}}),simulate:vi.fn()};
   openGrowthEfficiency(batch,deps);
-  const pick=()=>document.querySelector<HTMLSelectElement>('select[aria-label="덱 1 A 머리 1번 목표 옵션"]')!;
-  pick().value='ammo';pick().dispatchEvent(new Event('change'));
+  const pick=()=>document.querySelector<HTMLSelectElement>('select[aria-label="덱 1 A 장탄 목표 줄 수"]')!;
+  pick().value='1';pick().dispatchEvent(new Event('change'));
   const level=document.querySelector<HTMLSelectElement>('select[aria-label="덱 1 A 장탄 수치작 타협레벨"]')!;level.value='10';level.dispatchEvent(new Event('change'));
   close();const next=structuredClone(batch);next.decks[0]!.request.duration=60;openGrowthEfficiency(next,deps);
-  expect(pick().value).toBe('ammo');
+  expect(pick().value).toBe('1');
   expect(document.querySelector<HTMLSelectElement>('select[aria-label="덱 1 A 장탄 수치작 타협레벨"]')!.value).toBe('10');
   document.querySelector<HTMLButtonElement>('button[aria-label="덱 1 A 목표 옵션 리셋"]')!.click();
-  expect(pick().value).toBe('atk');expect(localStorage.getItem('nikke-growth-target:v1:A')).toBeNull();
+  expect(pick().value).toBe('0');expect(localStorage.getItem('nikke-growth-target:v1:A')).toBeNull();
   expect(document.querySelector<HTMLSelectElement>('select[aria-label="덱 1 A 장탄 수치작 타협레벨"]')!.value).toBe('15');
  });
  it('restores targets and completed results on reopen without running simulations again',async()=>{
@@ -120,7 +120,7 @@ describe('growth efficiency dialog',()=>{
   expect(simulate.mock.calls[1]![0].defenseRateWindows).toEqual(request.defenseRateWindows);
   expect(simulate.mock.calls[1]![0].characters.A.overload).toEqual({atk:15});
   expect(batch.decks[0]!.request.characters!.A!.overload).toEqual({atk:2});
-  const select=document.querySelector<HTMLSelectElement>('.growth-line select')!;select.value='ammo';select.dispatchEvent(new Event('change'));
+  const select=document.querySelector<HTMLSelectElement>('select[aria-label="덱 1 A 장탄 목표 줄 수"]')!;select.value='1';select.dispatchEvent(new Event('change'));
   expect(document.querySelector('.growth-output')?.textContent).toBe('');
   expect(document.querySelector<HTMLButtonElement>('footer .growth-secondary')?.disabled).toBe(true);
  });
@@ -168,7 +168,7 @@ describe('growth efficiency dialog',()=>{
   document.querySelector<HTMLButtonElement>('.growth-primary')!.click();
   await vi.waitFor(()=>expect(document.querySelector('.growth-status')?.textContent).toContain('시험 오류'));
   expect(document.querySelector<HTMLButtonElement>('footer .growth-secondary')?.disabled).toBe(true);
-  expect(document.querySelector<HTMLSelectElement>('.growth-line select')?.disabled).toBe(false);
+  expect(document.querySelector<HTMLSelectElement>('.growth-line select')?.disabled).toBe(true);
  });
  it('sends chosen skills, collection and equipment while preserving the current build',async()=>{
   const configured=structuredClone(settings); configured.collectionStages=['없음','SR0','SR15'];
@@ -197,11 +197,15 @@ it('applies line counts immediately without compromise or apply buttons',()=>{
  const currentLines={머리:[{option:'atk',level:2}]};
  openGrowthEfficiency(batch,{settings,catalog:new Map(),deckName:()=> '덱 1',current:()=>({overloadLines:currentLines}),simulate:vi.fn()});
  const count=document.querySelector<HTMLSelectElement>('select[aria-label="덱 1 A 공격력 목표 줄 수"]')!;count.value='4';count.dispatchEvent(new Event('change'));
- expect([...document.querySelectorAll<HTMLSelectElement>('.growth-line select')].filter(s=>s.value==='atk')).toHaveLength(4);
+ expect([...document.querySelectorAll<HTMLSelectElement>('.growth-line select')].filter(s=>s.value==='atk')).toHaveLength(1);
+ expect([...document.querySelectorAll<HTMLSelectElement>('.growth-line select')].every(s=>s.disabled)).toBe(true);
+ expect(document.querySelector<HTMLDetailsElement>('.growth-goals')!.open).toBe(true);
  expect(document.querySelector('select[aria-label*="타협 옵션"]')).toBeNull();
  expect(document.querySelector('.growth-goal-actions')).toBeNull();
- const slot=[...document.querySelectorAll<HTMLSelectElement>('.growth-line select')].find(s=>s.value==='atk')!;slot.value='ammo';slot.dispatchEvent(new Event('change'));
- expect(count.value).toBe('3');expect(document.querySelector<HTMLSelectElement>('select[aria-label="덱 1 A 장탄 목표 줄 수"]')!.value).toBe('1');
+ count.value='3';count.dispatchEvent(new Event('change'));
+ const ammo=document.querySelector<HTMLSelectElement>('select[aria-label="덱 1 A 장탄 목표 줄 수"]')!;ammo.value='1';ammo.dispatchEvent(new Event('change'));
+ expect(count.value).toBe('3');expect(ammo.value).toBe('1');
+ expect(document.querySelector<HTMLSelectElement>('.growth-line select')!.value).toBe('atk');
 });
 
 it('lets MCP read goals and run the same browser calculation without exporting code',async()=>{
