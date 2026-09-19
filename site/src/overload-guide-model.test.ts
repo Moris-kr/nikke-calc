@@ -3,7 +3,7 @@ import {guideProfiles,traceSpend,searchGuidePart,solveOverloadGuide,allocateGuid
 it('accounts for currency switches, repeated keys and existing module locks',()=>{
  const trace=[{locks:1,rolls:10,kind:'effect' as const},{locks:3,rolls:5,kind:'value' as const}];
  expect(traceSpend(trace,0,0)).toMatchObject({modules:38,lock:3,keys:0,effect:20,value:15});
- expect(traceSpend(trace,0,63)).toMatchObject({modules:35,lock:0,keys:450});
+ expect(traceSpend(trace,0,63)).toMatchObject({modules:35,lock:0,keys:450,effectKeys:200,valueKeys:250});
  expect(traceSpend(trace,0,2)).toMatchObject({modules:36,lock:1,keys:250});
  expect(traceSpend(trace,0,1)).toMatchObject({modules:38,lock:3,keys:200});
  expect(traceSpend(trace,1,0).modules).toBe(37);
