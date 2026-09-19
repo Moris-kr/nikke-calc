@@ -33,7 +33,6 @@ def create_server(timeout: int = 60, max_concurrent: int = 2, browser_mode: bool
         '지침 조회 자체는 최신 기록 조회가 아닙니다. 웹/브라우저 접근이 없으면 ENIKK를 확인했다고 말하지 마세요. '
         '먼저 정식 이름과 설정을 조회하고 실제 simulate_squad/compare_setups 결과로 답하세요. '
         '수치를 추측하지 마세요. 입력한 육성이 없으면 기본 육성이며 사용자 실제 계정으로 표현하지 마세요. '
-        '오버로드 모듈 분석을 외부에 맡기려면 export_overload_plan의 코드를 AI의 Node.js·Python 실행 도구로 실행하고 import_overload_plan_result로 반환하세요. 실행 없이 추측하지 마세요. '
         '육성 전후 예상 전투력은 compare_browser_growth로 비교하세요. 전용 MCP 도구가 없는 기능은 '
         'get_settings.browserFallback 지침에 따라 실제 계산기 UI를 확인하세요. 브라우저 접근 없이 조작했다고 말하지 마세요. '
         '보스 만들기 요청은 create_boss_code로 검증된 NK5 코드를 만들어 전달하세요. 도형은 실측 근거와 가정을 구분하고, '
@@ -203,16 +202,13 @@ def create_server(timeout: int = 60, max_concurrent: int = 2, browser_mode: bool
 
     @server.tool(annotations=calculation)
     def export_overload_plan(connection_code: str) -> dict[str, Any]:
-        """육성효율 창의 목표·현재 장비·잠금과 실행 가능한 모듈 계산 코드를 내보냅니다. get_browser_result로 packet/prompt를 받으세요. AI의 Node.js·Python 코드 실행 환경에서 수행하며 도구가 없으면 추측하지 마세요. 대화·계정 ID·프로필 사진은 포함하지 않습니다. 모듈 탐색과 기본 육성 비교 전투를 외부에서 계산합니다. 별도로 요청하는 덱 내 우선순위는 브라우저 계산입니다. 결과는 import_overload_plan_result로 반환합니다."""
+        """브라우저 육성효율 창에 설정한 목표·현재 옵션·잠금 재화를 조회합니다. 엔진이나 코드를 전달하지 않습니다. get_browser_result로 결과를 받으세요. 목표 계산은 calculate_overload_plan을 사용하세요."""
         return relay.submit(connection_code, {'kind': 'module-export'})
 
-    @server.tool(annotations=ToolAnnotations(read_only_hint=False, destructive_hint=False,
-                                           idempotent_hint=False, open_world_hint=False))
-    def import_overload_plan_result(connection_code: str, result_json: str) -> dict[str, Any]:
-        """외부 코드 실행의 결과 JSON을 육성효율 창으로 가져옵니다. 요청 식별자·목표·합계·표본 수를 검증하지만 실제 실행은 증명하지 않습니다. 저장 육성을 덮어쓰지 않고 외부 계산으로 표시합니다. get_browser_result로 완료를 확인하세요. 입력 코드는 실행하지 않습니다."""
-        if len(result_json) > 2_000_000:
-            fail('INVALID_SETTINGS', '결과 JSON은 2MB 이하로 전달하세요.')
-        return relay.submit(connection_code, {'kind': 'module-import', 'moduleResult': result_json})
+    @server.tool(annotations=calculation)
+    def calculate_overload_plan(connection_code: str) -> dict[str, Any]:
+        """육성효율 창의 현재 목표를 사용자 브라우저에서 계산합니다. 목표는 먼저 창에서 설정하세요. 모듈 가성비 분석을 포함하며 시간이 걸릴 수 있습니다. get_browser_result로 딜·모듈·락 키 소모 결과를 받으세요. AI나 서버에 엔진 코드를 전달하지 않습니다."""
+        return relay.submit(connection_code, {'kind': 'module-calculate'})
 
     @server.tool(annotations=calculation)
     def inspect_browser_state(connection_code: str) -> dict[str, Any]:

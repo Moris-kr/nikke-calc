@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {exportModuleExchange,importModuleExchange} from './overload-external';
 import { growthLabel, openGrowthEfficiency, openGrowthReportPreview } from './growth-efficiency-ui';
 import type { BatchResult, SettingsCatalog, SimulationRequest, SimulationResult } from './types';
 const steps = Array.from({length:15},(_,i)=>i+1);
@@ -157,30 +156,12 @@ describe('growth efficiency dialog',()=>{
  });
 });
 
-it('exports and imports every basic comparison without running browser calculations',async()=>{
- HTMLElement.prototype.scrollIntoView=vi.fn();
- const keys=['atk_pct','element_bonus','crit_dmg'];
- const fullSettings={...settingsTemplate,overloadSteps:Object.fromEntries(keys.map(k=>[k,steps])),overloadFields:Object.fromEntries(keys.map(k=>[k,{label:k}])),characters:{A:{overload:Object.fromEntries(keys.map(k=>[k,4]))}}} as unknown as SettingsCatalog;
- const currentLines=Object.fromEntries(['머리','몸통','팔','다리'].map(part=>[part,keys.map(option=>({option,level:1}))]));
- const saved=structuredClone(batch);saved.decks[0]!.request.characters={A:{overload:Object.fromEntries(keys.map(k=>[k,4])),overloadLines:currentLines}};
- const simulate=vi.fn();
- openGrowthEfficiency(saved,{settings:fullSettings,catalog:new Map(),deckName:()=> '덱 1',current:()=>({overloadLines:currentLines}),simulate});
- const {packet,prompt}=exportModuleExchange();expect(packet.jobs).toHaveLength(4);expect(prompt).toContain('run-battle.py');
- const result={format:'nikke-overload-result',version:1,model:packet.model,requestId:packet.requestId,engineVersion:packet.engineVersion,
-  results:packet.jobs.map(job=>({currency:job.currency??'modules',effect:0,value:100,keys:0,id:job.id,mode:'effects-first',target:job.target,order:[0,1,2],lock:3,change:100,total:103,error95:1,samples:4000,unlocked:[]})),
-  simulations:packet.simulations.map(sim=>({id:sim.id,result:{squadTotal:120,duration:sim.request.duration,hitCount:1,charTotals:{A:120}}}))};
- importModuleExchange(JSON.stringify(result));
- document.querySelector<HTMLButtonElement>('.growth-primary')!.click();
- await vi.waitFor(()=>expect(document.querySelector('.growth-cost-results')).not.toBeNull());
- expect(simulate).not.toHaveBeenCalled();expect(document.querySelector('.growth-output')!.textContent).toContain('외부 계산');
- expect(document.querySelector('.growth-cost-results')!.textContent).toContain('목표 옵션 12줄 찾기 0.0개');
- expect(document.querySelector('.growth-cost-results')!.textContent).toContain('Lv.15 수치작 400.0개');
- expect(document.querySelector('.growth-cost-results')!.textContent).not.toContain('이미 있으면');
- const currency=document.querySelector<HTMLSelectElement>('select[aria-label="잠금 재화"]')!;currency.value='keys';currency.dispatchEvent(new Event('change'));
- expect(()=>importModuleExchange(JSON.stringify(result))).toThrow('먼저');
- expect(exportModuleExchange().packet.jobs.every(job=>job.currency==='keys')).toBe(true);
- const select=document.querySelector<HTMLSelectElement>('.growth-line select')!;select.value='';select.dispatchEvent(new Event('change'));
- expect(()=>importModuleExchange(JSON.stringify(result))).toThrow('먼저');
+it('keeps browser calculation but exposes no external engine exchange',()=>{
+ openGrowthEfficiency(batch,{settings,catalog:new Map(),deckName:()=> '덱 1',current:()=>({overloadLines:{머리:[{option:'atk',level:2}]}}),simulate:vi.fn()});
+ expect(document.querySelector('.growth-external')).toBeNull();
+ expect(document.querySelector('textarea[aria-label="외부 계산 프롬프트"]')).toBeNull();
+ expect(document.querySelector('a[download]')).toBeNull();
+ expect(document.querySelector('.growth-primary')!.textContent).toBe('계산하기');
 });
 it('applies line counts immediately without compromise or apply buttons',()=>{
  const currentLines={머리:[{option:'atk',level:2}]};
@@ -191,4 +172,33 @@ it('applies line counts immediately without compromise or apply buttons',()=>{
  expect(document.querySelector('.growth-goal-actions')).toBeNull();
  const slot=[...document.querySelectorAll<HTMLSelectElement>('.growth-line select')].find(s=>s.value==='atk')!;slot.value='ammo';slot.dispatchEvent(new Event('change'));
  expect(count.value).toBe('3');expect(document.querySelector<HTMLSelectElement>('select[aria-label="덱 1 A 장탄 목표 줄 수"]')!.value).toBe('1');
+});
+
+it('lets MCP read goals and run the same browser calculation without exporting code',async()=>{
+ HTMLElement.prototype.scrollIntoView=vi.fn();
+ const {inspectGrowthPlan,calculateGrowthPlan}=await import('./growth-mcp');
+ const moduleClient=await import('./overload-cost-client');
+ vi.spyOn(moduleClient,'analyzeModulePart').mockResolvedValue({levels:[15,15,15],currency:'modules',mode:'effects-first',target:['atk_pct','element_bonus','crit_dmg'],order:[0,1,2],effect:0,value:100,lock:3,change:100,total:103,keys:0,error95:1,samples:4000,unlocked:[]});
+ const keys=['atk_pct','element_bonus','crit_dmg'];
+ const fullSettings={...settingsTemplate,overloadSteps:Object.fromEntries(keys.map(k=>[k,steps])),overloadFields:Object.fromEntries(keys.map(k=>[k,{label:k}])),characters:{A:{overload:Object.fromEntries(keys.map(k=>[k,4]))}}} as unknown as SettingsCatalog;
+ const lines=Object.fromEntries(['머리','몸통','팔','다리'].map(part=>[part,keys.map(option=>({option,level:1}))]));
+ const saved=structuredClone(batch);saved.decks[0]!.request.characters={A:{overload:Object.fromEntries(keys.map(k=>[k,4])),overloadLines:lines}};
+ const simulate=vi.fn().mockResolvedValue(result(120));
+ openGrowthEfficiency(saved,{settings:fullSettings,catalog:new Map(),deckName:()=> '덱 1',current:()=>({overloadLines:lines}),simulate});
+ const plan=inspectGrowthPlan();expect(plan.execution).toBe('user-browser');expect(plan).not.toHaveProperty('prompt');expect(plan).not.toHaveProperty('engineVersion');
+ const answer=await calculateGrowthPlan();expect(answer.execution).toBe('user-browser');expect(simulate).toHaveBeenCalledTimes(3);expect(answer.modules).toHaveLength(1);
+ expect(document.querySelector('.growth-cost-results')!.textContent).toContain('목표 옵션 12줄 찾기 0.0개');
+ expect(document.querySelector('.growth-cost-results')!.textContent).toContain('목표 레벨 수치작 400.0개');
+});
+
+it('defaults value targets to 15 and applies individual and bulk thresholds to damage',async()=>{
+ HTMLElement.prototype.scrollIntoView=vi.fn();const simulate=vi.fn().mockResolvedValue(result(120));
+ openGrowthEfficiency(batch,{settings,catalog:new Map(),deckName:()=> '덱 1',current:()=>({overloadLines:{머리:[{option:'atk',level:2}]}}),simulate});
+ const level=document.querySelector<HTMLSelectElement>('select[aria-label="덱 1 A 공격력 수치작 타협레벨"]')!;expect(level.value).toBe('15');
+ level.value='8';level.dispatchEvent(new Event('change'));
+ const {inspectGrowthPlan}=await import('./growth-mcp');expect((inspectGrowthPlan().decks as any)[0].characters[0].targetOverloadLines.머리[0].level).toBe(8);
+ const bulk=document.querySelector<HTMLSelectElement>('select[aria-label="모든 수치작 타협레벨"]')!;bulk.value='10';bulk.dispatchEvent(new Event('change'));
+ expect([...document.querySelectorAll<HTMLSelectElement>('.growth-goal-level')].every(select=>select.value==='10')).toBe(true);
+ document.querySelector<HTMLButtonElement>('.growth-primary')!.click();await vi.waitFor(()=>expect(simulate).toHaveBeenCalledTimes(2));
+ expect(simulate.mock.calls[1]![0].characters.A.overload.atk).toBe(10);
 });

@@ -103,3 +103,14 @@ it('keeps heartbeat but does not dequeue another job until result acknowledgemen
   expect(JSON.parse(latest[1].body).ready).toBe(true);
   connection.disconnect();
 });
+
+it('routes growth goals and calculation to the browser without engine export',async()=>{
+ const {registerGrowthMcp}=await import('./growth-mcp');
+ const inspect=vi.fn(()=>({execution:'user-browser',decks:[]}));const calculate=vi.fn(async()=>({execution:'user-browser',modules:[]}));const unregister=registerGrowthMcp({inspect,calculate});
+ try{
+  await executeBrowserJob({id:'g',kind:'module-export'},()=>state,engine());
+  await executeBrowserJob({id:'g',kind:'module-calculate'},()=>state,engine());
+  expect(inspect).toHaveBeenCalledOnce();expect(calculate).toHaveBeenCalledOnce();
+  await expect(executeBrowserJob({id:'g',kind:'module-import'} as any,()=>state,engine())).rejects.toThrow('지원하지 않는');
+ }finally{unregister();}
+});

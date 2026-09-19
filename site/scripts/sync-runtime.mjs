@@ -1,4 +1,3 @@
-import {build as bundleSolver} from 'rolldown';
 import { createHash } from 'node:crypto';
 import {
   copyFileSync,
@@ -248,25 +247,6 @@ if (strayAliases.length > 0) {
 }
 console.log(`runtime ${manifest.files.length} files · catalog ${catalog.length} characters (name_code ${withNameCode}, 별칭 ${withAlias}) · settings exported · version ${manifest.version}`);
 
-// Same probability model in the browser worker and the copyable external Node.js program.
-const solverBuild=await bundleSolver({input:join(siteDir,'src/overload-cost.ts'),output:{format:'esm'},write:false});
-const solver = solverBuild.output[0].code + `
-import {readFileSync} from 'node:fs';
-const input=JSON.parse(readFileSync(0,'utf8'));
-if(input.format!=='nikke-overload-job'||input.version!==1)throw new Error('Unsupported job');
-const results=input.jobs.map(job=>({id:job.id,...estimateModules(job.current,job.target,job.locks,4000,job.currency)}));
-process.stdout.write(JSON.stringify({format:'nikke-overload-result',version:1,model:input.model,requestId:input.requestId,results}));
-`;
-mkdirSync(join(siteDir,'src/generated'),{recursive:true});
-writeFileSync(join(siteDir,'src/generated/overload-solver.txt'),solver);
-writeFileSync(join(publicDir,'overload-solver.mjs'),solver);
-
-// Public, versioned engine bundle for external code execution; only public runtime files.
-const engineVersion=JSON.parse(readFileSync(join(runtimeDir,'manifest.json'),'utf8')).version;
-writeFileSync(join(siteDir,'src/generated/overload-version.json'),JSON.stringify({version:engineVersion}));
-execFileSync('python',['-c',`import pathlib,sys,zipfile
-root=pathlib.Path(sys.argv[1])
-with zipfile.ZipFile(sys.argv[2],'w',zipfile.ZIP_DEFLATED) as archive:
- for source in root.rglob('*'):
-  if source.is_file(): archive.write(source,source.relative_to(root).as_posix())
-`,runtimeDir,join(publicDir,`external-engine-${engineVersion}.zip`)],{stdio:'pipe'});
+// Remove retired external-execution artifacts from reused build directories.
+for(const name of readdirSync(publicDir))if(/^external-engine-[a-f0-9]+\.zip$/.test(name)||name==='overload-solver.mjs')rmSync(join(publicDir,name));
+for(const name of ['overload-solver.txt','overload-version.json'])rmSync(join(siteDir,'src/generated',name),{force:true});

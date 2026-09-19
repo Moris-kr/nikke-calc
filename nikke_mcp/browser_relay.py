@@ -73,7 +73,7 @@ class BrowserRelay:
                 del jobs[next(iter(jobs))]
             job_id = secrets.token_urlsafe(16)
             jobs[job_id] = {'payload': {'id': job_id, **payload}, 'status': 'queued', 'started': self.clock(),
-                            'timeout': 1260 if payload.get('kind') == 'recommend' else 300}
+                            'timeout': 1260 if payload.get('kind') in ('recommend', 'module-calculate') else 300}
             return {'status': 'queued', 'jobId': job_id,
                     'instruction': '계산기 탭을 열어 두고 get_browser_result(connection_code, job_id)로 결과를 확인하세요.'}
 
@@ -164,6 +164,22 @@ class BrowserRelay:
                         raise ValueError()
                 if solutions and result['selected'] != [rows[i] for i in solutions[0]['candidateIds']]:
                     raise ValueError()
+            elif payload['kind'] in ('module-export', 'module-calculate'):
+                allowed = {'execution', 'busy', 'lockCurrency', 'decks'} if payload['kind'] == 'module-export' else {'execution', 'decks', 'modules'}
+                if (set(result) - allowed or result.get('execution') != 'user-browser'
+                        or not isinstance(result.get('decks'), list) or not result['decks']):
+                    raise ValueError()
+                if payload['kind'] == 'module-export':
+                    if result.get('lockCurrency') not in ('modules', 'keys') or type(result.get('busy')) is not bool:
+                        raise ValueError()
+                    if any(not isinstance(row, dict) or not isinstance(row.get('characters'), list) for row in result['decks']):
+                        raise ValueError()
+                else:
+                    if not isinstance(result.get('modules'), list):
+                        raise ValueError()
+                    for row in result['decks']:
+                        if not isinstance(row, dict) or any(type(row.get(key)) not in (int, float) or row[key] < 0 for key in ('before', 'after')):
+                            raise ValueError()
             elif payload['kind'] == 'growth':
                 rows = result.get('scenarios')
                 if (result.get('name') != payload['name'] or not isinstance(result.get('engineVersion'), str)

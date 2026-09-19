@@ -320,8 +320,6 @@ MCP 연결이 기존 엔진의 실게임 정확도를 새로 보증하지는 않
 작성 기준: 2026-09-18. 예제에 실제 사용자 연결 코드·프로필·인증 정보는 포함하지 않습니다.
 
 
-## 오버로드 육성 목표를 외부 AI에서 계산
+## 육성 목표와 모듈 분석
 
-계산기 육성효율 창에서 목표와 현재 잠금을 설정한 뒤 `export_overload_plan(connection_code)`와 `get_browser_result`를 사용합니다. 반환된 프롬프트의 Node.js·Python 코드를 실제 AI 코드 실행 환경에서 실행하고 `import_overload_plan_result(connection_code, result_json)`으로 전체 JSON을 반환합니다. 브라우저에서 계산하기를 누르면 가져온 기본 비교 결과를 표시합니다. 실행 도구가 없으면 숫자를 추측하지 않습니다. 별도로 누르는 덱 내 우선순위는 브라우저 계산입니다.
-
-수동으로는 육성효율 창의 ‘ChatGPT · Claude에 모듈 계산 맡기기’에서 프롬프트 복사, 엔진 ZIP 다운로드, 결과 붙여넣기를 사용합니다. 외부 결과는 형식 검증을 통과해도 실제 실행 증거가 아니므로 미검증으로 표시됩니다. 계정 식별자·사진·대화는 제외하지만 계산에 필요한 육성·편성·전투 조건은 전달됩니다. 모델과 제한은 [모듈 분석 문서](OVERLOAD_PLANNER.md)를 확인하세요.
+육성효율 창에서 목표·잠금 재화를 설정하고 AI 연결을 켭니다. `export_overload_plan(connection_code)` → `get_browser_result`로 현재 목표 데이터만 조회합니다. `calculate_overload_plan(connection_code)` → `get_browser_result`로 사용자 브라우저에서 실행한 육성 비교·모듈 가성비 결과를 받습니다. 계산 중 페이지를 열어 두세요. 엔진·코드·ZIP 전달이나 외부 결과 가져오기는 제공하지 않습니다. 목표 수정은 현재 육성효율 창을 사용합니다.
