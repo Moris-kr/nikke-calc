@@ -1026,13 +1026,13 @@ class BuffManager:
             if not fid or not slots:
                 return
             base = float(eff.get("feather_interval_base", 8.0))
-            mult = float(eff.get("feather_interval_mult", 1.0))
+            reduction = float(eff.get("feather_interval_reduction_pct", 0.0)) / 100.0
             st = self.state.setdefault("feathers", {}).setdefault(caster, {})
             st[fid] = {
                 "expiry": [math.inf if float(d) < 0 else t + float(d) for d in slots],
-                "next_t": t + base * mult ** (len(slots) - 1),
+                "next_t": t + max(0.001, base * (1.0 - reduction * (len(slots) - 1))),
                 "base": base,
-                "mult": mult,
+                "reduction": reduction,
             }
             return
 
@@ -2689,7 +2689,7 @@ class BuffManager:
 
         # ── 소환체 주기 공격(feather_tick) ────────────────────────────────
         #
-        # DoT와 달리 주기가 고정이 아니다 — 생존 수 n에 대해 base × mult^(n-1)이고,
+        # DoT와 달리 주기가 고정이 아니다 — 생존 수 n에 대해 base × (1 - reduction × (n-1))이고,
         # 다음 발사는 **직전 예약 시각 기준**으로 잡는다(프레임 양자화 드리프트 방지).
         # 히트 수는 timeline이 발사 시점에 `ref_count()`로 다시 읽는다.
         feathers = self.state.get("feathers")
@@ -2704,7 +2704,7 @@ class BuffManager:
                         st["next_t"] = None      # 전멸 — 재소환 전까지 정지
                         continue
                     self.notify("feather_tick", t, f_caster)
-                    st["next_t"] = nxt + st["base"] * st["mult"] ** (n - 1)
+                    st["next_t"] = nxt + max(0.001, st["base"] * (1.0 - st["reduction"] * (n - 1)))
 
         # 만료 버프 제거 + state_end 이벤트 발생
         expired_buffs = [ab for ab in self._active if t >= ab.expires_at]
