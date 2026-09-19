@@ -13,6 +13,8 @@ interface Deps {
   simulate: (request: SimulationRequest) => Promise<SimulationResult>;
 }
 interface Pair { before: DeckResultEntry; after: DeckResultEntry; gaps: string[]; reportGaps: string[]; excluded: string[]; priority: GrowthPriority[]; singles: Map<string, SimulationResult> }
+// Keep the latest comparison per runtime in memory, including its live controls and in-flight work.
+const sessions = new WeakMap<SettingsCatalog, {key:string; reopen:()=>void; dispose:()=>void}>();
 const node = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '', cls = '') => {
   const el = document.createElement(tag); el.textContent = text; el.className = cls; return el;
 };
@@ -48,14 +50,19 @@ export function openGrowthReportPreview(blob: Blob, onClose: () => void = () => 
   return dismiss;
 }
 export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
+  const sessionKey=JSON.stringify(batch.decks.map(entry=>({deckId:entry.deckId,name:deps.deckName(entry.deckId),request:entry.request,total:entry.result.squadTotal,charTotals:entry.result.charTotals})));
+  const previous=sessions.get(deps.settings);
+  if(previous?.key===sessionKey){previous.reopen();return;}
+  previous?.dispose();
   const steps = deps.settings.overloadSteps ?? {};
   const snapshot = structuredClone(batch);
-  const opener = document.activeElement as HTMLElement | null;
+  let opener = document.activeElement as HTMLElement | null;
   const overlay = node('div', '', 'growth-overlay');
   const dialog = node('section', '', 'growth-dialog'); dialog.role = 'dialog'; dialog.setAttribute('aria-modal', 'true'); dialog.setAttribute('aria-label', '육성효율 계산하기');
   const header = node('header'); const title = node('div'); title.append(node('small', 'OVERLOAD · GROWTH REPORT'), node('h2', '각 니케별 유효옵션을 설정해주세요'));
   const close = node('button', '닫기', 'growth-close'); header.append(title, close);
   const intro = node('p', '풀 육성은 이 창에서 설정한 목표 육성과 오버로드 Lv.15를 적용한 상태입니다. 돌파·스킬·소장품·장비레벨은 현재 값으로 시작합니다. 큐브·운용·전투 조건은 기존 결과와 동일하며, 실제 육성은 덮어쓰지 않습니다.', 'growth-note');
+  intro.append(document.createTextNode(' 창을 닫아도 입력·결과와 진행 중인 계산은 유지됩니다. 페이지를 새로고침하거나 기준 전투 결과가 바뀌면 새 비교로 시작합니다.'));
   const editor = node('div'); const footer = node('footer');
   const calculate = node('button', '계산하기', 'growth-primary');
   const save = node('button', '보고서 이미지 만들기', 'growth-secondary'); save.disabled = true;
@@ -79,7 +86,8 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
     const result=await deps.simulate(structuredClone(request));completed++;updateProgress(label);return result;
   };
   const acknowledgments: HTMLInputElement[] = [];
-  const closeDialog = () => { closed = true; closePreview?.(); overlay.remove(); document.removeEventListener('keydown', onKey, true); opener?.focus(); };
+  let savedScroll=0;
+  const closeDialog = () => { savedScroll=dialog.scrollTop; closePreview?.(); overlay.remove(); document.removeEventListener('keydown', onKey, true); opener?.focus(); };
   const onKey = (event: KeyboardEvent) => {
     if (closePreview) return;
     if (event.key === 'Escape') { event.stopImmediatePropagation(); closeDialog(); }
@@ -91,6 +99,10 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
     }
   };
   document.addEventListener('keydown', onKey, true); close.onclick = closeDialog;
+  sessions.set(deps.settings,{key:sessionKey,
+    reopen:()=>{if(overlay.isConnected){close.focus();return;}opener=document.activeElement as HTMLElement|null;document.body.append(overlay);document.addEventListener('keydown',onKey,true);close.focus({preventScroll:true});dialog.scrollTop=savedScroll;},
+    dispose:()=>{closed=true;closePreview?.();overlay.remove();document.removeEventListener('keydown',onKey,true);},
+  });
   overlay.onclick = event => { if (event.target === overlay) closeDialog(); }; close.focus();
   const invalidate = () => { pairs = []; save.disabled = true; progress.hidden=true; output.replaceChildren(); message.textContent = '옵션이 변경되었습니다. 다시 계산해 주세요.'; };
   const lockEditor = (locked: boolean) => {
@@ -293,7 +305,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
       }
       global.append(list);output.prepend(global);
       updateProgress('전체 덱 통합 비교 완료 · 덱 내 시너지 순위는 각 덱의 버튼으로 계산하세요.'); save.disabled = false;
-      output.scrollIntoView({behavior:'smooth',block:'start'});
+      if(overlay.isConnected)output.scrollIntoView({behavior:'smooth',block:'start'});
     } catch(error) { pairs=[]; save.disabled=true; output.replaceChildren(); message.textContent = `계산 실패: ${error instanceof Error ? error.message : String(error)}`; }
     finally { busy=false; calculate.disabled=false; lockEditor(false); }
   };
@@ -360,7 +372,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
         }
       }
       const blob = await canvasToBlob(canvas);
-      if (closed) return;
+      if (closed || !overlay.isConnected) return;
       dialog.inert = true;
       closePreview = openGrowthReportPreview(blob, () => { closePreview = null; dialog.inert = false; save.focus(); });
       message.textContent='보고서 미리보기 창에서 확인한 뒤 PNG를 다운로드하세요.';

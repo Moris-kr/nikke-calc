@@ -1,15 +1,45 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { growthLabel, openGrowthEfficiency, openGrowthReportPreview } from './growth-efficiency-ui';
 import type { BatchResult, SettingsCatalog, SimulationRequest, SimulationResult } from './types';
 const steps = Array.from({length:15},(_,i)=>i+1);
-const settings = {overloadSteps:{atk:steps,ammo:steps},overloadFields:{atk:{label:'공격력'},ammo:{label:'장탄'}},characters:{A:{overload:{atk:2}}}} as unknown as SettingsCatalog;
+const settingsTemplate = {overloadSteps:{atk:steps,ammo:steps},overloadFields:{atk:{label:'공격력'},ammo:{label:'장탄'}},characters:{A:{overload:{atk:2}}}} as unknown as SettingsCatalog;
+let settings:SettingsCatalog;
+beforeEach(()=>{settings=structuredClone(settingsTemplate);});
 const request = {squad:['A'],characters:{A:{overload:{atk:2}}},duration:180,enemyDef:63000,enemyCode:'작열',corePx:52,hasParts:false,seed:42,rngMode:'expected',defenseRateWindows:[{start:30,end:60,rate:50}]} as unknown as SimulationRequest;
 const batch = {total:100,decks:[{deckId:1,request,result:{squadTotal:100,charTotals:{A:100}}}]} as unknown as BatchResult;
 const result = (n:number)=>({squadTotal:n,charTotals:{A:n}} as unknown as SimulationResult);
 const close=()=>document.querySelector<HTMLButtonElement>('.growth-close')?.click();
 afterEach(()=>{close();vi.restoreAllMocks();});
 describe('growth efficiency dialog',()=>{
+ it('restores targets and completed results on reopen without running simulations again',async()=>{
+  HTMLElement.prototype.scrollIntoView=vi.fn();
+  const simulate=vi.fn().mockResolvedValue(result(120));
+  const deps={settings,catalog:new Map(),deckName:()=> '덱 1',current:()=>({overloadLines:{머리:[{option:'atk',level:2}]}}),simulate};
+  openGrowthEfficiency(batch,deps);
+  const skill=document.querySelector<HTMLSelectElement>('select[aria-label="덱 1 A 목표 스킬1"]')!;skill.value='7';skill.dispatchEvent(new Event('change'));
+  document.querySelector<HTMLButtonElement>('.growth-primary')!.click();
+  await vi.waitFor(()=>expect(document.querySelector('.growth-global-priority')).not.toBeNull());
+  const output=document.querySelector('.growth-output')!.textContent;
+  close();expect(document.querySelector('.growth-overlay')).toBeNull();
+  openGrowthEfficiency(structuredClone(batch),deps);
+  expect(document.querySelector('.growth-output')!.textContent).toBe(output);
+  expect(document.querySelector<HTMLSelectElement>('select[aria-label="덱 1 A 목표 스킬1"]')!.value).toBe('7');
+  expect(simulate).toHaveBeenCalledTimes(2);
+  close();const different=structuredClone(batch);different.decks[0]!.request.duration=60;openGrowthEfficiency(different,deps);
+  expect(document.querySelector('.growth-output')!.textContent).toBe('');
+ });
+ it('continues in-flight calculations while closed and restores the completed result',async()=>{
+  const simulate=vi.fn().mockImplementationOnce(()=>new Promise<SimulationResult>(resolve=>{finish=resolve;})).mockResolvedValue(result(120));
+  let finish!:(value:SimulationResult)=>void;
+  const deps={settings,catalog:new Map(),deckName:()=> '덱 1',current:()=>({overloadLines:{머리:[{option:'atk',level:2}]}}),simulate};
+  openGrowthEfficiency(batch,deps);document.querySelector<HTMLButtonElement>('.growth-primary')!.click();close();
+  finish(result(100));await vi.waitFor(()=>expect(simulate).toHaveBeenCalledTimes(2));
+  openGrowthEfficiency(batch,deps);
+  await vi.waitFor(()=>expect(document.querySelector('.growth-status')?.textContent).toContain('100%'));
+  expect(document.querySelector('.growth-global-priority')).not.toBeNull();
+  expect(simulate).toHaveBeenCalledTimes(2);
+ });
  it('uses the faster global ranking by default and computes deck synergy only on click',async()=>{
   HTMLElement.prototype.scrollIntoView=vi.fn();
   const many=structuredClone(batch);many.decks[0]!.request.squad=['A','B','C'];
