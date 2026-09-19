@@ -3,6 +3,7 @@ export const OPTION_PROB:Record<string,number>={element_bonus:.10,atk_pct:.10,cr
 export const LEVEL_PROB=Array.from({length:15},(_,i)=>i<5?.12:i<10?.07:.01);
 export const APPEARANCE=[1,.5,.3];
 export const ORDERS=[[0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0]];
+export interface RollStage {locks:number;rolls:number;kind:'effect'|'value'}
 export type LockCurrency = 'modules'|'keys';
 export interface ModuleRoute {levels:number[];currency:LockCurrency;effect:number;value:number;keys:number;mode:'complete-line'|'effects-first';target:string[];order:number[];lock:number;change:number;total:number;error95:number;samples:number;unlocked:number[]}
 export const seeded=(seed:number)=>()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};
@@ -35,15 +36,16 @@ function level(rng:()=>number,old?:number,below?:number,atLeast?:number):number{
 }
 const conditional=new Map<string,{outcomes:Outcome[];prob:number}>();
 /** A complete-line-first policy. Waiting time is integrated analytically; only successful outcomes are sampled. */
-export function evaluateRoute(initial:OverloadLine[],target:string[],order:number[],initialLocks:number,rng:()=>number,mode:'complete-line'|'effects-first'='complete-line',currency:LockCurrency='modules',targetLevels:Record<string,number>={}):{lock:number;change:number;effect:number;value:number;keys:number}{
+export function evaluateRoute(initial:OverloadLine[],target:string[],order:number[],initialLocks:number,rng:()=>number,mode:'complete-line'|'effects-first'='complete-line',currency:LockCurrency='modules',targetLevels:Record<string,number>={},trace?:RollStage[]):{lock:number;change:number;effect:number;value:number;keys:number}{
   const levels=target.map(option=>targetLevels[option]??15);
   const success=(i:number)=>LEVEL_PROB.slice(levels[i]!-1).reduce((a,b)=>a+b,0);
   const state=initial.map(row=>({...row}));let locks=currency==='keys'?0:initialLocks;let lock=0,change=0,effect=0,value=0,keys=0;
-  const charge=(rolls:number,kind:'effect'|'value')=>{const n=count(locks),modules=(1+n)*rolls;change+=modules;if(kind==='effect')effect+=modules;else value+=modules;if(currency==='keys')keys+=(n===2?50:n===1?20:0)*rolls;};
-  const done=(i:number)=>state[i]!.option===target[i]&&(mode==='effects-first'||state[i]!.level>=levels[i]!);
-  for(let i=0;i<3;i++)if(!done(i))locks&=~(1<<i);
+  const charge=(rolls:number,kind:'effect'|'value')=>{trace?.push({locks,rolls,kind});const n=count(locks),modules=(1+n)*rolls;change+=modules;if(kind==='effect')effect+=modules;else value+=modules;if(currency==='keys')keys+=(n===2?50:n===1?20:0)*rolls;};
+  const done=(i:number)=>!target[i]||(state[i]!.option===target[i]&&(mode==='effects-first'||state[i]!.level>=levels[i]!));
+  for(let i=0;i<3;i++)if(!target[i]||!done(i))locks&=~(1<<i);
   for(const slot of order){
     if(order.every(done))break;
+    if(!target[slot])continue;
     if(locks&(1<<slot))continue;
     if(state[slot]!.option!==target[slot]){
       const key=state.map((row,i)=>locks&(1<<i)?row.option:'').join('|')+`:${slot}:${target[slot]}`;
@@ -64,10 +66,10 @@ export function evaluateRoute(initial:OverloadLine[],target:string[],order:numbe
   if(mode==='effects-first'){
     // Once effects are complete, release low-value locks. Secure every Lv.15 result;
     // accept a value reset only when it produces at least one new Lv.15 line.
-    for(let i=0;i<3;i++)if(state[i]!.level<levels[i]!)locks&=~(1<<i);
-    while(state.some((row,i)=>row.level<levels[i]!)){
-      for(let i=0;i<3;i++)if(state[i]!.level>=levels[i]!&&!(locks&(1<<i))){if(currency==='modules')lock+=count(locks)+1;locks|=1<<i;}
-      const remaining=[0,1,2].filter(i=>!(locks&(1<<i)));
+    for(let i=0;i<3;i++)if(!target[i]||state[i]!.level<levels[i]!)locks&=~(1<<i);
+    while(state.some((row,i)=>target[i]&&row.level<levels[i]!)){
+      for(let i=0;i<3;i++)if(target[i]&&state[i]!.level>=levels[i]!&&!(locks&(1<<i))){if(currency==='modules')lock+=count(locks)+1;locks|=1<<i;}
+      const remaining=[0,1,2].filter(i=>target[i]&&!(locks&(1<<i)));
       const probability=(i:number)=>success(i)/(1-LEVEL_PROB[state[i]!.level-1]!);
       const outcomes:{mask:number;prob:number}[]=[];
       for(let bits=1;bits<(1<<remaining.length);bits++){
@@ -84,17 +86,17 @@ export function evaluateRoute(initial:OverloadLine[],target:string[],order:numbe
 export function estimateModules(current:OverloadLine[],options:string[],initialLocks=0,samples=4000,currency:LockCurrency='modules',targetLevels:Record<string,number>={}):ModuleRoute{
   if(Object.values(targetLevels).some(level=>!Number.isInteger(level)||level<1||level>15))throw new Error('수치작 목표는 Lv.1~15로 설정해 주세요.');
   if(!['modules','keys'].includes(currency))throw new Error('잠금 재화가 올바르지 않습니다.');
-  if(current.length!==3||options.length!==3||options.some(option=>!OPTION_PROB[option])||new Set(options).size!==3)throw new Error('모듈 분석은 부위마다 서로 다른 목표 효과 3줄이 필요합니다.');
+  if(current.length!==3||options.length!==3||options.some(option=>option&&!OPTION_PROB[option])||new Set(options.filter(Boolean)).size!==options.filter(Boolean).length)throw new Error('부위 목표 효과는 중복 없이 최대 3줄까지 설정해 주세요.');
   if(!current[0]?.option||new Set(current.filter(row=>row.option).map(row=>row.option)).size!==current.filter(row=>row.option).length)throw new Error('현재 장비의 첫 줄과 중복 효과를 확인해 주세요. 최초 오버로드 전환은 분석에 포함하지 않습니다.');
   if(current.some(row=>row.option&&(!OPTION_PROB[row.option]||!Number.isInteger(row.level)||row.level<1||row.level>15)))throw new Error('현재 옵션·레벨을 확인해 주세요.');
-  if(!Number.isInteger(initialLocks)||initialLocks<0||initialLocks>7||current.some((row,i)=>(initialLocks&(1<<i))&&!row.option))throw new Error('빈 옵션은 잠글 수 없습니다.');
+  if(!Number.isInteger(initialLocks)||initialLocks<0||initialLocks>7||count(initialLocks)>2||current.some((row,i)=>(initialLocks&(1<<i))&&!row.option))throw new Error('현재 잠금은 비어 있지 않은 옵션 최대 2줄까지 설정해 주세요.');
   if(!Number.isInteger(samples)||samples<2||samples>100000)throw new Error('표본 수가 올바르지 않습니다.');
   const run=(target:string[],order:number[],n:number,seed:number,mode:ModuleRoute['mode'])=>{
     const rng=seeded(seed);let lock=0,change=0,effect=0,value=0,keys=0,sum2=0;
     for(let i=0;i<n;i++){const cost=evaluateRoute(current,target,order,initialLocks,rng,mode,currency,targetLevels);lock+=cost.lock;change+=cost.change;effect+=cost.effect;value+=cost.value;keys+=cost.keys;sum2+=(cost.lock+cost.change)**2;}
     const total=(lock+change)/n;
     return {levels:target.map(option=>targetLevels[option]??15),currency,effect:effect/n,value:value/n,keys:keys/n,mode,target,order,lock:lock/n,change:change/n,total,error95:n>1?1.96*Math.sqrt(Math.max(0,(sum2-n*total*total)/(n-1))/n):0,samples:n,
-      unlocked:[0,1,2].filter(i=>(initialLocks&(1<<i))&&(currency==='keys'||current[i]!.option!==target[i]||current[i]!.level<(targetLevels[target[i]!]??15)))};
+      unlocked:[0,1,2].filter(i=>(initialLocks&(1<<i))&&(currency==='keys'||!target[i]||current[i]!.option!==target[i]||current[i]!.level<(targetLevels[target[i]!]??15)))};
   };
   let best:ModuleRoute|undefined;
   // Independent pilot and evaluation samples avoid reporting the selection minimum as an unbiased estimate.

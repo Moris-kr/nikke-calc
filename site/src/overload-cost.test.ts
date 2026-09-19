@@ -69,3 +69,9 @@ it('stops at the selected minimum tier and counts all higher rolls as success',(
  const keyResult=evaluateRoute(current,['atk_pct','element_bonus','crit_dmg'],[0,1,2],0,seeded(1),'effects-first','keys',{crit_dmg:10});
  expect(keyResult.value).toBeCloseTo(3*.88/.12);expect(keyResult.keys).toBeCloseTo(50*.88/.12);
 });
+
+it('supports partial equipment goals without charging for unrelated lines',()=>{
+ const current=[row('atk_pct',1),row('element_bonus',1),row('crit_dmg',1)];
+ const result=estimateModules(current,['atk_pct','',''],0,4000,'modules',{atk_pct:10});
+ expect(result.effect).toBe(0);expect(result.lock).toBe(0);expect(result.value).toBeCloseTo(.88/.12);
+});

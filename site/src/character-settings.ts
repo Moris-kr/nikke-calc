@@ -844,6 +844,7 @@ export function renderCharacterSettings(
     const headingLabel = document.createElement('h4');
     headingLabel.textContent = '오버로드 옵션';
     heading.append(headingLabel);
+    const guide=document.createElement('button');guide.type='button';guide.className='ol-roll';guide.textContent='옵작 가이드';guide.dataset.overloadGuide='';guide.onclick=async()=>{const {openOverloadGuide}=await import('./overload-guide');openOverloadGuide(name,catalog,cloneOverrides(current));};heading.append(guide);
     // 안 키운 서포터를 재 볼 때 열두 줄을 손으로 넣는 것이 가장 지겨운 일이다.
     // 정확한 스펙이 필요한 자리가 아니라 «대충 이런 장비» 하나가 필요한 자리다.
     const roll = document.createElement('button');
