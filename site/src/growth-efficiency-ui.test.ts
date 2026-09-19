@@ -236,3 +236,16 @@ it('defaults value targets to 15 and applies individual and bulk thresholds to d
  document.querySelector<HTMLButtonElement>('.growth-primary')!.click();await vi.waitFor(()=>expect(simulate).toHaveBeenCalledTimes(2));
  expect(simulate.mock.calls[1]![0].characters.A.overload.atk).toBe(10);
 });
+
+it('resets all displayed deck goals including excluded characters and clears saved goals',()=>{
+ const multiple=structuredClone(batch);multiple.decks.push({...structuredClone(multiple.decks[0]!),deckId:2});
+ openGrowthEfficiency(multiple,{settings,catalog:new Map(),deckName:id=>`덱 ${id}`,current:()=>({overloadLines:{머리:[{option:'atk',level:2}]}}),simulate:vi.fn()});
+ for(const el of document.querySelectorAll<HTMLSelectElement>('select[aria-label$="장탄 목표 줄 수"]')){el.value='2';el.dispatchEvent(new Event('change'));}
+ const bulk=document.querySelector<HTMLSelectElement>('select[aria-label="모든 수치작 타협레벨"]')!;bulk.value='10';bulk.dispatchEvent(new Event('change'));
+ document.querySelector<HTMLButtonElement>('.growth-exclude')!.click();
+ document.querySelector<HTMLButtonElement>('.growth-reset-all')!.click();
+ expect([...document.querySelectorAll<HTMLSelectElement>('select[aria-label$="장탄 목표 줄 수"]')].map(x=>x.value)).toEqual(['0','0']);
+ expect([...document.querySelectorAll<HTMLSelectElement>('.growth-goal-level')].every(x=>x.value==='15')).toBe(true);
+ expect(bulk.value).toBe('15');expect(localStorage.getItem('nikke-growth-target:v1:A')).toBeNull();
+ expect(document.querySelector<HTMLElement>('.growth-character')!.dataset.excluded).toBe('true');
+});

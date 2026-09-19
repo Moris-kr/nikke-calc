@@ -374,6 +374,7 @@ class CharState:
         # 연사 무기 모드는 진입 시 self.ammo를 모드 장탄으로 덮어쓴다(원래 장탄은 버린다).
         # 모드가 끝날 때 되돌려 놓아야 그 값이 원래 무기로 새어 나가지 않는다.
         self._wc_ammo_borrowed: bool = False
+        self._wc_refill_on_exit = False
 
         # 모드 지정 플래그: 수동 재장전으로 진입하는 weapon_change 모드를 쓰는가.
         # 진입에 필요한 재장전만 삽입하고 진입 후에는 삽입하지 않아 모드를 유지한다.
@@ -500,6 +501,7 @@ class CharState:
                 self._in_weapon_change = True
                 self._wc_shots = 0
                 self._wc_new_session = True
+                self._wc_refill_on_exit = bool(wc_eff.get("refill_on_exit"))
             # 자기 탄창을 관리하는 모드(지속형 + 유한 장탄)만 모드 안에서 재장전을 완료시킨다.
             # 처리하지 않으면 장탄 소진 후 재장전이 끝나지 않아 발사가 영원히 멈춘다.
             # 시한부 모드(duration 있음)나 무한 장탄 모드는 기존 동작을 유지한다 —
@@ -518,6 +520,8 @@ class CharState:
             self._in_weapon_change = False
             self._wc_dynamic_ammo = None
             self.next_fire_time = t
+            if self._wc_refill_on_exit:
+                self._restore_special_magazine(t, bm)
             if self._wc_ammo_borrowed:
                 # 시한부 연사 모드가 duration으로 끝났다. 진입 시 덮어쓴 모드 장탄
                 # (무한 장탄이면 센티널 999999)이 그대로 남아 원래 무기의 탄창으로
@@ -1274,6 +1278,10 @@ class CharState:
             self.next_fire_time = t
             orig_ammo = None
             self._wc_ammo_borrowed = True
+        if self._wc_new_session and wc_eff.get("refill_on_exit"):
+            self.reloading_until = -1.0
+            self._reload_in_weapon_change = False
+            self._post_reload_end_t = -1.0
         self._wc_new_session = False
 
         # 발수 카운트는 _fire()/_tick_charge()가 self._wc_shots에 직접 누적한다
@@ -1281,6 +1289,16 @@ class CharState:
             events = self._tick_auto(t, bm, enemy, cfg)
         else:
             events = self._tick_charge(t, bm, enemy, cfg)
+
+        if events and wc_eff.get("continuous_charge"):
+            # Begin the next charge at the previous scheduled endpoint, avoiding a
+            # post-delay frame and cumulative frame rounding over ten half-second shots.
+            # Floating-point tolerance keeps an exact boundary shot on its frame.
+            self._charge_start_t = self._charge_end_t - 1e-10
+            self._charge_phase = "charging"
+            self._charge_full_t = -1.0
+            self._charge_hold_fired.clear()
+            bm.state.setdefault("charging", {})[self.name] = True
 
         # 원복
         self.weapon              = orig_weapon
@@ -1320,6 +1338,8 @@ class CharState:
                 self.reloading_until = -1.0
                 self.next_fire_time = t
             self.ammo = orig_ammo if orig_ammo is not None else self.weapon["max_ammo"]
+            if wc_eff.get("refill_on_exit"):
+                self._restore_special_magazine(t, bm)
             self._wc_ammo_borrowed = False   # 여기서 이미 원복했다 (tick의 만료 처리와 중복 금지)
             self._wc_dynamic_ammo = None
             # 장탄 원복이 끝난 뒤에 종료 이벤트를 쏜다 — event:state_end로 발동하는
@@ -1327,6 +1347,21 @@ class CharState:
             bm.end_weapon_change(self.name, t)
 
         return events
+
+    def _restore_special_magazine(self, t: float, bm: BuffManager):
+        """Replacement completion is an ammo refill, not a reload event."""
+        self.ammo = self._full_ammo(bm, t, original_weapon=True)
+        self.reloading_until = -1.0
+        self._reload_in_weapon_change = False
+        self._pending_auto_reload = False
+        self._post_reload_end_t = -1.0
+        self._charge_phase = "ready"
+        self._charge_full_t = -1.0
+        self._hold_release_t = -1.0
+        self._wc_refill_on_exit = False
+        bm.state.setdefault("charging", {})[self.name] = False
+        if self._sim_log is not None:
+            self._sim_log.ammo_log.append(AmmoLogEntry(t=t, caster=self.name, ammo=self.ammo))
 
     def _fixed_charge_time(self, bm: BuffManager) -> float:
         """charge_time_fixed 버프의 fixed_value(초). 복수이면 가장 나중에 부여된 값.
@@ -1707,7 +1742,7 @@ class CharState:
             self._sim_log.reload_log.append(
                 ReloadLogEntry(t=t, caster=self.name, event="재장전 취소(탄충)"))
 
-    def _full_ammo(self, bm: BuffManager, t: float) -> int:
+    def _full_ammo(self, bm: BuffManager, t: float, *, original_weapon: bool = False) -> int:
         # 무기 변경 모드 중이면 그 모드의 장탄으로 채운다. 다만 스킬 원문에
         # `(사용 무기 변경 시 최대 장탄 수 효과 갱신)`이 붙은 모드는 **표기 장탄을 밑값으로
         # 삼아 장탄 버프를 그 위에 얹는다**(`max_ammo_buff_applies`, GAMEPLAY.md §무기 메카닉).
@@ -1716,7 +1751,7 @@ class CharState:
         # 멈췄다 — 「모든 탄환 발사 = 모드 종료」라 그 발수가 곧 딜인 캐릭터다.
         base = self.weapon["max_ammo"]
         wc_eff = bm.get_weapon_change(self.name)
-        if wc_eff is not None:
+        if wc_eff is not None and not original_weapon:
             wc_max = wc_eff.get("max_ammo", -1)
             if wc_max != -1:
                 if not wc_eff.get("max_ammo_buff_applies"):

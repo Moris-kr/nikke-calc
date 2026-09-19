@@ -21974,7 +21974,8 @@
       "max_ammo": 1,
       "charge_time": 2,
       "full_charge_mult": 300,
-      "duration_bullets": 1
+      "duration_bullets": 1,
+      "refill_on_exit": true
     },
     {
       "source": "스킬3",
@@ -46484,7 +46485,8 @@
       "charge_time": 1.5,
       "full_charge_mult": 250,
       "duration_bullets": 1,
-      "fixed_bullets": true
+      "fixed_bullets": true,
+      "refill_on_exit": true
     },
     {
       "source": "스킬3",
@@ -46788,12 +46790,17 @@
         "9": 69.89,
         "10": 73.22
       },
-      "max_ammo": 6,
+      "max_ammo": 10,
       "reload_time": 2,
       "charge_time": 0.5,
       "full_charge_mult": 300,
       "duration": 5,
-      "fresh_charge": true
+      "fresh_charge": true,
+      "refill_on_exit": true,
+      "duration_bullets": 10,
+      "fixed_bullets": true,
+      "continuous_charge": true,
+      "post_fire_delay": 0
     },
     {
       "source": "스킬2",

@@ -2732,7 +2732,11 @@ class BuffManager:
 
         # weapon_change 만료 정리 (state_end 이벤트 포함)
         wc = self.state.get("weapon_change", {})
-        expired = [name for name, info in wc.items() if t >= info["expires_at"]]
+        # Allow the continuous attack scheduled exactly at the duration endpoint.
+        expired = [name for name, info in wc.items()
+                   if (t > info["expires_at"] + 1e-8
+                       if info["effect"].get("continuous_charge")
+                       else t >= info["expires_at"])]
         for name in expired:
             self.end_weapon_change(name, t)
 

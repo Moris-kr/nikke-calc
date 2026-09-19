@@ -74,6 +74,8 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
   const costLabel=node('label','','growth-confirm');const costCheck=node('input');costCheck.type='checkbox';costCheck.checked=true;costCheck.setAttribute('aria-label','모듈 가성비 분석');costLabel.append(costCheck,document.createTextNode('모듈 가성비 분석 · 추가 전투/확률 계산으로 시간이 늘어날 수 있습니다.'));
   const currencyLabel=node('label','','growth-confirm');currencyLabel.append(node('span','잠금 재화'));const currencySelect=node('select');currencySelect.setAttribute('aria-label','잠금 재화');for(const [value,label] of [['modules','커스텀 모듈'],['keys','커스텀 락 키']]){const option=node('option',label);option.value=value!;currencySelect.append(option);}currencyLabel.append(currencySelect,node('span','락 키: 매 변경마다 1줄 20개 / 2줄 50개. 변경 모듈은 별도 2개 / 3개. 기존 모듈 잠금은 해제하고 키로 다시 잠그는 방식입니다.','growth-note'));
   const allLevelLabel=node('label','','growth-confirm');allLevelLabel.append(node('span','모든 수치작 타협레벨'));const allLevelSelect=node('select');allLevelSelect.setAttribute('aria-label','모든 수치작 타협레벨');for(let n=1;n<=15;n++)allLevelSelect.add(new Option(`Lv.${n} 이상`,String(n)));allLevelSelect.value='15';allLevelLabel.append(allLevelSelect);
+  const resetAll=node('button','전체 목표 옵션 리셋','growth-secondary growth-reset-all');resetAll.type='button';
+  const resetTargets:Array<()=>boolean>=[];
   const editor = node('div'); const footer = node('footer');
   const calculate = node('button', '계산하기', 'growth-primary');
   const save = node('button', '보고서 이미지 만들기', 'growth-secondary'); save.disabled = true;
@@ -90,7 +92,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
     label.append(select);
     performance.append(label,node('p','여러 후보를 내 컴퓨터의 CPU 코어로 동시에 계산합니다. 개수를 늘리면 CPU·메모리 사용과 발열이 증가합니다. 처음에는 계산 엔진 준비 시간이 추가되며, 코어 수나 남은 작업 수보다 늘려도 더 빨라지지 않을 수 있습니다. 느려지거나 다른 작업에 지장이 생기면 줄여 주세요.','growth-note'));
   }
-  dialog.append(header, intro, performance, costLabel, currencyLabel, allLevelLabel, editor, footer, output); overlay.append(dialog); document.body.append(overlay);
+  dialog.append(header, intro, performance, costLabel, currencyLabel, allLevelLabel, resetAll, editor, footer, output); overlay.append(dialog); document.body.append(overlay);
   let closed = false, busy = false, pairs: Pair[] = [];
   let unregister=()=>{};let calculationError='';let moduleResults:Record<string,unknown>[]=[];
   let closePreview: (() => void) | null = null;
@@ -135,7 +137,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
   allLevelSelect.onchange=()=>{editor.querySelectorAll('.growth-goals').forEach(host=>host.dispatchEvent(new CustomEvent('set-all-levels',{detail:Number(allLevelSelect.value)})));};
   costCheck.onchange=invalidate;currencySelect.onchange=invalidate;
   const lockEditor = (locked: boolean) => {
-    costCheck.disabled=locked;allLevelSelect.disabled=locked;currencySelect.disabled=locked;
+    resetAll.disabled=locked;costCheck.disabled=locked;allLevelSelect.disabled=locked;currencySelect.disabled=locked;
     performance.querySelectorAll<HTMLSelectElement>('select').forEach(select=>{select.disabled=locked;});
     output.querySelectorAll<HTMLButtonElement>('.growth-priority-button').forEach(button=>{button.disabled=locked;});
     editor.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>('input,select,button').forEach(el => {
@@ -250,12 +252,15 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
         }); parts.append(area);
       }
       const resetTarget=node('button','목표 옵션 리셋','growth-secondary');resetTarget.type='button';resetTarget.setAttribute('aria-label',`${deps.deckName(entry.deckId)} ${name} 목표 옵션 리셋`);
-      resetTarget.onclick=()=>{resetting=true;for(const key of Object.keys(targetLevels[index]![name]!))delete targetLevels[index]![name]![key];applyTargets(overloadLinesOf(source));resetting=false;goalEditor.dispatchEvent(new Event('goals-changed'));message.textContent=clearGrowthTarget(name)?'목표 옵션을 현재 장비 구성 · Lv.15로 초기화했습니다.':'목표를 초기화했지만 브라우저 저장값을 삭제하지 못했습니다.';};
+      const resetGoal=()=>{resetting=true;for(const key of Object.keys(targetLevels[index]![name]!))delete targetLevels[index]![name]![key];applyTargets(overloadLinesOf(source));resetting=false;goalEditor.dispatchEvent(new Event('goals-changed'));return clearGrowthTarget(name);};
+      resetTargets.push(resetGoal);
+      resetTarget.onclick=()=>{message.textContent=resetGoal()?'목표 옵션을 현재 장비 구성 · Lv.15로 초기화했습니다.':'목표를 초기화했지만 브라우저 저장값을 삭제하지 못했습니다.';};
       if(loadGrowthExcluded(name)){excluded[index]!.add(name);card.dataset.excluded='true';card.open=false;exclude.textContent='육성 대상 포함';exclude.setAttribute('aria-label',`${deps.deckName(entry.deckId)} ${name} 육성 대상 포함`);}
       card.append(savedNote,resetTarget,node('p','목표 옵션과 수치작 타협레벨은 니케별로 이 브라우저에 자동 저장됩니다. 리셋하면 현재 장비 구성 · Lv.15로 돌아갑니다.','growth-note'),node('h4','현재 장비 옵션 · 참고용'),node('p','옵션은 위의 12줄 목표 구성에서 설정하세요. 여기서는 목표 장비레벨과 현재 잠금만 변경할 수 있습니다.','growth-note'),parts); group.append(card);
     }
     editor.append(group);
   });
+  resetAll.onclick=()=>{if(busy)return;const results=resetTargets.map(reset=>reset());allLevelSelect.value='15';message.textContent=results.every(Boolean)?'모든 덱의 목표 옵션을 현재 장비 구성 · Lv.15로 초기화했습니다.':'목표를 초기화했지만 일부 브라우저 저장값을 삭제하지 못했습니다.';};
   lockEditor(false);
   const gapsFor = (index: number): string[] => {
     const result: string[] = [];
