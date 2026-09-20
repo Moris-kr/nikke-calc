@@ -1,8 +1,9 @@
 """Verified ENIKK navigation and recommendation policy, not cached rankings."""
 from copy import deepcopy
 from typing import Literal
+from nikke_mcp.arena_guide import ARENA, arena_guide
 
-GuideMode = Literal['overview', 'meta', 'campaign', 'soloraid', 'unionraid']
+GuideMode = Literal['overview', 'meta', 'campaign', 'soloraid', 'unionraid', 'arena', 'pvp']
 
 COMMON = {
     'guideVersion': '2026-09-18',
@@ -144,4 +145,8 @@ MODES = {
 
 
 def recommendation_guide(mode: GuideMode = 'overview') -> dict:
-    return deepcopy({**COMMON, 'modes': MODES if mode == 'overview' else {mode: MODES[mode]}})
+    if mode in ('arena', 'pvp'):
+        return arena_guide()
+    return deepcopy({**COMMON,
+                     'policyScope': 'COMMON의 쿨감 필수·총딜 계산·ENIKK 추천 절차는 PvE에만 적용합니다. PVP/아레나는 mode=arena로 별도 지침을 읽고 니케아리를 참조하세요.',
+                     'modes': {**MODES, 'arena': ARENA} if mode == 'overview' else {mode: MODES[mode]}})

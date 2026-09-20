@@ -24,7 +24,9 @@ from nikke_mcp.boss_code import BossCodeRequest, create_boss_code as build_boss_
 
 def create_server(timeout: int = 60, max_concurrent: int = 2, browser_mode: bool = False) -> MCPServer:
     server = MCPServer('NIKKE Calculator', version='1.0.0', instructions=(
-        '니케 계산 도구입니다. 덱/조합 추천 요청(Campaign 스테이지, 속성별 솔로레이드, 유니온레이드 보스 등)은 '
+        'PVP/아레나 관련 질문은 먼저 get_recommendation_guide(mode="arena")를 읽고 니케아리의 실제 기록을 확인하세요. '
+        '챔피언 아레나 자료의 범위·서버·시즌·표본을 밝히고, PvE 쿨감 필수 정책과 총딜 계산을 PVP 승패 판단에 적용하지 마세요. '
+        '다음 추천·계산 규칙은 PvE에만 적용합니다. 덱/조합 추천 요청(Campaign 스테이지, 속성별 솔로레이드, 유니온레이드 보스 등)은 '
         '반드시 먼저 get_recommendation_guide를 호출해 해당 콘텐츠의 ENIKK 검색·근거 검증 지침을 읽으세요. '
         '추천하는 각 덱에는 실제 발동 가능한 아군 버스트 쿨타임 감소 캐릭터를 반드시 포함하세요. '
         'validate_squad_policy로 검사하고, 사용자 지정 덱에 쿨감이 없으면 의도를 한 번 확인하세요. '
@@ -60,7 +62,7 @@ def create_server(timeout: int = 60, max_concurrent: int = 2, browser_mode: bool
 
     @server.tool(annotations=read_only)
     def get_recommendation_guide(mode: GuideMode = 'overview') -> dict[str, Any]:
-        """덱 추천 전에 읽는 ENIKK 검색 지침. mode: overview/meta/campaign/soloraid/unionraid. 캠페인·수냉 솔레·핑거즈 등 콘텐츠별 실제 기록 탐색, 표본/최신성, 사용자 브라우저 육성 적용 절차를 제공합니다. 최신 기록 자체를 수집하는 도구는 아닙니다."""
+        """덱 추천·PVP/아레나 질문 전에 읽는 검색 지침. mode: overview/meta/campaign/soloraid/unionraid/arena(pvp도 동일). PvE는 ENIKK, PVP는 니케아리의 공격·방어 기록과 포함·제외 검색을 안내합니다. 캠페인·수냉 솔레·핑거즈 등 콘텐츠별 실제 기록 탐색, 표본/최신성, 사용자 브라우저 육성 적용 절차를 제공합니다. 최신 기록 자체를 수집하는 도구는 아닙니다."""
         return recommendation_guide(mode)
 
     @server.tool(annotations=read_only)
@@ -82,7 +84,7 @@ def create_server(timeout: int = 60, max_concurrent: int = 2, browser_mode: bool
     def validate_squad_policy(squad: list[str], characters: dict[str, CharacterOverrides] | None = None,
                               purpose: Literal['recommendation', 'user_fixed'] = 'recommendation',
                               allow_no_cdr: bool = False) -> dict[str, Any]:
-        """덱의 아군 쿨감·조건부 발동·버스트 구조를 검사합니다. requiresConfirmation이면 쿨감 없는 편성이 원래 의도인지 한 번 물으세요. allow_no_cdr는 사용자 지정 편성에서 사용자가 확인한 뒤에만 true; 새 추천의 필수 조건을 우회하지 않습니다."""
+        """PvE 덱의 아군 쿨감·조건부 발동·버스트 구조를 검사합니다. PVP/아레나에는 적용하지 마세요. requiresConfirmation이면 쿨감 없는 편성이 원래 의도인지 한 번 물으세요. allow_no_cdr는 사용자 지정 편성에서 사용자가 확인한 뒤에만 true; 새 추천의 필수 조건을 우회하지 않습니다."""
         with public_errors():
             try:
                 return inspect_squad_policy(squad, {n: c.model_dump(exclude_unset=True) for n, c in (characters or {}).items()}, purpose, allow_no_cdr)

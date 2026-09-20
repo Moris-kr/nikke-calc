@@ -19,6 +19,10 @@ export function renderMcpGuide(host: HTMLElement, connection?: BrowserMcpConnect
         <p>이름: <strong>NIKKE Calculator</strong> · 인증: <strong>No Authentication (인증 없음)</strong></p>
         <p>서버 설치나 API 키 없이 사용할 수 있습니다. AI 서비스의 이용 요금·연결 권한은 별도입니다.</p>
       </section>
+      <section><h4>PVP·아레나 추천도 질문할 수 있어요</h4>
+        <p>“아레나 검색 지침을 읽고 <a href="https://nikkeari.cc/ko" target="_blank" rel="noopener noreferrer">니케아리</a>에서 한국 서버 공격덱을 찾아 줘. 시즌·경기 수·상대 편성도 확인해 줘”라고 요청하세요. 상대 편성과 필수·제외 니케를 함께 알려주면 좋습니다.</p>
+        <p>AI의 웹·브라우저 접근이 필요합니다. 챔피언 아레나 기록을 참고하며, 루키·스페셜의 승리를 보장하거나 계산기의 PvE 대미지로 아레나 승패를 판정하지 않습니다.</p>
+      </section>
       <div class="mcp-platforms">
         <section><h4>2. ChatGPT에 연결</h4>
           <ol><li>웹 ChatGPT의 <strong>설정 → 보안 및 로그인 → 개발자 모드</strong>를 켭니다.</li>
