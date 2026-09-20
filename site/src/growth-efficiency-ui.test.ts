@@ -296,3 +296,18 @@ it('includes all excluded deck entries and persists inclusion without resetting 
  expect(localStorage.getItem('nikke-growth-excluded:v1:A')).not.toBe('true');
  expect(localStorage.getItem('nikke-growth-target:v1:A')).toBe(savedGoal);
 });
+
+it('downloads the completed full result as HTML and invalidates export when goals change',async()=>{
+ HTMLElement.prototype.scrollIntoView=vi.fn();
+ const create=vi.fn((_blob:Blob)=> 'blob:html');vi.stubGlobal('URL',{createObjectURL:create,revokeObjectURL:vi.fn()});
+ vi.spyOn(HTMLAnchorElement.prototype,'click').mockImplementation(()=>{});
+ openGrowthEfficiency(batch,{settings,catalog:new Map(),deckName:()=> '덱 1',current:()=>({overloadLines:{머리:[{option:'atk',level:2}]}}),simulate:vi.fn().mockResolvedValue(result(120))});
+ const save=document.querySelector<HTMLButtonElement>('.growth-save-html')!;expect(save.disabled).toBe(true);
+ const cost=document.querySelector<HTMLInputElement>('input[aria-label="모듈 가성비 분석"]')!;cost.checked=false;cost.dispatchEvent(new Event('change'));
+ document.querySelector<HTMLButtonElement>('.growth-primary')!.click();
+ await vi.waitFor(()=>expect(save.disabled).toBe(false));save.click();
+ const blob=create.mock.calls[0]![0] as unknown as Blob;expect(blob.type).toBe('text/html;charset=utf-8');
+ const text=await new Promise<string>(resolve=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.readAsText(blob);});
+ expect(text).toContain('전체 덱 육성 우선순위');expect(text).toContain('목표 스킬 필요 재료');expect(text).toContain('기본 스펙 이탈 내역');expect(text).not.toContain('<button');
+ const skill=document.querySelector<HTMLSelectElement>('select[aria-label="덱 1 A 목표 스킬1"]')!;skill.value='7';skill.dispatchEvent(new Event('change'));expect(save.disabled).toBe(true);
+});
