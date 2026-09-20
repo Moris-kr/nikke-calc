@@ -57,7 +57,14 @@ async function start(): Promise<void> {
     client,
     storage: () => window.localStorage,
   });
-  window.addEventListener('pagehide', cleanup, { once: true });
+  // 뒤로 가기 캐시에 보관되는 화면은 기존 이벤트와 워커를 그대로 다시 사용한다.
+  // 여기서 dispose하면 복원 후 캐시되지 않은 조건을 계산할 수 없다.
+  const onPageHide = (event: PageTransitionEvent) => {
+    if (event.persisted) return;
+    window.removeEventListener('pagehide', onPageHide);
+    cleanup();
+  };
+  window.addEventListener('pagehide', onPageHide);
 }
 
 start().catch((error: unknown) => {
