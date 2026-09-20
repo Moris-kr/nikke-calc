@@ -1,3 +1,4 @@
+import {inlineCodeIcon,bossElementHint} from './element-inline';
 import {growthSkillPlan,skillMaterialLines,skillTotalLines,rankModuleResults,growthReportHtml} from './growth-report';
 import growthReportCss from './growth-efficiency.css?inline';
 import {registerGrowthMcp} from './growth-mcp';
@@ -159,7 +160,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
   snapshot.decks.forEach((entry, index) => {
     lockMasks[index]={};goalNotes[index]={};targetLevels[index]={};
     targets[index] = {}; originals[index] = {}; growthStages[index] = {}; excluded[index] = new Set(); equipment[index] = {}; extras[index] = {};
-    const group = node('section', '', 'growth-deck'); group.append(node('h3', deps.deckName(entry.deckId)));
+    const group = node('section', '', 'growth-deck'); group.append(node('h3', deps.deckName(entry.deckId)),bossElementHint(entry.request.enemyCode));
     for (const name of entry.request.squad.filter(Boolean)) {
       const totals = entry.request.characters?.[name]?.overload ?? deps.settings.characters[name]?.overload ?? {};
       const source = verifiedLines(totals, entry.request.characters?.[name]?.overloadLines ?? deps.current(entry.deckId, name)?.overloadLines, steps);
@@ -174,7 +175,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
       const summary = node('summary');
       const image = deps.catalog.get(name)?.image;
       if (image) { const img = node('img'); img.src = `${import.meta.env.BASE_URL}${image}`; img.alt = ''; summary.append(img); }
-      summary.append(node('strong', name), node('span', source ? '현재 옵션 → 수치작 목표' : '부위 정보 없음', 'growth-note'));
+      const codeIcon=inlineCodeIcon(deps.catalog.get(name)?.elementCode||'unknown');summary.append(codeIcon,node('strong', name), node('span', source ? '현재 옵션 → 수치작 목표' : '부위 정보 없음', 'growth-note'));
       const defaults = deps.settings.characters[name];
       const currentStage = entry.request.characters?.[name]?.growthStage ?? defaults?.growthStage ?? 0;
       growthStages[index]![name] = currentStage;
