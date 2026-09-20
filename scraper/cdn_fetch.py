@@ -219,6 +219,12 @@ def adapt(role: dict) -> tuple[str, dict]:
             "연사증가(rpm/발)": shot.get("rate_of_fire_change_pershot", 0),
             "펠릿": shot.get("shot_count", 1),
             "총구": shot.get("muzzle_count", 1),
+            **({"탄착군": {
+                "start": shot["start_accuracy_circle_scale"],
+                "end": shot.get("end_accuracy_circle_scale", shot["start_accuracy_circle_scale"]),
+                "per_shot": shot.get("accuracy_change_pershot", 0),
+                "recovery": shot.get("accuracy_change_speed", 0),
+            }} if shot.get("start_accuracy_circle_scale") else {}),
             "무기스킬": render_weapon_skill(shot),
         },
         "스킬": skills,

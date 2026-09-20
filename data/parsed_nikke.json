@@ -32,6 +32,12 @@
     "fire_rate": 1.5,
     "pellets": 10,
     "muzzles": 1,
+    "spread": {
+      "start": 250,
+      "end": 250,
+      "per_shot": 0,
+      "recovery": 0
+    },
     "damage_coeff": 224.5,
     "core_dmg_mult": 200.0
   },
@@ -90,6 +96,12 @@
     "fire_rate": 1.5,
     "pellets": 10,
     "muzzles": 1,
+    "spread": {
+      "start": 250,
+      "end": 250,
+      "per_shot": 0,
+      "recovery": 0
+    },
     "damage_coeff": 259.2,
     "core_dmg_mult": 200.0
   },
@@ -226,6 +238,12 @@
     "fire_rate": 1.5,
     "pellets": 10,
     "muzzles": 1,
+    "spread": {
+      "start": 250,
+      "end": 250,
+      "per_shot": 0,
+      "recovery": 0
+    },
     "damage_coeff": 201.5,
     "core_dmg_mult": 200.0,
     "favorite_item": "형사 수첩",
@@ -470,6 +488,12 @@
     "fire_rate": 1.5,
     "pellets": 10,
     "muzzles": 1,
+    "spread": {
+      "start": 250,
+      "end": 250,
+      "per_shot": 0,
+      "recovery": 0
+    },
     "damage_coeff": 201.5,
     "core_dmg_mult": 200.0
   },
@@ -488,6 +512,12 @@
     "fire_rate": 1.5,
     "pellets": 10,
     "muzzles": 1,
+    "spread": {
+      "start": 250,
+      "end": 250,
+      "per_shot": 0,
+      "recovery": 0
+    },
     "damage_coeff": 201.5,
     "core_dmg_mult": 200.0
   },
@@ -716,6 +746,12 @@
     "fire_rate": 1.5,
     "pellets": 10,
     "muzzles": 1,
+    "spread": {
+      "start": 250,
+      "end": 250,
+      "per_shot": 0,
+      "recovery": 0
+    },
     "damage_coeff": 214.3,
     "core_dmg_mult": 200.0,
     "favorite_item": "빌런 피규어",
@@ -780,6 +816,12 @@
     "fire_rate": 1.5,
     "pellets": 10,
     "muzzles": 1,
+    "spread": {
+      "start": 250,
+      "end": 250,
+      "per_shot": 0,
+      "recovery": 0
+    },
     "damage_coeff": 201.5,
     "core_dmg_mult": 200.0
   },
@@ -856,6 +898,12 @@
     "fire_rate": 1.5,
     "pellets": 10,
     "muzzles": 1,
+    "spread": {
+      "start": 250,
+      "end": 250,
+      "per_shot": 0,
+      "recovery": 0
+    },
     "damage_coeff": 220.4,
     "core_dmg_mult": 200.0,
     "favorite_item": "첫 휴대폰과 연락처 수첩",
@@ -938,6 +986,12 @@
     "fire_rate": 1.5,
     "pellets": 10,
     "muzzles": 1,
+    "spread": {
+      "start": 250,
+      "end": 250,
+      "per_shot": 0,
+      "recovery": 0
+    },
     "damage_coeff": 201.5,
     "core_dmg_mult": 200.0
   },
@@ -956,6 +1010,12 @@
     "fire_rate": 1.5,
     "pellets": 10,
     "muzzles": 1,
+    "spread": {
+      "start": 250,
+      "end": 250,
+      "per_shot": 0,
+      "recovery": 0
+    },
     "damage_coeff": 231.6,
     "core_dmg_mult": 200.0
   },
@@ -994,6 +1054,12 @@
     "fire_rate": 1.5,
     "pellets": 10,
     "muzzles": 1,
+    "spread": {
+      "start": 250,
+      "end": 250,
+      "per_shot": 0,
+      "recovery": 0
+    },
     "damage_coeff": 231.6,
     "core_dmg_mult": 200.0,
     "favorite_item": "기념 열쇠고리",
@@ -1256,6 +1322,12 @@
     "fire_rate": 1.5,
     "pellets": 10,
     "muzzles": 1,
+    "spread": {
+      "start": 250,
+      "end": 250,
+      "per_shot": 0,
+      "recovery": 0
+    },
     "damage_coeff": 231.6,
     "core_dmg_mult": 200.0
   },
@@ -1374,6 +1446,12 @@
     "fire_rate": 1.5,
     "pellets": 10,
     "muzzles": 1,
+    "spread": {
+      "start": 250,
+      "end": 250,
+      "per_shot": 0,
+      "recovery": 0
+    },
     "damage_coeff": 201.5,
     "core_dmg_mult": 200.0
   },
@@ -1702,6 +1780,12 @@
     "fire_rate": 1.5,
     "pellets": 10,
     "muzzles": 1,
+    "spread": {
+      "start": 250,
+      "end": 250,
+      "per_shot": 0,
+      "recovery": 0
+    },
     "damage_coeff": 210.7,
     "core_dmg_mult": 200.0
   },
@@ -1758,6 +1842,12 @@
     "fire_rate": 1.5,
     "pellets": 10,
     "muzzles": 1,
+    "spread": {
+      "start": 250,
+      "end": 250,
+      "per_shot": 0,
+      "recovery": 0
+    },
     "damage_coeff": 201.5,
     "core_dmg_mult": 200.0
   },
@@ -1910,6 +2000,12 @@
     "fire_rate": 1.5,
     "pellets": 10,
     "muzzles": 1,
+    "spread": {
+      "start": 250,
+      "end": 250,
+      "per_shot": 0,
+      "recovery": 0
+    },
     "damage_coeff": 204.6,
     "core_dmg_mult": 200.0
   },
@@ -2072,6 +2168,12 @@
     "fire_rate": 1.5,
     "pellets": 10,
     "muzzles": 1,
+    "spread": {
+      "start": 250,
+      "end": 250,
+      "per_shot": 0,
+      "recovery": 0
+    },
     "damage_coeff": 214.3,
     "core_dmg_mult": 200.0
   },
@@ -2108,6 +2210,12 @@
     "fire_rate": 1.5,
     "pellets": 10,
     "muzzles": 1,
+    "spread": {
+      "start": 250,
+      "end": 250,
+      "per_shot": 0,
+      "recovery": 0
+    },
     "damage_coeff": 214.3,
     "core_dmg_mult": 200.0
   },
@@ -2222,6 +2330,12 @@
     "fire_rate": 1.5,
     "pellets": 10,
     "muzzles": 1,
+    "spread": {
+      "start": 250,
+      "end": 250,
+      "per_shot": 0,
+      "recovery": 0
+    },
     "damage_coeff": 231.6,
     "core_dmg_mult": 200.0
   },
@@ -2316,6 +2430,12 @@
     "fire_rate": 1.5,
     "pellets": 10,
     "muzzles": 1,
+    "spread": {
+      "start": 250,
+      "end": 75,
+      "per_shot": 18,
+      "recovery": 105
+    },
     "damage_coeff": 182.1,
     "core_dmg_mult": 200.0
   },
@@ -2334,6 +2454,12 @@
     "fire_rate": 1.5,
     "pellets": 10,
     "muzzles": 1,
+    "spread": {
+      "start": 250,
+      "end": 250,
+      "per_shot": 0,
+      "recovery": 0
+    },
     "damage_coeff": 231.6,
     "core_dmg_mult": 200.0
   },
@@ -2392,6 +2518,12 @@
     "fire_rate": 1.5,
     "pellets": 10,
     "muzzles": 1,
+    "spread": {
+      "start": 250,
+      "end": 250,
+      "per_shot": 0,
+      "recovery": 0
+    },
     "damage_coeff": 201.5,
     "core_dmg_mult": 200.0
   },
@@ -2646,6 +2778,12 @@
     "fire_rate": 1.5,
     "pellets": 10,
     "muzzles": 1,
+    "spread": {
+      "start": 250,
+      "end": 250,
+      "per_shot": 0,
+      "recovery": 0
+    },
     "damage_coeff": 201.5,
     "core_dmg_mult": 200.0
   },
@@ -2664,6 +2802,12 @@
     "fire_rate": 1.5,
     "pellets": 5,
     "muzzles": 2,
+    "spread": {
+      "start": 250,
+      "end": 250,
+      "per_shot": 0,
+      "recovery": 0
+    },
     "damage_coeff": 100.75,
     "core_dmg_mult": 200.0,
     "favorite_item": "네잎클로버 책갈피",
@@ -2726,6 +2870,12 @@
     "fire_rate": 1.5,
     "pellets": 10,
     "muzzles": 1,
+    "spread": {
+      "start": 250,
+      "end": 250,
+      "per_shot": 0,
+      "recovery": 0
+    },
     "damage_coeff": 231.4,
     "core_dmg_mult": 200.0
   },
@@ -2922,6 +3072,12 @@
     "fire_rate": 1.5,
     "pellets": 10,
     "muzzles": 1,
+    "spread": {
+      "start": 250,
+      "end": 250,
+      "per_shot": 0,
+      "recovery": 0
+    },
     "damage_coeff": 204.8,
     "core_dmg_mult": 200.0
   },
@@ -3320,6 +3476,12 @@
     "fire_rate": 1.5,
     "pellets": 10,
     "muzzles": 1,
+    "spread": {
+      "start": 250,
+      "end": 250,
+      "per_shot": 0,
+      "recovery": 0
+    },
     "damage_coeff": 222.8,
     "core_dmg_mult": 200.0
   },
@@ -3893,6 +4055,12 @@
     "fire_rate": 1.5,
     "pellets": 10,
     "muzzles": 1,
+    "spread": {
+      "start": 250,
+      "end": 250,
+      "per_shot": 0,
+      "recovery": 0
+    },
     "damage_coeff": 201.5,
     "core_dmg_mult": 200.0
   },

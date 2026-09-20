@@ -506,3 +506,11 @@ it('passes shotgun probability through cache and deck requests', () => {
   expect(validateRequest({ ...valid, shotgunHitRate: 1.1 }).length).toBeGreaterThan(0);
   expect(resetEnemy({ ...battle, shotgunHitRate: .8 }).shotgunHitRate).toBe(1);
 });
+
+it('preserves spatial shotgun settings and separates cached models', () => {
+  const changed = { ...valid, shotgunModel: 'spatial-v1' as const, shotgunTargetDiameter: 120 };
+  expect(normalizeRequest(changed)).toMatchObject({ shotgunModel: 'spatial-v1', shotgunTargetDiameter: 120 });
+  expect(cacheKey(changed, 'v')).not.toBe(cacheKey(valid, 'v'));
+  expect(requestForDeck({ id: 1, squad: ['리타'], characters: {} }, { ...battle, shotgunModel: 'spatial-v1', shotgunTargetDiameter: 120 })).toMatchObject({ shotgunModel: 'spatial-v1', shotgunTargetDiameter: 120 });
+  expect(validateRequest({ ...changed, shotgunTargetDiameter: -1 }).length).toBeGreaterThan(0);
+});

@@ -193,6 +193,11 @@ describe('applyShareToDecks', () => {
 
 
 describe('전투 조건 공유 코드 (NK3)', () => {
+  it('round trips versioned spatial settings without upgrading old codes', () => {
+    expect(decodeBattleCode(encodeBattleCode({ ...base, shotgunModel: 'spatial-v1', shotgunTargetDiameter: 123 }, COEFF)))
+      .toMatchObject({ shotgunModel: 'spatial-v1', shotgunTargetDiameter: 123 });
+    expect(decodeBattleCode(encodeBattleCode(base, COEFF)).shotgunModel).toBeUndefined();
+  });
   it('round trips boss size, custom probability and old default', () => {
     expect(decodeBattleCode(encodeBattleCode({ ...base, bossSize: 'custom', shotgunHitRate: .735 }, COEFF)))
       .toMatchObject({ bossSize: 'custom', shotgunHitRate: .735 });

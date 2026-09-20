@@ -281,7 +281,7 @@ export function summarizeBattle(battle: BattleShare): string {
   const parts = [t('{n}초', { n: battle.duration })];
   if (Object.keys(battle.firstBurstPerDeck ?? {}).length) parts.push('첫 버스트 덱별 ' + Object.entries(battle.firstBurstPerDeck!).map(([id, time]) => `덱${id} ${time}초`).join('/'));
   else if (battle.firstBurstTime) parts.push(`첫 버스트 ${battle.firstBurstTime}초`);
-  parts.push(`샷건 명중 ${Math.round((battle.shotgunHitRate ?? 1) * 10000) / 100}%`);
+  parts.push(battle.shotgunModel && battle.shotgunModel !== 'legacy' ? `샷건 탄착군${battle.shotgunModel === 'spatial-convergence-v1' ? '·수렴 실험' : ''} 직경 ${battle.shotgunTargetDiameter ?? 360}` : `샷건 명중 ${Math.round((battle.shotgunHitRate ?? 1) * 10000) / 100}%`);
   parts.push(battle.enemyCode ? t('적 {code}', { code: t(battle.enemyCode) }) : t('무속성'));
   parts.push(battle.coreEnabled ? t('코어 {n}px', { n: battle.corePx }) : t('코어 없음'));
   if (battle.hasParts) parts.push(t('파츠'));

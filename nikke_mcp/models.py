@@ -170,7 +170,9 @@ class BattleOptions(StrictModel):
     duration: int = Field(default=180, ge=1, le=180)
     enemyDef: int = Field(default=31784, ge=0, le=10000000)
     enemyCode: Literal['', '풍압', '수냉', '작열', '전격', '철갑'] = ''
-    shotgunHitRate: float = Field(default=1, ge=0, le=1, description='샷건 펠릿 명중 확률. 큼=1, 보통=0.9, 작음=0.8, 커스텀=0~1. 대미지와 명중 누적에 함께 적용.')
+    shotgunModel: Literal['legacy', 'spatial-v1', 'spatial-convergence-v1'] = Field(default='legacy', description='legacy는 기존 고정 명중률. spatial-v1은 명중 버프와 표적 직경을 함께 판정. spatial-convergence-v1은 미검증 무기 수렴 시간 가정도 적용. 새 방식의 크기·분포는 실측 확정값이 아닙니다.')
+    shotgunTargetDiameter: float = Field(default=360, ge=1, le=2000)
+    shotgunHitRate: float = Field(default=1, ge=0, le=1, description='legacy 모드의 샷건 펠릿 명중 확률. spatial 모드에서는 사용하지 않고 shotgunTargetDiameter로 판정.')
     corePx: float = Field(default=0, ge=0, le=1000)
     defenseRateWindows: list[DefenseRateWindow] = Field(default_factory=list, max_length=100,
         description='리버렐리오 바디 심해의 장막 방어율 구간. from/to는 전투 시작 기준 초, rate는 감소율%(기본60). 일반 최종 대미지에 (1-rate/100), 방어력 무시 대미지는 우회. 단순 방무 대미지 증가 버프는 우회 불가. 시작 포함·끝 제외, 겹치면 최대 rate만 적용. 커뮤니티 실험 기반이며 방깎 상호작용 미검증.')

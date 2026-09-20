@@ -84,6 +84,8 @@ class BossBattle(StrictModel):
     enemyCode: Literal['', '풍압', '수냉', '작열', '전격', '철갑'] = ''
     coreEnabled: bool = False
     bossSize: Literal['large', 'medium', 'small', 'custom'] = 'large'
+    shotgunModel: Literal['legacy', 'spatial-v1', 'spatial-convergence-v1'] = 'legacy'
+    shotgunTargetDiameter: float = Field(default=360, ge=1, le=2000)
     shotgunHitRate: float = Field(default=1, ge=0, le=1)
     corePx: int = Field(default=52, ge=0, le=1000)
     hasParts: bool = False
@@ -147,7 +149,7 @@ def encode_battle(battle: BossBattle) -> str:
     fields = [('duration', 'd'), ('enemyDef', 'ed'), ('enemyCode', 'ec'),
               ('coreEnabled', 'ce'), ('corePx', 'cp'), ('hasParts', 'hp'), ('seed', 's'),
               ('optimalRangeWeapons', 'or'), ('rngMode', 'rm'), ('immuneBlocksBurst', 'ib'),
-              ('bossSize', 'bs'), ('shotgunHitRate', 'sh'), ('burstRegenTime', 'br'), ('burstReaction', 'rt'), ('firstBurstTime', 'fb')]
+              ('bossSize', 'bs'), ('shotgunHitRate', 'sh'), ('shotgunModel', 'sm'), ('shotgunTargetDiameter', 'sd'), ('burstRegenTime', 'br'), ('burstReaction', 'rt'), ('firstBurstTime', 'fb')]
     def compact(field, value):
         if field == 'shotgunHitRate': return rounded(value, 10000)
         if field == 'enemyCode': return CODES.index(value)

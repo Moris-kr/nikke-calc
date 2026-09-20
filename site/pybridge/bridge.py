@@ -631,7 +631,15 @@ def run_request(raw: str, include_effective: bool = False) -> str:
     shotgun_rate = float(payload.get("shotgunHitRate", 1))
     if not math.isfinite(shotgun_rate) or not 0 <= shotgun_rate <= 1:
         raise ValueError("샷건 펠릿 명중 확률은 0~100%여야 합니다")
+    shotgun_model = payload.get('shotgunModel', 'legacy')
+    if shotgun_model not in ('legacy', 'spatial-v1', 'spatial-convergence-v1'):
+        raise ValueError('샷건 계산 방식이 올바르지 않습니다')
+    shotgun_diameter = float(payload.get('shotgunTargetDiameter', 360))
+    if not math.isfinite(shotgun_diameter) or not 1 <= shotgun_diameter <= 2000:
+        raise ValueError('보스 판정 직경은 1~2000이어야 합니다')
     enemy = {
+        "shotgun_model": shotgun_model,
+        "shotgun_target_diameter": shotgun_diameter,
         "shotgun_hit_rate": shotgun_rate,
         **({"shotgun_geometry": payload["shotgunGeometry"]} if payload.get("shotgunGeometry") is not None else {}),
         "def": int(payload["enemyDef"]),
@@ -673,6 +681,7 @@ def run_request(raw: str, include_effective: bool = False) -> str:
         "duration": result.duration,
         "hitCount": len(result.hits),
         "charTotals": result.char_total,
+        **({"shotgunStats": result.shotgun_stats} if result.shotgun_stats else {}),
         "charBreakdown": _build_breakdown(result, names),
         "previewNote": char_spec.preview_note(names),
         "deviations": char_spec.format_deviations(squad) + (

@@ -98,6 +98,8 @@ def parse_fire_mechanics(weapon: dict) -> dict:
         result["pellets"] = int(weapon["펠릿"])
     if weapon.get("총구"):
         result["muzzles"] = int(weapon["총구"])
+    if weapon.get("탄착군"):
+        result["spread"] = dict(weapon["탄착군"])
     return result
 
 

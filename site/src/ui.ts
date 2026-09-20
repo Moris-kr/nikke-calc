@@ -346,6 +346,14 @@ function renderCharacterCards(
     bar.style.width = `${best > 0 ? Math.max(2, value / best * 100) : 2}%`;
     track.append(bar);
     card.append(track);
+    const pelletStats = entry.result.shotgunStats?.[name];
+    if (pelletStats && pelletStats.fired > 0) {
+      const pct = (n: number) => (n / pelletStats.fired * 100).toFixed(1);
+      const info = createText('small', `예상 펠릿 명중 ${pct(pelletStats.hit)}% · 코어 ${pct(pelletStats.core)}% · 빗나감 ${pct(pelletStats.miss)}%`);
+      info.title = `발사 ${pelletStats.fired.toLocaleString()}개 / 예상 명중 ${pelletStats.hit.toFixed(1)}개 / 탄착 직경 ${pelletStats.minDiameter.toFixed(1)}~${pelletStats.maxDiameter.toFixed(1)}. 코어 비율은 발사 펠릿 전체 기준입니다. 난수 모드에서도 이 표시는 사격 시점별 기대값입니다.`;
+      card.append(info);
+    }
+
 
     // 평타/스킬 분해와 스킬별 내역. 카드가 좁으니 접어 둔다.
     const breakdown = entry.result.charBreakdown?.[name];
@@ -363,7 +371,7 @@ function renderCharacterCards(
       // 쏜 것이 없으면(스킬로만 때리는 판) 적을 것도 없다.
       const shots = breakdown.shots ?? 0;
       if (shots > 0) {
-        const corePct = (breakdown.coreShots ?? 0) / shots * 100;
+        const corePct = pelletStats && pelletStats.fired > 0 ? pelletStats.core / pelletStats.fired * 100 : (breakdown.coreShots ?? 0) / shots * 100;
         const core = createText('span', t('코어 {pct}%', { pct: corePct.toFixed(0) }), 'legend-core');
         core.title = t('쏜 탄 가운데 코어에 맞은 비율입니다. 무기군의 탄착군 크기와 코어 크기로 정해지며, 변신 모드에서는 그 모드의 무기로 따집니다. 스킬 대미지는 조준 판정이 없어 여기 들어가지 않습니다.');
         summary.append(core);
@@ -660,6 +668,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     분배: '렐릭 디바이드 큐브',
   };
   const migrateSavedCubes = (state: Partial<SavedState>): Partial<SavedState> => {
+    if (state.battle && state.battle.shotgunModel === undefined) state.battle.shotgunModel = 'legacy';
     // Retire only the legacy SG default; preserve deliberate custom coefficients.
     if (state.battle && state.battle.shotgunHitRate === undefined) {
       if (state.battle.normalHitCoeff?.SG === 0.9) state.battle.normalHitCoeff.SG = 1;
@@ -1077,12 +1086,14 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <label><span>적 코드</span><select id="enemy-code"><option value="">없음</option><option value="풍압">풍압(작열weak)</option><option value="수냉">수냉(전격weak)</option><option value="작열">작열(수냉weak)</option><option value="전격">전격(철갑weak)</option><option value="철갑">철갑(풍압weak)</option></select></label>
             <label><span>싱크로 레벨</span><div class="input-unit"><input id="synchro-level" type="number" min="1" max="${SYNCHRO_MAX}" step="1" value="${DEFAULT_SYNCHRO_LEVEL}" title="${t('싱크로 디바이스 소대에 넣은 니케는 전원이 이 레벨이 됩니다. 계정 육성 상태라 전투 조건 공유 코드에는 담기지 않습니다. {n}레벨까지는 실측값이고, 그 위는 같은 성장 곡선을 이어 붙여 계산합니다', { n: SYNCHRO_MEASURED_MAX })}" /><em>Lv</em></div></label>
             <label class="toggle-field"><input id="has-core" type="checkbox" /><span class="toggle"></span><span>코어 있음</span></label>
+            <label><span>샷건 계산 방식</span><select id="shotgun-model"><option value="spatial-v1" selected>탄착군·보스 크기 (개선)</option><option value="spatial-convergence-v1">탄착군 + 무기 수렴 (실험)</option><option value="legacy">기존 방식 · 고정 명중률</option></select></label>
+            <label><span>보스 판정 직경</span><div class="input-unit"><input id="shotgun-target-diameter" type="number" min="1" max="2000" step="1" value="360" disabled /><em>모형 px</em></div></label>
             <label><span>보스 크기 · 샷건 명중</span><select id="boss-size"><option value="large">큼 · 펠릿 100%</option><option value="medium">보통 · 펠릿 90%</option><option value="small">작음 · 펠릿 80%</option><option value="custom">커스텀</option></select></label>
             <label><span>샷건 펠릿 명중 확률</span><div class="input-unit"><input id="shotgun-hit-rate" type="number" min="0" max="100" step="0.1" value="100" disabled /><em>%</em></div></label>
             <label data-core-size><span>코어 직경</span><div class="input-unit"><input id="core-px" type="number" min="0" max="1000" step="1" value="52" disabled /><em>px</em></div></label>
             <label class="toggle-field"><input id="has-parts" type="checkbox" /><span class="toggle"></span><span>파괴 가능 파츠</span></label>
           </div>
-          <p class="field-note">보스 크기별 확률은 직접 정하는 명중 가정입니다. 빗나간 펠릿은 대미지·명중 횟수에서 제외합니다. 보스메이커의 도형 기준 계산은 이 확률 대신 몸통·파츠 밖의 펠릿을 빗나감 처리합니다.</p>
+          <p class="field-note" id="shotgun-model-note">개선 모드는 명중 버프와 보스 판정 크기로 몸통·코어·빗나감을 함께 계산합니다. 크기와 펠릿 분포는 모형 가정이며 인게임 실측 확정값이 아닙니다. 보스메이커에서는 직경 대신 그린 도형을 사용합니다. 언제든 기존 방식으로 되돌릴 수 있습니다.</p>
           <fieldset class="range-field">
             <legend>적정거리</legend>
             <div class="range-options" data-optimal-range></div>
@@ -3534,6 +3545,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     enemyCode: element<HTMLSelectElement>(root, '#enemy-code').value as BattleSettings['enemyCode'],
     coreEnabled: coreToggle.checked,
     corePx: Number(corePxInput.value),
+    shotgunModel: element<HTMLSelectElement>(root, '#shotgun-model').value as BattleSettings['shotgunModel'],
+    shotgunTargetDiameter: Number(element<HTMLInputElement>(root, '#shotgun-target-diameter').value),
     bossSize: element<HTMLSelectElement>(root, '#boss-size').value as BattleSettings['bossSize'],
     shotgunHitRate: Number(element<HTMLInputElement>(root, '#shotgun-hit-rate').value) / 100,
     hasParts: element<HTMLInputElement>(root, '#has-parts').checked,
@@ -3565,6 +3578,22 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     },
   });
 
+  const refreshShotgunControls = () => {
+    const mode = element<HTMLSelectElement>(root, '#shotgun-model').value;
+    const spatial = mode !== 'legacy';
+    const size = element<HTMLSelectElement>(root, '#boss-size');
+    const rate = element<HTMLInputElement>(root, '#shotgun-hit-rate');
+    const diameter = element<HTMLInputElement>(root, '#shotgun-target-diameter');
+    rate.closest('label')!.hidden = spatial;
+    diameter.closest('label')!.hidden = !spatial;
+    rate.disabled = size.value !== 'custom';
+    diameter.disabled = size.value !== 'custom';
+    const labels = spatial ? ['큼 · 직경 360', '보통 · 직경 200', '작음 · 직경 120', '커스텀'] : ['큼 · 펠릿 100%', '보통 · 펠릿 90%', '작음 · 펠릿 80%', '커스텀'];
+    [...size.options].forEach((option, index) => { option.textContent = labels[index]!; });
+    element<HTMLElement>(root, '#shotgun-model-note').textContent = spatial
+      ? '명중 버프와 보스 판정 크기로 몸통·코어·빗나감을 함께 계산합니다. 크기·펠릿 분포는 모형 가정이며 실측 확정값이 아닙니다. 보스메이커는 직경 대신 도형을 사용합니다. 기존 방식 선택으로 즉시 되돌릴 수 있습니다.' + (mode === 'spatial-convergence-v1' ? ' 수렴 실험: 발사 후 탄착군 감소, 재장전 중 원본 변화속도로 회복한다고 가정합니다. 시간 규칙은 미검증입니다.' : '')
+      : '기존 방식은 명중 버프와 무관하게 고정 몸통 명중률을 적용합니다. 보스메이커에서는 기존 도형 판정을 사용합니다. 기존 저장 조건·공유 코드는 자동 변경하지 않습니다.';
+  };
   const writeBattle = (battle: BattleSettings) => {
     element<HTMLInputElement>(root, '#duration').value = String(battle.duration);
     // 싱크로 레벨이 없던 시절에 저장된 설정을 되살릴 때가 있다 — 기본값으로 채운다.
@@ -3574,9 +3603,12 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     element<HTMLSelectElement>(root, '#enemy-code').value = battle.enemyCode;
     coreToggle.checked = battle.coreEnabled;
     corePxInput.value = String(battle.corePx);
+    element<HTMLSelectElement>(root, '#shotgun-model').value = battle.shotgunModel ?? 'legacy';
+    element<HTMLInputElement>(root, '#shotgun-target-diameter').value = String(battle.shotgunTargetDiameter ?? 360);
     element<HTMLSelectElement>(root, '#boss-size').value = battle.bossSize ?? 'large';
     element<HTMLInputElement>(root, '#shotgun-hit-rate').value = String(Math.round((battle.shotgunHitRate ?? 1) * 10000) / 100);
     element<HTMLInputElement>(root, '#shotgun-hit-rate').disabled = battle.bossSize !== 'custom';
+    refreshShotgunControls();
     corePxInput.disabled = !battle.coreEnabled;
     element<HTMLInputElement>(root, '#has-parts').checked = battle.hasParts;
     element<HTMLInputElement>(root, '#seed').value = String(battle.seed);
@@ -5123,7 +5155,11 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     const input = element<HTMLInputElement>(root, '#shotgun-hit-rate');
     input.disabled = size !== 'custom';
     if (size !== 'custom') input.value = String(({ large: 100, medium: 90, small: 80 } as Record<string, number>)[size]);
+    if (size !== 'custom') element<HTMLInputElement>(root, '#shotgun-target-diameter').value = String(({ large: 360, medium: 200, small: 120 } as Record<string, number>)[size]);
+    refreshShotgunControls();
   });
+  element<HTMLSelectElement>(root, '#shotgun-model').addEventListener('change', refreshShotgunControls);
+  refreshShotgunControls();
   // 전투 조건 입력이 바뀌면 저장한다.
   form.addEventListener('change', (event) => {
     const target = event.target as HTMLElement | null;

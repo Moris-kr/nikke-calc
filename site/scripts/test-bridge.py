@@ -14,6 +14,15 @@ from context.spec import _nikke as parsed_nikke
 
 
 class PelletBridgeTest(unittest.TestCase):
+    def test_spatial_model_and_validation(self):
+        payload = {"squad": ["드레이크"], "duration": 10, "enemyDef": 0, "enemyCode": "", "corePx": 0, "hasParts": False, "seed": 42, "shotgunModel": "spatial-v1", "rngMode": "expected"}
+        small = json.loads(run_request(json.dumps({**payload, "shotgunTargetDiameter": 80})))
+        large = json.loads(run_request(json.dumps({**payload, "shotgunTargetDiameter": 360})))
+        self.assertLess(small['squadTotal'], large['squadTotal'])
+        for values in ({'shotgunModel': 'wrong'}, {'shotgunTargetDiameter': -1}):
+            with self.assertRaises(ValueError):
+                run_request(json.dumps({**payload, **values}))
+
     def test_probability_and_geometry_reach_engine(self):
         from unittest.mock import patch
         payload = {"squad": ["드레이크"], "duration": 10, "enemyDef": 0, "enemyCode": "", "corePx": 0, "hasParts": False, "seed": 42}

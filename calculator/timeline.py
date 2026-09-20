@@ -372,6 +372,10 @@ class CharState:
         # (유저 확인, 2026-09-04). 실측은 `weapon_delays._weapon_change`에 적고
         # 여기로 올라온다. 0이면 종전과 같다.
         self.accuracy_floor_pct: float = float('-inf')
+        self._spread_spec = weapon_data.get('spread', {})
+        self._spread_scale = float(self._spread_spec.get('start', 250))
+        self._spread_reload_at = None
+        self.shotgun_stats = {}
         # 연사 무기 모드는 진입 시 self.ammo를 모드 장탄으로 덮어쓴다(원래 장탄은 버린다).
         # 모드가 끝날 때 되돌려 놓아야 그 값이 원래 무기로 새어 나가지 않는다.
         self._wc_ammo_borrowed: bool = False
@@ -711,7 +715,7 @@ class CharState:
         hit_count = split * self.muzzles
 
         expected = cfg.get("rng_mode") == "expected"
-        P_hit, P_core = self._pellet_probabilities(t, bm, enemy, buffs, P_core)
+        P_hit, P_core = self._pellet_probabilities(t, bm, enemy, buffs, P_core, hit_count)
         landed = 0
         core_frac = 0.0
         for i in range(hit_count):
@@ -956,14 +960,36 @@ class CharState:
             self._charge_hold_fired.add(raw)
             bm.notify(f"charge_hold:{raw}", t, self.name)
 
-    def _pellet_probabilities(self, t, bm, enemy, buffs, core_probability):
+    def _pellet_probabilities(self, t, bm, enemy, buffs, core_probability, pellet_count=1):
         if (self.accuracy_weapon or self.weapon_type) != "SG":
             return 1.0, core_probability
         spec = _ACCURACY_DATA.get(self.accuracy_weapon or self.weapon_type, {})
         accuracy = max(buffs.get("accuracy_pct", 0), self.accuracy_floor_pct)
         radius = max(1, spec.get("base_diameter", 10) - spec.get("acc_slope", 0) * accuracy) / 2
-        return pellet_probabilities(enemy, self.name, t, bm.state.get("full_burst", False),
-                                    radius, core_probability, _MODEL_N)
+        if enemy.get('shotgun_model') in ('spatial-v1', 'spatial-convergence-v1') and not self._in_weapon_change:
+            spread = self._spread_spec
+            start = float(spread.get('start', 250))
+            scale = start
+            if enemy.get('shotgun_model') == 'spatial-convergence-v1':
+                # Explicit experimental policy: contract after each shot,
+                # recover only during the reload gap. CDN does not document
+                # timing semantics; this policy is never silently enabled.
+                self._recover_spread(t)
+                scale = self._spread_scale
+                self._spread_scale = max(float(spread.get('end', start)), scale-float(spread.get('per_shot', 0)))
+            radius *= scale / 250
+        hit, core = pellet_probabilities(enemy, self.name, t, bm.state.get("full_burst", False),
+                                         radius, core_probability, _MODEL_N)
+        if enemy.get('shotgun_model') in ('spatial-v1', 'spatial-convergence-v1'):
+            stats = self.shotgun_stats
+            for key, amount in {'fired': pellet_count, 'hit': pellet_count*hit,
+                                'core': pellet_count*hit*core, 'miss': pellet_count*(1-hit)}.items():
+                stats[key] = stats.get(key, 0) + amount
+            override = (enemy.get('shotgun_geometry') or {}).get('spread', {}).get(self.name)
+            diameter = override if override and override > 0 else radius*2
+            stats['minDiameter'] = min(stats.get('minDiameter', diameter), diameter)
+            stats['maxDiameter'] = max(stats.get('maxDiameter', diameter), diameter)
+        return hit, core
 
     def _charge_fire(
         self, t: float, bm: BuffManager, enemy: dict, cfg: dict, is_full: bool
@@ -1015,7 +1041,7 @@ class CharState:
         is_full_burst = bm.state.get("full_burst", False)
         if in_debug_window:
             print(f"t={t:.3f}s  base_atk={self.base_atk:,}  enemy_def={enemy.get('def', 31784):,}")
-        P_hit, P_core = self._pellet_probabilities(t, bm, enemy, buffs, P_core)
+        P_hit, P_core = self._pellet_probabilities(t, bm, enemy, buffs, P_core, hit_count)
         landed = 0
         is_core = False
         res = {"damage": 0, "crit_frac": 0, "is_crit": False}
@@ -1388,6 +1414,7 @@ class CharState:
     def _restore_special_magazine(self, t: float, bm: BuffManager):
         """Replacement completion is an ammo refill, not a reload event."""
         self.ammo = self._full_ammo(bm, t, original_weapon=True)
+        self._recover_spread(t)
         self.reloading_until = -1.0
         self._reload_in_weapon_change = False
         self._pending_auto_reload = False
@@ -1747,12 +1774,19 @@ class CharState:
         clips = math.ceil(max(0, full - self.ammo) / self._clip_gain(full))
         return one * max(1, clips)
 
+    def _recover_spread(self, t):
+        if self._spread_reload_at is not None:
+            self._spread_scale = min(float(self._spread_spec.get('start', 250)), self._spread_scale + max(0, t-self._spread_reload_at) * float(self._spread_spec.get('recovery', 0)))
+            self._spread_reload_at = None
+
     def _start_reload(self, t: float, bm: BuffManager, label: str = "재장전 시작",
                       from_empty: bool = False):
         # 탄을 비워 자동으로 걸린 재장전만 시작 지연을 얹는다. 지연 동안은 쏘지도
         # 장전하지도 않으므로 장전 완료 시각을 그만큼 미루는 것으로 같아진다.
         lead = (self.reload_start_delay * self._reload_speed_factor(bm, t)) if from_empty else 0.0
         self.reloading_until = t + lead + self._reload_duration(bm, t)
+        self._recover_spread(t)
+        self._spread_reload_at = t
         self._reload_in_weapon_change = bm.get_weapon_change(self.name) is not None
         # 차지 중에 재장전이 걸리면 차지는 무효다. 재장전 후에는 처음부터 다시 차지한다
         # (초기화하지 않으면 남아 있던 _charge_start_t로 재장전 직후 즉시 발사된다).
@@ -1775,6 +1809,7 @@ class CharState:
         - 장탄을 채우지 않는다. 이미 탄환 충전이 채운 값이 정답이다.
         재장전 완료 후 딜레이(`post_reload_delay`)도 걸지 않는다. 완료 모션이 없기 때문이다.
         """
+        self._recover_spread(t)
         self.reloading_until = -1.0
         self._reload_in_weapon_change = False
         if self._sim_log is not None:
@@ -1827,6 +1862,7 @@ class CharState:
                 return
         else:
             self.ammo = full
+        self._recover_spread(t)
         self.reloading_until = -1.0
         self._reload_in_weapon_change = False
         bm.notify("event:full_reload", t, self.name)
@@ -3059,6 +3095,7 @@ def simulate(
             _apply_lifesteal(ev, bm, base_stats, t)
         _dot_events.clear()
 
+    result.shotgun_stats = {name: {k: round(v, 4) for k, v in cs.shotgun_stats.items()} for name, cs in char_states.items() if cs.shotgun_stats}
     result.squad_total = sum(result.char_total.values())
     result.hits.sort(key=lambda e: e.t)
 

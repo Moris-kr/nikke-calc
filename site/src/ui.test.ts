@@ -2165,8 +2165,28 @@ describe('calculator UI', () => {
     expect(root.querySelector('[data-picker]')!.closest('[data-quick-decks-modal]')).toBeNull();
   });
 
+  it('persists spatial settings and supports immediate legacy rollback', () => {
+    const cleanup = mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const mode = root.querySelector<HTMLSelectElement>('#shotgun-model')!;
+    const size = root.querySelector<HTMLSelectElement>('#boss-size')!;
+    const diameter = root.querySelector<HTMLInputElement>('#shotgun-target-diameter')!;
+    expect(mode.value).toBe('spatial-v1');
+    size.value = 'small'; size.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(diameter.value).toBe('120');
+    expect(JSON.parse(localStorage.getItem('nikke-state-v1')!).battle).toMatchObject({ shotgunModel: 'spatial-v1', shotgunTargetDiameter: 120 });
+    cleanup();
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const restored = root.querySelector<HTMLSelectElement>('#shotgun-model')!;
+    expect(restored.value).toBe('spatial-v1');
+    restored.value = 'legacy'; restored.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(root.querySelector<HTMLInputElement>('#shotgun-target-diameter')!.closest('label')!.hidden).toBe(true);
+    expect(root.querySelector<HTMLInputElement>('#shotgun-hit-rate')!.closest('label')!.hidden).toBe(false);
+  });
+
   it('persists boss presets and custom pellet probability', () => {
     const cleanup = mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const mode = root.querySelector<HTMLSelectElement>('#shotgun-model')!;
+    mode.value = 'legacy'; mode.dispatchEvent(new Event('change', { bubbles: true }));
     const size = root.querySelector<HTMLSelectElement>('#boss-size')!;
     const rate = root.querySelector<HTMLInputElement>('#shotgun-hit-rate')!;
     expect(size.value).toBe('large'); expect(rate.disabled).toBe(true);

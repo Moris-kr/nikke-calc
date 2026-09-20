@@ -121,6 +121,8 @@ export interface ShotgunGeometry {
 }
 
 export interface SimulationRequest {
+  shotgunModel?: 'legacy' | 'spatial-v1' | 'spatial-convergence-v1';
+  shotgunTargetDiameter?: number;
   shotgunHitRate?: number;
   shotgunGeometry?: ShotgunGeometry;
   squad: string[];
@@ -231,6 +233,8 @@ export type RngMode = 'random' | 'expected';
 
 export interface BattleSettings {
   bossSize?: 'large' | 'medium' | 'small' | 'custom';
+  shotgunModel?: 'legacy' | 'spatial-v1' | 'spatial-convergence-v1';
+  shotgunTargetDiameter?: number;
   shotgunHitRate?: number;
   duration: number;
   /**
@@ -407,6 +411,7 @@ export interface SimulationResult {
   hitCount: number;
   charTotals: Record<string, number>;
   // 구버전 캐시에 저장된 결과에는 없을 수 있다.
+  shotgunStats?: Record<string, { fired: number; hit: number; core: number; miss: number; minDiameter: number; maxDiameter: number }>;
   charBreakdown?: Record<string, CharacterDamageBreakdown>;
   previewNote: string;
   deviations: string;

@@ -51,6 +51,13 @@ def integrate(shapes, aim, radius, core, exponent):
 
 def probabilities(enemy, name, t, full_burst, radius, core_probability, exponent=2.55):
     geometry = enemy.get('shotgun_geometry')
+    if geometry is None and enemy.get('shotgun_model') in ('spatial-v1', 'spatial-convergence-v1'):
+        # Same coordinate units as the existing core/boss canvas, not a claim
+        # that raw CDN scale values are physical screen pixels.
+        diameter = float(enemy.get('shotgun_target_diameter', 360))
+        core_d = float(enemy.get('core_px', 0))
+        return integrate((('circle', 0, 0, diameter, diameter, 0),), (0, 0), radius,
+                         (0, 0, core_d / 2) if core_d > 0 else None, exponent)
     if geometry is None:
         return max(0, min(1, float(enemy.get('shotgun_hit_rate', 1)))), core_probability
     aim = aim_at(geometry, t)

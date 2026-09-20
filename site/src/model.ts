@@ -57,6 +57,8 @@ export function normalizeRequest(request: SimulationRequest): SimulationRequest 
     enemyDef: Math.trunc(request.enemyDef),
     enemyCode: request.enemyCode,
     corePx: Math.trunc(request.corePx),
+    ...(request.shotgunModel !== undefined ? { shotgunModel: request.shotgunModel } : {}),
+    ...(request.shotgunTargetDiameter !== undefined ? { shotgunTargetDiameter: request.shotgunTargetDiameter } : {}),
     ...(request.shotgunHitRate !== undefined ? { shotgunHitRate: request.shotgunHitRate } : {}),
     ...(request.shotgunGeometry ? { shotgunGeometry: structuredClone(request.shotgunGeometry) } : {}),
     hasParts: Boolean(request.hasParts),
@@ -210,6 +212,8 @@ export function validateRequest(request: SimulationRequest): string[] {
         && request.burstRegenTime >= 0 && request.burstRegenTime <= 20)) {
     errors.push('버스트 게이지 충전 시간은 0~20초여야 합니다.');
   }
+  if (request.shotgunModel !== undefined && !['legacy', 'spatial-v1', 'spatial-convergence-v1'].includes(request.shotgunModel)) errors.push('샷건 계산 방식이 올바르지 않습니다.');
+  if (request.shotgunTargetDiameter !== undefined && (!Number.isFinite(request.shotgunTargetDiameter) || request.shotgunTargetDiameter < 1 || request.shotgunTargetDiameter > 2000)) errors.push('보스 판정 직경은 1~2000이어야 합니다.');
   if (request.shotgunHitRate !== undefined && (!Number.isFinite(request.shotgunHitRate) || request.shotgunHitRate < 0 || request.shotgunHitRate > 1)) {
     errors.push('샷건 펠릿 명중 확률은 0~100%여야 합니다.');
   }
@@ -325,6 +329,7 @@ export function requestForDeck(
     immuneBlocksBurst: battle.immuneBlocksBurst,
     ...(hacksForRequest(battle.hacks) ? { hacks: battle.hacks! } : {}),
     normalHitCoeff: battle.normalHitCoeff,
+    ...(battle.shotgunModel ? { shotgunModel: battle.shotgunModel, shotgunTargetDiameter: battle.shotgunTargetDiameter ?? 360 } : {}),
     shotgunHitRate: battle.shotgunHitRate ?? 1,
     console: battle.console,
     // 덱마다 따로 잡아 뒀으면 그 값이 이긴다 — 버스트 쿨이 밀리는 덱만 달리 잰다.
@@ -347,6 +352,7 @@ export function resetEnemy(battle: BattleSettings): BattleSettings {
     coreEnabled: false,
     corePx: 52,
     bossSize: 'large',
+    ...(battle.shotgunModel ? { shotgunTargetDiameter: 360 } : {}),
     shotgunHitRate: 1,
     hasParts: false,
     corePerDeck: {},
