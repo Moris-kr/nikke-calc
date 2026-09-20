@@ -16,6 +16,10 @@ export interface ExternalLink {
 
 export const EXTERNAL_LINKS: ExternalLink[] = [
   { label: 'NIKKE SOLO', note: '솔로레이드 덱 편성 사이트', url: 'https://www.nikkesolo.com/' },
+  { label: '니케 오버로드 시뮬레이터', note: '오버로드 시뮬레이션이 가능한 사이트', url: 'https://qwcol032.github.io/OverloadSimulator/' },
+  { label: '소장품 강화 최적화 시뮬레이터', note: '소장품 육성 때 쓰기 좋은 사이트', url: 'https://changjoeconomy.github.io/collectibles/' },
+  { label: 'enikk.app', note: '니케 플레이 다양한 정보 통계 사이트', url: 'https://enikk.app/' },
+  { label: '니케아리', note: '니케 아레나 분석기 사이트', url: 'https://nikkeari.cc/' },
   {
     label: '렛츠도로',
     note: '니케 마이너 갤러리 유저 대상 협동전 및 종합관리 시스템',

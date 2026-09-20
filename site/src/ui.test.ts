@@ -991,7 +991,7 @@ describe('calculator UI', () => {
     expect(panel.querySelector('#result-heading')).not.toBeNull();
   });
 
-  it('외부고리 탭이 다섯 곳으로 새 탭에서 나간다', () => {
+  it('외부고리 탭이 아홉 곳으로 새 탭에서 나간다', () => {
     mountCalculator(root, {
       catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
     });
@@ -1006,9 +1006,9 @@ describe('calculator UI', () => {
     expect(root.querySelector<HTMLElement>('form[data-view="calc"]')!.hidden).toBe(true);
 
     const cards = [...root.querySelectorAll<HTMLAnchorElement>('.link-card')];
-    expect(cards).toHaveLength(5);
+    expect(cards).toHaveLength(9);
     expect(cards.map((card) => card.querySelector('.link-name')?.textContent))
-      .toEqual(['NIKKE SOLO', '렛츠도로', '딜도로', '솔레 금서고', '도로파티']);
+      .toEqual(['NIKKE SOLO', '니케 오버로드 시뮬레이터', '소장품 강화 최적화 시뮬레이터', 'enikk.app', '니케아리', '렛츠도로', '딜도로', '솔레 금서고', '도로파티']);
     for (const card of cards) {
       expect(card.target).toBe('_blank');
       // 남의 페이지에 우리 창을 넘기지 않는다.
