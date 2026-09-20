@@ -33,7 +33,19 @@ export function pelletPoints(scene: ShotgunHeatmapScene): Point[] {
   });
 }
 
-const COLORS={body:'#4ddcd0',core:'#ffd061',miss:'#fc6c84',density:'#8eb7ff'};
+/** Reproducible visual sample, independent of combat RNG and expected totals. */
+export function shotPellets(scene: ShotgunHeatmapScene, count:number, seed:number):Point[] {
+  let state=seed>>>0;
+  const random=()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return (state+.5)/4294967296;};
+  return Array.from({length:count},()=>{
+    const r=scene.radius*random()**(1/scene.exponent),a=random()*Math.PI*2;
+    const x=scene.aim[0]+r*Math.cos(a),y=scene.aim[1]+r*Math.sin(a);
+    if(!scene.spatial)return {x,y,kind:'density'};
+    const hit=scene.shapes.some(s=>contains(s,x,y)),c=scene.core;
+    return {x,y,kind:hit?(c&&(x-c[0])**2+(y-c[1])**2<=c[2]**2?'core':'body'):'miss'};
+  });
+}
+const COLORS={body:'#4ddcd0',core:'#ffd061',miss:'#ff982e',density:'#8eb7ff'};
 const percent=(value:number,total:number)=>`${(total>0?value/total*100:0).toFixed(1)}%`;
 const number=(value:number)=>value.toLocaleString('ko-KR',{maximumFractionDigits:1});
 const cache=new WeakMap<DeckResultEntry, SimulationResult>();
@@ -54,10 +66,10 @@ export function openShotgunHeatmap(entry: DeckResultEntry, deckName: string,
       <div class="hm-toolbar"><label>표시 방식 <select data-hm-view><option value="shot">시점별 탄착군</option><option value="density">전체 전투 · 탄착 밀도</option><option value="outcome">전체 전투 · 명중 구분</option></select></label>
       <label><input type="checkbox" data-hm-outline checked> 보스·코어 윤곽</label><label><input type="checkbox" data-hm-spread checked> 탄착군 범위</label></div>
       <div class="hm-layout"><div class="hm-visual"><canvas data-hm-canvas width="640" height="640" aria-label="샷건 탄착군과 명중 분포"></canvas>
-      <div class="hm-legend"><span style="color:#4ddcd0">● 몸통</span><span style="color:#ffd061">● 코어</span><span style="color:#fc6c84">● 빗나감</span><span style="color:#8eb7ff">● 밀도 / 고정확률 모드</span></div>
+      <div class="hm-legend" data-hm-legend></div>
       <p data-hm-caption></p></div><div class="hm-detail"><h3 data-hm-name></h3><div data-hm-totals class="hm-metrics"></div>
       <h4>선택 시점의 사격</h4><div data-hm-frame></div><h4>풀버스트 여부별 명중</h4><div data-hm-burst></div>
-      <details><summary>판정과 수치 읽는 법</summary><p>표시는 실제 게임에서 촬영한 탄흔이 아닌 계산 엔진의 확률 분포입니다. 점 1,024개는 확률 적분용 표본이며 실제 한 발의 펠릿 개수가 아닙니다. 재생 중 점의 이동은 설명용 모션입니다.</p>
+      <details><summary>판정과 수치 읽는 법</summary><p>표시는 실제 게임에서 촬영한 탄흔이 아닌 계산 엔진의 확률 분포입니다. 시점별 점은 해당 사격의 펠릿 수만큼 생성한 모형 표본입니다. 번호로 빗나간 점까지 셀 수 있습니다. 표시 표본의 명중 개수는 기대 명중률과 다를 수 있으며 전투 대미지 계산에는 사용하지 않습니다. 전체 누적 히트맵은 별도의 1,024점 확률 적분을 사용합니다. 재생 중 점의 이동은 설명용 모션입니다.</p>
       <p>명중과 코어 비율의 분모는 발사한 전체 펠릿입니다. 몸통과 코어는 중복 없이 나눕니다. 난수 모드에서도 여기의 비율은 사격 시점별 기대값이며 실제 추첨 결과가 아닙니다. 무적·속성 저항·관통 중첩·스킬 추가 대미지는 이 공간 히트맵에 포함하지 않습니다.</p>
       <p>전체 전투는 모든 사격을 펠릿 수로 가중 합산합니다. 밝기는 선택 캐릭터 안에서 상대적인 밀도입니다. 도형·조준점이 변하면 누적 분포와 선택 시점의 윤곽이 다를 수 있습니다. 기존 고정 명중률 모드는 빗나간 공간 위치를 정의하지 않으므로 밀도만 표시합니다.</p></details></div></div>
       <div class="hm-playback"><button type="button" data-hm-play>재생</button><button type="button" data-hm-prev aria-label="이전 사격">이전 사격</button><button type="button" data-hm-next aria-label="다음 사격">다음 사격</button>
@@ -76,7 +88,6 @@ export function openShotgunHeatmap(entry: DeckResultEntry, deckName: string,
   conditions.push(entry.request.rngMode==='expected'?'기대값 계산':'난수 계산');
   el('[data-hm-condition]').textContent=`${deckName} · ${conditions.join(' · ')}`;
   let closed=false, playing=false, raf=0, last=0, time=0, name='', data:ShotgunHeatmapData|undefined;
-  const pointsCache=new Map<ShotgunHeatmapScene,Point[]>();
   const heatCache=new Map<string, HTMLCanvasElement>();
   const close=()=>{if(closed)return;closed=true;cancelAnimationFrame(raf);document.removeEventListener('keydown',onKey,true);overlay.remove();previousFocus?.focus();if(dismissActive===close)dismissActive=undefined;};
   dismissActive=close;
@@ -103,6 +114,10 @@ export function openShotgunHeatmap(entry: DeckResultEntry, deckName: string,
   function draw() {
     if(!data||!ctx)return;
     const f=frameAt(data.frames,time), scene=f?data.scenes[f.scene]:undefined;
+    const dots=f&&scene?shotPellets(scene,f.pellets,entry.request.seed+Math.round(f.t*10000)):[];
+    el('[data-hm-legend]').innerHTML=view.value==='shot'
+      ? '<span style="color:#ff4545">● 명중 위치</span><span style="color:#ffd061">○ 코어 명중 테두리</span><span style="color:#ff982e">● 빗나감</span><span style="color:#8eb7ff">● 고정확률 모드</span>'
+      : '<span style="color:#4ddcd0">● 몸통</span><span style="color:#ffd061">● 코어</span><span style="color:#ff982e">● 빗나감</span><span style="color:#8eb7ff">● 밀도</span>';
     const [bx,by,bw]=data.bounds, scale=600/bw, px=(x:number)=>20+(x-bx)*scale, py=(y:number)=>20+(y-by)*scale;
     ctx.fillStyle='#07111e';ctx.fillRect(0,0,640,640);
     ctx.strokeStyle='#1b2b42';ctx.lineWidth=1;
@@ -118,7 +133,7 @@ export function openShotgunHeatmap(entry: DeckResultEntry, deckName: string,
         const intensity=Math.sqrt(n/peak);
         if(view.value==='outcome'&&data.spatial){
           const b=data.body[i]!/n,c=data.core[i]!/n,m=data.miss[i]!/n;
-          hctx.fillStyle=`rgba(${Math.round(77*b+255*c+252*m)},${Math.round(220*b+208*c+108*m)},${Math.round(208*b+97*c+132*m)},${intensity})`;
+          hctx.fillStyle=`rgba(${Math.round(77*b+255*c+255*m)},${Math.round(220*b+208*c+152*m)},${Math.round(208*b+97*c+46*m)},${intensity})`;
         }else hctx.fillStyle=`rgba(100,178,255,${intensity})`;
         hctx.fillRect(i%data.size,Math.floor(i/data.size),1,1);
       }
@@ -140,14 +155,21 @@ export function openShotgunHeatmap(entry: DeckResultEntry, deckName: string,
       }
       if(el<HTMLInputElement>('[data-hm-spread]').checked){ctx.strokeStyle='#7e9dce';ctx.setLineDash([5,6]);ctx.beginPath();ctx.arc(px(scene.aim[0]),py(scene.aim[1]),scene.radius*scale,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);}
       if(view.value==='shot'){
-        let points=pointsCache.get(scene);if(!points){points=pelletPoints(scene);if(pointsCache.size>=4)pointsCache.clear();pointsCache.set(scene,points);}
         const progress=playing?Math.min(1,Math.max(0,(time-f!.t)/.18)):1;
-        for(const p of points){ctx.fillStyle=COLORS[p.kind];ctx.globalAlpha=.7;ctx.fillRect(px(scene.aim[0]+(p.x-scene.aim[0])*progress)-1,py(scene.aim[1]+(p.y-scene.aim[1])*progress)-1,2,2);}ctx.globalAlpha=1;
+        for(const [index,p] of dots.entries()){
+          const hit=p.kind==='body'||p.kind==='core';
+          const x=px(scene.aim[0]+(p.x-scene.aim[0])*progress),y=py(scene.aim[1]+(p.y-scene.aim[1])*progress);
+          ctx.fillStyle=hit?'#ff4545':p.kind==='miss'?COLORS.miss:COLORS.density;
+          ctx.globalAlpha=1;
+          ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fill();
+          if(p.kind==='core'){ctx.strokeStyle=COLORS.core;ctx.lineWidth=1;ctx.stroke();}
+          if(progress===1){ctx.fillStyle='#ffffff';ctx.font='bold 12px system-ui';ctx.fillText(String(index+1),x+6,y-5);}
+        }ctx.globalAlpha=1;
       }
       ctx.strokeStyle='#fff';ctx.beginPath();ctx.moveTo(px(scene.aim[0])-7,py(scene.aim[1]));ctx.lineTo(px(scene.aim[0])+7,py(scene.aim[1]));ctx.moveTo(px(scene.aim[0]),py(scene.aim[1])-7);ctx.lineTo(px(scene.aim[0]),py(scene.aim[1])+7);ctx.stroke();
     }
     ctx.fillStyle='#b6c9e4';ctx.font='14px system-ui';ctx.fillText(`범위 ${bw.toFixed(0)} × ${bw.toFixed(0)} 모형 단위`,22,638);
-    el('[data-hm-caption]').textContent=view.value==='shot'?(f?`${f.t.toFixed(2)}초 사격의 확률 분포 · ${f.pellets}펠릿 / 발`:'아직 샷건을 발사하지 않은 시점입니다.'):'전투 전체의 누적 기대 분포 · 윤곽과 조준점은 선택 시점 기준';
+    el('[data-hm-caption]').textContent=view.value==='shot'?(f?`${f.t.toFixed(2)}초 · ${f.pellets}펠릿 표시 표본${scene?.spatial?` · 명중 ${dots.filter(p=>p.kind==='body'||p.kind==='core').length}개 / 빗나감 ${dots.filter(p=>p.kind==='miss').length}개`:''} · 확정 탄흔이 아닌 모형 예시`:'아직 샷건을 발사하지 않은 시점입니다.'):'전투 전체의 누적 기대 분포 · 윤곽과 조준점은 선택 시점 기준';
     el('[data-hm-frame]').replaceChildren(...(f&&scene?[
       metric('사격 시각 / 상태',`${f.t.toFixed(2)}초 · ${f.fullBurst?'풀버스트':'일반 구간'}`),
       metric('예상 명중 / 코어',`${percent(f.hit,1)} / ${percent(f.hit*f.core,1)}`),
@@ -182,7 +204,7 @@ export function openShotgunHeatmap(entry: DeckResultEntry, deckName: string,
       el('[data-hm-status]').textContent=Math.abs(result.squadTotal-entry.result.squadTotal)>.5?'현재 엔진으로 재계산한 진단입니다. 저장된 결과와 총 대미지가 달라 원래 결과를 덮어쓰지 않았습니다.':'저장된 결과의 전투 조건으로 사격 진단을 준비했습니다.';
       el('[data-hm-content]').hidden=false;
       const select=(selected:string)=>{
-        name=selected;data=result.shotgunReport![name]!;pointsCache.clear();heatCache.clear();
+        name=selected;data=result.shotgunReport![name]!;heatCache.clear();
         el('[data-hm-name]').textContent=name;
         el('[data-hm-totals]').replaceChildren(metric('전체 명중',percent(data.hit,data.fired)),metric('코어',percent(data.coreHits,data.fired)),metric('몸통',percent(data.hit-data.coreHits,data.fired)),metric('빗나감',percent(data.fired-data.hit,data.fired)),metric('발사 펠릿 / 사격 횟수',`${number(data.fired)} / ${data.frames.length}회`),metric('캐릭터 대미지',number(result.charTotals[name]??0)));
         const summaries=[false,true].map(full=>{const s=summarizeFrames(data!.frames.filter(f=>f.fullBurst===full));return metric(full?'풀버스트 중':'일반 구간',s.fired?`${percent(s.hit,s.fired)} 명중 · ${number(s.fired)}펠릿`:'사격 없음');});el('[data-hm-burst]').replaceChildren(...summaries);

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
-import { frameAt, pelletPoints, summarizeFrames, openShotgunHeatmap } from './shotgun-heatmap';
+import { frameAt, pelletPoints, shotPellets, summarizeFrames, openShotgunHeatmap } from './shotgun-heatmap';
 import { normalizeRequest } from './model';
 import type { ShotgunHeatmapFrame, ShotgunHeatmapScene, DeckResultEntry, ShotgunHeatmapData } from './types';
 
@@ -9,6 +9,13 @@ const frames: ShotgunHeatmapFrame[] = [
   {t:3,scene:1,pellets:20,hit:1,core:.5,accuracy:20,fullBurst:true},
 ];
 describe('shotgun interactive diagnostics', () => {
+  it('shows exactly one numbered sample per fired pellet, including misses', () => {
+    const scene:ShotgunHeatmapScene={shapes:[],aim:[0,0],radius:120,core:null,spatial:true,exponent:2.55};
+    const dots=shotPellets(scene,15,42);
+    expect(dots).toHaveLength(15);
+    expect(dots.every(p=>p.kind==='miss')).toBe(true);
+    expect(shotPellets(scene,15,42)).toEqual(dots);
+  });
   it('opens an interactive dialog, uses result inputs and reuses loaded diagnostics', async () => {
     const ctx=new Proxy({}, {get:(_t,key)=>key==='measureText'?()=>({width:10}):()=>{}});
     const spy=vi.spyOn(HTMLCanvasElement.prototype,'getContext').mockReturnValue(ctx as CanvasRenderingContext2D);
