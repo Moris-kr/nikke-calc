@@ -181,6 +181,7 @@ class BattleOptions(StrictModel):
     synchroLevel: int = Field(default=400, ge=1, le=1400)
     console: ConsoleLevels | None = None
     burstRegenTime: float | None = Field(default=None, ge=0, le=20)
+    firstBurstTime: float = Field(default=0, ge=0, le=3600)
     burstReaction: float | None = Field(default=None, ge=0, le=3)
     optimalRangeWeapons: list[Literal['AR', 'SMG', 'SG', 'SR', 'RL', 'MG']] = Field(default_factory=list, max_length=6)
     optimalRangeWindows: list[OptimalRangeWindow] = Field(default_factory=list, max_length=100,
@@ -218,7 +219,7 @@ class RecommendationScenario(StrictModel):
     @model_validator(mode='after')
     def battle_only(self):
         allowed = {'enemyDef', 'corePx', 'coreWindows', 'hasParts', 'defenseRateWindows',
-                   'elementWindows', 'immuneWindows', 'burstRegenTime', 'optimalRangeWeapons', 'optimalRangeWindows'}
+                   'elementWindows', 'immuneWindows', 'firstBurstTime', 'burstRegenTime', 'optimalRangeWeapons', 'optimalRangeWindows'}
         if set(self.battle) - allowed:
             raise ValueError('민감도 비교에서는 방어력·코어·파츠·구간·버스트 충전 시간·적정 사거리만 바꿀 수 있습니다.')
         BattleOptions.model_validate(self.battle)

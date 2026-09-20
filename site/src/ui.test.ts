@@ -2165,6 +2165,21 @@ describe('calculator UI', () => {
     expect(root.querySelector('[data-picker]')!.closest('[data-quick-decks-modal]')).toBeNull();
   });
 
+  it('persists common and deck-specific first burst settings', () => {
+    const cleanup = mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const input = root.querySelector<HTMLInputElement>('#first-burst')!;
+    expect(input.value).toBe('0');
+    input.value = '4'; input.dispatchEvent(new Event('change', { bubbles: true }));
+    root.querySelector<HTMLInputElement>('#first-burst-per-deck')!.click();
+    const own = root.querySelector<HTMLInputElement>('[data-deck-first-burst-input="1"]')!;
+    own.value = '7.5'; own.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(JSON.parse(localStorage.getItem('nikke-state-v1')!).battle).toMatchObject({ firstBurstTime: 4, firstBurstPerDeck: { 1: 7.5 } });
+    cleanup();
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    expect(root.querySelector<HTMLInputElement>('#first-burst')!.value).toBe('4');
+    expect(root.querySelector<HTMLInputElement>('[data-deck-first-burst-input="1"]')!.value).toBe('7.5');
+  });
+
   it('6덱 공유를 적용해도 기존 덱별 전투 조건을 보존한다', () => {
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
     root.querySelector<HTMLInputElement>('#core-per-deck')!.click();

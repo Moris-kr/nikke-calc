@@ -291,6 +291,7 @@ const BATTLE_DEFAULTS: BattleShare = {
   immuneBlocksBurst: true,
   burstRegenTime: 2,
   burstReaction: 0.05,
+  firstBurstTime: 0,
 };
 
 const num = (value: unknown, min: number, max: number, fallback: number): number => {
@@ -327,6 +328,8 @@ export function encodeBattleCode(
   put('ib', battle.immuneBlocksBurst ? 1 : 0, 1);
   put('br', toTenth(battle.burstRegenTime), toTenth(d.burstRegenTime));
   // 반응속도는 0.05초 단위라 10분의 1로는 담기지 않는다 — 100분의 1로 싣는다.
+  put('fb', toTenth(battle.firstBurstTime ?? 0), 0);
+  put('fd', Object.fromEntries(Object.entries(battle.firstBurstPerDeck ?? {}).map(([id, value]) => [id, toTenth(value)])), {});
   put('rt', toHundredth(battle.burstReaction), toHundredth(d.burstReaction));
 
   // 평타 계수는 **기본값과 다른 무기군만** 싣는다. 여섯 개를 다 실으면 그것만으로
@@ -424,6 +427,8 @@ export function decodeBattleCode(code: string): BattleShare {
     immuneBlocksBurst: raw.ib === undefined ? d.immuneBlocksBurst : Boolean(raw.ib),
     burstRegenTime: fromTenth(num(raw.br, 0, 200, toTenth(d.burstRegenTime))),
     // 없는 키는 기본값이 된다 — 이 항목이 생기기 전에 만들어진 코드는 0.05초로 읽힌다.
+    firstBurstTime: fromTenth(num(raw.fb, 0, 36000, 0)),
+    ...(raw.fd && typeof raw.fd === 'object' && !Array.isArray(raw.fd) ? { firstBurstPerDeck: Object.fromEntries(Object.entries(raw.fd).filter(([id]) => /^[1-9][0-9]*$/.test(id)).map(([id, value]) => [id, fromTenth(num(value, 0, 36000, 0))])) } : {}),
     burstReaction: fromHundredth(num(raw.rt, 0, 300, toHundredth(d.burstReaction))),
   };
 }

@@ -589,6 +589,10 @@ def run_request(raw: str, include_effective: bool = False) -> str:
     if sequence is not None:
         config_in["burst_sequence"] = sequence
     # 버스트 반응속도 — 조건이 갖춰진 뒤 누르기까지. 전투 조건이라 config에 둔다.
+    first_burst = float(payload.get("firstBurstTime", 0))
+    if not math.isfinite(first_burst) or not 0 <= first_burst <= 3600:
+        raise ValueError("첫 버스트 시간은 0~3600초여야 합니다.")
+    config_in["first_burst_time"] = first_burst
     reaction = normalize_burst_reaction(payload.get("burstReaction"))
     if reaction is not None:
         config_in["burst_reaction"] = reaction

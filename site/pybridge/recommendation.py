@@ -22,7 +22,7 @@ except ImportError:
 
 
 SCENARIO_FIELDS = frozenset({'enemyDef', 'corePx', 'coreWindows', 'hasParts',
-    'defenseRateWindows', 'elementWindows', 'immuneWindows', 'burstRegenTime',
+    'defenseRateWindows', 'elementWindows', 'immuneWindows', 'firstBurstTime', 'burstRegenTime',
     'optimalRangeWeapons', 'optimalRangeWindows'})
 GROWTH_FIELDS = frozenset({'growthStage', 'skillLevels', 'overload', 'cube',
     'collection', 'manualStats', 'equipLevels', 'overloadLines'})

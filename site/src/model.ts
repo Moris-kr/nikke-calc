@@ -90,6 +90,7 @@ export function normalizeRequest(request: SimulationRequest): SimulationRequest 
     ...(request.burstRegenTime !== undefined
       ? { burstRegenTime: request.burstRegenTime } : {}),
     // 기본값(0.05초)은 요청에서 뺀다 — 엔진이 같은 값을 쓰므로 옛 캐시 키와 갈리지 않는다.
+    firstBurstTime: request.firstBurstTime ?? 0,
     ...(request.burstReaction !== undefined && request.burstReaction !== DEFAULT_BURST_REACTION
       ? { burstReaction: request.burstReaction } : {}),
     // 기본 레벨(400)은 요청에서 뺀다 — 엔진이 같은 값을 쓰므로 옛 캐시 키와 갈리지 않는다.
@@ -207,6 +208,9 @@ export function validateRequest(request: SimulationRequest): string[] {
         && request.burstRegenTime >= 0 && request.burstRegenTime <= 20)) {
     errors.push('버스트 게이지 충전 시간은 0~20초여야 합니다.');
   }
+  if (request.firstBurstTime !== undefined && (!Number.isFinite(request.firstBurstTime) || request.firstBurstTime < 0 || request.firstBurstTime > 3600)) {
+    errors.push('첫 버스트 시간은 0~3600초여야 합니다.');
+  }
   if (request.burstReaction !== undefined
       && !(Number.isFinite(request.burstReaction)
         && request.burstReaction >= 0 && request.burstReaction <= 3)) {
@@ -320,6 +324,7 @@ export function requestForDeck(
     // 덱마다 따로 잡아 뒀으면 그 값이 이긴다 — 버스트 쿨이 밀리는 덱만 달리 잰다.
     burstRegenTime: battle.burstRegenPerDeck?.[deck.id] ?? battle.burstRegenTime,
     burstReaction: battle.burstReaction,
+    firstBurstTime: battle.firstBurstPerDeck?.[deck.id] ?? battle.firstBurstTime ?? 0,
     // 편성이 바뀌었으면 없는 이름을 떨궈서 싣는다 — 조용히 틀린 순서로 돌지 않게.
     ...(sequenceForDeck(deck) ? { burstSequence: sequenceForDeck(deck)! } : {}),
     // 장탄·재장전 트랙. 타임라인의 「장탄 표시」가 쓴다 — 딜이 끊긴 자리가 재장전인지

@@ -22,6 +22,13 @@ const valid: SimulationRequest = {
   seed: 42,
 };
 
+it('validates and separates first burst times in calculation caches', () => {
+  expect(normalizeRequest(valid).firstBurstTime).toBe(0);
+  expect(cacheKey({ ...valid, firstBurstTime: 0 }, 'v')).not.toBe(cacheKey({ ...valid, firstBurstTime: 5 }, 'v'));
+  expect(validateRequest({ ...valid, firstBurstTime: -1 })).toContain('첫 버스트 시간은 0~3600초여야 합니다.');
+  expect(requestForDeck({ id: 3, squad: ['리타'], characters: {} }, { ...battle, firstBurstTime: 1, firstBurstPerDeck: { 3: 5 } }).firstBurstTime).toBe(5);
+});
+
 const battle: BattleSettings = {
   synchroLevel: 400,
   burstRegenTime: 2,
@@ -93,6 +100,7 @@ describe('request normalization', () => {
       seed: 42,
       // 난수 모드는 기본값이어도 언제나 실린다 — 브리지와 기본값이 어긋나지 않게.
       rngMode: 'expected',
+      firstBurstTime: 0,
     });
   });
 

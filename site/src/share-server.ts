@@ -279,6 +279,8 @@ export class ShareServer {
 export function summarizeBattle(battle: BattleShare): string {
   // 값과 낱말이 섞인 한 줄이라 DOM 훑기로는 못 바꾼다 — 조각마다 사전을 지난다.
   const parts = [t('{n}초', { n: battle.duration })];
+  if (Object.keys(battle.firstBurstPerDeck ?? {}).length) parts.push('첫 버스트 덱별 ' + Object.entries(battle.firstBurstPerDeck!).map(([id, time]) => `덱${id} ${time}초`).join('/'));
+  else if (battle.firstBurstTime) parts.push(`첫 버스트 ${battle.firstBurstTime}초`);
   parts.push(battle.enemyCode ? t('적 {code}', { code: t(battle.enemyCode) }) : t('무속성'));
   parts.push(battle.coreEnabled ? t('코어 {n}px', { n: battle.corePx }) : t('코어 없음'));
   if (battle.hasParts) parts.push(t('파츠'));

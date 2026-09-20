@@ -96,6 +96,7 @@ class BossBattle(StrictModel):
     rngMode: Literal['expected', 'random'] = 'expected'
     immuneBlocksBurst: bool = True
     burstRegenTime: float = Field(default=2, ge=0, le=20)
+    firstBurstTime: float = Field(default=0, ge=0, le=3600)
     burstReaction: float = Field(default=0.05, ge=0, le=3)
 
     @model_validator(mode='after')
@@ -144,13 +145,13 @@ def encode_battle(battle: BossBattle) -> str:
     fields = [('duration', 'd'), ('enemyDef', 'ed'), ('enemyCode', 'ec'),
               ('coreEnabled', 'ce'), ('corePx', 'cp'), ('hasParts', 'hp'), ('seed', 's'),
               ('optimalRangeWeapons', 'or'), ('rngMode', 'rm'), ('immuneBlocksBurst', 'ib'),
-              ('burstRegenTime', 'br'), ('burstReaction', 'rt')]
+              ('burstRegenTime', 'br'), ('burstReaction', 'rt'), ('firstBurstTime', 'fb')]
     def compact(field, value):
         if field == 'enemyCode': return CODES.index(value)
         if field in ('coreEnabled', 'hasParts', 'immuneBlocksBurst'): return int(value)
         if field == 'rngMode': return int(value == 'random')
         if field == 'optimalRangeWeapons': return sorted(value)
-        if field == 'burstRegenTime': return rounded(value, 10)
+        if field in ('burstRegenTime', 'firstBurstTime'): return rounded(value, 10)
         if field == 'burstReaction': return rounded(value, 100)
         return value
     for field, key in fields:

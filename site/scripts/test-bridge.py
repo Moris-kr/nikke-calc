@@ -13,6 +13,18 @@ from context.spec import is_preview
 from context.spec import _nikke as parsed_nikke
 
 
+class FirstBurstBridgeTest(unittest.TestCase):
+    def test_first_burst_reaches_engine_and_defaults_to_zero(self):
+        payload = {"squad": ["리타", "크라운", "앨리스"], "duration": 12, "enemyDef": 0, "enemyCode": "", "corePx": 0, "hasParts": False, "seed": 42, "detail": True}
+        default = json.loads(run_request(json.dumps(payload)))
+        immediate = json.loads(run_request(json.dumps({**payload, "firstBurstTime": 0})))
+        delayed = json.loads(run_request(json.dumps({**payload, "firstBurstTime": 5})))
+        self.assertEqual(default, immediate)
+        self.assertGreater(delayed["timeline"]["fullBurst"][0][0], immediate["timeline"]["fullBurst"][0][0] + 4.9)
+        with self.assertRaises(ValueError):
+            run_request(json.dumps({**payload, "firstBurstTime": -1}))
+
+
 class HackBridgeTest(unittest.TestCase):
     """핵(`calculator/cheats.py`)이 payload에서 엔진까지 이어지는지."""
 

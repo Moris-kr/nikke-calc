@@ -1088,6 +1088,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
               <label><span>적 방어력</span><input id="enemy-def" type="number" min="0" max="999999" step="1" value="31784" /></label>
               <label><span>난수 시드</span><input id="seed" type="number" min="0" max="2147483647" step="1" value="42" /></label>
               <label title="게이지 충전만의 시간입니다. 여기에 단계 전환 0.3초와 버스트 쿨 여유가 더해져 실제 공백은 더 깁니다."><span>버스트 게이지 충전</span><div class="input-unit"><input id="burst-regen" type="number" min="0" max="20" step="0.1" value="2" /><em>초</em></div></label>
+              <label title="전투 시작 기준 첫 버스트를 시작할 최소 시각입니다. 0초는 즉시 시작하며 단계 전환과 반응속도는 별도로 적용됩니다."><span>첫 버스트 시간</span><div class="input-unit"><input id="first-burst" type="number" min="0" max="3600" step="0.1" value="0" /><em>초</em></div></label>
               <label title="조건이 갖춰진 뒤 실제로 버스트를 누르기까지 걸리는 시간입니다. 버스트 하나하나마다 더해지므로 3단계까지 쓰면 그 세 배만큼 늦어집니다."><span>버스트 반응속도</span><div class="input-unit"><input id="burst-reaction" type="number" min="0" max="3" step="0.01" value="${DEFAULT_BURST_REACTION}" /><em>초</em></div></label>
               <label><span>난수 처리</span><select id="rng-mode"><option value="expected">기대값 (권장)</option><option value="random">난수</option></select></label>
               <label class="toggle-field" title="족자 구간에는 평타가 빗나가므로 게이지도 차지 않는 것으로 계산합니다. 켜면 그만큼 버스트가 밀립니다."><input id="immune-blocks-burst" type="checkbox" checked /><span class="toggle"></span><span>족자 중 버스트 충전 정지</span></label>
@@ -1096,6 +1097,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
                  격자 저 아래에 떨어져 있어 켜고도 어디에 적는지 못 찾았다
                  (피드백 2026-09-08). -->
             <div class="deck-split">
+              <label class="toggle-field deck-regen-toggle"><input id="first-burst-per-deck" type="checkbox" /><span class="toggle"></span><span>첫 버스트 시간을 덱마다 따로</span></label>
+              <div class="deck-regen-grid" data-deck-first-burst hidden></div>
               <label class="toggle-field deck-regen-toggle" title="버스트 쿨이 밀리는 덱만 다른 값으로 재고 싶을 때 켭니다"><input id="burst-regen-per-deck" type="checkbox" /><span class="toggle"></span><span>버스트 충전을 덱마다 따로</span></label>
               <div class="deck-regen-grid" data-deck-regen hidden></div>
             </div>
@@ -1788,12 +1791,14 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     add.dataset.deckAdd = '';
     add.addEventListener('click', () => {
       const regen = readDeckRegen();
+      const firstBurst = readDeckFirstBurst();
       const core = readDeckCore();
       const id = decks.length + 1;
       decks.push(emptyDeck(id));
       activeDeckId = id;
       activeSlot = 0;
       renderDeckRegen({ ...regen, [id]: Number(element<HTMLInputElement>(root, '#burst-regen').value) });
+      renderDeckFirstBurst({ ...firstBurst, [id]: Number(element<HTMLInputElement>(root, '#first-burst').value) });
       renderDeckCore({ ...core, [id]: coreToggle.checked });
       closeDeckCopy();
       saveState(); renderDeckTabs(); renderSquad();
@@ -1807,19 +1812,22 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     confirmTwice(remove, () => {
       if (decks.length <= 2) return;
       const regen = readDeckRegen();
+      const firstBurst = readDeckFirstBurst();
       const core = readDeckCore();
       decks.splice(decks.findIndex((deck) => deck.id === activeDeckId), 1);
       const nextRegen: Record<number, number> = {};
+      const nextFirstBurst: Record<number, number> = {};
       const nextCore: Record<number, boolean> = {};
       decks.forEach((deck, index) => {
         nextRegen[index + 1] = regen[deck.id] ?? 2;
+        nextFirstBurst[index + 1] = firstBurst[deck.id] ?? 0;
         nextCore[index + 1] = core[deck.id] ?? false;
         deck.id = index + 1;
       });
       activeDeckId = Math.min(activeDeckId, decks.length);
       activeSlot = 0;
       buffTargetsByDeck.clear();
-      renderDeckRegen(nextRegen); renderDeckCore(nextCore);
+      renderDeckRegen(nextRegen); renderDeckCore(nextCore); renderDeckFirstBurst(nextFirstBurst);
       closeDeckCopy();
       saveState(); renderDeckTabs(); renderSquad();
     }, { armed: '한 번 더 누르면 삭제' });
@@ -3398,6 +3406,51 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     refreshBattleSummary();
   });
 
+  const deckFirstBurstBox = element<HTMLElement>(root, '[data-deck-first-burst]');
+  const deckFirstBurstToggle = element<HTMLInputElement>(root, '#first-burst-per-deck');
+  const readDeckFirstBurst = (): Record<number, number> => {
+    const out: Record<number, number> = {};
+    for (const input of deckFirstBurstBox.querySelectorAll<HTMLInputElement>('[data-deck-first-burst-input]')) {
+      out[Number(input.dataset.deckFirstBurstInput)] = Number(input.value);
+    }
+    return out;
+  };
+  const renderDeckFirstBurst = (values: Record<number, number>) => {
+    deckFirstBurstBox.replaceChildren();
+    for (const { id } of decks) {
+      const label = document.createElement('label');
+      label.append(createText('span', t('덱 {n}', { n: id })));
+      const wrap = document.createElement('div');
+      wrap.className = 'input-unit';
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.min = '0';
+      input.max = '3600';
+      input.step = '0.1';
+      input.value = String(values[id] ?? Number(element<HTMLInputElement>(root, '#first-burst').value));
+      input.dataset.deckFirstBurstInput = String(id);
+      input.addEventListener('change', () => { saveState(); refreshBattleSummary(); });
+      wrap.append(input, createText('em', '초'));
+      label.append(wrap);
+      deckFirstBurstBox.append(label);
+    }
+  };
+  const writeDeckFirstBurst = (values: Record<number, number> | undefined, fallback: number) => {
+    const on = values !== undefined && Object.keys(values).length > 0;
+    deckFirstBurstToggle.checked = on;
+    deckFirstBurstBox.hidden = !on;
+    renderDeckFirstBurst(values ?? Object.fromEntries(decks.map(({ id }) => [id, fallback])));
+  };
+  deckFirstBurstToggle.addEventListener('change', () => {
+    if (deckFirstBurstToggle.checked) {
+      const now = Number(element<HTMLInputElement>(root, '#first-burst').value);
+      renderDeckFirstBurst(Object.fromEntries(decks.map(({ id }) => [id, now])));
+    }
+    deckFirstBurstBox.hidden = !deckFirstBurstToggle.checked;
+    saveState();
+    refreshBattleSummary();
+  });
+
   // ── 덱마다 다른 코어 유무 ───────────────────────────────────────────────
   // 같은 편성을 코어 있는 판과 없는 판으로 나란히 재려고 조건을 바꿔 가며 두 번 돌리는
   // 일이 잦았다 (피드백 2026-09-08). 크기는 나누지 않는다 — 한 보스의 코어를 켜고 끄는
@@ -3489,6 +3542,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       ? { burstRegenPerDeck: readDeckRegen() } : {}),
     ...(element<HTMLInputElement>(root, '#core-per-deck').checked
       ? { corePerDeck: readDeckCore() } : {}),
+    firstBurstTime: Number(element<HTMLInputElement>(root, '#first-burst').value),
+    ...(deckFirstBurstToggle.checked ? { firstBurstPerDeck: readDeckFirstBurst() } : {}),
     burstReaction: Number(element<HTMLInputElement>(root, '#burst-reaction').value),
     hacks: readHacks(),
     console: {
@@ -3528,6 +3583,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       String(battle.burstReaction ?? DEFAULT_BURST_REACTION);
     writeHacks(battle.hacks);
     writeDeckRegen(battle.burstRegenPerDeck, battle.burstRegenTime);
+    element<HTMLInputElement>(root, '#first-burst').value = String(battle.firstBurstTime ?? 0);
+    writeDeckFirstBurst(battle.firstBurstPerDeck, battle.firstBurstTime ?? 0);
     writeDeckCore(battle.corePerDeck, battle.coreEnabled);
     if (battle.console) {
       consoleCommon.value = String(battle.console.common_level);

@@ -154,6 +154,8 @@ export interface SimulationRequest {
   burstRegenTime?: number;
   /** 버스트 반응속도(초). 안 주면 엔진 기본값(0.05)을 쓴다. */
   burstReaction?: number;
+  /** 전투 시작 기준 첫 버스트 최소 시작 시각(초), 기본 0. */
+  firstBurstTime?: number;
   /**
    * 파츠 파괴 주기(초). 보스 메이커가 «파츠 체력 ÷ 예상 DPS»로 낸 값을 넘긴다 —
    * 엔진에는 적 체력이 없어 파괴는 **시각**으로만 들어간다. 0이나 미지정이면 무발동.
@@ -262,6 +264,8 @@ export interface BattleSettings {
    * **버스트 하나하나마다** 더해진다 — 3단계까지 쓰면 그 세 배만큼 늦어진다.
    */
   burstReaction: number;
+  firstBurstTime?: number;
+  firstBurstPerDeck?: Record<number, number>;
   /**
    * 켜 둔 핵. 인게임에 없는 값을 억지로 켜는 스위치라 **공유 코드에는 담기지 않는다** —
    * 남이 준 전투 조건을 적용했더니 몰래 핵이 켜져 있는 일은 없어야 한다.
@@ -551,7 +555,7 @@ export interface RecommendationOptions {
   exclude?: string[];
   scenarios?: Array<{ label: string; battle: Partial<Pick<BattleSettings,
     'enemyDef' | 'corePx' | 'coreWindows' | 'optimalRangeWindows' | 'hasParts' | 'defenseRateWindows' |
-    'elementWindows' | 'immuneWindows' | 'burstRegenTime' | 'optimalRangeWeapons'>> }>;
+    'elementWindows' | 'immuneWindows' | 'firstBurstTime' | 'burstRegenTime' | 'optimalRangeWeapons'>> }>;
 }
 
 export interface RecommendationRequest extends RecommendationOptions {

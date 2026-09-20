@@ -202,6 +202,12 @@ describe('전투 조건 공유 코드 (NK3)', () => {
     console: { common_level: 390, class_level: { 화력형: 257 }, company_level: { 필그림: 386 } },
   };
 
+  it('preserves common and deck-specific first burst times', () => {
+    const value = { ...base, firstBurstTime: 1.5, firstBurstPerDeck: { 1: 0, 3: 7.2 } };
+    expect(decodeBattleCode(encodeBattleCode(value, COEFF))).toMatchObject({ firstBurstTime: 1.5, firstBurstPerDeck: { 1: 0, 3: 7.2 } });
+    expect(decodeBattleCode(encodeBattleCode(base, COEFF)).firstBurstTime).toBe(0);
+  });
+
   it('기본값은 아예 싣지 않아 코드가 아주 짧다', () => {
     // 붙여넣는 곳이 400자쯤에서 잘린다는 제보 — 기본값 생략이 가장 큰 절약이다.
     const code = encodeBattleCode(base, COEFF);
@@ -221,7 +227,7 @@ describe('전투 조건 공유 코드 (NK3)', () => {
     const code = encodeBattleCode(battle, COEFF);
     expect(code.length).toBeLessThan(200);   // 붙여넣기 한도(약 400자)의 절반 아래
     const { console: _drop, synchroLevel: _level, ...expected } = battle;
-    expect(decodeBattleCode(code)).toEqual({ ...expected, normalHitCoeff: {} });
+    expect(decodeBattleCode(code)).toEqual({ ...expected, firstBurstTime: 0, normalHitCoeff: {} });
   });
 
   it('유효 사거리 구간과 빈 무기군을 공유한다', () => {
