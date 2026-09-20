@@ -60,7 +60,8 @@ describe('generated browser runtime', () => {
     ) as RuntimeManifest;
 
     expect(manifest.version).toMatch(/^[a-f0-9]{16}$/);
-    expect(manifest.files).toHaveLength(29);
+    expect(manifest.files).toHaveLength(30);
+    expect(manifest.files).toContain('calculator/shotgun_heatmap.py');
     expect(manifest.files).toContain('calculator/pellet_accuracy.py');
     expect(manifest.files).toContain('recommendation.py');
     expect(manifest.files).toContain('squad_policy.py');

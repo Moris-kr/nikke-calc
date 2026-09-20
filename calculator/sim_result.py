@@ -237,6 +237,7 @@ class SimResult:
     # 스쿼드 전체 누적 피해량 (char_total 합산)
 
     shotgun_stats: dict[str, dict[str, float]] = field(default_factory=dict)
+    shotgun_report: dict = field(default_factory=dict)
     # Expected joint pellet masses, not realized random-mode counts.
 
     duration: float = 0.0

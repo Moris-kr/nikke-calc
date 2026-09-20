@@ -177,6 +177,8 @@ export interface SimulationRequest {
   partBreakInterval?: number;
   /** 사격 밀도 트랙을 함께 받을지. 보스 메이커의 타임라인이 쓴다. */
   shotTrack?: boolean;
+  /** 샷건 히트맵 창을 열 때만 수집하는 사격별 진단. */
+  shotgunReport?: boolean;
   /** 장탄·재장전 트랙을 함께 받을지. 계산기 타임라인의 「장탄 표시」가 쓴다. */
   stateTrack?: boolean;
   /**
@@ -406,6 +408,7 @@ export interface CharacterDamageBreakdown {
 }
 
 export interface SimulationResult {
+  shotgunReport?: Record<string, ShotgunHeatmapData>;
   squadTotal: number;
   duration: number;
   hitCount: number;
@@ -424,6 +427,22 @@ export interface SimulationResult {
   buffTargets?: Record<string, BuffTargetRow[]>;
   /** 0.1초 칸으로 나눈 같은 결과. `fineTimeline`을 켠 요청에만 실려 온다. */
   fineTimeline?: BattleTimeline;
+}
+
+export interface ShotgunHeatmapScene {
+  shapes: Array<[string, number, number, number, number, number]>;
+  aim: [number, number]; radius: number; core: [number, number, number] | null;
+  spatial: boolean; exponent: number;
+}
+export interface ShotgunHeatmapFrame {
+  t: number; scene: number; pellets: number; hit: number; core: number;
+  accuracy: number; fullBurst: boolean;
+}
+export interface ShotgunHeatmapData {
+  size: number; bounds: [number, number, number, number];
+  density: number[]; body: number[]; core: number[]; miss: number[];
+  scenes: ShotgunHeatmapScene[]; frames: ShotgunHeatmapFrame[];
+  sceneCount: number; spatial: boolean; fired: number; hit: number; coreHits: number;
 }
 
 /** 「누가 이 버프를 받았나」 한 줄. 대상이 공격력 순위로 갈려 편성만으로는 알 수 없다. */

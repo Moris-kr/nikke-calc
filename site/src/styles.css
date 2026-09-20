@@ -248,6 +248,36 @@ h2 { margin: 0; font-size: 24px; letter-spacing: -.035em; }
 .report-preview { margin: 14px 0 0; padding: 10px; background: rgba(3,9,16,.6); border: 1px solid var(--line); border-radius: 10px; text-align: center; }
 /* 세로로 긴 보고서라 높이를 묶으면 가로가 반으로 줄어든다 — 폭을 채우고 세로는 카드가 스크롤한다. */
 .report-preview img { width: 100%; max-width: 100%; height: auto; display: block; margin: 0 auto; border-radius: 6px; }
+.custom-modal.shotgun-modal { z-index: 1200; }
+.custom-card.shotgun-card { width: min(1180px, 96vw); max-width: 96vw; max-height: 94vh; overflow: auto; padding: 22px; color: #e1ebfb; background: #101b2b; }
+.shotgun-card .custom-head small { color: #62dad2; letter-spacing: .12em; font-size: 11px; }
+.shotgun-card h2 { margin: 3px 0; font-size: 22px; }
+.shotgun-card .custom-head { position: sticky; top: -22px; z-index: 2; background: #101b2b; }
+.shotgun-card [data-hm-status] { font-size: 12px; margin: 6px 0; color: #adc2dd; }
+.shotgun-card .hm-condition { margin: 6px 0; }
+.shotgun-card h4 { margin: 18px 0 8px; }
+.shotgun-card button, .shotgun-card select { padding: 9px 12px; border: 1px solid #3d5574; border-radius: 8px; background: #1b2c43; color: #e5efff; cursor: pointer; }
+.shotgun-card button:hover, .shotgun-card button[aria-pressed="true"] { background: #174d55; border-color: #4ddcd0; }
+.shotgun-open { border-color: #37b7b4 !important; color: #66eee0 !important; background: #123b43 !important; margin: 8px 0 12px; }
+.hm-condition, .hm-note, .hm-visual p { color: #a9bbd4; line-height: 1.6; font-size: 12px; overflow-wrap: anywhere; }
+.hm-characters, .hm-toolbar, .hm-playback, .hm-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 6px 0; }
+.hm-toolbar label, .hm-playback label { display: flex; align-items: center; gap: 8px; font-size: 13px; white-space: nowrap; }
+.hm-playback select { width: auto; min-width: 75px; }
+.hm-layout { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(250px, 1fr); gap: 22px; }
+.hm-visual canvas { width: 100%; height: auto; max-height: 44vh; object-fit: contain; display: block; border: 1px solid #2c405c; border-radius: 12px; background: #07111e; }
+.hm-legend { font-size: 12px; }
+.hm-detail { min-width: 0; max-height: 62vh; overflow-y: auto; }
+.hm-detail h3 { margin: 4px 0 14px; font-size: 22px; }
+.hm-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.hm-detail small { display: block; color: #a9bbd4; font-size: 12px; }
+.hm-detail strong { display: block; font-size: 16px; margin-top: 5px; overflow-wrap: anywhere; }
+.hm-detail [data-hm-frame] > div, .hm-detail [data-hm-burst] > div, .hm-metrics > div { padding: 10px; background: #16253a; border-radius: 8px; margin-bottom: 4px; }
+.hm-detail details { margin-top: 20px; color: #adc2dd; font-size: 12px; line-height: 1.7; }
+.hm-detail summary { cursor: pointer; color: #71dfd4; }
+.shotgun-card [data-hm-timebar] { width: 100%; accent-color: #4ddcd0; }
+.shotgun-card [data-hm-chart] { width: 100%; height: 110px; display: block; cursor: crosshair; border-radius: 8px; margin-top: 10px; }
+.hm-playback output { margin-left: auto; font-variant-numeric: tabular-nums; }
+@media(max-width: 720px) { .hm-layout { grid-template-columns: 1fr; } .custom-card.shotgun-card { padding: 14px; } .hm-playback output { width: 100%; margin: 0; } .hm-detail { max-height: none; } }
 .report-loading { margin: 26px 0; color: var(--muted); font-size: 12px; }
 .report-msg { margin: 12px 0 0; color: var(--danger); font-size: 11px; line-height: 1.55; }
 .report-msg.is-ok { color: var(--cyan); }

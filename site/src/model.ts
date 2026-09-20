@@ -104,6 +104,7 @@ export function normalizeRequest(request: SimulationRequest): SimulationRequest 
     // 갈리지 않게 하려는 것으로, 다른 필드와 같은 규칙이다.
     ...(request.partBreakInterval ? { partBreakInterval: request.partBreakInterval } : {}),
     ...(request.shotTrack ? { shotTrack: true } : {}),
+    ...(request.shotgunReport ? { shotgunReport: true } : {}),
     ...(request.stateTrack ? { stateTrack: true } : {}),
     ...(request.piercePass && (request.piercePass.shapes > 1 || request.piercePass.parts > 0)
       ? { piercePass: request.piercePass } : {}),

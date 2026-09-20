@@ -3232,6 +3232,7 @@ describe('calculator UI', () => {
 
     const open = root.querySelector<HTMLButtonElement>('[data-report-open]')!;
     expect(open).not.toBeNull();
+    expect(root.querySelector('[data-shotgun-heatmap]')?.textContent).toBe('샷건 히트맵 보기');
 
     open.click();
     await flush();

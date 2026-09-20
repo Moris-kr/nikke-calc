@@ -39,6 +39,14 @@ class PelletBridgeTest(unittest.TestCase):
 
 
 class FirstBurstBridgeTest(unittest.TestCase):
+    def test_shotgun_report_is_opt_in_and_preserves_damage(self):
+        payload = {"squad": ["드레이크"], "duration": 3, "enemyDef": 0, "enemyCode": "", "corePx": 52, "hasParts": False, "seed": 42, "shotgunModel": "spatial-v1", "shotgunTargetDiameter": 120}
+        plain = json.loads(run_request(json.dumps(payload)))
+        report = json.loads(run_request(json.dumps({**payload, 'shotgunReport': True})))
+        self.assertNotIn('shotgunReport', plain)
+        self.assertEqual(plain['squadTotal'], report['squadTotal'])
+        self.assertGreater(report['shotgunReport']['드레이크']['fired'], 0)
+
     def test_first_burst_reaches_engine_and_defaults_to_zero(self):
         payload = {"squad": ["리타", "크라운", "앨리스"], "duration": 12, "enemyDef": 0, "enemyCode": "", "corePx": 0, "hasParts": False, "seed": 42, "detail": True}
         default = json.loads(run_request(json.dumps(payload)))

@@ -53,6 +53,7 @@ import {
   type ReportMeta,
 } from './report';
 import { csvBlob, csvFileName, csvText, damageBatchRows, type DamageCsvDeck } from './export-csv';
+import { openShotgunHeatmap } from './shotgun-heatmap';
 import { renderMcpGuide } from './mcp-guide';
 import { renderPickupHistory } from './pickup-history';
 import { BrowserMcpConnection } from './mcp-browser';
@@ -4609,6 +4610,15 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         createText('small', dps(entry.result.squadTotal / entry.result.duration)),
       );
       section.append(deckHeader);
+      if (entry.request.squad.some(name => catalogByName.get(name)?.weaponType === 'SG') || Object.keys(entry.result.shotgunStats ?? {}).length) {
+        const heatmapButton = document.createElement('button');
+        heatmapButton.type = 'button';
+        heatmapButton.className = 'report-open shotgun-open';
+        heatmapButton.dataset.shotgunHeatmap = String(entry.deckId);
+        heatmapButton.textContent = '샷건 히트맵 보기';
+        heatmapButton.addEventListener('click', () => openShotgunHeatmap(entry, deckNameOf(entry.deckId), request => client.simulate(request)));
+        section.append(heatmapButton);
+      }
       const fb = entry.result.timeline?.fullBurstSummary;
       if (fb) {
         const summary = createText('p', fb.count === 0 ? t('풀버스트 0회') :

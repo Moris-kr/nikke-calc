@@ -49,22 +49,23 @@ def integrate(shapes, aim, radius, core, exponent):
     return hits / 1024, cores / hits if hits else 0
 
 
-def probabilities(enemy, name, t, full_burst, radius, core_probability, exponent=2.55):
+def scene_at(enemy, name, t, full_burst, radius):
+    """Resolve the exact spatial inputs once for both integration and diagnostics."""
     geometry = enemy.get('shotgun_geometry')
     if geometry is None and enemy.get('shotgun_model') in ('spatial-v1', 'spatial-convergence-v1'):
         # Same coordinate units as the existing core/boss canvas, not a claim
         # that raw CDN scale values are physical screen pixels.
         diameter = float(enemy.get('shotgun_target_diameter', 360))
         core_d = float(enemy.get('core_px', 0))
-        return integrate((('circle', 0, 0, diameter, diameter, 0),), (0, 0), radius,
-                         (0, 0, core_d / 2) if core_d > 0 else None, exponent)
+        return ((('circle', 0, 0, diameter, diameter, 0),), (0, 0), radius,
+                (0, 0, core_d / 2) if core_d > 0 else None)
     if geometry is None:
-        return max(0, min(1, float(enemy.get('shotgun_hit_rate', 1)))), core_probability
+        return None
     aim = aim_at(geometry, t)
     if not full_burst and name != geometry.get('playerName'):
         aim = geometry.get('center') or aim
     if not aim:
-        return 0, 0
+        return ((), (0, 0), radius, None)
     shapes = tuple((s['kind'], s['x'], s['y'], s['w'], s['h'], s.get('rotation', 0))
                    for s in geometry.get('shapes', []) + geometry.get('parts', [])
                    if not s.get('windows') or any(a <= t < b for a, b in s['windows']))
@@ -73,7 +74,14 @@ def probabilities(enemy, name, t, full_burst, radius, core_probability, exponent
     override = geometry.get('spread', {}).get(name)
     if override and override > 0:
         radius = override / 2
-    return integrate(shapes, (aim['x'], aim['y']), radius, core, exponent)
+    return shapes, (aim['x'], aim['y']), radius, core
+
+
+def probabilities(enemy, name, t, full_burst, radius, core_probability, exponent=2.55):
+    scene = scene_at(enemy, name, t, full_burst, radius)
+    if scene is None:
+        return max(0, min(1, float(enemy.get('shotgun_hit_rate', 1)))), core_probability
+    return integrate(*scene, exponent)
 
 
 @lru_cache(maxsize=1024)

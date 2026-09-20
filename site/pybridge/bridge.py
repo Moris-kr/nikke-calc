@@ -639,6 +639,7 @@ def run_request(raw: str, include_effective: bool = False) -> str:
         raise ValueError('보스 판정 직경은 1~2000이어야 합니다')
     enemy = {
         "shotgun_model": shotgun_model,
+        "shotgun_report": bool(payload.get('shotgunReport')),
         "shotgun_target_diameter": shotgun_diameter,
         "shotgun_hit_rate": shotgun_rate,
         **({"shotgun_geometry": payload["shotgunGeometry"]} if payload.get("shotgunGeometry") is not None else {}),
@@ -682,6 +683,7 @@ def run_request(raw: str, include_effective: bool = False) -> str:
         "hitCount": len(result.hits),
         "charTotals": result.char_total,
         **({"shotgunStats": result.shotgun_stats} if result.shotgun_stats else {}),
+        **({"shotgunReport": result.shotgun_report} if result.shotgun_report else {}),
         "charBreakdown": _build_breakdown(result, names),
         "previewNote": char_spec.preview_note(names),
         "deviations": char_spec.format_deviations(squad) + (

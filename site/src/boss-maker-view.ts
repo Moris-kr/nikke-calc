@@ -9,6 +9,7 @@
  * 캔버스지만, 여기는 도형이 수십 개다).
  */
 
+import { openShotgunHeatmap } from './shotgun-heatmap';
 import {
   activeDesign, aimAt, aimForNikke, aimPoint, coreHitChance, copyDesign, decodeBossCode,
   DEFAULT_CORE_PX, derivedEnemy, derivedOptimalRange, distance,
@@ -172,7 +173,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   let runningAll = false;
   let editingBattle = false;
   const deckErrors = new Map<string, string>();
-  const deckResults = new Map<string, { result: SimulationResult; note: string; title: string; signature: string }>();
+  const deckResults = new Map<string, { deckId: number; request: SimulationRequest; result: SimulationResult; note: string; title: string; signature: string }>();
   /**
    * 캐릭터별 «여기까지의 누적 딜». 칸마다 앞자리를 다 더해 둔 표라, 커서가 움직일
    * 때마다 1,800칸을 다시 더하지 않고 한 번만 읽는다.
@@ -441,6 +442,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
           <button type="button" class="bm-btn" data-bm-run-all>모든 덱 계산</button>
           <div class="bm-note" data-bm-deck-results></div>
           <button type="button" class="bm-btn accent" data-bm-run>현재 덱으로 타임라인 구성</button>
+          <button type="button" class="bm-btn shotgun-open" data-bm-heatmap hidden>샷건 히트맵 보기</button>
           <span class="bm-timeline-note" data-bm-run-note>편성한 덱으로 한 판 돌려, 누가 언제 어디에 쏘는지 이 자리에 폅니다.</span>
         </div>
         <div class="bm-tracks" data-bm-tracks></div>
@@ -1817,7 +1819,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       runNote.title = `총딜 ${Math.round(result.squadTotal).toLocaleString('ko-KR')}`
         + ` · 초당 ${Math.round(dps).toLocaleString('ko-KR')}`;
       deckErrors.delete(requestKey);
-      deckResults.set(requestKey, { result, note: runNote.textContent ?? '', title: runNote.title, signature });
+      deckResults.set(requestKey, { deckId: Number(deps.currentDeckId?.() ?? 0), request, result, note: runNote.textContent ?? '', title: runNote.title, signature });
       render();
     } catch (error) {
       runNote.textContent = error instanceof Error ? error.message : String(error);
@@ -2689,6 +2691,8 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
 
   function renderDecks() {
     if (invalidateChangedResult()) restoreDeckResult();
+    const heatmapResult = deckResults.get(resultKey());
+    q<HTMLButtonElement>('[data-bm-heatmap]').hidden = !heatmapResult || !(Object.keys(heatmapResult.result.shotgunStats ?? {}).length || heatmapResult.request.squad.some(name => deps.catalog.some(c => c.name === name && c.weaponType === 'SG')));
     const decks = deps.decks?.() ?? [];
     const select = q<HTMLSelectElement>('[data-bm-deck]');
     select.hidden = !decks.length;
@@ -2798,6 +2802,11 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   });
   q<HTMLButtonElement>('[data-bm-run-all]').addEventListener('click', () => { void runAllDecks(); });
   q<HTMLButtonElement>('[data-bm-run]').addEventListener('click', () => { void runTimeline(); });
+  q<HTMLButtonElement>('[data-bm-heatmap]').addEventListener('click', () => {
+    if (invalidateChangedResult()) { restoreDeckResult(); renderDecks(); return; }
+    const saved = deckResults.get(resultKey());
+    if (saved) openShotgunHeatmap(saved, design.name, request => deps.simulate(request));
+  });
   q<HTMLButtonElement>('[data-bm-close]').addEventListener('click', () => { close(); });
   q<HTMLButtonElement>('[data-bm-new]').addEventListener('click', () => {
     save();

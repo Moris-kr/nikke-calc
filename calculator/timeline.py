@@ -24,6 +24,7 @@ from .buff_manager import BuffManager, _QUANT_PARTS_KEY, _get_skill_lv
 from .cheats import from_config as cheats_from_config
 from .customization import normalize_optimal_range_windows
 from .pellet_accuracy import probabilities as pellet_probabilities
+from .shotgun_heatmap import ShotgunHeatmap
 from .damage import calc_damage, default_hit_type, is_element_match
 from .sim_result import (
     HitEvent,
@@ -376,6 +377,7 @@ class CharState:
         self._spread_scale = float(self._spread_spec.get('start', 250))
         self._spread_reload_at = None
         self.shotgun_stats = {}
+        self._shotgun_heatmap = None
         # 연사 무기 모드는 진입 시 self.ammo를 모드 장탄으로 덮어쓴다(원래 장탄은 버린다).
         # 모드가 끝날 때 되돌려 놓아야 그 값이 원래 무기로 새어 나가지 않는다.
         self._wc_ammo_borrowed: bool = False
@@ -980,6 +982,11 @@ class CharState:
             radius *= scale / 250
         hit, core = pellet_probabilities(enemy, self.name, t, bm.state.get("full_burst", False),
                                          radius, core_probability, _MODEL_N)
+        if enemy.get('shotgun_report'):
+            if self._shotgun_heatmap is None:
+                self._shotgun_heatmap = ShotgunHeatmap()
+            self._shotgun_heatmap.record(enemy, self.name, t, bm.state.get('full_burst', False),
+                                         radius, accuracy, pellet_count, hit, core, _MODEL_N)
         if enemy.get('shotgun_model') in ('spatial-v1', 'spatial-convergence-v1'):
             stats = self.shotgun_stats
             for key, amount in {'fired': pellet_count, 'hit': pellet_count*hit,
@@ -3096,6 +3103,7 @@ def simulate(
         _dot_events.clear()
 
     result.shotgun_stats = {name: {k: round(v, 4) for k, v in cs.shotgun_stats.items()} for name, cs in char_states.items() if cs.shotgun_stats}
+    result.shotgun_report = {name: cs._shotgun_heatmap.finish() for name, cs in char_states.items() if cs._shotgun_heatmap is not None}
     result.squad_total = sum(result.char_total.values())
     result.hits.sort(key=lambda e: e.t)
 
