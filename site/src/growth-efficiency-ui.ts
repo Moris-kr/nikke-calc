@@ -73,10 +73,12 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
   const close = node('button', '닫기', 'growth-close'); header.append(title, close);
   const intro = node('p', '풀 육성은 이 창에서 설정한 목표 육성과 선택한 오버로드 수치작 목표를 적용한 상태입니다. 돌파·스킬·소장품·장비레벨은 현재 값으로 시작합니다. 큐브·운용·전투 조건은 기존 결과와 동일하며, 실제 육성은 덮어쓰지 않습니다.', 'growth-note');
   intro.append(document.createTextNode(' 창을 닫아도 입력·결과와 진행 중인 계산은 유지됩니다. 페이지를 새로고침하거나 기준 전투 결과가 바뀌면 새 비교로 시작하며, 니케별 목표 옵션과 수치작 타협레벨은 저장값을 불러옵니다.'));
-  const quickStart=node('p','','growth-note');quickStart.append(node('strong','어떻게 설정할지 모르겠다면, 처음에는 이렇게 시작해 보세요.'),document.createElement('br'),document.createTextNode('전체 목표 옵션 리셋 → 모든 수치작 타협레벨 Lv.10 → 모두 8줄작 하기 → 비우코 제외 → 계산하기. 우월코드 대미지 4줄·공격력 4줄을 Lv.10 이상으로 맞추는 목표부터 비교할 수 있습니다. 필요한 니케는 육성 대상 포함으로 다시 넣어 주세요.'));
+  const quickStart=node('p','','growth-note');quickStart.append(node('strong','어떻게 설정할지 모르겠다면, 처음에는 이렇게 시작해 보세요.'),document.createElement('br'),document.createTextNode('쉬운계산을 누르면 각 덱의 우월 속성 니케만 골라 우월코드 4줄·공격력 4줄·최소 Lv.10으로 설정하고 바로 계산합니다. 우월코드 대미지 4줄·공격력 4줄을 Lv.10 이상으로 맞추는 목표부터 비교할 수 있습니다. 필요한 니케는 육성 대상 포함으로 다시 넣어 주세요.'));
   const costLabel=node('label','','growth-confirm');const costCheck=node('input');costCheck.type='checkbox';costCheck.checked=true;costCheck.setAttribute('aria-label','모듈 가성비 분석');costLabel.append(costCheck,document.createTextNode('모듈 가성비 분석 · 추가 전투/확률 계산으로 시간이 늘어날 수 있습니다.'));
   const currencyLabel=node('label','','growth-confirm');currencyLabel.append(node('span','잠금 재화'));const currencySelect=node('select');currencySelect.setAttribute('aria-label','잠금 재화');for(const [value,label] of [['modules','커스텀 모듈'],['keys','커스텀 락 키']]){const option=node('option',label);option.value=value!;currencySelect.append(option);}currencyLabel.append(currencySelect,node('span','락 키: 매 변경마다 1줄 20개 / 2줄 50개. 변경 모듈은 별도 2개 / 3개. 기존 모듈 잠금은 해제하고 키로 다시 잠그는 방식입니다.','growth-note'));
   const allLevelLabel=node('label','','growth-confirm');allLevelLabel.append(node('span','모든 수치작 타협레벨'));const allLevelSelect=node('select');allLevelSelect.setAttribute('aria-label','모든 수치작 타협레벨');for(let n=1;n<=15;n++)allLevelSelect.add(new Option(`Lv.${n} 이상`,String(n)));allLevelSelect.value='15';allLevelLabel.append(allLevelSelect);
+  const easyCalculate=node('button','쉬운계산','growth-secondary growth-easy-calculate');easyCalculate.type='button';easyCalculate.title='우월 속성 니케만 우월코드 4줄·공격력 4줄, 최소 Lv.10으로 설정하고 바로 계산합니다.';
+  const easyActions:Array<()=>void>=[];
   const eightLines=node('button','모두 8줄작 하기','growth-secondary growth-eight-lines');eightLines.type='button';
   const excludeNonElement=node('button','비우코 제외','growth-secondary growth-exclude-non-element');excludeNonElement.type='button';excludeNonElement.title='각 덱의 보스 속성 기준으로 우월 속성이 아닌 니케를 육성 대상에서 제외합니다.';
   const exclusionActions:Array<()=> 'excluded'|'kept'|'unknown'|'failed'>=[];
@@ -101,7 +103,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
     label.append(select);
     performance.append(label,node('p','여러 후보를 내 컴퓨터의 CPU 코어로 동시에 계산합니다. 개수를 늘리면 CPU·메모리 사용과 발열이 증가합니다. 처음에는 계산 엔진 준비 시간이 추가되며, 코어 수나 남은 작업 수보다 늘려도 더 빨라지지 않을 수 있습니다. 느려지거나 다른 작업에 지장이 생기면 줄여 주세요.','growth-note'));
   }
-  dialog.append(header, intro, quickStart, performance, costLabel, currencyLabel, allLevelLabel, eightLines, excludeNonElement, resetAll, resetIncluded, editor, footer, output); overlay.append(dialog); document.body.append(overlay);
+  dialog.append(header, intro, quickStart, performance, costLabel, currencyLabel, allLevelLabel, easyCalculate, eightLines, excludeNonElement, resetAll, resetIncluded, editor, footer, output); overlay.append(dialog); document.body.append(overlay);
   let closed = false, busy = false, pairs: Pair[] = [];
   let unregister=()=>{};let calculationError='';let moduleResults:Record<string,unknown>[]=[];
   let closePreview: (() => void) | null = null;
@@ -147,7 +149,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
   costCheck.onchange=invalidate;currencySelect.onchange=invalidate;
   const lockEditor = (locked: boolean) => {
     saveHtml.disabled=locked || !pairs.length;
-    excludeNonElement.disabled=locked;eightLines.disabled=locked;resetAll.disabled=locked;resetIncluded.disabled=locked;costCheck.disabled=locked;allLevelSelect.disabled=locked;currencySelect.disabled=locked;
+    easyCalculate.disabled=locked;excludeNonElement.disabled=locked;eightLines.disabled=locked;resetAll.disabled=locked;resetIncluded.disabled=locked;costCheck.disabled=locked;allLevelSelect.disabled=locked;currencySelect.disabled=locked;
     performance.querySelectorAll<HTMLSelectElement>('select').forEach(select=>{select.disabled=locked;});
     output.querySelectorAll<HTMLButtonElement>('.growth-priority-button').forEach(button=>{button.disabled=locked;});
     editor.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>('input,select,button').forEach(el => {
@@ -195,6 +197,15 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
         exclude.setAttribute('aria-label', `${deps.deckName(entry.deckId)} ${name} ${exclude.textContent}`);
         lockEditor(false); invalidate();if(!saveGrowthExcluded(name,omit))message.textContent='육성 제외 여부를 저장하지 못했습니다.';
       };
+      easyActions.push(()=>{
+        const advantage:Record<string,string>={수냉:'작열',작열:'풍압',풍압:'철갑',철갑:'전격',전격:'수냉'};
+        const include=advantage[deps.catalog.get(name)?.elementCode??'']===entry.request.enemyCode;
+        if(excluded[index]!.has(name)===include)exclude.click();
+        if(include){
+          card.querySelector('.growth-goals')?.dispatchEvent(new CustomEvent('set-all-levels',{detail:10}));
+          card.querySelector('.growth-goals')?.dispatchEvent(new Event('set-eight-lines'));
+        }
+      });
       inclusionActions.push(()=>{if(excluded[index]!.has(name))exclude.click();return saveGrowthExcluded(name,false);});
       exclusionActions.push(()=>{
         const advantage:Record<string,string>={수냉:'작열',작열:'풍압',풍압:'철갑',철갑:'전격',전격:'수냉'};
@@ -462,6 +473,14 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
       if(overlay.isConnected)output.scrollIntoView({behavior:'smooth',block:'start'});
     } catch(error) { calculationError=error instanceof Error?error.message:String(error);pairs=[]; save.disabled=true; output.replaceChildren(); message.textContent = `계산 실패: ${error instanceof Error ? error.message : String(error)}`; }
     finally { busy=false; calculate.disabled=false; lockEditor(false); }
+  };
+  easyCalculate.onclick=()=>{
+    if(busy)return;
+    const codes=['수냉','작열','풍압','철갑','전격'];
+    if(snapshot.decks.some(entry=>!codes.includes(entry.request.enemyCode))){message.textContent='쉬운계산은 보스 속성이 필요합니다. 전투 조건에서 각 덱의 보스 속성을 지정한 뒤 다시 계산해 주세요.';return;}
+    if(!snapshot.decks.some(entry=>entry.request.squad.some(name=>({수냉:'작열',작열:'풍압',풍압:'철갑',철갑:'전격',전격:'수냉'} as Record<string,string>)[deps.catalog.get(name)?.elementCode??'']===entry.request.enemyCode))){message.textContent='보스에게 우월 속성인 니케가 편성에 없습니다.';return;}
+    easyActions.forEach(apply=>apply());
+    void calculateGrowth();
   };
   calculate.onclick=()=>{void calculateGrowth();};
   unregister=registerGrowthMcp({

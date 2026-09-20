@@ -311,3 +311,28 @@ it('downloads the completed full result as HTML and invalidates export when goal
  expect(text).toContain('전체 덱 육성 우선순위');expect(text).toContain('목표 스킬 필요 재료');expect(text).toContain('기본 스펙 이탈 내역');expect(text).not.toContain('<button');
  const skill=document.querySelector<HTMLSelectElement>('select[aria-label="덱 1 A 목표 스킬1"]')!;skill.value='7';skill.dispatchEvent(new Event('change'));expect(save.disabled).toBe(true);
 });
+
+it('easy calculation re-includes advantaged characters, applies 4/4 Lv10 and starts simulation',async()=>{
+ HTMLElement.prototype.scrollIntoView=vi.fn();
+ const keys=['element_bonus','atk_pct','crit_dmg'];
+ const configured={...settingsTemplate,overloadSteps:Object.fromEntries(keys.map(k=>[k,steps])),overloadFields:Object.fromEntries(keys.map(k=>[k,{label:k}])),characters:{A:{overload:{}},B:{overload:{}}}} as unknown as SettingsCatalog;
+ const multiple=structuredClone(batch);multiple.decks[0]!.request.squad=['A','B'];multiple.decks[0]!.request.characters={A:{overload:{element_bonus:12},overloadLines:{머리:[{option:'element_bonus',level:12}]}},B:{overload:{}}};
+ const simulate=vi.fn().mockResolvedValue({squadTotal:120,charTotals:{A:110,B:10}});
+ openGrowthEfficiency(multiple,{settings:configured,catalog:new Map([['A',{elementCode:'수냉'}],['B',{elementCode:'작열'}]]) as any,deckName:()=> '덱 1',current:()=>({}),simulate});
+ document.querySelector<HTMLInputElement>('input[aria-label="모듈 가성비 분석"]')!.click();
+ document.querySelector<HTMLButtonElement>('.growth-exclude')!.click();
+ document.querySelector<HTMLButtonElement>('.growth-easy-calculate')!.click();
+ await vi.waitFor(()=>expect(simulate).toHaveBeenCalled());
+ const cards=[...document.querySelectorAll<HTMLElement>('.growth-character')];
+ expect(cards[0]!.dataset.excluded).toBe('false');expect(cards[1]!.dataset.excluded).toBe('true');
+ for(const key of keys)expect(cards[0]!.querySelector<HTMLSelectElement>(`select[aria-label$="${key} 목표 줄 수"]`)!.value).toBe(key==='crit_dmg'?'0':'4');
+ expect([...cards[0]!.querySelectorAll<HTMLSelectElement>('.growth-goal-level')].every(x=>x.value==='10')).toBe(true);
+ await vi.waitFor(()=>expect(document.querySelector('.growth-status')?.textContent).toContain('100%'));
+ expect(simulate.mock.calls.some(([r])=>r.characters?.A?.overload?.element_bonus===42)).toBe(true);
+});
+it('easy calculation requires an identified boss element',()=>{
+ const missing=structuredClone(batch);missing.decks[0]!.request.enemyCode='';const simulate=vi.fn();
+ openGrowthEfficiency(missing,{settings,catalog:new Map(),deckName:()=> '덱 1',current:()=>({}),simulate});
+ document.querySelector<HTMLButtonElement>('.growth-easy-calculate')!.click();
+ expect(simulate).not.toHaveBeenCalled();expect(document.querySelector('.growth-status')!.textContent).toContain('보스 속성이 필요');
+});
