@@ -85,13 +85,17 @@ async function graphql<T>(query: string, variables: Record<string, unknown> = {}
 }
 
 /** 가장 최근 시즌. 목록의 `weakness`는 보스의 **약점**이다(보스 속성이 아니다). */
-export async function fetchLatestSeason(): Promise<EnikkSeason> {
+export async function fetchSeasons(): Promise<EnikkSeason[]> {
   const data = await graphql<{
     soloRaidSummaries: Array<{ raid_number: number; wave_name: string; weakness: string }>;
   }>('{ soloRaidSummaries { raid_number wave_name weakness } }');
-  const latest = [...data.soloRaidSummaries].sort((a, b) => b.raid_number - a.raid_number)[0];
-  if (!latest) throw new Error('시즌 목록이 비어 있습니다.');
-  return { raid: latest.raid_number, boss: latest.wave_name, weakness: latest.weakness };
+  const seasons = [...data.soloRaidSummaries].sort((a,b)=>b.raid_number-a.raid_number);
+  if (!seasons.length) throw new Error('시즌 목록이 비어 있습니다.');
+  return seasons.map(row=>({raid:row.raid_number,boss:row.wave_name,weakness:row.weakness}));
+}
+
+export async function fetchLatestSeason(): Promise<EnikkSeason> {
+  return (await fetchSeasons())[0]!;
 }
 
 /**
@@ -189,9 +193,10 @@ export async function loadEnikkComps(
   catalog: CharacterMeta[],
   supported: Set<string>,
   onProgress?: (message: string) => void,
+  selectedSeason?: EnikkSeason,
 ): Promise<EnikkImport> {
   onProgress?.('시즌 정보를 확인하는 중…');
-  const season = await fetchLatestSeason();
+  const season = selectedSeason ?? await fetchLatestSeason();
 
   onProgress?.('니케 이름표를 맞추는 중…');
   const nameMap = await fetchNameMap(catalog);

@@ -2795,6 +2795,28 @@ describe('calculator UI', () => {
     expect(root.querySelector<HTMLElement>('[data-deck-copy-panel]')!.hidden).toBe(false);
   });
 
+  it('selects historical enikk seasons and refreshes the season list without loading rankings', async () => {
+    const requests: Array<{query:string;variables?:{raid:number}}> = [];
+    vi.stubGlobal('fetch', vi.fn(async (_url:unknown, init?:RequestInit) => {
+      const body=JSON.parse(String(init?.body??'{}'));requests.push(body);
+      if(body.query?.includes('soloRaidSummaries'))return Response.json({data:{soloRaidSummaries:[{raid_number:40,wave_name:'Old',weakness:'Fire'},{raid_number:42,wave_name:'New',weakness:'Water'}]}});
+      if(body.query?.includes('SRRankings'))return Response.json({data:{SRRankings:[]}});
+      return Response.json({data:{characters:[]}});
+    }));
+    mountCalculator(root,{catalog,settings,version:'v1',client:new FakeClient(),storage:localStorage});
+    root.querySelector<HTMLButtonElement>('[data-view-tab="enikk"]')!.click();
+    const select=root.querySelector<HTMLSelectElement>('[data-enikk-season]')!;
+    await vi.waitFor(()=>expect(select.options.length).toBe(2));expect(select.value).toBe('42');
+    select.value='40';select.dispatchEvent(new Event('change'));
+    root.querySelector<HTMLButtonElement>('[data-enikk-load]')!.click();
+    await vi.waitFor(()=>expect(root.querySelector('[data-enikk-status]')!.textContent).toContain('시즌 40 · 플레이어 0명'));
+    expect(requests.find(r=>r.query?.includes('SRRankings'))?.variables?.raid).toBe(40);
+    const count=requests.filter(r=>r.query?.includes('SRRankings')).length;
+    const refresh=root.querySelector<HTMLButtonElement>('[data-enikk-refresh]')!;expect(refresh.textContent).toBe('시즌 새로고침');refresh.click();
+    await vi.waitFor(()=>expect(refresh.disabled).toBe(false));expect(select.value).toBe('40');expect(requests.filter(r=>r.query?.includes('SRRankings'))).toHaveLength(count);
+    select.value='42';select.dispatchEvent(new Event('change'));expect(root.querySelector<HTMLElement>('[data-enikk-summary]')!.hidden).toBe(true);
+  });
+
   it('breaks the enikk player list into pages of ten', () => {
     const players = Array.from({ length: 25 }, (_, i) => ({
       rank: i + 1, playerid: `p${i}`, server: 'KR', damage: 1000 - i, cp: 0,

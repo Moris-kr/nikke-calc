@@ -27,6 +27,8 @@ import {
 import {
   formatEok,
   loadEnikkComps,
+  fetchSeasons,
+  type EnikkSeason,
   WEAKNESS_KO,
   type EnikkImport,
   type EnikkPlayer,
@@ -854,11 +856,11 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         <div class="section-heading">
           <div><p class="step">ENIKK</p><h2 id="enikk-heading">ENIKK 조합 가져오기</h2></div>
         </div>
-        <p class="enikk-lede">enikk.app 솔로레이드 랭킹에서 <b>그 사람이 실제로 쓴 5덱을 통째로</b> 가져옵니다. 최신 시즌 상위 <b>300명</b>(KR·JP·GLOBAL·NA·TW-HK·SEA 각 50명)이 대상이고, 누르면 우리 5덱에 그대로 깔립니다.</p>
-        <p class="enikk-warn" data-enikk-warn>불러오는 데 <b>5~10초쯤</b> 걸립니다 — enikk에서 300명분을 한 번에 받아오기 때문입니다. 받아온 뒤에는 이 브라우저에 저장해 두고 다시 받지 않습니다.</p>
+        <p class="enikk-lede">enikk.app 솔로레이드 랭킹에서 <b>그 사람이 실제로 쓴 5덱을 통째로</b> 가져옵니다. 선택한 시즌 상위 <b>300명</b>(KR·JP·GLOBAL·NA·TW-HK·SEA 각 50명)이 대상이고, 누르면 우리 5덱에 그대로 깔립니다.</p>
+        <p class="enikk-warn" data-enikk-warn>불러오는 데 <b>5~10초쯤</b> 걸립니다 — enikk에서 300명분을 한 번에 받아오기 때문입니다. 마지막으로 받아온 결과는 이 브라우저에 저장합니다. 다른 시즌을 선택한 뒤 조합 가져오기를 누르면 해당 시즌을 새로 받습니다.</p>
         <div class="enikk-actions">
           <button type="button" class="roster-import" data-enikk-load>조합 가져오기</button>
-          <button type="button" class="roster-import" data-enikk-refresh hidden>다시 받기</button>
+          <button type="button" class="roster-import" data-enikk-refresh>시즌 새로고침</button>
           <span class="enikk-status" data-enikk-status></span>
         </div>
         <div class="enikk-exclude">
@@ -871,6 +873,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           <div class="enikk-exclude-chips" data-enikk-exclude-chips></div>
           <p class="field-note">넣은 니케가 낀 덱은 <b>가져오기에서 빠집니다</b>. 그 니케가 없어도 짤 수 있는 조합만 남기려는 것입니다.</p>
         </div>
+        <label class="enikk-season-field">시즌 <select data-enikk-season aria-label="ENIKK 시즌 선택"><option value="">시즌 목록을 불러와 주세요</option></select></label>
         <div class="enikk-summary" data-enikk-summary hidden></div>
         <div class="enikk-compare" data-enikk-compare hidden></div>
         <div class="enikk-list" data-enikk-list hidden></div>
@@ -6601,6 +6604,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const enikkLoad = element<HTMLButtonElement>(root, '[data-enikk-load]');
   const enikkRefresh = element<HTMLButtonElement>(root, '[data-enikk-refresh]');
   let enikkData: EnikkImport | null = null;
+  const enikkSeason=element<HTMLSelectElement>(root,'[data-enikk-season]');
+  let enikkSeasons:EnikkSeason[]=[];
+  let enikkBusy=false;
   // 300명을 한 줄로 늘어놓으면 스크롤이 끝없다 — 열 명씩 끊어 쪽으로 넘긴다.
   const ENIKK_PER_PAGE = 10;
   let enikkPage = 0;
@@ -6896,6 +6902,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
   const renderCompare = async () => {
     if (!enikkData) return;
+    const comparisonData=enikkData;
     const targets = enikkData.players.slice(0, COMPARE_TOP);
     if (targets.length === 0) return;
     const total = targets.reduce((sum, p) => sum + p.decks.filter((d) => d.usable).length, 0);
@@ -6915,7 +6922,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
     const battle = readBattle();
     const custom = customPayload();
+    const active=()=>enikkData===comparisonData && table.isConnected;
     await prepared;
+    if(!active())return;
     let done = 0;
     for (const [index, player] of targets.entries()) {
       let simTotal = 0;
@@ -6933,6 +6942,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         let result = cache.get(key);
         if (!result) {
           result = await client.simulate(request);
+          if(!active())return;
           cache.set(key, result);
         }
         simTotal += result.squadTotal;
@@ -6963,37 +6973,37 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     setEnikkStatus(`상위 ${targets.length}명 대조 완료.`);
   };
 
-  const loadEnikk = async (force: boolean) => {
-    if (!force) {
-      const cached = readEnikkCache();
-      if (cached) {
-        renderEnikk(cached);
-        setEnikkStatus('저장해 둔 결과입니다. 새로 받으려면 «다시 받기»를 누르세요.');
-        enikkLoad.hidden = true;
-        enikkRefresh.hidden = false;
-        return;
-      }
-    }
-    enikkLoad.disabled = true;
-    enikkRefresh.disabled = true;
+  const clearEnikkResults=()=>{enikkData=null;enikkPage=0;enikkSummary.replaceChildren();enikkSummary.hidden=true;enikkList.replaceChildren();enikkList.hidden=true;enikkCompare.replaceChildren();enikkCompare.hidden=true;};
+  const lockEnikk=(busy:boolean)=>{enikkBusy=busy;enikkLoad.disabled=busy;enikkRefresh.disabled=busy;enikkSeason.disabled=busy;};
+  const refreshEnikkSeasons=async()=>{
+    if(enikkBusy)return;
+    lockEnikk(true);setEnikkStatus('시즌 목록을 새로고침하는 중…');
     try {
-      const supported = new Set(catalog.map((char) => char.name));
-      const data = await loadEnikkComps(catalog, supported, setEnikkStatus);
-      writeEnikkCache(data);
-      renderEnikk(data);
-      setEnikkStatus(`플레이어 ${data.players.length}명 · 덱 ${data.decks}개를 읽었습니다.`);
-      enikkLoad.hidden = true;
-      enikkRefresh.hidden = false;
-    } catch (error) {
-      setEnikkStatus(error instanceof Error ? error.message : String(error));
-    } finally {
-      enikkLoad.disabled = false;
-      enikkRefresh.disabled = false;
-    }
+      const selected=Number(enikkSeason.value)||enikkData?.season.raid;
+      const seasons=await fetchSeasons();enikkSeasons=seasons;
+      enikkSeason.replaceChildren(...seasons.map(season=>new Option(`시즌 ${season.raid} · ${season.boss} · ${WEAKNESS_KO[season.weakness]??season.weakness} 약점`,String(season.raid))));
+      enikkSeason.value=String(seasons.some(s=>s.raid===selected)?selected:seasons[0]!.raid);
+      if(enikkData&&enikkData.season.raid!==Number(enikkSeason.value))clearEnikkResults();
+      setEnikkStatus('시즌을 선택한 뒤 조합 가져오기를 누르세요.');
+    }catch(error){setEnikkStatus(error instanceof Error?error.message:String(error));}
+    finally{lockEnikk(false);}
   };
-
-  enikkLoad.addEventListener('click', () => { void loadEnikk(false); });
-  enikkRefresh.addEventListener('click', () => { void loadEnikk(true); });
+  const loadEnikk=async()=>{
+    if(enikkBusy)return;
+    if(!enikkSeasons.length)await refreshEnikkSeasons();
+    const season=enikkSeasons.find(s=>s.raid===Number(enikkSeason.value));
+    if(!season)return;
+    lockEnikk(true);clearEnikkResults();
+    try {
+      const data=await loadEnikkComps(catalog,new Set(catalog.map(char=>char.name)),setEnikkStatus,season);
+      writeEnikkCache(data);renderEnikk(data);
+      setEnikkStatus(`시즌 ${season.raid} · 플레이어 ${data.players.length}명 · 덱 ${data.decks}개를 읽었습니다.`);
+    }catch(error){setEnikkStatus(error instanceof Error?error.message:String(error));}
+    finally{lockEnikk(false);}
+  };
+  enikkSeason.addEventListener('change',()=>{clearEnikkResults();setEnikkStatus('선택한 시즌의 조합 가져오기를 눌러 주세요.');});
+  enikkLoad.addEventListener('click',()=>{void loadEnikk();});
+  enikkRefresh.addEventListener('click',()=>{void refreshEnikkSeasons();});
 
   // ── 지금 보는 사람 수 ───────────────────────────────────────────────────
   // 공유 서버가 세 준다. 주소가 없으면 아예 띄우지 않는다 — 0명이라고 적어 두면
@@ -7214,14 +7224,10 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       tab.classList.toggle('is-on', on);
       tab.setAttribute('aria-pressed', String(on));
     }
-    if (view === 'enikk' && !enikkData) {
-      const cached = readEnikkCache();
-      if (cached) {
-        renderEnikk(cached);
-        setEnikkStatus('저장해 둔 결과입니다. 새로 받으려면 «다시 받기»를 누르세요.');
-        enikkLoad.hidden = true;
-        enikkRefresh.hidden = false;
-      }
+    if(view==='enikk'&&!enikkSeasons.length&&!enikkBusy){
+      const cached=readEnikkCache();
+      if(cached){renderEnikk(cached);}
+      void refreshEnikkSeasons();
     }
   }
   for (const tab of root.querySelectorAll<HTMLButtonElement>('[data-view-tab]')) {

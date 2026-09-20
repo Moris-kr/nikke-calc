@@ -2691,3 +2691,5 @@ img[src*="/temporary-characters/"][src$="-card.png"] { object-fit: contain; obje
 
 .full-burst-summary { color: #a7c8eb; margin: 8px 0 14px; font-size: .9rem; overflow-wrap: anywhere; }
 .full-burst-summary.is-truncated { color: #ffcf78; }
+
+.enikk-season-field{display:flex;align-items:center;gap:12px;margin:18px 0;font-weight:700}.enikk-season-field select{min-width:0;max-width:100%;padding:10px 12px;border:1px solid #53647d;border-radius:8px;background:#172338;color:#edf3ff;font:inherit}
