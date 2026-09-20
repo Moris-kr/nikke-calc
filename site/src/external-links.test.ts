@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { EXTERNAL_LINKS, hostOf } from './external-links';
 
 describe('외부고리 표', () => {
-  it('다섯 곳으로 나간다', () => {
+  it('아홉 곳으로 나간다', () => {
     expect(EXTERNAL_LINKS.map((link) => link.label))
-      .toEqual(['NIKKE SOLO', '렛츠도로', '딜도로', '솔레 금서고', '도로파티']);
+      .toEqual(['NIKKE SOLO', '니케 오버로드 시뮬레이터', '소장품 강화 최적화 시뮬레이터', 'enikk.app', '니케아리', '렛츠도로', '딜도로', '솔레 금서고', '도로파티']);
   });
 
   it('모든 고리가 https이고 이름·설명이 비어 있지 않다', () => {
