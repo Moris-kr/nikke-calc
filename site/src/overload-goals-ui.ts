@@ -1,3 +1,4 @@
+import {inlineCodeIcon} from './element-inline';
 import {allocateOverloadGoals,type OverloadGoal} from './overload-goals';
 import type {OverloadLines} from './types';
 export function overloadGoalEditor(fields:Record<string,{label:string}>,getCurrent:()=>OverloadLines,onApply:(lines:OverloadLines,description:string)=>void,prefix:string,levels:Record<string,number>={}):HTMLElement{
@@ -10,7 +11,7 @@ export function overloadGoalEditor(fields:Record<string,{label:string}>,getCurre
  const update=()=>{notice.textContent=`현재 목표 합계 ${goals.reduce((sum,g)=>sum+g.count,0)}/12줄`;};
  const sync=()=>{const totals=new Map<string,number>();for(const rows of Object.values(getCurrent()))for(const row of rows??[])if(row.option)totals.set(row.option,(totals.get(row.option)??0)+1);goals.forEach((g,i)=>{g.count=totals.get(g.option)??0;counts[i]!.value=String(g.count);levelSelects[i]!.value=String(levels[g.option]??15);});update();};
  const apply=()=>{const plan=allocateOverloadGoals(goals,getCurrent(),1);for(const rows of Object.values(plan.lines))for(const row of rows??[])row.level=levels[row.option]??15;const description=goals.filter(g=>g.count).map(g=>`${fields[g.option]!.label} ${g.count}줄 · Lv.${levels[g.option]??15} 이상`).join(' · ')||'목표 옵션 없음';onApply(plan.lines,description);update();};
- for(const goal of goals){const row=document.createElement('div');row.className='growth-goal-row';const label=document.createElement('strong');label.textContent=fields[goal.option]!.label;
+ for(const goal of goals){const row=document.createElement('div');row.className='growth-goal-row';const label=document.createElement('strong');label.textContent=fields[goal.option]!.label;if(goal.option==='element_bonus')label.prepend(inlineCodeIcon());
   const count=document.createElement('select');count.setAttribute('aria-label',`${prefix} ${label.textContent} 목표 줄 수`);for(let n=0;n<=4;n++)count.add(new Option(`${n}줄`,String(n)));count.onchange=()=>{
    const selected=Number(count.value);sync();const previous=goal.count;goal.count=selected;count.value=String(selected);
    try{apply();}

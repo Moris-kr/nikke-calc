@@ -1,3 +1,4 @@
+import {bossElementHint} from './element-inline';
 import { parseViewHash, viewHash, type ViewName, type FunView } from './view-route';
 import { openCharacterInfo, customSkillInfo } from './character-info';
 import {
@@ -3699,6 +3700,11 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       ? ` · ${t('코어는 덱마다')}` : '';
     battleSummary.textContent = summarizeBattle(battle) + perDeckCore;
     quickCode.value = battle.enemyCode;
+    for(const select of [quickCode,element<HTMLSelectElement>(root,'#enemy-code')]){
+      select.parentElement?.querySelector('.inline-element-hint')?.remove();
+      select.setAttribute('aria-label', select===quickCode?'보스 코드':'적 코드');
+      select.after(bossElementHint(battle.enemyCode));
+    }
     quickCore.checked = battle.coreEnabled;
     quickSynchro.disabled = accountSynchro === null;
     quickSynchro.checked = accountSynchro !== null && useAccountSynchro && battle.synchroLevel === accountSynchro;

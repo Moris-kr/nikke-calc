@@ -1,3 +1,4 @@
+import {inlineCodeIcon,bossElementHint} from './element-inline';
 import {growthSkillPlan,skillMaterialLines,skillTotalLines,rankModuleResults,growthReportHtml} from './growth-report';
 import growthReportCss from './growth-efficiency.css?inline';
 import {registerGrowthMcp} from './growth-mcp';
@@ -81,6 +82,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
   const easyActions:Array<()=>void>=[];
   const eightLines=node('button','모두 8줄작 하기','growth-secondary growth-eight-lines');eightLines.type='button';
   const excludeNonElement=node('button','비우코 제외','growth-secondary growth-exclude-non-element');excludeNonElement.type='button';excludeNonElement.title='각 덱의 보스 속성 기준으로 우월 속성이 아닌 니케를 육성 대상에서 제외합니다.';
+  eightLines.prepend(inlineCodeIcon());excludeNonElement.prepend(inlineCodeIcon());
   const exclusionActions:Array<()=> 'excluded'|'kept'|'unknown'|'failed'>=[];
   const resetAll=node('button','전체 목표 옵션 리셋','growth-secondary growth-reset-all');resetAll.type='button';
   const resetIncluded=node('button','육성대상 리셋','growth-secondary growth-reset-included');resetIncluded.type='button';resetIncluded.title='이 창의 모든 니케를 육성 대상에 포함하고 제외 상태를 저장합니다.';
@@ -159,7 +161,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
   snapshot.decks.forEach((entry, index) => {
     lockMasks[index]={};goalNotes[index]={};targetLevels[index]={};
     targets[index] = {}; originals[index] = {}; growthStages[index] = {}; excluded[index] = new Set(); equipment[index] = {}; extras[index] = {};
-    const group = node('section', '', 'growth-deck'); group.append(node('h3', deps.deckName(entry.deckId)));
+    const group = node('section', '', 'growth-deck'); group.append(node('h3', deps.deckName(entry.deckId)),bossElementHint(entry.request.enemyCode));
     for (const name of entry.request.squad.filter(Boolean)) {
       const totals = entry.request.characters?.[name]?.overload ?? deps.settings.characters[name]?.overload ?? {};
       const source = verifiedLines(totals, entry.request.characters?.[name]?.overloadLines ?? deps.current(entry.deckId, name)?.overloadLines, steps);
@@ -174,7 +176,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
       const summary = node('summary');
       const image = deps.catalog.get(name)?.image;
       if (image) { const img = node('img'); img.src = `${import.meta.env.BASE_URL}${image}`; img.alt = ''; summary.append(img); }
-      summary.append(node('strong', name), node('span', source ? '현재 옵션 → 수치작 목표' : '부위 정보 없음', 'growth-note'));
+      const codeIcon=inlineCodeIcon(deps.catalog.get(name)?.elementCode||'unknown');summary.append(codeIcon,node('strong', name), node('span', source ? '현재 옵션 → 수치작 목표' : '부위 정보 없음', 'growth-note'));
       const defaults = deps.settings.characters[name];
       const currentStage = entry.request.characters?.[name]?.growthStage ?? defaults?.growthStage ?? 0;
       growthStages[index]![name] = currentStage;
