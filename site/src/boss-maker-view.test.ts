@@ -834,10 +834,11 @@ it('discards an in-flight result when its deck changed', async () => {
 it('sends drawing geometry rather than multiplying the fixed shotgun preset', async () => {
   const handle = mount(); handle.open();
   placeWith('rect');
-  applied = { ...applied, shotgunHitRate: .8, bossSize: 'small', shotgunModel: 'spatial-v1', shotgunTargetDiameter: 120 };
+  applied = { ...applied, shotgunHitRate: .8, bossSize: 'small', shotgunModel: 'spatial-v1', shotgunTargetDiameter: 120, shotgunSizeWindows: [{ from: 3, to: 6, diameter: 80 }] };
   host.querySelector<HTMLButtonElement>('[data-bm-run]')!.click();
   await vi.waitFor(() => expect((sent as SimulationRequest)?.shotgunGeometry?.shapes.length).toBe(1));
   expect((sent as SimulationRequest).shotgunHitRate).toBe(.8);
   expect((sent as SimulationRequest).shotgunModel).toBe('spatial-v1');
   expect((sent as SimulationRequest).shotgunTargetDiameter).toBe(120);
+  expect((sent as SimulationRequest).shotgunSizeWindows).toEqual([{ from: 3, to: 6, diameter: 80 }]);
 });

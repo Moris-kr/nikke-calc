@@ -1110,7 +1110,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
               <label><span>적 방어력</span><input id="enemy-def" type="number" min="0" max="999999" step="1" value="31784" /></label>
               <label><span>난수 시드</span><input id="seed" type="number" min="0" max="2147483647" step="1" value="42" /></label>
               <label title="게이지 충전만의 시간입니다. 여기에 단계 전환 0.3초와 버스트 쿨 여유가 더해져 실제 공백은 더 깁니다."><span>버스트 게이지 충전</span><div class="input-unit"><input id="burst-regen" type="number" min="0" max="20" step="0.1" value="2" /><em>초</em></div></label>
-              <label title="전투 시작 기준 첫 버스트를 시작할 최소 시각입니다. 0초는 즉시 시작하며 단계 전환과 반응속도는 별도로 적용됩니다."><span>첫 버스트 시간</span><div class="input-unit"><input id="first-burst" type="number" min="0" max="3600" step="0.1" value="0" /><em>초</em></div></label>
+              <label title="전투 시작 기준 첫 버스트를 시작할 최소 시각입니다. 0초는 즉시 시작하며 단계 전환과 반응속도는 별도로 적용됩니다."><span>첫 버스트 시간</span><div class="input-unit"><input id="first-burst" type="number" min="0" max="3600" step="0.1" value="3" /><em>초</em></div></label>
               <label title="조건이 갖춰진 뒤 실제로 버스트를 누르기까지 걸리는 시간입니다. 버스트 하나하나마다 더해지므로 3단계까지 쓰면 그 세 배만큼 늦어집니다."><span>버스트 반응속도</span><div class="input-unit"><input id="burst-reaction" type="number" min="0" max="3" step="0.01" value="${DEFAULT_BURST_REACTION}" /><em>초</em></div></label>
               <label><span>난수 처리</span><select id="rng-mode"><option value="expected">기대값 (권장)</option><option value="random">난수</option></select></label>
               <label class="toggle-field" title="족자 구간에는 평타가 빗나가므로 게이지도 차지 않는 것으로 계산합니다. 켜면 그만큼 버스트가 밀립니다."><input id="immune-blocks-burst" type="checkbox" checked /><span class="toggle"></span><span>족자 중 버스트 충전 정지</span></label>
@@ -1140,12 +1140,14 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
               <legend>보스 페이즈</legend>
               <div class="phase-head">
                 <button type="button" class="phase-add" data-phase-add="defense">+리버렐리오 바디 방어율 구간</button>
+                <button type="button" class="phase-add" data-phase-add="size">+보스 크기 구간</button>
                 <button type="button" class="phase-add" data-phase-add="range">+유효 사거리 구간</button>
                 <button type="button" class="phase-add" data-phase-add="core">+코어 노출 구간</button>
                 <button type="button" class="phase-add" data-phase-add="immune">족자 추가 <b>+</b></button>
                 <button type="button" class="phase-add" data-phase-add="element">속저 추가 <b>+</b></button>
               </div>
               <div class="phase-list" data-phase-list></div>
+              <p class="field-note">보스 크기 구간은 시작 포함·종료 제외입니다. 구간 밖은 기본 크기로 돌아가며, 겹치는 구간은 사용할 수 없습니다. 탄착군 방식에 적용되며 보스메이커 도형은 기본 직경 대비 비율로 확대·축소합니다.</p>
               <p class="field-note">바디 방어율은 <a href="https://arca.live/b/nikketgv/183364010" target="_blank" rel="noopener noreferrer">유저 실험</a> 기반 가정입니다. 기본 60%는 일반 최종 대미지를 40%로 줄이며 방어 무시 대미지는 통과합니다. 방어 무시 대미지 증가 버프만으로 일반 공격이 방어 무시로 바뀌지 않습니다. 받는 대미지 효과와 독립 적용하며 방어력 감소와의 상호작용은 미검증입니다. 겹친 구간은 가장 높은 방어율만 적용됩니다.</p>
               <p class="field-note">유효 사거리 구간 안에서는 체크한 무기군에 적정거리 보너스를 적용합니다. 모두 해제하면 해당 구간은 보너스가 없으며, 구간 밖은 기본 적정거리 설정을 따릅니다. 겹치는 구간은 선택한 무기군을 합칩니다.</p>
               <p class="field-note">코어 노출 구간이 없으면 코어가 항상 노출됩니다. 구간을 추가하면 해당 시간에만 노출되며, 코어를 끄면 모든 구간에서 비활성화됩니다.</p>
@@ -3203,6 +3205,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   // 들고 그릴 때마다 새로 만든다. 입력값이 잘못돼도(시작>끝) 지우지 않고 그대로
   // 두고, 실행할 때 검증 메시지로 알린다.
   let defenseRateWindows: Array<PhaseWindow & { rate: number }> = [];
+  let shotgunSizeWindows: Array<PhaseWindow & { diameter: number }> = [];
   let coreWindows: PhaseWindow[] = [];
   let optimalRangeWindows: Array<PhaseWindow & { weapons: string[] }> = [];
   let immuneWindows: PhaseWindow[] = [];
@@ -3223,13 +3226,14 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       return input;
     };
 
-    const row = (kind: 'range' | 'defense' | 'core' | 'immune' | 'element', index: number, from: number, to: number) => {
+    const row = (kind: 'size' | 'range' | 'defense' | 'core' | 'immune' | 'element', index: number, from: number, to: number) => {
       const box = document.createElement('div');
       box.className = `phase-row is-${kind}`;
       box.dataset.phaseRow = `${kind}:${index}`;
-      box.append(createText('span', kind === 'range' ? '유효 사거리' : kind === 'defense' ? '바디 방어율' : kind === 'core' ? '코어 노출' : kind === 'immune' ? '족자' : '속저', 'phase-tag'));
+      box.append(createText('span', kind === 'size' ? '보스 크기' : kind === 'range' ? '유효 사거리' : kind === 'defense' ? '바디 방어율' : kind === 'core' ? '코어 노출' : kind === 'immune' ? '족자' : '속저', 'phase-tag'));
       box.append(numberField(from, (v) => {
-        if (kind === 'range') optimalRangeWindows[index]!.from = v;
+        if (kind === 'size') shotgunSizeWindows[index]!.from = v;
+        else if (kind === 'range') optimalRangeWindows[index]!.from = v;
         else if (kind === 'defense') defenseRateWindows[index]!.from = v;
         else if (kind === 'core') coreWindows[index]!.from = v;
         else if (kind === 'immune') immuneWindows[index]!.from = v;
@@ -3238,7 +3242,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       }));
       box.append(createText('span', '~', 'phase-sep'));
       box.append(numberField(to, (v) => {
-        if (kind === 'range') optimalRangeWindows[index]!.to = v;
+        if (kind === 'size') shotgunSizeWindows[index]!.to = v;
+        else if (kind === 'range') optimalRangeWindows[index]!.to = v;
         else if (kind === 'defense') defenseRateWindows[index]!.to = v;
         else if (kind === 'core') coreWindows[index]!.to = v;
         else if (kind === 'immune') immuneWindows[index]!.to = v;
@@ -3249,6 +3254,15 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       return box;
     };
 
+    shotgunSizeWindows.forEach((w, index) => {
+      const box = row('size', index, w.from, w.to);
+      const diameter = numberField(w.diameter, v => { w.diameter = v; saveState(); });
+      diameter.min = '1'; diameter.max = '2000'; diameter.step = '1';
+      diameter.ariaLabel = `보스 크기 ${index + 1} 직경`;
+      const drop = document.createElement('button'); drop.type = 'button'; drop.className = 'phase-drop'; drop.textContent = '✕'; drop.ariaLabel = `보스 크기 ${index + 1} 삭제`;
+      drop.addEventListener('click', () => { shotgunSizeWindows.splice(index, 1); saveState(); renderPhases(); });
+      box.append(diameter, createText('span', '모형 px', 'phase-sep'), drop); list.append(box);
+    });
     defenseRateWindows.forEach((w, index) => {
       const box = row('defense', index, w.from, w.to);
       const rate = numberField(w.rate, (v) => { defenseRateWindows[index]!.rate = v; saveState(); });
@@ -3346,13 +3360,14 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     });
   };
 
-  for (const kind of ['range', 'defense', 'core', 'immune', 'element'] as const) {
+  for (const kind of ['size', 'range', 'defense', 'core', 'immune', 'element'] as const) {
     element<HTMLButtonElement>(root, `[data-phase-add="${kind}"]`).addEventListener('click', () => {
       // 마지막 구간 뒤를 기본값으로 잡아, 겹치지 않는 구간을 이어 붙이기 쉽게 한다.
-      const all = kind === 'range' ? optimalRangeWindows : kind === 'defense' ? defenseRateWindows : kind === 'core' ? coreWindows : [...immuneWindows, ...elementWindows];
+      const all = kind === 'size' ? shotgunSizeWindows : kind === 'range' ? optimalRangeWindows : kind === 'defense' ? defenseRateWindows : kind === 'core' ? coreWindows : [...immuneWindows, ...elementWindows];
       const start = all.length > 0 ? Math.max(...all.map((w) => w.to)) : 0;
       const from = Math.min(start, 178);
-      if (kind === 'range') optimalRangeWindows.push({ from, to: Math.min(from + 2, 180), weapons: readOptimalRange() });
+      if (kind === 'size') shotgunSizeWindows.push({ from, to: Math.min(from + 2, 180), diameter: Number(element<HTMLInputElement>(root, '#shotgun-target-diameter').value) });
+      else if (kind === 'range') optimalRangeWindows.push({ from, to: Math.min(from + 2, 180), weapons: readOptimalRange() });
       else if (kind === 'defense') defenseRateWindows.push({ from, to: Math.min(from + 2, 180), rate: 60 });
       else if (kind === 'core') coreWindows.push({ from, to: Math.min(from + 2, 180) });
       else if (kind === 'immune') immuneWindows.push({ from, to: Math.min(from + 2, 180) });
@@ -3557,6 +3572,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     // 그대로 실어 실행 시 검증 메시지로 알린다.
     defenseRateWindows: defenseRateWindows.map((w) => ({ ...w })),
     optimalRangeWindows: optimalRangeWindows.map(w => ({ ...w, weapons: [...w.weapons] })),
+    shotgunSizeWindows: shotgunSizeWindows.map(w => ({ ...w })),
     coreWindows: coreWindows.map((w) => ({ ...w })),
     immuneWindows: immuneWindows.map((w) => ({ ...w })),
     elementWindows: elementWindows.map((w) => ({ ...w })),
@@ -3592,7 +3608,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     const labels = spatial ? ['큼 · 직경 360', '보통 · 직경 200', '작음 · 직경 120', '커스텀'] : ['큼 · 펠릿 100%', '보통 · 펠릿 90%', '작음 · 펠릿 80%', '커스텀'];
     [...size.options].forEach((option, index) => { option.textContent = labels[index]!; });
     element<HTMLElement>(root, '#shotgun-model-note').textContent = spatial
-      ? '명중 버프와 보스 판정 크기로 몸통·코어·빗나감을 함께 계산합니다. 크기·펠릿 분포는 모형 가정이며 실측 확정값이 아닙니다. 보스메이커는 직경 대신 도형을 사용합니다. 기존 방식 선택으로 즉시 되돌릴 수 있습니다.' + (mode === 'spatial-convergence-v1' ? ' 수렴 실험: 발사 후 탄착군 감소, 재장전 중 원본 변화속도로 회복한다고 가정합니다. 시간 규칙은 미검증입니다.' : '')
+      ? '명중 버프와 보스 판정 크기로 몸통·코어·빗나감을 함께 계산합니다. 크기·펠릿 분포는 모형 가정이며 실측 확정값이 아닙니다. 구간 밖은 기본 크기를 사용하며, 구간은 겹칠 수 없습니다. 보스메이커 도형은 구간 직경 ÷ 기본 직경 비율로 확대·축소합니다. 기존 방식 선택으로 즉시 되돌릴 수 있습니다.' + (mode === 'spatial-convergence-v1' ? ' 수렴 실험: 발사 후 탄착군 감소, 재장전 중 원본 변화속도로 회복한다고 가정합니다. 시간 규칙은 미검증입니다.' : '')
       : '기존 방식은 명중 버프와 무관하게 고정 몸통 명중률을 적용합니다. 보스메이커에서는 기존 도형 판정을 사용합니다. 기존 저장 조건·공유 코드는 자동 변경하지 않습니다.';
   };
   const writeBattle = (battle: BattleSettings) => {
@@ -3616,6 +3632,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     writeOptimalRange(battle.optimalRangeWeapons ?? []);
     defenseRateWindows = (battle.defenseRateWindows ?? []).map((w) => ({ ...w }));
     optimalRangeWindows = (battle.optimalRangeWindows ?? []).map(w => ({ ...w, weapons: [...w.weapons] }));
+    shotgunSizeWindows = (battle.shotgunSizeWindows ?? []).map(w => ({ ...w }));
     coreWindows = (battle.coreWindows ?? []).map((w) => ({ ...w }));
     immuneWindows = (battle.immuneWindows ?? []).map((w) => ({ ...w }));
     elementWindows = (battle.elementWindows ?? []).map((w) => ({ ...w }));

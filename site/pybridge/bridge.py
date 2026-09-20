@@ -637,10 +637,19 @@ def run_request(raw: str, include_effective: bool = False) -> str:
     shotgun_diameter = float(payload.get('shotgunTargetDiameter', 360))
     if not math.isfinite(shotgun_diameter) or not 1 <= shotgun_diameter <= 2000:
         raise ValueError('보스 판정 직경은 1~2000이어야 합니다')
+    size_windows = payload.get('shotgunSizeWindows') or []
+    if not isinstance(size_windows, list) or len(size_windows) > 100:
+        raise ValueError('보스 크기 구간은 최대 100개입니다')
+    for i, w in enumerate(size_windows):
+        if not isinstance(w, dict) or not all(isinstance(w.get(k), (int, float)) and math.isfinite(w[k]) for k in ('from', 'to', 'diameter')) or not (0 <= w['from'] < w['to'] <= 180 and 1 <= w['diameter'] <= 2000):
+            raise ValueError('보스 크기 구간의 시간 또는 직경이 올바르지 않습니다')
+        if any(w['from'] < v['to'] and v['from'] < w['to'] for v in size_windows[:i]):
+            raise ValueError('보스 크기 구간은 서로 겹칠 수 없습니다')
     enemy = {
         "shotgun_model": shotgun_model,
         "shotgun_report": bool(payload.get('shotgunReport')),
         "shotgun_target_diameter": shotgun_diameter,
+        "shotgun_size_windows": size_windows,
         "shotgun_hit_rate": shotgun_rate,
         **({"shotgun_geometry": payload["shotgunGeometry"]} if payload.get("shotgunGeometry") is not None else {}),
         "def": int(payload["enemyDef"]),

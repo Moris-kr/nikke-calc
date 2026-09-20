@@ -330,6 +330,7 @@ export function encodeBattleCode(
   // 반응속도는 0.05초 단위라 10분의 1로는 담기지 않는다 — 100분의 1로 싣는다.
   put('sh', Math.round((battle.shotgunHitRate ?? 1) * 10000), 10000);
   put('sm', battle.shotgunModel ?? 'legacy', 'legacy');
+  put('sw', (battle.shotgunSizeWindows ?? []).map(w => [toTenth(w.from), toTenth(w.to), w.diameter]), []);
   put('sd', battle.shotgunTargetDiameter ?? 360, 360);
   put('bs', battle.bossSize ?? 'large', 'large');
   put('fb', toTenth(battle.firstBurstTime ?? 0), 0);
@@ -432,6 +433,7 @@ export function decodeBattleCode(code: string): BattleShare {
     burstRegenTime: fromTenth(num(raw.br, 0, 200, toTenth(d.burstRegenTime))),
     // 없는 키는 기본값이 된다 — 이 항목이 생기기 전에 만들어진 코드는 0.05초로 읽힌다.
     ...(['spatial-v1', 'spatial-convergence-v1'].includes(String(raw.sm)) ? { shotgunModel: raw.sm as BattleSettings['shotgunModel'], shotgunTargetDiameter: num(raw.sd, 1, 2000, 360) } : {}),
+    ...(Array.isArray(raw.sw) ? { shotgunSizeWindows: raw.sw.slice(0, 100).filter((w: unknown) => Array.isArray(w) && w.length === 3).map((w: number[]) => ({ from: fromTenth(num(w[0], 0, 1800, 0)), to: fromTenth(num(w[1], 0, 1800, 0)), diameter: num(w[2], 1, 2000, 360) })) } : {}),
     shotgunHitRate: num(raw.sh, 0, 10000, 10000) / 10000,
     bossSize: ['large', 'medium', 'small', 'custom'].includes(String(raw.bs)) ? raw.bs as BattleSettings['bossSize'] : 'large',
     firstBurstTime: fromTenth(num(raw.fb, 0, 36000, 0)),

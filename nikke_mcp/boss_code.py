@@ -11,7 +11,7 @@ import math
 from typing import Annotated, Literal
 
 from pydantic import Field, model_validator
-from nikke_mcp.models import StrictModel, PhaseWindow, ElementWindow, DefenseRateWindow
+from nikke_mcp.models import StrictModel, PhaseWindow, ElementWindow, DefenseRateWindow, ShotgunSizeWindow
 
 Weapon = Literal['AR', 'SMG', 'SG', 'MG', 'SR']
 ShapeWeapon = Literal['AR', 'SMG', 'SG', 'MG', 'SR', 'RL']
@@ -86,6 +86,7 @@ class BossBattle(StrictModel):
     bossSize: Literal['large', 'medium', 'small', 'custom'] = 'large'
     shotgunModel: Literal['legacy', 'spatial-v1', 'spatial-convergence-v1'] = 'legacy'
     shotgunTargetDiameter: float = Field(default=360, ge=1, le=2000)
+    shotgunSizeWindows: list[ShotgunSizeWindow] = Field(default_factory=list, max_length=100)
     shotgunHitRate: float = Field(default=1, ge=0, le=1)
     corePx: int = Field(default=52, ge=0, le=1000)
     hasParts: bool = False
@@ -105,7 +106,7 @@ class BossBattle(StrictModel):
 
     @model_validator(mode='after')
     def shareable_windows(self):
-        for field in ('coreWindows', 'optimalRangeWindows', 'defenseRateWindows', 'immuneWindows', 'elementWindows'):
+        for field in ('shotgunSizeWindows', 'coreWindows', 'optimalRangeWindows', 'defenseRateWindows', 'immuneWindows', 'elementWindows'):
             for window in getattr(self, field):
                 if rounded(window.start, 10) >= rounded(window.to, 10):
                     raise ValueError('전투 구간은 공유 코드의 0.1초 단위에서도 길이가 있어야 합니다.')
@@ -167,7 +168,7 @@ def encode_battle(battle: BossBattle) -> str:
     # explicitly supplied coefficient, so import cannot restore a different default.
     coeff = dict(battle.normalHitCoeff)
     if coeff: raw['hc'] = coeff
-    for field, key, extra in [('defenseRateWindows', 'dw', 'rate'), ('optimalRangeWindows', 'rw', 'weapons'),
+    for field, key, extra in [('shotgunSizeWindows', 'sw', 'diameter'), ('defenseRateWindows', 'dw', 'rate'), ('optimalRangeWindows', 'rw', 'weapons'),
                               ('coreWindows', 'cw', None), ('immuneWindows', 'iw', None),
                               ('elementWindows', 'ew', 'code')]:
         entries = []

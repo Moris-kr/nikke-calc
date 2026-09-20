@@ -58,6 +58,7 @@ export function normalizeRequest(request: SimulationRequest): SimulationRequest 
     enemyCode: request.enemyCode,
     corePx: Math.trunc(request.corePx),
     ...(request.shotgunModel !== undefined ? { shotgunModel: request.shotgunModel } : {}),
+    ...(request.shotgunSizeWindows?.length ? { shotgunSizeWindows: request.shotgunSizeWindows.map(w => ({ ...w })) } : {}),
     ...(request.shotgunTargetDiameter !== undefined ? { shotgunTargetDiameter: request.shotgunTargetDiameter } : {}),
     ...(request.shotgunHitRate !== undefined ? { shotgunHitRate: request.shotgunHitRate } : {}),
     ...(request.shotgunGeometry ? { shotgunGeometry: structuredClone(request.shotgunGeometry) } : {}),
@@ -213,6 +214,9 @@ export function validateRequest(request: SimulationRequest): string[] {
         && request.burstRegenTime >= 0 && request.burstRegenTime <= 20)) {
     errors.push('버스트 게이지 충전 시간은 0~20초여야 합니다.');
   }
+  const sizes = request.shotgunSizeWindows ?? [];
+  if (sizes.length > 100 || sizes.some(w => ![w.from, w.to, w.diameter].every(Number.isFinite) || w.from < 0 || w.to <= w.from || w.to > 180 || w.diameter < 1 || w.diameter > 2000)) errors.push('보스 크기 구간은 0~180초, 시작 < 종료, 직경 1~2000으로 입력하세요.');
+  if (sizes.some((w, i) => sizes.slice(i + 1).some(v => w.from < v.to && v.from < w.to))) errors.push('보스 크기 구간은 서로 겹칠 수 없습니다.');
   if (request.shotgunModel !== undefined && !['legacy', 'spatial-v1', 'spatial-convergence-v1'].includes(request.shotgunModel)) errors.push('샷건 계산 방식이 올바르지 않습니다.');
   if (request.shotgunTargetDiameter !== undefined && (!Number.isFinite(request.shotgunTargetDiameter) || request.shotgunTargetDiameter < 1 || request.shotgunTargetDiameter > 2000)) errors.push('보스 판정 직경은 1~2000이어야 합니다.');
   if (request.shotgunHitRate !== undefined && (!Number.isFinite(request.shotgunHitRate) || request.shotgunHitRate < 0 || request.shotgunHitRate > 1)) {
@@ -330,6 +334,7 @@ export function requestForDeck(
     immuneBlocksBurst: battle.immuneBlocksBurst,
     ...(hacksForRequest(battle.hacks) ? { hacks: battle.hacks! } : {}),
     normalHitCoeff: battle.normalHitCoeff,
+    ...(battle.shotgunSizeWindows?.length ? { shotgunSizeWindows: battle.shotgunSizeWindows.map(w => ({ ...w })) } : {}),
     ...(battle.shotgunModel ? { shotgunModel: battle.shotgunModel, shotgunTargetDiameter: battle.shotgunTargetDiameter ?? 360 } : {}),
     shotgunHitRate: battle.shotgunHitRate ?? 1,
     console: battle.console,
@@ -359,6 +364,7 @@ export function resetEnemy(battle: BattleSettings): BattleSettings {
     corePerDeck: {},
     optimalRangeWeapons: [],
     optimalRangeWindows: [],
+    shotgunSizeWindows: [],
     coreWindows: [],
     defenseRateWindows: [],
     immuneWindows: [],

@@ -2204,10 +2204,24 @@ describe('calculator UI', () => {
     expect(root.querySelector<HTMLSelectElement>('#boss-size')!.value).toBe('custom');
   });
 
+  it('persists size windows and migrates missing first burst as zero', () => {
+    const cleanup = mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    root.querySelector<HTMLButtonElement>('[data-phase-add="size"]')!.click();
+    const diameter = root.querySelector<HTMLInputElement>('[aria-label="보스 크기 1 직경"]')!;
+    diameter.value = '120'; diameter.dispatchEvent(new Event('input', { bubbles: true }));
+    const saved = JSON.parse(localStorage.getItem('nikke-state-v1')!);
+    expect(saved.battle.shotgunSizeWindows).toEqual([{ from: 0, to: 2, diameter: 120 }]);
+    delete saved.battle.firstBurstTime; localStorage.setItem('nikke-state-v1', JSON.stringify(saved));
+    cleanup();
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    expect(root.querySelector<HTMLInputElement>('#first-burst')!.value).toBe('0');
+    expect(root.querySelector<HTMLInputElement>('[aria-label="보스 크기 1 직경"]')!.value).toBe('120');
+  });
+
   it('persists common and deck-specific first burst settings', () => {
     const cleanup = mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
     const input = root.querySelector<HTMLInputElement>('#first-burst')!;
-    expect(input.value).toBe('0');
+    expect(input.value).toBe('3');
     input.value = '4'; input.dispatchEvent(new Event('change', { bubbles: true }));
     root.querySelector<HTMLInputElement>('#first-burst-per-deck')!.click();
     const own = root.querySelector<HTMLInputElement>('[data-deck-first-burst-input="1"]')!;

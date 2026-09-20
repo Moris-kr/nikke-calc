@@ -157,6 +157,10 @@ class DefenseRateWindow(PhaseWindow):
     rate: float = Field(default=60, ge=0, le=100)
 
 
+class ShotgunSizeWindow(PhaseWindow):
+    diameter: float = Field(ge=1, le=2000)
+
+
 class OptimalRangeWindow(PhaseWindow):
     weapons: list[Literal['AR', 'SMG', 'SG', 'SR', 'RL', 'MG']] = Field(max_length=6)
 
@@ -172,6 +176,7 @@ class BattleOptions(StrictModel):
     enemyCode: Literal['', '풍압', '수냉', '작열', '전격', '철갑'] = ''
     shotgunModel: Literal['legacy', 'spatial-v1', 'spatial-convergence-v1'] = Field(default='legacy', description='legacy는 기존 고정 명중률. spatial-v1은 명중 버프와 표적 직경을 함께 판정. spatial-convergence-v1은 미검증 무기 수렴 시간 가정도 적용. 새 방식의 크기·분포는 실측 확정값이 아닙니다.')
     shotgunTargetDiameter: float = Field(default=360, ge=1, le=2000)
+    shotgunSizeWindows: list[ShotgunSizeWindow] = Field(default_factory=list, max_length=100)
     shotgunHitRate: float = Field(default=1, ge=0, le=1, description='legacy 모드의 샷건 펠릿 명중 확률. spatial 모드에서는 사용하지 않고 shotgunTargetDiameter로 판정.')
     corePx: float = Field(default=0, ge=0, le=1000)
     defenseRateWindows: list[DefenseRateWindow] = Field(default_factory=list, max_length=100,

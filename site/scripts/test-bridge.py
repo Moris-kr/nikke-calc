@@ -19,6 +19,10 @@ class PelletBridgeTest(unittest.TestCase):
         small = json.loads(run_request(json.dumps({**payload, "shotgunTargetDiameter": 80})))
         large = json.loads(run_request(json.dumps({**payload, "shotgunTargetDiameter": 360})))
         self.assertLess(small['squadTotal'], large['squadTotal'])
+        windowed = json.loads(run_request(json.dumps({**payload, 'shotgunSizeWindows': [{'from': 0, 'to': 10, 'diameter': 80}]})))
+        self.assertEqual(windowed['squadTotal'], small['squadTotal'])
+        with self.assertRaises(ValueError):
+            run_request(json.dumps({**payload, 'shotgunSizeWindows': [{'from': 3, 'to': 2, 'diameter': 80}]}))
         for values in ({'shotgunModel': 'wrong'}, {'shotgunTargetDiameter': -1}):
             with self.assertRaises(ValueError):
                 run_request(json.dumps({**payload, **values}))

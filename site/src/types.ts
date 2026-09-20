@@ -123,6 +123,7 @@ export interface ShotgunGeometry {
 export interface SimulationRequest {
   shotgunModel?: 'legacy' | 'spatial-v1' | 'spatial-convergence-v1';
   shotgunTargetDiameter?: number;
+  shotgunSizeWindows?: Array<PhaseWindow & { diameter: number }>;
   shotgunHitRate?: number;
   shotgunGeometry?: ShotgunGeometry;
   squad: string[];
@@ -237,6 +238,7 @@ export interface BattleSettings {
   bossSize?: 'large' | 'medium' | 'small' | 'custom';
   shotgunModel?: 'legacy' | 'spatial-v1' | 'spatial-convergence-v1';
   shotgunTargetDiameter?: number;
+  shotgunSizeWindows?: Array<PhaseWindow & { diameter: number }>;
   shotgunHitRate?: number;
   duration: number;
   /**

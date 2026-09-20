@@ -193,6 +193,10 @@ describe('applyShareToDecks', () => {
 
 
 describe('전투 조건 공유 코드 (NK3)', () => {
+  it('round trips size windows', () => {
+    const shotgunSizeWindows = [{ from: 3, to: 6, diameter: 120 }];
+    expect(decodeBattleCode(encodeBattleCode({ ...base, shotgunSizeWindows }, COEFF)).shotgunSizeWindows).toEqual(shotgunSizeWindows);
+  });
   it('round trips versioned spatial settings without upgrading old codes', () => {
     expect(decodeBattleCode(encodeBattleCode({ ...base, shotgunModel: 'spatial-v1', shotgunTargetDiameter: 123 }, COEFF)))
       .toMatchObject({ shotgunModel: 'spatial-v1', shotgunTargetDiameter: 123 });

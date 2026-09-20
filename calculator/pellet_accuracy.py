@@ -51,11 +51,12 @@ def integrate(shapes, aim, radius, core, exponent):
 
 def scene_at(enemy, name, t, full_burst, radius):
     """Resolve the exact spatial inputs once for both integration and diagnostics."""
+    size = next((w['diameter'] for w in enemy.get('shotgun_size_windows', []) if w['from'] <= t < w['to']), None)
     geometry = enemy.get('shotgun_geometry')
     if geometry is None and enemy.get('shotgun_model') in ('spatial-v1', 'spatial-convergence-v1'):
         # Same coordinate units as the existing core/boss canvas, not a claim
         # that raw CDN scale values are physical screen pixels.
-        diameter = float(enemy.get('shotgun_target_diameter', 360))
+        diameter = float(size if size is not None else enemy.get('shotgun_target_diameter', 360))
         core_d = float(enemy.get('core_px', 0))
         return ((('circle', 0, 0, diameter, diameter, 0),), (0, 0), radius,
                 (0, 0, core_d / 2) if core_d > 0 else None)
@@ -74,6 +75,14 @@ def scene_at(enemy, name, t, full_burst, radius):
     override = geometry.get('spread', {}).get(name)
     if override and override > 0:
         radius = override / 2
+    if size is not None:
+        # Scale the drawn target around its center; keep the pellet spread fixed.
+        cx, cy = (geometry.get('center') or aim)['x'], (geometry.get('center') or aim)['y']
+        scale = size / float(enemy.get('shotgun_target_diameter', 360))
+        shapes = tuple((k, cx + (x-cx)*scale, cy + (y-cy)*scale, w*scale, h*scale, r) for k,x,y,w,h,r in shapes)
+        aim = {'x': cx + (aim['x']-cx)*scale, 'y': cy + (aim['y']-cy)*scale}
+        if core:
+            core = (cx + (core[0]-cx)*scale, cy + (core[1]-cy)*scale, core[2]*scale)
     return shapes, (aim['x'], aim['y']), radius, core
 
 

@@ -81,3 +81,27 @@ class SpatialShotgunTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class SizeWindowTests(unittest.TestCase):
+    def test_boundaries_and_fallback(self):
+        enemy = {'shotgun_model': 'spatial-v1', 'shotgun_target_diameter': 360,
+                 'shotgun_size_windows': [{'from': 3, 'to': 6, 'diameter': 80}]}
+        def hit(t):
+            return probabilities(enemy, 'x', t, True, 120, 0)[0]
+        self.assertEqual(hit(2.999), 1)
+        self.assertLess(hit(3), .2)
+        self.assertEqual(hit(6), 1)
+
+    def test_drawn_geometry_scales_only_in_window(self):
+        from calculator.pellet_accuracy import scene_at
+        enemy = {'shotgun_target_diameter': 360, 'core_px': 20,
+                 'shotgun_geometry': {'center': {'x': 100, 'y': 100}, 'core': {'x': 110, 'y': 100, 'd': 20}, 'shapes': [{'kind': 'rect', 'x': 100, 'y': 100, 'w': 100, 'h': 80}]},
+                 'shotgun_size_windows': [{'from': 3, 'to': 6, 'diameter': 180}]}
+        before = scene_at(enemy, 'x', 0, True, 120)
+        during = scene_at(enemy, 'x', 3, True, 120)
+        self.assertEqual(during[0][0][3:5], (50, 40))
+        self.assertEqual(during[1], (105, 100))
+        self.assertEqual(during[2], before[2])
+        self.assertEqual(during[3], (105, 100, 5))
+        self.assertEqual(scene_at(enemy, 'x', 6, True, 120), before)

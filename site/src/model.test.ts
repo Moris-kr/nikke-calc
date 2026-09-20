@@ -314,7 +314,7 @@ describe('multi-deck model', () => {
       duration: 60,
       seed: 99,
       bossSize: 'large', shotgunHitRate: 1,
-      corePerDeck: {}, optimalRangeWeapons: [], optimalRangeWindows: [], coreWindows: [], defenseRateWindows: [], immuneWindows: [], elementWindows: [],
+      corePerDeck: {}, optimalRangeWeapons: [], optimalRangeWindows: [], shotgunSizeWindows: [], coreWindows: [], defenseRateWindows: [], immuneWindows: [], elementWindows: [],
     });
   });
 
@@ -513,4 +513,14 @@ it('preserves spatial shotgun settings and separates cached models', () => {
   expect(cacheKey(changed, 'v')).not.toBe(cacheKey(valid, 'v'));
   expect(requestForDeck({ id: 1, squad: ['리타'], characters: {} }, { ...battle, shotgunModel: 'spatial-v1', shotgunTargetDiameter: 120 })).toMatchObject({ shotgunModel: 'spatial-v1', shotgunTargetDiameter: 120 });
   expect(validateRequest({ ...changed, shotgunTargetDiameter: -1 }).length).toBeGreaterThan(0);
+});
+
+it('passes and validates size intervals without altering old defaults', () => {
+  const shotgunSizeWindows = [{ from: 3, to: 6, diameter: 120 }];
+  const request = { ...valid, shotgunSizeWindows };
+  expect(normalizeRequest(request).shotgunSizeWindows).toEqual(shotgunSizeWindows);
+  expect(requestForDeck({ id: 1, squad: ['리타'], characters: {} }, { ...battle, shotgunSizeWindows }).shotgunSizeWindows).toEqual(shotgunSizeWindows);
+  expect(resetEnemy({ ...battle, shotgunSizeWindows }).shotgunSizeWindows).toEqual([]);
+  expect(validateRequest({ ...request, shotgunSizeWindows: [...shotgunSizeWindows, ...shotgunSizeWindows] })).toContain('보스 크기 구간은 서로 겹칠 수 없습니다.');
+  expect(cacheKey(request, 'v')).not.toBe(cacheKey(valid, 'v'));
 });

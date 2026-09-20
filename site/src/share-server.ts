@@ -279,6 +279,7 @@ export class ShareServer {
 export function summarizeBattle(battle: BattleShare): string {
   // 값과 낱말이 섞인 한 줄이라 DOM 훑기로는 못 바꾼다 — 조각마다 사전을 지난다.
   const parts = [t('{n}초', { n: battle.duration })];
+  if (battle.shotgunSizeWindows?.length) parts.push('보스 크기 ' + battle.shotgunSizeWindows.map(w => `${w.from}~${w.to}초 직경 ${w.diameter}`).join('/'));
   if (Object.keys(battle.firstBurstPerDeck ?? {}).length) parts.push('첫 버스트 덱별 ' + Object.entries(battle.firstBurstPerDeck!).map(([id, time]) => `덱${id} ${time}초`).join('/'));
   else if (battle.firstBurstTime) parts.push(`첫 버스트 ${battle.firstBurstTime}초`);
   parts.push(battle.shotgunModel && battle.shotgunModel !== 'legacy' ? `샷건 탄착군${battle.shotgunModel === 'spatial-convergence-v1' ? '·수렴 실험' : ''} 직경 ${battle.shotgunTargetDiameter ?? 360}` : `샷건 명중 ${Math.round((battle.shotgunHitRate ?? 1) * 10000) / 100}%`);

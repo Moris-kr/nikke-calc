@@ -210,6 +210,7 @@ export const conditionChips = (entry: DeckResultEntry): string[] => {
     `방어력 ${request.enemyDef.toLocaleString('en-US')}`,
     request.enemyCode ? `${request.enemyCode} 코드` : '코드 없음',
     request.corePx > 0 ? `코어 ${request.corePx}px` : '코어 없음',
+    ...(request.shotgunSizeWindows?.length ? [`보스 크기 구간: ${request.shotgunSizeWindows.map(w => `${w.from}~${w.to}초 직경 ${w.diameter}`).join(' / ')}`] : []),
     request.shotgunModel && request.shotgunModel !== 'legacy' ? `샷건 탄착군${request.shotgunModel === 'spatial-convergence-v1' ? '·수렴 실험' : ''}: ${request.shotgunGeometry ? '보스 도형' : `직경 ${request.shotgunTargetDiameter ?? 360}`}` : request.shotgunGeometry ? '샷건 명중: 보스 도형' : `샷건 명중 ${Math.round((request.shotgunHitRate ?? 1) * 10000) / 100}%`,
   ];
   if (request.hasParts) chips.push('파괴 가능 파츠');
