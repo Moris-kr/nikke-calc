@@ -1,4 +1,4 @@
-import {bossElementHint} from './element-inline';
+import {elementText,refreshElementSelect} from './element-inline';
 import { parseViewHash, viewHash, type ViewName, type FunView } from './view-route';
 import { openCharacterInfo, customSkillInfo } from './character-info';
 import {
@@ -3698,12 +3698,10 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     // 적혀 있는데 어떤 덱은 코어가 없다. 그 사실을 뒤에 붙인다.
     const perDeckCore = battle.corePerDeck
       ? ` · ${t('코어는 덱마다')}` : '';
-    battleSummary.textContent = summarizeBattle(battle) + perDeckCore;
+    battleSummary.replaceChildren(elementText(summarizeBattle(battle) + perDeckCore));
     quickCode.value = battle.enemyCode;
     for(const select of [quickCode,element<HTMLSelectElement>(root,'#enemy-code')]){
-      select.parentElement?.querySelector('.inline-element-hint')?.remove();
-      select.setAttribute('aria-label', select===quickCode?'보스 코드':'적 코드');
-      select.after(bossElementHint(battle.enemyCode));
+      refreshElementSelect(select,select===quickCode?'보스 코드':'적 코드');
     }
     quickCore.checked = battle.coreEnabled;
     quickSynchro.disabled = accountSynchro === null;

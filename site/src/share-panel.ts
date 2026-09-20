@@ -1,3 +1,4 @@
+import {elementText} from './element-inline';
 import type { ShareItem, ShareKind, ShareServer, VoteValue } from './share-server';
 import { summarizeBattle } from './share-server';
 import { decodeBattleCode } from './share-code';
@@ -289,7 +290,8 @@ export function mountSharePanel(hosts: SharePanelHosts, deps: SharePanelDeps): S
         body.append(preview);
       } else if (item.auto) {
         const summary = el('p', 'share-auto');
-        const text = el('span', 'share-auto-text', item.auto);
+        const text = el('span', 'share-auto-text');
+        text.append(elementText(item.auto));
         summary.append(text); summary.title = item.auto; summary.tabIndex = 0;
         let animation: Animation | undefined;
         let copy: HTMLElement | undefined;
@@ -300,7 +302,8 @@ export function mountSharePanel(hosts: SharePanelHosts, deps: SharePanelDeps): S
           const distance = text.scrollWidth - summary.clientWidth;
           if (distance <= 0 || !text.animate) return;
           const width = text.scrollWidth + 32;
-          copy = el('span', 'share-auto-copy', item.auto);
+          copy = el('span', 'share-auto-copy');
+          copy.append(elementText(item.auto));
           copy.setAttribute('aria-hidden','true'); text.append(copy);
           animation = text.animate([
             {transform:'translateX(0)',offset:0},

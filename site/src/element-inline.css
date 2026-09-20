@@ -1,2 +1,13 @@
 .inline-code-icons{display:inline-flex;align-items:center;gap:1px;vertical-align:-.2em;margin-right:.3em;white-space:nowrap}.inline-code-icons img{display:inline-block;width:.9em;height:1.05em;object-fit:contain;background:transparent}.inline-element-hint{display:inline-block;color:inherit;font-size:.9em;line-height:1.7;margin:.25em .5em;vertical-align:middle}
 .growth-dialog .inline-code-icons img{width:.9em;height:1.05em;border-radius:0;object-fit:contain}
+
+.element-select{display:inline-block;min-width:0;max-width:100%}
+.element-select select[hidden]{display:none!important}
+.element-select-button{display:inline-flex!important;align-items:center;white-space:nowrap;gap:0!important;font:inherit;color:inherit;min-height:36px}
+.element-select-button::after{content:'⌄';margin-left:.65em}
+.element-select-menu{display:none;position:fixed;inset:auto;margin:0;padding:4px;border:1px solid #527184;border-radius:8px;background:#102232;color:#e2eef7;box-shadow:0 8px 28px #0008;z-index:100000;overflow:auto;max-width:calc(100vw - 8px);font-size:14px}
+.element-select-menu.is-open{display:block}
+.element-select-menu [role=option]{padding:10px 12px;white-space:nowrap;cursor:pointer}
+.element-select-menu [role=option]:hover,.element-select-menu .is-active{background:#244859}
+.element-select-menu [aria-selected=true]{color:#7ee8ef;font-weight:bold}
+.element-select-button{background:#102232;border:1px solid #527184;border-radius:6px;padding:8px 10px;color:#c6e0ee}.element-select-button:focus-visible{outline:2px solid #65d8e2;outline-offset:2px}
