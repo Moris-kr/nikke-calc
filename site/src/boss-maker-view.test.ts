@@ -764,7 +764,7 @@ it('invalidates cached results after battle settings change', async () => {
 it('uses every common request field in battle mode and preserves the mode in sharing', async () => {
   applied = { ...battle(), coreEnabled: true, corePx: 83, hasParts: true,
     corePerDeck: { 1: false }, burstRegenPerDeck: { 1: 4.2 },
-    firstBurstTime: 0, firstBurstPerDeck: { 1: 6.5 },
+    firstBurstTime: 0, firstBurstPerDeck: { 1: 6.5 }, bossSize: 'small', shotgunHitRate: .8,
     normalHitCoeff: { AR: 0.75 }, optimalRangeWeapons: ['AR'],
     coreWindows: [{ from: 30, to: 60 }], defenseRateWindows: [{ from: 10, to: 20, rate: 60 }],
     optimalRangeWindows: [{ from: 20, to: 40, weapons: ['SR'] }],
@@ -785,6 +785,8 @@ it('uses every common request field in battle mode and preserves the mode in sha
   await vi.waitFor(() => expect(sent).toEqual({ ...common, shotTrack: true, fineTimeline: true }));
   expect((sent as SimulationRequest).corePx).toBe(0);
   expect((sent as SimulationRequest).firstBurstTime).toBe(6.5);
+  expect((sent as SimulationRequest).shotgunHitRate).toBe(.8);
+  expect((sent as SimulationRequest).shotgunGeometry).toBeUndefined();
   expect(host.querySelector('[data-bm-run-note]')!.textContent).toContain('코어 없음');
   expect(host.querySelector('[data-bm-run-note]')!.textContent).toContain('적정 AR');
   expect(host.querySelector('[data-bm-run-note]')!.textContent).not.toContain('관통');
@@ -827,4 +829,13 @@ it('discards an in-flight result when its deck changed', async () => {
   complete(result());
   await vi.waitFor(() => expect(host.querySelector('[data-bm-run-note]')!.textContent).toContain('다시 계산'));
   expect(host.querySelector<HTMLElement>('[data-bm-run-note]')!.title).toBe('');
+});
+
+it('sends drawing geometry rather than multiplying the fixed shotgun preset', async () => {
+  const handle = mount(); handle.open();
+  placeWith('rect');
+  applied = { ...applied, shotgunHitRate: .8, bossSize: 'small' };
+  host.querySelector<HTMLButtonElement>('[data-bm-run]')!.click();
+  await vi.waitFor(() => expect((sent as SimulationRequest)?.shotgunGeometry?.shapes.length).toBe(1));
+  expect((sent as SimulationRequest).shotgunHitRate).toBe(.8);
 });

@@ -28,6 +28,7 @@ const runtimeFiles = [
   'calculator/damage.py',
   'calculator/sim_result.py',
   'calculator/timeline.py',
+  'calculator/pellet_accuracy.py',
   'context/spec.py',
   'context/growth.py',
   'data/parsed_nikke.json',

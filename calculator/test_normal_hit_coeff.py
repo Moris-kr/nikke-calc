@@ -1,10 +1,10 @@
 """무기군 평타 계수의 계약.
 
-시뮬은 쏜 탄이 전부 맞는다고 보지만 인게임은 탄퍼짐으로 빗나간다. 그 차이를
-무기군 단위 계수로 보정한다 — **평타에만** 붙고 스킬·버스트에는 붙지 않는다.
+사용자가 지정한 무기군 계수는 **평타에만** 붙고 스킬·버스트에는 붙지 않는다.
+샷건 기본 계수는 1이며, 펠릿 빗나감은 별도 명중 판정으로 처리한다.
 
 기본값 근거는 `data/weapon_mechanics.json` `normal_hit_coeff._source`
-(유저 실측 대조 역산, 2026-08-24).
+(2026-09-20 기본 계수 1 적용).
 """
 import json
 import unittest
@@ -28,8 +28,8 @@ class NormalHitCoeffTest(unittest.TestCase):
         table = json.loads(
             (ROOT / "data" / "weapon_mechanics.json").read_text(encoding="utf-8")
         )["normal_hit_coeff"]
-        self.assertEqual(0.90, table["SG"])
-        self.assertEqual(0.90, normal_hit_coeff({}, "SG"))
+        self.assertEqual(1.0, table["SG"])
+        self.assertEqual(1.0, normal_hit_coeff({}, "SG"))
         # 표에 없는 무기군은 보정 없음.
         self.assertEqual(1.0, normal_hit_coeff({}, "AR"))
 

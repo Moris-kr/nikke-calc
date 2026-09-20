@@ -193,6 +193,12 @@ describe('applyShareToDecks', () => {
 
 
 describe('전투 조건 공유 코드 (NK3)', () => {
+  it('round trips boss size, custom probability and old default', () => {
+    expect(decodeBattleCode(encodeBattleCode({ ...base, bossSize: 'custom', shotgunHitRate: .735 }, COEFF)))
+      .toMatchObject({ bossSize: 'custom', shotgunHitRate: .735 });
+    expect(decodeBattleCode(encodeBattleCode(base, COEFF)).shotgunHitRate).toBe(1);
+  });
+
   const COEFF = { AR: 1, SMG: 1, SG: 0.9, MG: 1, SR: 1, RL: 1 };
   const base = {
     duration: 180, synchroLevel: 400, enemyDef: 31_784, enemyCode: '' as const, coreEnabled: false,
@@ -227,7 +233,7 @@ describe('전투 조건 공유 코드 (NK3)', () => {
     const code = encodeBattleCode(battle, COEFF);
     expect(code.length).toBeLessThan(200);   // 붙여넣기 한도(약 400자)의 절반 아래
     const { console: _drop, synchroLevel: _level, ...expected } = battle;
-    expect(decodeBattleCode(code)).toEqual({ ...expected, firstBurstTime: 0, normalHitCoeff: {} });
+    expect(decodeBattleCode(code)).toEqual({ ...expected, firstBurstTime: 0, normalHitCoeff: {}, bossSize: 'large', shotgunHitRate: 1 });
   });
 
   it('유효 사거리 구간과 빈 무기군을 공유한다', () => {

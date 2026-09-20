@@ -89,7 +89,7 @@ describe('auto summaries', () => {
     expect(summary).toContain('유효 사거리 30~60초 AR·MG / 90~120초 없음 (구간 밖: SG)');
   });
   it('reads the battle back as one line', () => {
-    expect(summarizeBattle(battle)).toBe('180초 · 무속성 · 코어 없음 · 난수');
+    expect(summarizeBattle(battle)).toBe('180초 · 샷건 명중 100% · 무속성 · 코어 없음 · 난수');
     expect(summarizeBattle({
       ...battle,
       duration: 90,
@@ -101,7 +101,7 @@ describe('auto summaries', () => {
       immuneWindows: [{ from: 10, to: 20 }],
       elementWindows: [{ from: 30, to: 40, code: '작열' }],
       rngMode: 'expected',
-    })).toBe('90초 · 적 수냉 · 코어 60px · 파츠 · 적정 AR·SMG · 족자 1 · 속저 1 · 기대값');
+    })).toBe('90초 · 샷건 명중 100% · 적 수냉 · 코어 60px · 파츠 · 적정 AR·SMG · 족자 1 · 속저 1 · 기대값');
   });
 
   it('약어 사전과 피드백을 주고받는다', async () => {

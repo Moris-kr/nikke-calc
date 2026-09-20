@@ -13,6 +13,22 @@ from context.spec import is_preview
 from context.spec import _nikke as parsed_nikke
 
 
+class PelletBridgeTest(unittest.TestCase):
+    def test_probability_and_geometry_reach_engine(self):
+        from unittest.mock import patch
+        payload = {"squad": ["드레이크"], "duration": 10, "enemyDef": 0, "enemyCode": "", "corePx": 0, "hasParts": False, "seed": 42}
+        with patch('calculator.buff_manager.char_effects', return_value=[]):
+            full = json.loads(run_request(json.dumps(payload)))['squadTotal']
+            zero = json.loads(run_request(json.dumps({**payload, 'shotgunHitRate': 0})))['squadTotal']
+            geometry = {'shapes': [], 'parts': [], 'center': {'x': 0, 'y': 0}}
+            missing = json.loads(run_request(json.dumps({**payload, 'shotgunGeometry': geometry})))['squadTotal']
+        self.assertGreater(full, 0)
+        self.assertEqual(zero, 0)
+        self.assertEqual(missing, 0)
+        with self.assertRaises(ValueError):
+            run_request(json.dumps({**payload, 'shotgunHitRate': 1.01}))
+
+
 class FirstBurstBridgeTest(unittest.TestCase):
     def test_first_burst_reaches_engine_and_defaults_to_zero(self):
         payload = {"squad": ["리타", "크라운", "앨리스"], "duration": 12, "enemyDef": 0, "enemyCode": "", "corePx": 0, "hasParts": False, "seed": 42, "detail": True}

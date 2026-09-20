@@ -313,6 +313,7 @@ describe('multi-deck model', () => {
       ...battle,
       duration: 60,
       seed: 99,
+      bossSize: 'large', shotgunHitRate: 1,
       corePerDeck: {}, optimalRangeWeapons: [], optimalRangeWindows: [], coreWindows: [], defenseRateWindows: [], immuneWindows: [], elementWindows: [],
     });
   });
@@ -496,4 +497,12 @@ describe('optimal range windows', () => {
     expect(cacheKey({ ...valid, optimalRangeWindows }, 'v1')).not.toBe(cacheKey(valid, 'v1'));
     expect(cacheKey({ ...valid, optimalRangeWindows }, 'v1')).toBe(cacheKey({ ...valid, optimalRangeWindows: [...optimalRangeWindows].reverse() }, 'v1'));
   });
+});
+
+it('passes shotgun probability through cache and deck requests', () => {
+  expect(normalizeRequest({ ...valid, shotgunHitRate: .8 }).shotgunHitRate).toBe(.8);
+  expect(cacheKey({ ...valid, shotgunHitRate: .8 }, 'v')).not.toBe(cacheKey(valid, 'v'));
+  expect(requestForDeck({ id: 1, squad: ['리타'], characters: {} }, { ...battle, shotgunHitRate: .9 }).shotgunHitRate).toBe(.9);
+  expect(validateRequest({ ...valid, shotgunHitRate: 1.1 }).length).toBeGreaterThan(0);
+  expect(resetEnemy({ ...battle, shotgunHitRate: .8 }).shotgunHitRate).toBe(1);
 });

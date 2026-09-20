@@ -139,7 +139,7 @@ describe('report image', () => {
     };
 
     expect(conditionChips(measured)).toEqual([
-      '30초 전투', '방어력 31,784', '작열 코드', '코어 52px', '파괴 가능 파츠', '시드 7',
+      '30초 전투', '방어력 31,784', '작열 코드', '코어 52px', '샷건 명중 100%', '파괴 가능 파츠', '시드 7',
     ]);
     // 코어를 끈 판은 끈 대로 적힌다 — 요청에 0이면 「코어 없음」이다.
     expect(conditionChips(entry(1, ['리타'], 100))).toContain('코어 없음');

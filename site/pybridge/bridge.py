@@ -628,7 +628,12 @@ def run_request(raw: str, include_effective: bool = False) -> str:
     if hit_coeff:
         config["normal_hit_coeff"] = hit_coeff
 
+    shotgun_rate = float(payload.get("shotgunHitRate", 1))
+    if not math.isfinite(shotgun_rate) or not 0 <= shotgun_rate <= 1:
+        raise ValueError("샷건 펠릿 명중 확률은 0~100%여야 합니다")
     enemy = {
+        "shotgun_hit_rate": shotgun_rate,
+        **({"shotgun_geometry": payload["shotgunGeometry"]} if payload.get("shotgunGeometry") is not None else {}),
         "def": int(payload["enemyDef"]),
         "code": str(payload.get("enemyCode") or ""),
         "core_px": float(payload.get("corePx") or 0),

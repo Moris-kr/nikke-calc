@@ -22,6 +22,7 @@ import random
 from dataclasses import dataclass, field
 from typing import Any
 
+from calculator.pellet_accuracy import at_least
 from calculator.base_stat import NO_ITEM
 from calculator.cheats import NO_CHEATS, Cheats
 
@@ -1526,7 +1527,7 @@ class BuffManager:
             return True
 
         # battle_start, full_burst_start, full_burst_end, ...
-        if timing == event:
+        if timing == event and not timing.startswith("multi_hit:"):
             return True
 
         # every:Ns: 내부 타이머로 관리 (tick에서 처리), notify에서는 무시
@@ -1702,7 +1703,19 @@ class BuffManager:
         if timing.startswith("multi_hit:") and event.startswith("multi_hit:"):
             need = timing.split(":", 1)[1]
             actual = event.split(":", 1)[1]
-            return need.isdigit() and actual.isdigit() and int(actual) >= int(need)
+            if not (need.isdigit() and actual.isdigit() and int(actual) >= int(need)):
+                return False
+            probability = self._notify_ctx.get("pellet_probability", 1)
+            if probability >= 1:
+                return True
+            chance = at_least(int(actual), probability, int(need))
+            key = ("multi_hit_expected", caster, id(eff), timing)
+            acc = self.state["rng_acc"]
+            acc[key] = acc.get(key, 0) + chance
+            if acc[key] >= 1 - 1e-12:
+                acc[key] = max(0, acc[key] - 1)
+                return True
+            return False
 
         # squad_ammo_consume:N — 스쿼드 전체 탄환 소비 누적 N발마다 발동
         if timing.startswith("squad_ammo_consume:") and event == "squad_ammo_consume":

@@ -210,6 +210,7 @@ export const conditionChips = (entry: DeckResultEntry): string[] => {
     `방어력 ${request.enemyDef.toLocaleString('en-US')}`,
     request.enemyCode ? `${request.enemyCode} 코드` : '코드 없음',
     request.corePx > 0 ? `코어 ${request.corePx}px` : '코어 없음',
+    request.shotgunGeometry ? '샷건 명중: 보스 도형' : `샷건 명중 ${Math.round((request.shotgunHitRate ?? 1) * 10000) / 100}%`,
   ];
   if (request.hasParts) chips.push('파괴 가능 파츠');
   chips.push(`시드 ${request.seed}`);

@@ -1536,7 +1536,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     source.querySelector('select')!.dataset.bmSettingsSource = '';
     battlePane.append(source, el('p', 'bm-note', design.settingsSource === 'battle'
       ? '코어·파츠·적정거리는 전투 조건 입력값과 덱별 설정을 사용합니다. 도형은 참고 그림이며 파츠 파괴·관통 횟수는 계산에 넣지 않습니다.'
-      : '코어·파츠·기본 적정거리는 도형과 조준점을 사용합니다. 직접 입력한 값을 사용하려면 위 기준을 변경하세요. 모든 시간 구간과 나머지 전투 조건은 공통으로 적용됩니다.'));
+      : '코어·파츠·기본 적정거리는 도형과 조준점을 사용합니다. 샷건 펠릿은 표시 중인 몸통·파츠 밖으로 나가면 빗나갑니다. 탄착 분포는 기존 추정 모델을 사용합니다. 직접 입력한 값을 사용하려면 위 기준을 변경하세요. 모든 시간 구간과 나머지 전투 조건은 공통으로 적용됩니다.'));
 
     const grid = el('div', 'bm-grid');
     grid.append(battleNumber('전투 시간', battle.duration, 10, 180, '초', (value) => {
@@ -1754,6 +1754,8 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
         ...base,
         ...(deps.currentBurstRegenTime ? { burstRegenTime: deps.currentBurstRegenTime() } : {}),
         ...(drawing ? {
+          shotgunGeometry: { shapes: design.shapes, parts: design.parts, core: design.core,
+            center: design.center, aimKeys: design.aimKeys, spread: design.spread, playerName: squad[2] },
           corePx: battle.corePerDeck?.[Number(deps.currentDeckId?.() ?? 0)] === false ? 0 : derived.corePx,
           hasParts: derived.hasParts,
           optimalRangeWeapons: aimRange ?? base.optimalRangeWeapons,

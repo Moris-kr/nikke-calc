@@ -57,6 +57,8 @@ export function normalizeRequest(request: SimulationRequest): SimulationRequest 
     enemyDef: Math.trunc(request.enemyDef),
     enemyCode: request.enemyCode,
     corePx: Math.trunc(request.corePx),
+    ...(request.shotgunHitRate !== undefined ? { shotgunHitRate: request.shotgunHitRate } : {}),
+    ...(request.shotgunGeometry ? { shotgunGeometry: structuredClone(request.shotgunGeometry) } : {}),
     hasParts: Boolean(request.hasParts),
     seed: Math.trunc(request.seed),
     // 고른 순서가 달라도 같은 설정이다 — 정렬해 캐시 키가 갈리지 않게 한다.
@@ -208,6 +210,9 @@ export function validateRequest(request: SimulationRequest): string[] {
         && request.burstRegenTime >= 0 && request.burstRegenTime <= 20)) {
     errors.push('버스트 게이지 충전 시간은 0~20초여야 합니다.');
   }
+  if (request.shotgunHitRate !== undefined && (!Number.isFinite(request.shotgunHitRate) || request.shotgunHitRate < 0 || request.shotgunHitRate > 1)) {
+    errors.push('샷건 펠릿 명중 확률은 0~100%여야 합니다.');
+  }
   if (request.firstBurstTime !== undefined && (!Number.isFinite(request.firstBurstTime) || request.firstBurstTime < 0 || request.firstBurstTime > 3600)) {
     errors.push('첫 버스트 시간은 0~3600초여야 합니다.');
   }
@@ -320,6 +325,7 @@ export function requestForDeck(
     immuneBlocksBurst: battle.immuneBlocksBurst,
     ...(hacksForRequest(battle.hacks) ? { hacks: battle.hacks! } : {}),
     normalHitCoeff: battle.normalHitCoeff,
+    shotgunHitRate: battle.shotgunHitRate ?? 1,
     console: battle.console,
     // 덱마다 따로 잡아 뒀으면 그 값이 이긴다 — 버스트 쿨이 밀리는 덱만 달리 잰다.
     burstRegenTime: battle.burstRegenPerDeck?.[deck.id] ?? battle.burstRegenTime,
@@ -340,6 +346,8 @@ export function resetEnemy(battle: BattleSettings): BattleSettings {
     enemyCode: '',
     coreEnabled: false,
     corePx: 52,
+    bossSize: 'large',
+    shotgunHitRate: 1,
     hasParts: false,
     corePerDeck: {},
     optimalRangeWeapons: [],

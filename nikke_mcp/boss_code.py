@@ -83,6 +83,8 @@ class BossBattle(StrictModel):
     enemyDef: int = Field(default=31784, ge=0, le=999999)
     enemyCode: Literal['', '풍압', '수냉', '작열', '전격', '철갑'] = ''
     coreEnabled: bool = False
+    bossSize: Literal['large', 'medium', 'small', 'custom'] = 'large'
+    shotgunHitRate: float = Field(default=1, ge=0, le=1)
     corePx: int = Field(default=52, ge=0, le=1000)
     hasParts: bool = False
     seed: int = Field(default=42, ge=0, le=2147483647)
@@ -145,8 +147,9 @@ def encode_battle(battle: BossBattle) -> str:
     fields = [('duration', 'd'), ('enemyDef', 'ed'), ('enemyCode', 'ec'),
               ('coreEnabled', 'ce'), ('corePx', 'cp'), ('hasParts', 'hp'), ('seed', 's'),
               ('optimalRangeWeapons', 'or'), ('rngMode', 'rm'), ('immuneBlocksBurst', 'ib'),
-              ('burstRegenTime', 'br'), ('burstReaction', 'rt'), ('firstBurstTime', 'fb')]
+              ('bossSize', 'bs'), ('shotgunHitRate', 'sh'), ('burstRegenTime', 'br'), ('burstReaction', 'rt'), ('firstBurstTime', 'fb')]
     def compact(field, value):
+        if field == 'shotgunHitRate': return rounded(value, 10000)
         if field == 'enemyCode': return CODES.index(value)
         if field in ('coreEnabled', 'hasParts', 'immuneBlocksBurst'): return int(value)
         if field == 'rngMode': return int(value == 'random')

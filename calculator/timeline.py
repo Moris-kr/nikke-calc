@@ -23,6 +23,7 @@ from .base_stat import calc_base_stats
 from .buff_manager import BuffManager, _QUANT_PARTS_KEY, _get_skill_lv
 from .cheats import from_config as cheats_from_config
 from .customization import normalize_optimal_range_windows
+from .pellet_accuracy import probabilities as pellet_probabilities
 from .damage import calc_damage, default_hit_type, is_element_match
 from .sim_result import (
     HitEvent,
@@ -710,7 +711,14 @@ class CharState:
         hit_count = split * self.muzzles
 
         expected = cfg.get("rng_mode") == "expected"
+        P_hit, P_core = self._pellet_probabilities(t, bm, enemy, buffs, P_core)
+        landed = 0
+        core_frac = 0.0
         for i in range(hit_count):
+            if P_hit <= 0 or (not expected and P_hit < 1 and random.random() >= P_hit):
+                continue
+            landed += 1
+            weight = P_hit if expected else 1.0
             # 히트마다 독립 샘플링 (SG: 10회, 기타: 1회). 기대값 모드는 판정 대신 확률을 넘긴다
             # (P_core가 1이면 판정할 게 없으므로 기대값 모드에서도 코어 히트로 남긴다)
             is_core = (P_core >= 1.0) if expected else (random.random() < P_core)
@@ -745,7 +753,7 @@ class CharState:
             # «이 사람은 코어를 몇 %나 맞히나»를 태그 없이 셀 수 있다.
             core_frac = P_core if expected else (1.0 if is_core else 0.0)
             # 변신 모드 사격은 스킬 대미지 취급이라 평타 계수를 태우지 않는다.
-            shot_damage = _apply_hit_coeff(res["damage"], cfg, self.weapon_type,
+            shot_damage = _apply_hit_coeff((res["damage"] if weight == 1 else round(res["damage"] * weight)), cfg, self.weapon_type,
                                            self._wc_is_skill_damage())
             events.append(HitEvent(t=t, caster=self.name, damage=shot_damage,
                                    is_crit=res["is_crit"], hit_tag=tag,
@@ -754,20 +762,25 @@ class CharState:
                                       if self._wc_is_skill_damage() else {})))
             events.extend(self._pierce_extra(
                 ht=ht, base_damage=shot_damage, is_crit=res["is_crit"], buffs=buffs,
-                enemy=enemy, cfg=cfg, expected=expected, t=t, tag=tag,
+                enemy=enemy, cfg=cfg, expected=expected, t=t, tag=tag, hit_weight=weight,
             ))
-            bm.notify("pellet_hit", t, self.name)
+            _notify_frac(bm, "pellet_hit", self.name, weight, lambda: bm.notify("pellet_hit", t, self.name))
             body_ev = "squad_part_hit" if enemy.get("has_parts", False) else "squad_body_hit"
-            _notify_frac(bm, body_ev, self.name, 1.0 - core_frac,
+            _notify_frac(bm, body_ev, self.name, weight * (1.0 - core_frac),
                          lambda: bm.notify_team_hit(body_ev, t, self.name))
-            _notify_frac(bm, "crit_hit", self.name, res["crit_frac"],
+            _notify_frac(bm, "crit_hit", self.name, weight * res["crit_frac"],
                          lambda: bm.notify("crit_hit", t, self.name))
-            _notify_frac(bm, "core_hit", self.name, core_frac,
+            _notify_frac(bm, "core_hit", self.name, weight * core_frac,
                          lambda: bm.notify("core_hit", t, self.name))
 
         # hit_count: 발사 1회당 1회 (펠릿 수와 무관). pellet_hit은 루프 내 펠릿마다 발생
-        bm.notify(f"multi_hit:{hit_count}", t, self.name)
-        bm.notify("hit_count", t, self.name, core_frac=core_frac)
+        if expected and 0 < P_hit < 1:
+            bm.notify(f"multi_hit:{hit_count}", t, self.name, pellet_probability=P_hit)
+        elif landed:
+            bm.notify(f"multi_hit:{landed}", t, self.name)
+        attack_hit = (1 - (1 - P_hit) ** hit_count) if expected else float(landed > 0)
+        _notify_frac(bm, "hit_count", self.name, attack_hit,
+                     lambda: bm.notify("hit_count", t, self.name, core_frac=core_frac))
         bm.notify("on_attack", t, self.name)
         if not self._wc_is_skill_damage():
             bm.consume_bullet_buffs(self.name, t)
@@ -778,7 +791,7 @@ class CharState:
 
     def _pierce_extra(
         self, *, ht: dict, base_damage: int, is_crit: bool, buffs: dict, enemy: dict,
-        cfg: dict, expected: bool, t: float, tag: str,
+        cfg: dict, expected: bool, t: float, tag: str, hit_weight: float = 1.0,
     ) -> list[HitEvent]:
         """관통이 꿰뚫고 지나간 **나머지 대상** 몫.
 
@@ -807,7 +820,7 @@ class CharState:
                 base_atk=self.base_atk, buffs=buffs, weapon=self.weapon,
                 hit_type=part_ht, enemy_def=enemy.get("def", 31784), expected=expected,
             )
-            part_damage = _apply_hit_coeff(part_res["damage"], cfg, self.weapon_type,
+            part_damage = _apply_hit_coeff((part_res["damage"] if hit_weight == 1 else round(part_res["damage"] * hit_weight)), cfg, self.weapon_type,
                                            self._wc_is_skill_damage())
             for _ in range(parts):
                 extra.append(HitEvent(t=t, caster=self.name, damage=part_damage,
@@ -943,6 +956,15 @@ class CharState:
             self._charge_hold_fired.add(raw)
             bm.notify(f"charge_hold:{raw}", t, self.name)
 
+    def _pellet_probabilities(self, t, bm, enemy, buffs, core_probability):
+        if (self.accuracy_weapon or self.weapon_type) != "SG":
+            return 1.0, core_probability
+        spec = _ACCURACY_DATA.get(self.accuracy_weapon or self.weapon_type, {})
+        accuracy = max(buffs.get("accuracy_pct", 0), self.accuracy_floor_pct)
+        radius = max(1, spec.get("base_diameter", 10) - spec.get("acc_slope", 0) * accuracy) / 2
+        return pellet_probabilities(enemy, self.name, t, bm.state.get("full_burst", False),
+                                    radius, core_probability, _MODEL_N)
+
     def _charge_fire(
         self, t: float, bm: BuffManager, enemy: dict, cfg: dict, is_full: bool
     ) -> list[HitEvent]:
@@ -993,7 +1015,18 @@ class CharState:
         is_full_burst = bm.state.get("full_burst", False)
         if in_debug_window:
             print(f"t={t:.3f}s  base_atk={self.base_atk:,}  enemy_def={enemy.get('def', 31784):,}")
+        P_hit, P_core = self._pellet_probabilities(t, bm, enemy, buffs, P_core)
+        landed = 0
+        is_core = False
+        res = {"damage": 0, "crit_frac": 0, "is_crit": False}
+        shot_damage = 0
+        ht = None
+        tag = "normal"
         for _ in range(hit_count):
+            if P_hit <= 0 or (not expected and P_hit < 1 and random.random() >= P_hit):
+                continue
+            landed += 1
+            weight = P_hit if expected else 1.0
             # 코어는 펠릿마다 따로 굴린다 (P_core가 1이면 기대값 모드에서도 코어로 남긴다).
             is_core = (P_core >= 1.0) if expected else (random.random() < P_core)
             ht = default_hit_type(
@@ -1021,7 +1054,7 @@ class CharState:
             else:
                 # 논차지 샷은 일반 발사와 같은 취급 (차지 배율 없음)
                 tag = "core" if is_core else "normal"
-            shot_damage = _apply_hit_coeff(res["damage"], cfg, self.weapon_type,
+            shot_damage = _apply_hit_coeff((res["damage"] if weight == 1 else round(res["damage"] * weight)), cfg, self.weapon_type,
                                            self._wc_is_skill_damage())
             events.append(HitEvent(t=t, caster=self.name, damage=shot_damage,
                                    is_crit=res["is_crit"], hit_tag=tag,
@@ -1032,10 +1065,11 @@ class CharState:
                                       if self._wc_is_skill_damage() else {})))
         if in_debug_window:
             print()
-        events.extend(self._pierce_extra(
-            ht=ht, base_damage=shot_damage, is_crit=res["is_crit"], buffs=buffs,
-            enemy=enemy, cfg=cfg, expected=expected, t=t, tag=tag,
-        ))
+        if landed:
+            events.extend(self._pierce_extra(
+                ht=ht, base_damage=shot_damage, is_crit=res["is_crit"], buffs=buffs,
+                enemy=enemy, cfg=cfg, expected=expected, t=t, tag=tag, hit_weight=weight,
+            ))
         # 명중 직후 파생되는 "자신이 가한 피해량 비례 고정 대미지"의 기준값.
         # notify(full_charge_hit) 동안만 소비되며 방어력·공격 버프를 다시 적용하지 않는다.
         bm.state.setdefault("last_normal_hit_damage", {})[self.name] = res["damage"]
@@ -1051,21 +1085,23 @@ class CharState:
         if self._sim_log is not None:
             self._sim_log.ammo_log.append(AmmoLogEntry(t=t, caster=self.name, ammo=self.ammo))
         bm.notify("squad_ammo_consume", t, self.name)
-        bm.notify("hit_count", t, self.name, core_frac=P_core if expected else float(is_core))
+        attack_hit = (1 - (1 - P_hit) ** hit_count) if expected else float(landed > 0)
+        _notify_frac(bm, "hit_count", self.name, attack_hit,
+                     lambda: bm.notify("hit_count", t, self.name, core_frac=P_core if expected else float(is_core)))
         if is_full:
-            bm.notify("full_charge_hit", t, self.name)
+            _notify_frac(bm, "full_charge_hit", self.name, attack_hit, lambda: bm.notify("full_charge_hit", t, self.name))
         else:
-            bm.notify("non_full_charge_hit", t, self.name)
+            _notify_frac(bm, "non_full_charge_hit", self.name, attack_hit, lambda: bm.notify("non_full_charge_hit", t, self.name))
         body_ev = "squad_part_hit" if enemy.get("has_parts", False) else "squad_body_hit"
         core_frac = P_core if expected else (1.0 if is_core else 0.0)
-        _notify_frac(bm, body_ev, self.name, 1.0 - core_frac,
+        _notify_frac(bm, body_ev, self.name, attack_hit * (1.0 - core_frac),
                      lambda: bm.notify_team_hit(body_ev, t, self.name))
         bm.notify("on_attack", t, self.name)
         if not self._wc_is_skill_damage():
             bm.consume_bullet_buffs(self.name, t)
-        _notify_frac(bm, "crit_hit", self.name, res["crit_frac"],
+        _notify_frac(bm, "crit_hit", self.name, attack_hit * res["crit_frac"],
                      lambda: bm.notify("crit_hit", t, self.name))
-        _notify_frac(bm, "core_hit", self.name, core_frac,
+        _notify_frac(bm, "core_hit", self.name, attack_hit * core_frac,
                      lambda: bm.notify("core_hit", t, self.name))
         if is_last:
             bm.notify("last_bullet", t, self.name)

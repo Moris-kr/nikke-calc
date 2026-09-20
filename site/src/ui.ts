@@ -660,6 +660,13 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     분배: '렐릭 디바이드 큐브',
   };
   const migrateSavedCubes = (state: Partial<SavedState>): Partial<SavedState> => {
+    // Retire only the legacy SG default; preserve deliberate custom coefficients.
+    if (state.battle && state.battle.shotgunHitRate === undefined) {
+      if (state.battle.normalHitCoeff?.SG === 0.9) state.battle.normalHitCoeff.SG = 1;
+      state.battle.shotgunHitRate = 1;
+      state.battle.bossSize = 'large';
+    }
+
     for (const deck of state.decks ?? []) {
       for (const overrides of Object.values(deck.characters ?? {})) {
         const cube = overrides.cube;
@@ -1070,9 +1077,12 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <label><span>적 코드</span><select id="enemy-code"><option value="">없음</option><option value="풍압">풍압(작열weak)</option><option value="수냉">수냉(전격weak)</option><option value="작열">작열(수냉weak)</option><option value="전격">전격(철갑weak)</option><option value="철갑">철갑(풍압weak)</option></select></label>
             <label><span>싱크로 레벨</span><div class="input-unit"><input id="synchro-level" type="number" min="1" max="${SYNCHRO_MAX}" step="1" value="${DEFAULT_SYNCHRO_LEVEL}" title="${t('싱크로 디바이스 소대에 넣은 니케는 전원이 이 레벨이 됩니다. 계정 육성 상태라 전투 조건 공유 코드에는 담기지 않습니다. {n}레벨까지는 실측값이고, 그 위는 같은 성장 곡선을 이어 붙여 계산합니다', { n: SYNCHRO_MEASURED_MAX })}" /><em>Lv</em></div></label>
             <label class="toggle-field"><input id="has-core" type="checkbox" /><span class="toggle"></span><span>코어 있음</span></label>
+            <label><span>보스 크기 · 샷건 명중</span><select id="boss-size"><option value="large">큼 · 펠릿 100%</option><option value="medium">보통 · 펠릿 90%</option><option value="small">작음 · 펠릿 80%</option><option value="custom">커스텀</option></select></label>
+            <label><span>샷건 펠릿 명중 확률</span><div class="input-unit"><input id="shotgun-hit-rate" type="number" min="0" max="100" step="0.1" value="100" disabled /><em>%</em></div></label>
             <label data-core-size><span>코어 직경</span><div class="input-unit"><input id="core-px" type="number" min="0" max="1000" step="1" value="52" disabled /><em>px</em></div></label>
             <label class="toggle-field"><input id="has-parts" type="checkbox" /><span class="toggle"></span><span>파괴 가능 파츠</span></label>
           </div>
+          <p class="field-note">보스 크기별 확률은 직접 정하는 명중 가정입니다. 빗나간 펠릿은 대미지·명중 횟수에서 제외합니다. 보스메이커의 도형 기준 계산은 이 확률 대신 몸통·파츠 밖의 펠릿을 빗나감 처리합니다.</p>
           <fieldset class="range-field">
             <legend>적정거리</legend>
             <div class="range-options" data-optimal-range></div>
@@ -3524,6 +3534,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     enemyCode: element<HTMLSelectElement>(root, '#enemy-code').value as BattleSettings['enemyCode'],
     coreEnabled: coreToggle.checked,
     corePx: Number(corePxInput.value),
+    bossSize: element<HTMLSelectElement>(root, '#boss-size').value as BattleSettings['bossSize'],
+    shotgunHitRate: Number(element<HTMLInputElement>(root, '#shotgun-hit-rate').value) / 100,
     hasParts: element<HTMLInputElement>(root, '#has-parts').checked,
     seed: Number(element<HTMLInputElement>(root, '#seed').value),
     optimalRangeWeapons: readOptimalRange(),
@@ -3562,6 +3574,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     element<HTMLSelectElement>(root, '#enemy-code').value = battle.enemyCode;
     coreToggle.checked = battle.coreEnabled;
     corePxInput.value = String(battle.corePx);
+    element<HTMLSelectElement>(root, '#boss-size').value = battle.bossSize ?? 'large';
+    element<HTMLInputElement>(root, '#shotgun-hit-rate').value = String(Math.round((battle.shotgunHitRate ?? 1) * 10000) / 100);
+    element<HTMLInputElement>(root, '#shotgun-hit-rate').disabled = battle.bossSize !== 'custom';
     corePxInput.disabled = !battle.coreEnabled;
     element<HTMLInputElement>(root, '#has-parts').checked = battle.hasParts;
     element<HTMLInputElement>(root, '#seed').value = String(battle.seed);
@@ -5102,6 +5117,12 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   });
   coreToggle.addEventListener('change', () => {
     corePxInput.disabled = !coreToggle.checked;
+  });
+  element<HTMLSelectElement>(root, '#boss-size').addEventListener('change', () => {
+    const size = element<HTMLSelectElement>(root, '#boss-size').value;
+    const input = element<HTMLInputElement>(root, '#shotgun-hit-rate');
+    input.disabled = size !== 'custom';
+    if (size !== 'custom') input.value = String(({ large: 100, medium: 90, small: 80 } as Record<string, number>)[size]);
   });
   // 전투 조건 입력이 바뀌면 저장한다.
   form.addEventListener('change', (event) => {

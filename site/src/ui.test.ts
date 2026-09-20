@@ -2165,6 +2165,25 @@ describe('calculator UI', () => {
     expect(root.querySelector('[data-picker]')!.closest('[data-quick-decks-modal]')).toBeNull();
   });
 
+  it('persists boss presets and custom pellet probability', () => {
+    const cleanup = mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const size = root.querySelector<HTMLSelectElement>('#boss-size')!;
+    const rate = root.querySelector<HTMLInputElement>('#shotgun-hit-rate')!;
+    expect(size.value).toBe('large'); expect(rate.disabled).toBe(true);
+    size.value = 'medium'; size.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(rate.value).toBe('90');
+    size.value = 'small'; size.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(rate.value).toBe('80');
+    size.value = 'custom'; size.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(rate.disabled).toBe(false);
+    rate.value = '73.5'; rate.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(JSON.parse(localStorage.getItem('nikke-state-v1')!).battle).toMatchObject({ bossSize: 'custom', shotgunHitRate: .735 });
+    cleanup();
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    expect(root.querySelector<HTMLInputElement>('#shotgun-hit-rate')!.value).toBe('73.5');
+    expect(root.querySelector<HTMLSelectElement>('#boss-size')!.value).toBe('custom');
+  });
+
   it('persists common and deck-specific first burst settings', () => {
     const cleanup = mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
     const input = root.querySelector<HTMLInputElement>('#first-burst')!;

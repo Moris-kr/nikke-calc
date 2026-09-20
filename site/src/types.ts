@@ -110,7 +110,19 @@ export interface ConsoleLevels {
   company_level: Record<string, number>;
 }
 
+export interface ShotgunGeometry {
+  shapes: Array<{ kind: 'circle' | 'rect' | 'triangle'; x: number; y: number; w: number; h: number; rotation: number; windows?: Array<[number, number]> }>;
+  parts: ShotgunGeometry['shapes'];
+  core?: { x: number; y: number; d: number } | null;
+  center?: { x: number; y: number } | null;
+  aimKeys?: Array<{ t: number; x: number; y: number }>;
+  spread?: Record<string, number>;
+  playerName?: string;
+}
+
 export interface SimulationRequest {
+  shotgunHitRate?: number;
+  shotgunGeometry?: ShotgunGeometry;
   squad: string[];
   characters?: Record<string, CharacterOverrides>;
   customCharacters?: Record<string, { nikke: Record<string, unknown>; skills: unknown[] }>;
@@ -218,6 +230,8 @@ export interface ElementWindow extends PhaseWindow { code: ElementCode }
 export type RngMode = 'random' | 'expected';
 
 export interface BattleSettings {
+  bossSize?: 'large' | 'medium' | 'small' | 'custom';
+  shotgunHitRate?: number;
   duration: number;
   /**
    * 싱크로 디바이스 레벨. 소대에 넣은 니케는 전원이 이 레벨이 되므로 캐릭터 설정이
