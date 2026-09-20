@@ -1167,10 +1167,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           </div>
           </div>
           </div>
-          </div>
         </section>
 
-        <section class="panel result-panel" aria-labelledby="result-heading" data-result-panel>
+        <section class="panel result-panel" aria-labelledby="result-heading" data-view="calc" data-result-panel>
           <div class="result-empty"><h2 id="result-heading">전투 결과</h2><div class="radar-mark" aria-hidden="true"><i></i><i></i><i></i></div><p>편성과 조건을 확인한 뒤<br />시뮬레이션을 실행해 주세요.</p></div>
         </section>
       </form>

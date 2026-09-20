@@ -2693,3 +2693,22 @@ img[src*="/temporary-characters/"][src$="-card.png"] { object-fit: contain; obje
 .full-burst-summary.is-truncated { color: #ffcf78; }
 
 .enikk-season-field{display:flex;align-items:center;gap:12px;margin:18px 0;font-weight:700}.enikk-season-field select{min-width:0;max-width:100%;padding:10px 12px;border:1px solid #53647d;border-radius:8px;background:#172338;color:#edf3ff;font:inherit}
+
+/* Results stay within the calculator grid; long labels must not set its minimum width. */
+.calculator-layout,.result-panel,.result-panel > *, .result-card,.result-row > *, .deck-result{min-width:0;max-width:100%}
+.result-panel{width:100%}
+.result-header{flex-wrap:wrap}
+.result-header > *{min-width:0;max-width:100%;overflow-wrap:anywhere}
+.result-panel .report-tools > *, .deck-result-tab{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+.result-panel .result-row-name{flex-wrap:wrap}
+.result-card h3,.result-card strong,.result-panel .deviations,.result-panel .skill-breakdown li{overflow-wrap:anywhere}
+.result-panel .result-cards{grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr))}
+@media(max-width:600px){
+ .result-panel{padding:16px}
+ .result-panel .report-tools{justify-content:flex-start}
+ .result-panel .report-tools button{flex:1 1 140px}
+ .result-panel .result-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .result-panel .deck-result-header{grid-template-columns:minmax(0,1fr)}
+ .result-panel .deck-result-header h3{grid-row:auto}
+ .result-panel .deck-result-header strong,.result-panel .deck-result-header small{text-align:left;overflow-wrap:anywhere}
+}

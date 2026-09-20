@@ -980,6 +980,17 @@ describe('calculator UI', () => {
     expect(saved.decks[0]!.burstSequence).toBeUndefined();
   });
 
+  it('keeps battle results scoped to the calculator view across tab changes', () => {
+    mountCalculator(root,{catalog,settings,version:'v1',client:new FakeClient(),storage:localStorage});
+    const panel=root.querySelector<HTMLElement>('[data-result-panel]')!;
+    expect(panel.closest('form[data-view="calc"]')).not.toBeNull();
+    for(const view of ['links','fun','enikk']){
+      root.querySelector<HTMLButtonElement>(`[data-view-tab="${view}"]`)!.click();expect(panel.hidden).toBe(true);
+    }
+    root.querySelector<HTMLButtonElement>('[data-view-tab="calc"]')!.click();expect(panel.hidden).toBe(false);
+    expect(panel.querySelector('#result-heading')).not.toBeNull();
+  });
+
   it('외부고리 탭이 다섯 곳으로 새 탭에서 나간다', () => {
     mountCalculator(root, {
       catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,
