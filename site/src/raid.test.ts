@@ -125,6 +125,14 @@ describe('기록 모양', () => {
     expect(row.dmg).toBe(123_456_790);
   });
 
+  it('실제로 계산에 들어간 큐브를 니케별로 싣는다 — 없으면 칸 자체를 안 만든다', () => {
+    const row = raidDeckRow({ id: 1, squad: ['리타', '크라운', '', '', ''], cubes: {}, burstSequence: undefined }, result,
+      { 리타: { name: '렐릭 베어 큐브', level: 15 }, 크라운: undefined });
+    expect(row.cubes).toEqual({ 리타: { name: '렐릭 베어 큐브', level: 15 } });
+    const bare = raidDeckRow({ id: 1, squad: ['리타', '', '', '', ''], cubes: {}, burstSequence: undefined }, result);
+    expect(bare.cubes).toBeUndefined();
+  });
+
   it('합산은 덱 딜의 합이다', () => {
     expect(raidTotal([{ names: [], code: '', order: '', dmg: 3 }, { names: [], code: '', order: '', dmg: 4 }])).toBe(7);
   });

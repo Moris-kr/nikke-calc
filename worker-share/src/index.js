@@ -477,6 +477,9 @@ const publicRaid = (raid) => ({
 /** 기록 한 줄. `admin`일 때만 누구인지가 실린다. */
 const publicEntry = (entry, admin) => ({
   eid: entry.eid,
+  // 익명 꼬리표 — 소금 친 계정 해시의 앞 네 글자. 누구인지는 못 알아보지만 같은 사람이
+  // 다시 올라왔는지는 구분된다(전부 «참가자»면 판이 움직이는 것이 안 보인다).
+  tag: String(entry.owner ?? '').slice(0, 4),
   decks: entry.decks,
   total: entry.total,
   engine: entry.engine,
@@ -556,7 +559,19 @@ const raidDeck = (value, index) => {
   const order = text(value.order, 200, '버스트 순서', false);
   const dmg = Number(value.dmg);
   if (!Number.isFinite(dmg) || dmg < 0) throw new Fail(400, `덱 ${index + 1}의 딜이 숫자가 아닙니다.`);
-  return { names, code, order, dmg: Math.round(dmg) };
+  // 니케별 큐브 — 편성 니케에 대해서만, 이름 40자·레벨 0~15로 좁혀 받는다.
+  const cubes = {};
+  if (value.cubes && typeof value.cubes === 'object') {
+    for (const who of names) {
+      const cube = value.cubes[who];
+      if (!cube || typeof cube !== 'object') continue;
+      const cubeName = text(cube.name, 40, '큐브', false);
+      const level = Number(cube.level);
+      if (!cubeName || !Number.isInteger(level) || level < 0 || level > 15) continue;
+      cubes[who] = { name: cubeName, level };
+    }
+  }
+  return { names, code, order, dmg: Math.round(dmg), ...(Object.keys(cubes).length > 0 ? { cubes } : {}) };
 };
 
 async function handleRaidEntry(request, env, body) {

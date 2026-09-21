@@ -1639,4 +1639,12 @@ export const EN: Record<string, string> = {
   '계산 결과가 내 기록({m})보다 높으면 묻지 않고 바로 랭킹에 올립니다.': 'If the result beats my record ({m}) it is submitted to the ranking without asking.',
   '계산 결과는 묻지 않고 바로 랭킹에 올라갑니다 — 계정당 하나, 더 높을 때만 갱신됩니다.': 'The result goes straight to the ranking without asking — one per account, replaced only by a higher one.',
   '{n}덱 합산 · {title} · 덱별 결과는 아래 전투 결과 판에': '{n}-deck total · {title} · per-deck results are in the battle results below',
+  '큐브 보기': 'Show cubes',
+  '큐브 접기': 'Hide cubes',
+  '모의전 결과 {n} — 이대로라면 {rank}등입니다 (참가 {m}명 중). 기록은 올라가지 않습니다.': 'Mock result {n} — that would be rank {rank} (of {m} entries). Not submitted.',
+  '모의전 — 수치 설정·컨트롤을 자유롭게 바꿔 계산합니다. 결과는 랭킹에 올라가지 않고 «이대로라면 몇 등»만 알려 줍니다.': 'Mock battle — change stats and controls freely. The result is not submitted; it only tells you what rank it would be.',
+  '모의전 (수치 설정 자유 · 기록 안 올림)': 'Mock battle (free stats · not submitted)',
+  '모의전 — 기록 안 올림': 'Mock — not submitted',
+  '🧪 모의전 — 수치 설정·컨트롤을 자유롭게 바꿔 보세요. 결과는 랭킹에 올라가지 않습니다.': '🧪 Mock battle — change stats and controls freely. The result is not submitted to the ranking.',
+  '임시 니케': 'preview NIKKE',
 };

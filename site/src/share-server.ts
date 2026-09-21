@@ -121,6 +121,8 @@ export interface RaidDeck {
   /** 버스트 순서 한 줄. 비어 있으면 자동이다. */
   order: string;
   dmg: number;
+  /** 니케별 큐브(이름·레벨). 남의 덱을 볼 때 «무슨 큐브 몇 레벨»을 읽는 자리다. 옛 기록엔 없다. */
+  cubes?: Record<string, { name: string; level: number }>;
 }
 
 export interface RaidEntry {
@@ -129,6 +131,11 @@ export interface RaidEntry {
   total: number;
   engine: string;
   at: string;
+  /**
+   * 익명 꼬리표(계정 해시 앞 네 글자). 누구인지는 알 수 없지만 «어제 그 참가자가
+   * 올라왔다»는 구분은 된다. 옛 기록엔 없다.
+   */
+  tag?: string;
   /** 어드민에게만 온다 — 표시 이름·서버·계정 꼬리. */
   name?: string;
   area?: number;

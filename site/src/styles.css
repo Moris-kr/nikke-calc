@@ -2261,8 +2261,8 @@ body.bm-open { overflow: hidden; }
    벌어지고 글자가 한 자씩 쌓인다. */
 /* 상대 규칙이 `div:first-child`(의사클래스가 있어 특정도가 한 칸 높다)라 같은 모양으로
    맞춰야 이긴다 — 클래스 둘만으로는 안 덮인다. */
-.section-heading > .settings-tabs:first-child { flex: none; }
-.settings-tabs { display: flex; gap: 4px; align-items: center; }
+.section-heading > .settings-tabs:first-child { flex: 0 1 auto; min-width: 0; }
+.settings-tabs { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .settings-tab { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px;
   white-space: nowrap;
   border: 1px solid transparent; border-radius: 9px 9px 0 0; background: transparent;
@@ -2787,7 +2787,9 @@ img[src*="/temporary-characters/"][src$="-card.png"] { object-fit: contain; obje
 .share-raid-cancel:hover { color: var(--ink); border-color: rgba(146,176,201,.4); }
 
 /* 레이드 판 */
-.raid-pane { display: grid; gap: 14px; margin-top: 12px; }
+.raid-pane { display: grid; gap: 14px; margin-top: 12px; min-width: 0; }
+.raid-pane > * { min-width: 0; }
+.raid-lede, .raid-note, .raid-boss-auto, .raid-run-note { overflow-wrap: anywhere; }
 .raid-lede { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
 .raid-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
 .raid-pick { display: grid; gap: 3px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: rgba(5,11,19,.5);
@@ -2821,7 +2823,7 @@ img[src*="/temporary-characters/"][src$="-card.png"] { object-fit: contain; obje
 .raid-board-head h4 { margin: 0; font-size: 13px; letter-spacing: .02em; }
 .raid-board-head span { color: var(--muted); font-size: 12px; }
 .raid-decks { display: grid; gap: 6px; }
-.raid-deck-line { display: grid; grid-template-columns: 44px 1fr auto auto; gap: 10px; align-items: center; padding: 7px 12px;
+.raid-deck-line { display: grid; grid-template-columns: 44px 1fr auto auto auto; gap: 10px; align-items: center; padding: 7px 12px;
   border: 1px solid var(--line); border-radius: 8px; background: rgba(5,11,19,.4); }
 .raid-deck-line > b { font: 800 12px/1 ui-monospace, monospace; }
 .raid-faces { display: flex; }
@@ -2834,6 +2836,17 @@ img[src*="/temporary-characters/"][src$="-card.png"] { object-fit: contain; obje
 .raid-run { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .raid-run .calculate-button { margin: 0; }
 .raid-run-note { color: var(--muted); font-size: 12px; }
+.raid-run input[data-raid-name] { min-width: 0; width: 160px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: rgba(8,16,20,.6); color: inherit; font: inherit; }
+.raid-run input[data-raid-name]:focus { outline: none; border-color: var(--cyan); }
+.raid-mock { flex-basis: 100%; display: inline-flex; align-items: center; gap: 8px; color: #b9c8d4; font-size: 12px; font-weight: 750; cursor: pointer; }
+.raid-mock input { accent-color: var(--amber); width: 14px; height: 14px; }
+.raid-mock-badge { padding: 4px 9px; border: 1px solid rgba(255,191,60,.45); border-radius: 999px; color: var(--amber); font-size: 11px; font-weight: 800; }
+.raid-tag { margin-left: 6px; color: var(--muted); font: 700 10.5px/1 ui-monospace, monospace; letter-spacing: .02em; }
+.raid-cubes-open { min-height: 26px; padding: 0 9px; font-size: 11px; }
+.raid-cubes { margin: 0; padding: 6px 12px 8px 56px; list-style: none; display: grid; gap: 3px; font-size: 12px; }
+.raid-cubes li { display: flex; gap: 8px; flex-wrap: wrap; }
+.raid-cubes li b { min-width: 80px; }
+.raid-cubes li span { color: var(--muted); }
 .raid-result { display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; align-items: center; padding: 14px 16px;
   border: 1px solid var(--line); border-radius: 10px; background: rgba(5,11,19,.55); }
 .raid-big { font: 900 28px/1 ui-monospace, monospace; color: var(--amber); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
@@ -2877,4 +2890,8 @@ img[src*="/temporary-characters/"][src$="-card.png"] { object-fit: contain; obje
   .raid-submit-row { grid-column: 1; grid-row: auto; }
   .raid-sub { grid-column: 1; }
   .raid-detail { padding-left: 16px; }
+  .raid-cubes { padding-left: 12px; }
+  .raid-list { grid-template-columns: 1fr; }
+  .settings-tab { padding: 6px 10px; font-size: 12px; }
+  .raid-run input[data-raid-name] { width: 100%; }
 }

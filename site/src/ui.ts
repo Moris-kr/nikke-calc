@@ -449,6 +449,10 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   let raidHandle: RaidHandle | null = null;
   /** 계산기 레이드 탭이 켜져 있나. 켜지면 편성 카드의 육성 조작이 잠긴다(큐브만 산다). */
   let raidMode = false;
+  /** 레이드 모의전 — 켜면 잠금을 풀고 평소처럼 만진다. 결과는 올라가지 않는다. */
+  let raidMock = false;
+  /** 카드가 잠겨야 하나 — 레이드 탭이고 모의전이 아닐 때. */
+  const raidLocked = (): boolean => raidMode && !raidMock;
   const cache = new ResultCache(storage, version, 30);
   const catalogByName = new Map(catalog.map((char) => [char.name, char]));
   const decks = Array.from({ length: 2 }, (_, index) => emptyDeck(index + 1));
@@ -2954,7 +2958,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             // 이 콜백은 카드가 다시 그려지기 **직전**에 불린다 — 다 그린 뒤에 창을 맞춘다.
             queueMicrotask(syncOpenPanel);
             // 설정 판은 스스로 다시 그리므로 잠금도 그 뒤에 다시 건다.
-            if (raidMode) queueMicrotask(() => lockCardForRaid(editor, stepper));
+            if (raidLocked()) queueMicrotask(() => lockCardForRaid(editor, stepper));
           }, buffTargetRowsFor(deck.id, cname), (row) => showBuffOrder(cname, row),
           (kind, panel, label) => {
             openCharPanel = { name: cname, kind };
@@ -3064,7 +3068,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
         renderEditor();
         card.append(editor);
-        if (raidMode) {
+        if (raidLocked()) {
           // 레이드 중에는 육성이 블라블라링크 값으로 잠긴다 — 베껴오기·퍼뜨리기·되돌리기는
           // 전부 수치를 옮기는 문이라 아예 안 낸다. 큐브만 산다.
           lockCardForRaid(editor, stepper);
@@ -7392,18 +7396,26 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const raidLockNote = element<HTMLElement>(root, '[data-raid-lock]');
   const raidBand = element<HTMLElement>(root, '[data-raid-band]');
   const raidDot = element<HTMLElement>(root, '[data-raid-dot]');
+  const paintRaidLockNote = () => {
+    raidLockNote.textContent = raidMock
+      ? '🧪 모의전 — 수치 설정·컨트롤을 자유롭게 바꿔 보세요. 결과는 랭킹에 올라가지 않습니다.'
+      : RAID_LOCK_NOTE;
+    root.classList.toggle('is-raid', raidLocked());
+  };
   const setRaidMode = (on: boolean) => {
     if (raidMode === on) return;
     raidMode = on;
     raidPane.hidden = !on;
     battleHome.hidden = on;
     raidLockNote.hidden = !on;
-    root.classList.toggle('is-raid', on);
+    paintRaidLockNote();
     // 열려 있던 수치 설정 창은 닫는다 — 잠긴 값을 창에서 만지게 두면 잠근 뜻이 없다.
     closeCharPanel();
     renderDeckTabs();
     renderSquad();
     renderRosterGrid();
+    // 돌아왔을 때 결과 판에 마지막 레이드 결과를 다시 세운다.
+    if (on) raidHandle?.showLast();
   };
   if (shareServer) {
     raidHandle = mountRaid(raidPane, {
@@ -7466,6 +7478,18 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       engineVersion: version,
       // 레이드도 계산이다 — 덱별 결과를 평소의 전투 결과 판에 그대로 세운다.
       showResults: (entries) => renderBatchResult(aggregateDeckResults(entries)),
+      defaultCube: (name) => settings.characters[name]?.cube,
+      // 모의전은 평소 계산기와 같은 요청이다 — 덱의 수치 설정·컨트롤·임시 니케까지 그대로.
+      mockRequest: (deck, battle) => {
+        const custom = customPayload();
+        return requestForDeck(deck, battle, Object.keys(custom).length > 0 ? custom : undefined);
+      },
+      onMock: (on) => {
+        raidMock = on;
+        paintRaidLockNote();
+        closeCharPanel();
+        renderSquad();
+      },
       imageOf: (name) => {
         const image = catalogByName.get(name)?.image;
         return image ? `${import.meta.env.BASE_URL}${image}` : undefined;

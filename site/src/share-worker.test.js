@@ -224,6 +224,26 @@ describe('계산기 레이드', () => {
     expect((await call(kv, '/raid/open', { method: 'POST', body: { title: 'x', code: 'NK3-abc' } })).status).toBe(403);
   });
 
+  it('니케별 큐브가 덱에 실려 남에게도 보이고, 익명 꼬리표로 참가자를 구분한다', async () => {
+    const kv = fakeKv();
+    const { raid } = await (await open(kv)).json();
+    await entry(kv, raid.id, {
+      decks: [{ ...deck(['리타', '크라운'], 300_000_000), cubes: { 리타: { name: '렐릭 베어 큐브', level: 15 }, 크라운: { name: '없음', level: 0 }, 이브: { name: '엉뚱', level: 15 }, 토브: { name: 'x', level: 99 } } }],
+      total: 300_000_000,
+    });
+    await entry(kv, raid.id, { openid: '555555555', total: 100_000_000 });
+    const board = await (await call(kv, `/raid/board?id=${raid.id}`)).json();
+    // 편성에 없는 이름·잘못된 레벨은 버린다.
+    expect(board.entries[0].decks[0].cubes).toEqual({ 리타: { name: '렐릭 베어 큐브', level: 15 }, 크라운: { name: '없음', level: 0 } });
+    expect(board.entries[1].decks[0].cubes).toBeUndefined();
+    // 꼬리표는 네 글자 해시 — 두 계정이 다르고, 계정 번호는 어디에도 없다.
+    const tags = board.entries.map((row) => row.tag);
+    expect(tags.every((tag) => /^[0-9a-f]{4}$/.test(tag))).toBe(true);
+    expect(tags[0]).not.toBe(tags[1]);
+    expect(JSON.stringify(board)).not.toContain('123456789');
+    expect(JSON.stringify(board)).not.toContain('555555555');
+  });
+
   it('닫은 레이드는 다시 열거나 통째로 지울 수 있다 — 진행 중인 것은 못 지운다', async () => {
     const kv = fakeKv();
     const { raid } = await (await open(kv)).json();

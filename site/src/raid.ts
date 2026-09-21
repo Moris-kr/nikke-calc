@@ -18,6 +18,7 @@
  */
 
 import { emptyConsole } from './blablalink';
+import { cubeLine } from './cube-names';
 import { cycleLine, sequenceForDeck } from './burst-order';
 import { t } from './i18n';
 import { DEFAULT_SYNCHRO_LEVEL, requestForDeck } from './model';
@@ -193,17 +194,31 @@ export function raidRequest(
   return requestForDeck(shaped, battle);
 }
 
-/** 제출에 실을 덱 한 칸 — 이름·조합 코드·버스트 순서 한 줄·딜. */
-export function raidDeckRow(deck: RaidDeckInput, result: SimulationResult): RaidDeck {
+/**
+ * 제출에 실을 덱 한 칸 — 이름·조합 코드·버스트 순서 한 줄·딜·니케별 큐브.
+ * 큐브는 **실제로 계산에 들어간 것**을 싣는다(덱 것 → 로스터 것 → 기본값 순으로 정해진
+ * 값). 남이 「큐브 보기」를 눌렀을 때 읽는 것이 바로 이것이다.
+ */
+export function raidDeckRow(
+  deck: RaidDeckInput,
+  result: SimulationResult,
+  cubes: Record<string, { name: string; level: number } | undefined> = {},
+): RaidDeck {
   const squad = deck.squad.filter(Boolean);
   const shaped: DeckState = { id: deck.id, squad: [...deck.squad], characters: {},
     ...(deck.burstSequence ? { burstSequence: deck.burstSequence } : {}) };
   const sequence = sequenceForDeck(shaped);
+  const worn: Record<string, { name: string; level: number }> = {};
+  for (const name of squad) {
+    const cube = cubes[name];
+    if (cube) worn[name] = { name: cube.name, level: cube.level };
+  }
   return {
     names: squad,
     code: encodeShareCode([{ id: 1, squad: [...deck.squad], characters: {} }], false),
     order: sequence ? cycleLine(sequence[0]) : '',
     dmg: Math.round(result.squadTotal),
+    ...(Object.keys(worn).length > 0 ? { cubes: worn } : {}),
   };
 }
 
@@ -239,6 +254,15 @@ export interface RaidDeps {
    * 보여 주면 어느 니케가 얼마를 넣었는지 볼 길이 없다. 덱이 끝날 때마다 부른다.
    */
   showResults?: (entries: DeckResultEntry[]) => void;
+  /** 카탈로그의 기본 큐브. 로스터에도 덱에도 큐브가 없는 니케가 실제로 끼는 것이다. */
+  defaultCube?: (name: string) => { name: string; level: number } | undefined;
+  /**
+   * 모의전용 요청 — 평소 계산기와 똑같이 덱의 수치 설정·컨트롤을 그대로 싣는다.
+   * 없으면 모의전 토글을 안 낸다.
+   */
+  mockRequest?: (deck: DeckState, battle: BattleSettings) => SimulationRequest;
+  /** 모의전 토글이 바뀌면 알린다 — 편성 카드의 잠금을 풀거나 다시 건다. */
+  onMock?: (on: boolean) => void;
   imageOf: (name: string) => string | undefined;
   /** 열린 레이드 수가 바뀌면 알린다(머리의 안내 띠·탭의 점). */
   onRaids?: (raids: RaidSummary[]) => void;
@@ -251,6 +275,10 @@ export interface RaidHandle {
   openRaid(input: { title: string; code: string; auto: string }): Promise<void>;
   /** 지금 열린 레이드들. */
   openRaids(): RaidSummary[];
+  /** 마지막 레이드 계산의 덱별 결과를 결과 판에 다시 세운다. 탭으로 돌아올 때 부른다. */
+  showLast(): void;
+  /** 모의전이 켜져 있나. */
+  mock(): boolean;
 }
 
 const el = <K extends keyof HTMLElementTagNameMap>(
@@ -276,7 +304,18 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
   let message = '';
   let messageOk = false;
   /** 마지막 계산. 덱별 줄과 합계. 제출할 때 그대로 싣는다. */
-  let computed: { rows: RaidDeck[]; requests: SimulationRequest[]; total: number; raidId: string; submitted: boolean } | null = null;
+  let computed: {
+    rows: RaidDeck[]; requests: SimulationRequest[]; total: number; raidId: string; submitted: boolean;
+    /** 모의전 결과다 — 올리지 않는다. */
+    mock: boolean;
+  } | null = null;
+  /** 마지막 계산의 덱별 결과. 탭을 떠났다 와도 결과 판에 다시 세울 수 있게 둔다. */
+  let lastEntries: DeckResultEntry[] = [];
+  /**
+   * 모의전 — 수치 설정·컨트롤을 자유롭게 만져 «이대로라면 몇 등»을 본다. 기록은 안
+   * 올라간다. 기본은 꺼짐: 켜 두고 잊으면 진짜 기록이 안 올라가는 사고가 난다.
+   */
+  let mock = false;
   let mine: Record<string, string> = {};
   try { mine = JSON.parse(localStorage.getItem(MINE_KEY) ?? '{}'); } catch { mine = {}; }
   const rememberMine = (raidId: string, eid: string) => {
@@ -328,7 +367,11 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
     if (!raid || raid.status !== 'open') return;
     const account = deps.account();
     const roster = deps.roster();
-    const problems = raidProblems(deps.decks(), deps.catalog, account !== null, roster);
+    const mocking = mock && deps.mockRequest !== undefined;
+    // 모의전은 계정·로스터·임시 니케를 안 따진다 — «이 설정이면 몇 등»을 재는 자리다.
+    const problems = mocking
+      ? raidProblems(deps.decks(), deps.catalog, true).filter((line) => !line.includes(t('임시 니케')))
+      : raidProblems(deps.decks(), deps.catalog, account !== null, roster);
     if (problems.length > 0) { say(problems[0]!); return; }
     running = true;
     computed = null;
@@ -349,15 +392,27 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
           cubes: Object.fromEntries(Object.entries(deck.characters).map(([name, value]) => [name, value.cube])),
           burstSequence: deck.burstSequence,
         };
-        const request = raidRequest(input, roster, battle);
+        const request = mocking ? deps.mockRequest!(deck, battle) : raidRequest(input, roster, battle);
         const result = await deps.simulate(request);
-        rows.push(raidDeckRow(input, result));
+        // 실제로 계산에 들어간 큐브 — 요청에 실린 것이 없으면 카탈로그 기본값이다.
+        const worn = Object.fromEntries(deck.squad.filter(Boolean).map((name) =>
+          [name, request.characters?.[name]?.cube ?? deps.defaultCube?.(name)]));
+        rows.push(raidDeckRow(input, result, worn));
         requests.push(request);
         entries.push({ deckId: deck.id, request, result });
         deps.showResults?.(entries);
       }
-      computed = { rows, requests, total: raidTotal(rows), raidId: raid.id, submitted: false };
+      lastEntries = entries;
+      computed = { rows, requests, total: raidTotal(rows), raidId: raid.id, submitted: false, mock: mocking };
       message = '';
+      if (mocking) {
+        // 올리지 않는다. 지금 판에서 몇 등인지만 센다 — 내 진짜 기록도 남처럼 센다.
+        const above = (board?.entries ?? []).filter((entry) => entry.total > computed!.total).length;
+        message = t('모의전 결과 {n} — 이대로라면 {rank}등입니다 (참가 {m}명 중). 기록은 올라가지 않습니다.',
+          { n: raidDamageText(computed.total), rank: above + 1, m: board?.entries.length ?? 0 });
+        messageOk = true;
+        return;
+      }
       // 내 최고 딜이면 묻지 않고 올린다 — 위에서 미리 알렸다. 서버도 더 높을 때만 갈아
       // 끼우므로, 여기서 낮은 것을 걸러 두면 «그대로 둡니다»만 돌아오는 요청을 안 보낸다.
       const best = myRecord();
@@ -386,7 +441,7 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
   async function submit(auto = false): Promise<void> {
     const raid = selected();
     const account = deps.account();
-    if (!raid || !computed || computed.raidId !== raid.id || !account) return;
+    if (!raid || !computed || computed.raidId !== raid.id || !account || computed.mock) return;
     const input: RaidEntryInput = {
       id: raid.id,
       openid: account.openid,
@@ -575,6 +630,26 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
       line.append(el('span', 'raid-order', deck.order || t('버스트 순서 자동')));
       line.append(el('span', 'raid-dmg', raidDamageText(deck.dmg)));
       decks.append(line);
+      // 큐브 보기 — 니케마다 무슨 큐브 몇 레벨인지. 옛 기록에는 없어 단추도 안 낸다.
+      if (deck.cubes && Object.keys(deck.cubes).length > 0) {
+        const cubes = deck.cubes;
+        const open = el('button', 'raid-ghost raid-cubes-open', t('큐브 보기'));
+        open.type = 'button';
+        open.dataset.raidCubes = `${entry.eid}:${index}`;
+        const list = el('ul', 'raid-cubes');
+        list.hidden = true;
+        for (const name of deck.names) {
+          const item = el('li');
+          item.append(el('b', '', name), el('span', '', cubeLine(cubes[name])));
+          list.append(item);
+        }
+        open.addEventListener('click', () => {
+          list.hidden = !list.hidden;
+          open.textContent = list.hidden ? t('큐브 보기') : t('큐브 접기');
+        });
+        line.append(open);
+        decks.append(list);
+      }
     }
     box.append(decks);
     const actions = el('div', 'raid-actions');
@@ -636,6 +711,8 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
         who.append(el('small', '', t('나')));
       } else {
         who.append(el('span', 'anon', t('참가자')));
+        // 꼬리표 — 누구인지는 몰라도 «저 사람이 올라왔다»는 보인다.
+        if (entry.tag) who.append(el('code', 'raid-tag', `#${entry.tag}`));
       }
       if (admin && entry.name !== undefined) {
         who.append(el('span', 'raid-ident', `${entry.name || '(이름 없음)'} · ${entry.area || '?'} · …${entry.tail ?? ''}`));
@@ -746,16 +823,38 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
     go.disabled = running || raid.status !== 'open' || !account;
     go.append(el('span', '', raid.status !== 'open' ? t('마감된 레이드') : running ? t('계산 중…') : t('5덱 레이드 계산')));
     go.addEventListener('click', () => { void run(); });
+    const mocking = mock && deps.mockRequest !== undefined;
+    // 모의전이면 계정이 없어도 돌린다 — 올리지 않으니까.
+    go.disabled = running || raid.status !== 'open' || (!account && !mocking);
     bar.append(nameInput, go);
     const best = myRecord();
     const note = el('span', 'raid-run-note');
     note.dataset.raidRunNote = '';
-    note.textContent = !account
-      ? t('블라블라링크로 계정을 이어야 돌릴 수 있습니다. 보는 것은 누구나 됩니다.')
-      : best
-        ? t('계산 결과가 내 기록({m})보다 높으면 묻지 않고 바로 랭킹에 올립니다.', { m: raidDamageText(best.total) })
-        : t('계산 결과는 묻지 않고 바로 랭킹에 올라갑니다 — 계정당 하나, 더 높을 때만 갱신됩니다.');
+    note.textContent = mocking
+      ? t('모의전 — 수치 설정·컨트롤을 자유롭게 바꿔 계산합니다. 결과는 랭킹에 올라가지 않고 «이대로라면 몇 등»만 알려 줍니다.')
+      : !account
+        ? t('블라블라링크로 계정을 이어야 돌릴 수 있습니다. 보는 것은 누구나 됩니다.')
+        : best
+          ? t('계산 결과가 내 기록({m})보다 높으면 묻지 않고 바로 랭킹에 올립니다.', { m: raidDamageText(best.total) })
+          : t('계산 결과는 묻지 않고 바로 랭킹에 올라갑니다 — 계정당 하나, 더 높을 때만 갱신됩니다.');
     bar.append(note);
+    if (deps.mockRequest) {
+      const mockLabel = el('label', 'raid-mock');
+      const mockBox = document.createElement('input');
+      mockBox.type = 'checkbox';
+      mockBox.checked = mock;
+      mockBox.dataset.raidMock = '';
+      mockBox.disabled = running || raid.status !== 'open';
+      mockBox.addEventListener('change', () => {
+        mock = mockBox.checked;
+        computed = null;
+        message = '';
+        deps.onMock?.(mock);
+        render();
+      });
+      mockLabel.append(mockBox, el('span', '', t('모의전 (수치 설정 자유 · 기록 안 올림)')));
+      bar.append(mockLabel);
+    }
     host.append(bar);
 
     if (computed && computed.raidId === raid.id) {
@@ -764,7 +863,9 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
       result.append(el('b', 'raid-big', raidDamageText(computed.total)));
       result.append(el('span', 'raid-sub', t('{n}덱 합산 · {title} · 덱별 결과는 아래 전투 결과 판에', { n: computed.rows.length, title: raid.title })));
       // 자동으로 안 올라갔을 때만(올리다 실패했거나 내 기록보다 낮을 때) 손으로 올리는 문을 낸다.
-      if (!computed.submitted) {
+      if (computed.mock) {
+        result.append(el('span', 'raid-mock-badge', t('모의전 — 기록 안 올림')));
+      } else if (!computed.submitted) {
         const who = el('div', 'raid-submit-row');
         const submitButton = el('button', 'raid-submit', t('랭킹에 올리기'));
         submitButton.type = 'button';
@@ -797,5 +898,7 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
     refresh,
     openRaid,
     openRaids: () => raids.filter((raid) => raid.status === 'open'),
+    showLast: () => { if (lastEntries.length > 0) deps.showResults?.(lastEntries); },
+    mock: () => mock,
   };
 }

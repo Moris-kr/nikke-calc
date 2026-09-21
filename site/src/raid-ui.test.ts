@@ -102,11 +102,11 @@ function fakeServer() {
   }];
   const entries: Entry[] = [{
     eid: 'e0', openid: '99999999999', name: '남의닉', area: 81, total: 900_000_000, engine: 'v1', at: '2026-09-21T01:00:00Z',
-    decks: [{ names: ['크라운'], code: 'NK2-x', order: '', dmg: 900_000_000 }],
+    decks: [{ names: ['크라운'], code: 'NK2-x', order: '', dmg: 900_000_000, cubes: { 크라운: { name: '렐릭 베어 큐브', level: 15 } } }],
   }];
   const sent: Array<{ url: string; body: Record<string, unknown> }> = [];
   const publicEntry = (entry: Entry, admin: boolean) => ({
-    eid: entry.eid, decks: entry.decks, total: entry.total, engine: entry.engine, at: entry.at,
+    eid: entry.eid, tag: entry.openid.slice(0, 4), decks: entry.decks, total: entry.total, engine: entry.engine, at: entry.at,
     ...(admin ? { name: entry.name, area: entry.area, tail: entry.openid.slice(-4) } : {}),
   });
   const board = (admin: boolean) => ({
@@ -273,10 +273,22 @@ describe('계산기 레이드 (BETA)', () => {
     expect(pane.textContent).toContain('블라블라링크로 계정을 이어야');
     const row = pane.querySelector<HTMLElement>('[data-raid-row="e0"]')!;
     expect(row.textContent).toContain('참가자');
+    // 꼬리표로 «같은 사람»은 구분된다 — 계정 번호 전체는 어디에도 없다.
+    expect(row.querySelector('.raid-tag')!.textContent).toBe('#9999');
     expect(row.textContent).not.toContain('남의닉');
     expect(pane.textContent).not.toContain('99999999999');
     // 자기 기록을 지우는 길은 어디에도 없다.
     expect(pane.querySelector('[data-raid-remove]')).toBeNull();
+    // 줄을 펼치면 덱마다 「큐브 보기」 — 정식 이름 (별명) Lv.
+    row.click();
+    const cubes = pane.querySelector<HTMLButtonElement>('[data-raid-cubes="e0:0"]')!;
+    expect(cubes).not.toBeNull();
+    const list = cubes.closest('.raid-decks')!.querySelector<HTMLElement>('.raid-cubes')!;
+    expect(list.hidden).toBe(true);
+    cubes.click();
+    expect(list.hidden).toBe(false);
+    expect(list.textContent).toContain('크라운');
+    expect(list.textContent).toContain('렐릭 베어 큐브 (재장) Lv15');
   });
 
   it('이어 둔 계정으로 5덱을 돌리면 내 최고 딜은 바로 올라가고, 내 줄만 «나»로 보이며, 요청은 로스터 값·400·내 콘솔로 간다', async () => {
@@ -314,6 +326,9 @@ describe('계산기 레이드 (BETA)', () => {
     // 내 기록이 없었으니 묻지 않고 바로 올라갔다 — 손으로 올리는 단추는 없다.
     const posted = server.sent.find((call) => call.url.endsWith('/raid/entry'))!;
     expect(pane.querySelector('[data-raid-submit]')).toBeNull();
+    // 니케별로 실제 낀 큐브가 실린다 — 로스터·덱에 없으면 카탈로그 기본값(재장 Lv15).
+    const decks = posted.body.decks as Array<{ cubes?: Record<string, { name: string; level: number }> }>;
+    expect(decks[0]!.cubes).toEqual({ 리타: { name: '재장', level: 15 } });
     expect(posted.body.openid).toBe('15361668407129878426');
     expect(posted.body.name).toBe('모리스');
     expect(posted.body.total).toBe(246_000_000);
@@ -337,6 +352,52 @@ describe('계산기 레이드 (BETA)', () => {
     expect(pane.querySelector('[data-raid-message]')!.textContent).toContain('낮아 올리지 않았습니다');
     // 그때는 손으로 올리는 문이 남는다(서버가 어차피 더 높은 것만 받는다).
     expect(pane.querySelector('[data-raid-submit]')).not.toBeNull();
+  });
+
+  it('모의전을 켜면 카드가 풀리고, 계산해도 올리지 않고 «이대로라면 n등»만 알려 준다', async () => {
+    seedDecks();
+    linkAccount();
+    const server = fakeServer();
+    await mount(server);
+    await openRaidTab();
+    const pane = root.querySelector<HTMLElement>('[data-raid-pane]')!;
+    const card = () => root.querySelector<HTMLElement>('[data-slot-card="0"]')!;
+    expect(card().querySelector<HTMLButtonElement>('[data-char-panel-open="settings"]')!.disabled).toBe(true);
+    const mockBox = pane.querySelector<HTMLInputElement>('[data-raid-mock]')!;
+    expect(mockBox.checked).toBe(false);
+    mockBox.checked = true;
+    mockBox.dispatchEvent(new Event('change'));
+    await flush();
+    // 잠금이 풀린다 — 베껴오기 문도 돌아온다. 안내도 모의전으로 바뀐다.
+    expect(card().querySelector<HTMLButtonElement>('[data-char-panel-open="settings"]')!.disabled).toBe(false);
+    expect(card().querySelector('[data-copy-from]')).not.toBeNull();
+    expect(root.querySelector('[data-raid-lock]')!.textContent).toContain('모의전');
+    expect(pane.querySelector('[data-raid-run-note]')!.textContent).toContain('모의전');
+    // 덱에 손으로 잡은 수치가 그대로 실린다(로스터 값이 아니라).
+    const saved = JSON.parse(localStorage.getItem('nikke-state-v1')!) as { decks: Array<{ characters: Record<string, unknown> }> };
+    saved.decks[0]!.characters['리타'] = { overload: { atk_pct: 77 } };
+    localStorage.setItem('nikke-state-v1', JSON.stringify(saved));
+    // 다시 그려서 덱 상태를 읽게 하는 대신, 화면의 덱을 직접 만진다 — 카드의 개별 설정 토글.
+    pane.querySelector<HTMLButtonElement>('[data-raid-run]')!.click();
+    await flush();
+    expect(client.requests.length).toBeGreaterThan(0);
+    // 남의 9억 하나뿐이니 2.46억은 2등.
+    expect(pane.querySelector('[data-raid-message]')!.textContent).toContain('2등입니다');
+    expect(server.sent.some((call) => call.url.endsWith('/raid/entry'))).toBe(false);
+    expect(pane.querySelector('[data-raid-submit]')).toBeNull();
+    expect(pane.querySelector('.raid-mock-badge')).not.toBeNull();
+    // 결과 판에도 선다. 전투 조건 탭으로 갔다 와도 결과 판은 다시 그려진다.
+    expect(root.querySelector('[data-result-panel]')!.textContent).toContain('2덱 전투 결과');
+    root.querySelector<HTMLElement>('[data-result-panel]')!.replaceChildren();
+    root.querySelector<HTMLButtonElement>('[data-settings-tab="battle"]')!.click();
+    await flush();
+    await openRaidTab();
+    expect(root.querySelector('[data-result-panel]')!.textContent).toContain('2덱 전투 결과');
+    // 끄면 다시 잠긴다.
+    pane.querySelector<HTMLInputElement>('[data-raid-mock]')!.checked = false;
+    pane.querySelector<HTMLInputElement>('[data-raid-mock]')!.dispatchEvent(new Event('change'));
+    await flush();
+    expect(card().querySelector<HTMLButtonElement>('[data-char-panel-open="settings"]')!.disabled).toBe(true);
   });
 
   it('로스터에 없는(안 가진) 니케가 있으면 한 판도 안 돌린다', async () => {
