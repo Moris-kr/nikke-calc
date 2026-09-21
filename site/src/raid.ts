@@ -839,7 +839,8 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
             option.textContent = t('{title} ({n}명)', { title: other.title, n: other.count });
             from.append(option);
           }
-          const go = el('button', 'raid-ghost', t('이 조건으로 재계산해서 옮겨오기'));
+          // 방향은 언제나 «고른 레이드 → 지금 보는 레이드»다. 글에도 그렇게 적는다.
+          const go = el('button', 'raid-ghost', t('→ 「{title}」로 재계산해서 옮기기', { title: raid.title }));
           go.type = 'button';
           go.dataset.raidMigrate = '';
           const out = el('span', 'raid-verify-out');
@@ -847,7 +848,7 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
             go.disabled = true;
             void migrate(from.value, out).finally(() => { go.disabled = false; });
           });
-          row.append(el('span', 'raid-migrate-label', t('기록 옮겨오기')), from, go, out);
+          row.append(el('span', 'raid-migrate-label', t('기록 옮겨오기 — 어디에서:')), from, go, out);
           bar.append(row);
         }
       } else {
