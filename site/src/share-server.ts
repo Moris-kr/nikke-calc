@@ -136,10 +136,25 @@ export interface RaidEntry {
    * 올라왔다»는 구분은 된다. 옛 기록엔 없다.
    */
   tag?: string;
-  /** 어드민에게만 온다 — 표시 이름·서버·계정 꼬리. */
+  /** 다른 레이드에서 재계산해 옮겨 온 기록이면 그 레이드 id. */
+  from?: string;
+  /** 어드민에게만 온다 — 표시 이름·서버·계정 꼬리·계정 해시(기록 옮기기의 «동일인» 열쇠). */
   name?: string;
   area?: number;
   tail?: string;
+  owner?: string;
+}
+
+/** 기록 옮기기 한 줄 — 어드민 브라우저가 새 조건으로 다시 돌린 결과. */
+export interface RaidMigrateEntry {
+  owner: string;
+  name: string;
+  area: number;
+  tail: string;
+  decks: RaidDeck[];
+  total: number;
+  engine: string;
+  spec: unknown;
 }
 
 export interface RaidBoard {
@@ -401,6 +416,18 @@ export class ShareServer {
   }
 
   /** 어드민 재검증용 스펙. 기록을 올린 브라우저가 돌린 요청 그대로다. */
+  /** 다른 레이드의 기록을 이 레이드로. 서버가 동일인이 이미 있는 것은 건너뛴다. */
+  async migrateRaidEntries(
+    to: string, from: string, entries: RaidMigrateEntry[], password: string,
+  ): Promise<{ moved: number; skipped: number }> {
+    const response = await this.fetcher(`${this.base}/raid/migrate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to, from, entries, password }),
+    });
+    return this.unwrapReady(response, '계산기 레이드');
+  }
+
   async raidSpec<T = unknown>(id: string, eid: string, password: string): Promise<T> {
     const response = await this.fetcher(`${this.base}/raid/spec`, {
       method: 'POST',

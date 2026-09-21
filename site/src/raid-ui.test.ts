@@ -107,12 +107,24 @@ function fakeServer() {
   const sent: Array<{ url: string; body: Record<string, unknown> }> = [];
   const publicEntry = (entry: Entry, admin: boolean) => ({
     eid: entry.eid, tag: entry.openid.slice(0, 4), decks: entry.decks, total: entry.total, engine: entry.engine, at: entry.at,
-    ...(admin ? { name: entry.name, area: entry.area, tail: entry.openid.slice(-4) } : {}),
+    ...(admin ? { name: entry.name, area: entry.area, tail: entry.openid.slice(-4), owner: 'h' + entry.openid } : {}),
   });
-  const board = (admin: boolean) => ({
-    raid: { ...raids[0]!, count: entries.length },
-    entries: [...entries].sort((a, b) => b.total - a.total).map((entry) => publicEntry(entry, admin)),
-  });
+  /** 지난 시즌 — 닫혀 있고, 남의 기록 하나(스펙 보관)와 «남의닉»과 같은 계정의 기록 하나. */
+  const oldRaid = { id: 'r0', title: '지난 시즌', auto: '180초 · 철갑', code: CODE, status: 'closed',
+    openedAt: '2026-09-01T00:00:00Z', closedAt: '2026-09-10T00:00:00Z', count: 2 };
+  const oldEntries: Entry[] = [
+    { eid: 'o1', openid: '77777777777', name: '옛사람', area: 81, total: 500_000_000, engine: 'v0', at: '2026-09-02T00:00:00Z',
+      decks: [{ names: ['리타'], code: 'NK2-x', order: '', dmg: 500_000_000 }] },
+    { eid: 'o2', openid: '99999999999', name: '남의닉', area: 81, total: 400_000_000, engine: 'v0', at: '2026-09-02T00:00:00Z',
+      decks: [{ names: ['크라운'], code: 'NK2-x', order: '', dmg: 400_000_000 }] },
+  ];
+  const specs: Record<string, unknown> = {
+    'r0:o1': { requests: [{ squad: ['리타', '', '', '', ''], characters: { 리타: { overload: { atk_pct: 33 }, cube: { name: '탄충', level: 15 } } }, duration: 180, enemyCode: '철갑', console: { common_level: 300, class_level: {}, company_level: {} } }] },
+    'r0:o2': { requests: [{ squad: ['크라운', '', '', '', ''], characters: {}, duration: 180, enemyCode: '철갑' }] },
+  };
+  const board = (admin: boolean, id = 'r1') => id === 'r0'
+    ? { raid: oldRaid, entries: oldEntries.map((entry) => publicEntry(entry, admin)) }
+    : { raid: { ...raids[0]!, count: entries.length }, entries: [...entries].sort((a, b) => b.total - a.total).map((entry) => publicEntry(entry, admin)) };
   const fetcher = (async (url: string, init?: RequestInit) => {
     const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {};
     sent.push({ url, body });
@@ -123,8 +135,25 @@ function fakeServer() {
       return ok({ items: [{ id: 'b1', name: '솔로 레이드 전격', auto: '180초 · 전격', by: '', at: '2026-09-20T00:00:00Z', up: 0, down: 0, uses: 0, code: CODE }] });
     }
     if (url.includes('/list?kind=')) return ok({ items: [] });
-    if (url.endsWith('/raid')) return ok({ raids: raids.map((raid) => ({ ...raid, count: entries.length })) });
-    if (url.includes('/raid/board')) return ok(board(init?.method === 'POST' && body.password === 'let-me-in'));
+    if (url.endsWith('/raid')) return ok({ raids: [...raids.map((raid) => ({ ...raid, count: entries.length })), oldRaid] });
+    if (url.includes('/raid/board')) {
+      const id = init?.method === 'POST' ? String(body.id) : new URL(url).searchParams.get('id') ?? 'r1';
+      return ok(board(init?.method === 'POST' && body.password === 'let-me-in', id));
+    }
+    if (url.endsWith('/raid/spec')) {
+      const spec = specs[`${body.id}:${body.eid}`];
+      return spec ? ok({ spec }) : new Response(JSON.stringify({ error: '보관된 스펙이 없습니다.' }), { status: 404 });
+    }
+    if (url.endsWith('/raid/migrate')) {
+      const items = body.entries as Array<{ owner: string; name: string; decks: unknown[]; total: number }>;
+      let moved = 0; let skipped = 0;
+      for (const item of items) {
+        if (entries.some((entry) => 'h' + entry.openid === item.owner)) { skipped += 1; continue; }
+        entries.push({ eid: `m${entries.length}`, openid: item.owner.slice(1), name: item.name, area: 81, decks: item.decks, total: item.total, engine: 'v1', at: '2026-09-21T04:00:00Z' });
+        moved += 1;
+      }
+      return ok({ moved, skipped });
+    }
     if (url.endsWith('/raid/entry')) {
       const entry: Entry = {
         eid: `e${entries.length}`, openid: String(body.openid), name: String(body.name ?? ''), area: Number(body.area ?? 0),
@@ -480,7 +509,56 @@ describe('계산기 레이드 (BETA)', () => {
     expect(form.hidden).toBe(true);
     expect(server.raids).toHaveLength(2);
     expect(root.querySelector<HTMLElement>('[data-raid-band-list]')!.textContent).toContain('9월 4주 솔레');
-    expect(pane.querySelectorAll('[data-raid-pick]')).toHaveLength(2);
+    expect(pane.querySelectorAll('[data-raid-pick]')).toHaveLength(3);
+  });
+
+  it('랭킹 옆 새로고침을 누르면 목록과 랭킹을 다시 받는다', async () => {
+    seedDecks();
+    const server = fakeServer();
+    await mount(server);
+    await openRaidTab();
+    const pane = root.querySelector<HTMLElement>('[data-raid-pane]')!;
+    const before = server.sent.filter((call) => call.url.includes('/raid/board')).length;
+    pane.querySelector<HTMLButtonElement>('[data-raid-refresh]')!.click();
+    await flush();
+    expect(server.sent.filter((call) => call.url.includes('/raid/board')).length).toBe(before + 1);
+    expect(pane.querySelector('[data-raid-row="e0"]')).not.toBeNull();
+  });
+
+  it('어드민이 지난 레이드의 기록을 이 조건으로 재계산해 옮긴다 — 동일인이 이미 있으면 건너뛴다', async () => {
+    seedDecks();
+    const server = fakeServer();
+    await mount(server);
+    root.querySelector<HTMLButtonElement>('[data-feedback-open]')!.click();
+    await flush();
+    root.querySelector<HTMLButtonElement>('[data-feedback-admin]')!.click();
+    await flush();
+    await openRaidTab();
+    const pane = root.querySelector<HTMLElement>('[data-raid-pane]')!;
+    const from = pane.querySelector<HTMLSelectElement>('[data-raid-migrate-from]')!;
+    expect([...from.options].map((option) => option.value)).toEqual(['r0']);
+    pane.querySelector<HTMLButtonElement>('[data-raid-migrate]')!.click();
+    await flush();
+    await flush();
+    // 옛사람(o1)만 옮겨진다 — 남의닉은 이 레이드에 이미 있다(e0). 요청은 이 레이드 조건(전격)으로,
+    // 스펙의 육성·큐브·그 사람의 콘솔은 그대로.
+    const rebased = client.requests.find((request) => request.squad[0] === '리타')!;
+    expect(rebased.enemyCode).toBe('전격');
+    expect(rebased.characters?.리타?.overload).toEqual({ atk_pct: 33 });
+    expect(rebased.console?.common_level).toBe(300);
+    expect(client.requests.some((request) => request.squad[0] === '크라운')).toBe(false);
+    const posted = server.sent.find((call) => call.url.endsWith('/raid/migrate'))!;
+    const items = posted.body.entries as Array<{ owner: string; name: string; total: number; decks: Array<{ cubes?: Record<string, { name: string }> }> }>;
+    expect(items).toHaveLength(1);
+    expect(items[0]!.owner).toBe('h77777777777');
+    expect(items[0]!.name).toBe('옛사람');
+    expect(items[0]!.total).toBe(123_000_000);
+    expect(items[0]!.decks[0]!.cubes?.리타?.name).toBe('탄충');
+    expect(posted.body.to).toBe('r1');
+    expect(posted.body.from).toBe('r0');
+    expect(server.entries.some((entry) => entry.name === '옛사람')).toBe(true);
+    expect(pane.querySelector('[data-raid-message]')!.textContent).toContain('1개를 옮겼습니다');
+    expect(pane.querySelector('[data-raid-message]')!.textContent).toContain('건너뛴 1개');
   });
 
   it('어드민은 닫은 레이드를 다시 열거나 두 번 눌러 통째로 지운다', async () => {
@@ -510,6 +588,8 @@ describe('계산기 레이드 (BETA)', () => {
     await flush();
     expect(server.sent.some((call) => call.url.endsWith('/raid/delete') && call.body.password === 'let-me-in')).toBe(true);
     expect(server.raids).toHaveLength(0);
-    expect(pane.textContent).toContain('지금 열린 계산기 레이드가 없습니다');
+    // 지워진 레이드는 목록에서 사라지고, 남은 것은 지난 시즌(r0)뿐이다.
+    expect(pane.querySelector('[data-raid-pick="r1"]')).toBeNull();
+    expect(pane.querySelectorAll('[data-raid-pick]')).toHaveLength(1);
   });
 });

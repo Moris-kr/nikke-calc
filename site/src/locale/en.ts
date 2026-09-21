@@ -1647,4 +1647,11 @@ export const EN: Record<string, string> = {
   '모의전 — 기록 안 올림': 'Mock — not submitted',
   '🧪 모의전 — 수치 설정·컨트롤을 자유롭게 바꿔 보세요. 결과는 랭킹에 올라가지 않습니다.': '🧪 Mock battle — change stats and controls freely. The result is not submitted to the ranking.',
   '임시 니케': 'preview NIKKE',
+  '옮기는 중 {n}/{m}…': 'Moving {n}/{m}…',
+  '{n}개를 옮겼습니다 · 이미 기록이 있어 건너뛴 {s}개 · 보관된 스펙이 없어 못 옮긴 {b}개': 'Moved {n} · skipped {s} (already have a record here) · {b} had no stored spec',
+  '{title} ({n}명)': '{title} ({n} entries)',
+  '이 조건으로 재계산해서 옮겨오기': 'Recalculate under this condition and move',
+  '기록 옮겨오기': 'Move records from',
+  '⟳ 새로고침': '⟳ Refresh',
+  '다른 레이드의 기록을 이 조건으로 다시 계산해 옮긴 것입니다.': 'Moved from another raid, recalculated under this condition.',
 };

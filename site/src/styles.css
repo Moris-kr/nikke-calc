@@ -400,6 +400,15 @@ input:where([type="checkbox"], [type="radio"]) {
 /* 다섯을 한 번에 지우는 단추는 «한 번 더» 눌러야 듣는다. */
 .deck-clear.is-armed { border-color: var(--danger); background: rgba(255,77,109,.16); color: #ffd7de; }
 .deck-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 7px; margin: -4px 0 10px; }
+/* 덱 세트 — 속성별 프리셋 줄. 덱 탭 바로 위에 산다. */
+.deck-sets { display: flex; flex-wrap: wrap; gap: 5px; margin: 0 0 8px; }
+.deck-set { position: relative; display: inline-flex; align-items: center; gap: 5px; min-height: 28px; padding: 0 10px;
+  border: 1px solid var(--line); border-radius: 999px; background: rgba(7,15,25,.6); color: var(--muted);
+  font: 750 11.5px/1 inherit; font-family: inherit; cursor: pointer; }
+.deck-set:hover { color: var(--ink); border-color: rgba(69,214,208,.4); }
+.deck-set.is-on { color: var(--ink); border-color: var(--cyan); background: rgba(69,214,208,.12); }
+.deck-set.has-decks::after { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--amber); }
+.deck-set-icon { width: 14px; height: 14px; }
 /* 칸 하나 = 덱 단추 하나. 연필은 이 안에 겹쳐 놓는다.
    `min-width: 0`은 격자 칸의 기본값(auto)이 «안쪽 내용보다 좁아지지 않는다»라
    이름이 길면 1fr을 넘겨 탭줄이 가로로 삐져나가기 때문이다. */
@@ -2804,6 +2813,12 @@ img[src*="/temporary-characters/"][src$="-card.png"] { object-fit: contain; obje
   background: rgba(255,191,60,.06); font-size: 12px; }
 .raid-admin b { color: var(--amber); }
 .raid-admin .raid-ghost { margin-left: auto; }
+.raid-migrate { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-top: 6px; border-top: 1px dashed rgba(255,191,60,.25); }
+.raid-migrate .raid-ghost { margin-left: 0; }
+.raid-migrate-label { font-weight: 800; color: var(--amber); }
+.raid-migrate select { min-width: 0; max-width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px; background: rgba(8,16,20,.6); color: inherit; font: inherit; font-size: 12px; }
+.raid-refresh { min-height: 24px; padding: 0 8px; font-size: 11px; }
+.raid-from { color: var(--amber); }
 .raid-boss { padding: 14px 16px; border: 1px solid rgba(255,191,60,.28); border-radius: 10px;
   background: linear-gradient(90deg, rgba(255,191,60,.08), transparent 70%); }
 .raid-boss h3 { margin: 0 0 4px; font-size: 16px; }

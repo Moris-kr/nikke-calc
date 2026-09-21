@@ -1092,6 +1092,44 @@ describe('calculator UI', () => {
     expect(root.querySelector('[data-share-scope-note]')?.textContent).toContain('덱 1에만 들어갑니다');
   });
 
+  it('덱 세트 — 속성 단추를 누르면 편성 전체가 그 세트로 바뀌고, 세트마다 따로 남는다', () => {
+    localStorage.setItem('nikke-state-v1', JSON.stringify({
+      decks: [{ id: 1, squad: ['리타', '', '', '', ''], characters: {} }, { id: 2, squad: ['', '', '', '', ''], characters: {} }],
+      fiveDeckMode: false, activeDeckId: 1, carryOverSettings: false,
+      deckSet: '기본',
+      deckSets: { 수냉: [{ id: 1, squad: ['프리바티', '', '', '', ''], characters: {} }, { id: 2, squad: ['리타', '', '', '', ''], characters: {} }] },
+    }));
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const sets = root.querySelector<HTMLElement>('[data-deck-sets]')!;
+    expect([...sets.querySelectorAll('button')].map((button) => button.textContent)).toEqual(['기본', '수냉', '작열', '철갑', '전격', '풍압']);
+    expect(sets.querySelector('.deck-set.is-on')!.textContent).toBe('기본');
+    // 니케가 든 세트에는 점이 찍힌다(기본·수냉).
+    expect([...sets.querySelectorAll('.has-decks')].map((button) => button.textContent)).toEqual(['기본', '수냉']);
+    const firstName = () => root.querySelector('[data-slot-card="0"]')!.textContent;
+    expect(firstName()).toContain('리타');
+
+    sets.querySelector<HTMLButtonElement>('[data-deck-set="수냉"]')!.click();
+    expect(sets.querySelector('.deck-set.is-on')!.textContent).toBe('수냉');
+    expect(firstName()).toContain('프리바티');
+    // 둘 이상 찬 세트라 여러덱 모드가 켜진다.
+    expect(root.querySelector<HTMLInputElement>('#squad-mode')!.checked).toBe(true);
+    let saved = JSON.parse(localStorage.getItem('nikke-state-v1')!) as { deckSet: string; deckSets: Record<string, Array<{ squad: string[] }>>; decks: Array<{ squad: string[] }> };
+    expect(saved.deckSet).toBe('수냉');
+    expect(saved.decks[0]!.squad[0]).toBe('프리바티');
+    expect(saved.deckSets['기본']![0]!.squad[0]).toBe('리타');
+    expect(saved.deckSets['수냉']).toBeUndefined();
+
+    // 빈 세트는 빈 덱으로 시작하고, 돌아오면 원래 것이 그대로다.
+    sets.querySelector<HTMLButtonElement>('[data-deck-set="작열"]')!.click();
+    expect(firstName()).not.toContain('프리바티');
+    expect(firstName()).not.toContain('리타');
+    sets.querySelector<HTMLButtonElement>('[data-deck-set="기본"]')!.click();
+    expect(firstName()).toContain('리타');
+    saved = JSON.parse(localStorage.getItem('nikke-state-v1')!) as typeof saved;
+    expect(saved.deckSet).toBe('기본');
+    expect(saved.deckSets['수냉']![0]!.squad[0]).toBe('프리바티');
+  });
+
   it('프리셋은 어느 범위로 저장했는지 함께 알린다', () => {
     mountCalculator(root, {
       catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage,

@@ -484,7 +484,11 @@ const publicEntry = (entry, admin) => ({
   total: entry.total,
   engine: entry.engine,
   at: entry.at,
-  ...(admin ? { name: entry.name, area: entry.area, tail: entry.tail } : {}),
+  // 다른 레이드에서 재계산해 옮겨 온 기록이면 어디서 왔는지. 남에게도 보인다 — 직접 돌린
+  // 기록과 옮겨진 기록은 다르다.
+  ...(entry.from ? { from: entry.from } : {}),
+  // 어드민에게는 계정 해시(owner)도 — 기록 옮기기가 «동일인»을 가리는 열쇠다.
+  ...(admin ? { name: entry.name, area: entry.area, tail: entry.tail, owner: entry.owner } : {}),
 });
 
 const sortEntries = (entries) => [...entries].sort((a, b) => b.total - a.total || a.at.localeCompare(b.at));
@@ -692,6 +696,57 @@ async function handleRaidDelete(env, body) {
   return { id };
 }
 
+/**
+ * 다른 레이드의 기록을 이 레이드로 옮긴다 — 어드민 브라우저가 보관된 스펙을 새 조건으로
+ * 다시 돌린 결과를 그대로 받는다. **동일인(계정 해시)이 이미 이 레이드에 기록을 찍었으면
+ * 옮기지 않는다** — 새 조건에서 직접 올린 기록이 재계산본보다 진짜다.
+ */
+async function handleRaidMigrate(env, body) {
+  requireAdmin(env, body.password);
+  const to = text(body.to, 40, '레이드', true);
+  const from = text(body.from, 40, '원본 레이드', false);
+  const index = await raidIndex(env);
+  const raid = index.raids.find((entry) => entry.id === to);
+  if (!raid) throw new Fail(404, '없는 레이드입니다.');
+  const list = Array.isArray(body.entries) ? body.entries : [];
+  if (list.length > LIMITS.raidEntries) throw new Fail(400, '한 번에 옮길 수 있는 기록 수를 넘었습니다.');
+  const board = await readJson(env, raidBoardKey(to), { entries: [] });
+  board.entries = board.entries ?? [];
+  let moved = 0;
+  let skipped = 0;
+  for (const [i, item] of list.entries()) {
+    const owner = text(item && item.owner, 64, '계정 해시', true);
+    if (!/^[0-9a-f]{8,64}$/.test(owner)) throw new Fail(400, `${i + 1}번째 기록의 계정 해시가 잘못됐습니다.`);
+    if (board.entries.some((row) => row.owner === owner)) { skipped += 1; continue; }
+    if (board.entries.length >= LIMITS.raidEntries) throw new Fail(507, '이 레이드의 기록함이 가득 찼습니다.');
+    const decks = Array.isArray(item.decks) ? item.decks.map(raidDeck) : [];
+    if (decks.length === 0 || decks.length > LIMITS.raidDecks) throw new Fail(400, `${i + 1}번째 기록의 덱은 1~5개여야 합니다.`);
+    const total = Number(item.total);
+    if (!Number.isFinite(total) || total < 0) throw new Fail(400, `${i + 1}번째 기록의 합산 딜이 숫자가 아닙니다.`);
+    const spec = item.spec === undefined ? null : JSON.stringify(item.spec);
+    if (spec && spec.length > LIMITS.raidSpec) throw new Fail(413, `${i + 1}번째 기록의 스펙 묶음이 너무 큽니다.`);
+    const entry = {
+      eid: crypto.randomUUID().slice(0, 8),
+      owner,
+      name: text(item.name, LIMITS.raidName, '표시 이름', false),
+      area: Number.isFinite(Number(item.area)) ? Number(item.area) : 0,
+      tail: text(item.tail, 8, '꼬리', false),
+      decks,
+      total: Math.round(total),
+      engine: text(item.engine, 40, '엔진', false),
+      at: new Date().toISOString(),
+      ...(from ? { from } : {}),
+    };
+    board.entries.push(entry);
+    if (spec) await env.SHARE.put(raidSpecKey(to, entry.eid), spec);
+    moved += 1;
+  }
+  await env.SHARE.put(raidBoardKey(to), JSON.stringify(board));
+  raid.count = board.entries.length;
+  await env.SHARE.put(RAID_INDEX_KEY, JSON.stringify(index));
+  return { moved, skipped };
+}
+
 /** 어드민 재검증용 스펙. 기록을 올린 브라우저가 돌린 요청 그대로다. */
 async function handleRaidSpec(env, body) {
   requireAdmin(env, body.password);
@@ -827,6 +882,9 @@ export default {
       }
       if (request.method === 'POST' && url.pathname === '/raid/remove') {
         return json(await handleRaidRemove(env, await request.json()));
+      }
+      if (request.method === 'POST' && url.pathname === '/raid/migrate') {
+        return json(await handleRaidMigrate(env, await request.json()));
       }
       if (request.method === 'POST' && url.pathname === '/raid/spec') {
         return json(await handleRaidSpec(env, await request.json()));

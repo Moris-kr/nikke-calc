@@ -22,7 +22,7 @@ import { cubeLine } from './cube-names';
 import { cycleLine, sequenceForDeck } from './burst-order';
 import { t } from './i18n';
 import { DEFAULT_SYNCHRO_LEVEL, requestForDeck } from './model';
-import type { RaidBoard, RaidDeck, RaidEntry, RaidEntryInput, RaidSummary, ShareServer } from './share-server';
+import type { RaidBoard, RaidDeck, RaidEntry, RaidEntryInput, RaidMigrateEntry, RaidSummary, ShareServer } from './share-server';
 import { decodeBattleCode, encodeShareCode, type BattleShare } from './share-code';
 import type {
   BattleSettings, CharacterMeta, CharacterOverrides, DeckResultEntry, DeckState, SimulationRequest, SimulationResult,
@@ -508,6 +508,64 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
     } catch (error) { say(error instanceof Error ? error.message : String(error)); }
   }
 
+  /**
+   * 다른 레이드의 기록을 이 레이드로 옮긴다. 보관된 스펙(그 사람의 편성·육성·큐브·버스트
+   * 순서)을 **이 레이드의 조건**으로 내 브라우저에서 다시 돌려 그 결과를 올린다. 이미
+   * 이 레이드에 직접 올린 사람(동일 계정)은 건너뛴다 — 서버도 같은 규칙으로 막는다.
+   */
+  async function migrate(fromId: string, out: HTMLElement): Promise<void> {
+    const target = selected();
+    if (!target || target.status !== 'open' || !fromId || fromId === target.id) return;
+    const pass = deps.adminPass();
+    try {
+      const source = await deps.server.raidBoard(fromId, pass);
+      const here = await deps.server.raidBoard(target.id, pass);
+      const taken = new Set(here.entries.map((entry) => entry.owner).filter(Boolean));
+      const share = decodeBattleCode(target.code);
+      const moved: RaidMigrateEntry[] = [];
+      let skipped = 0;
+      let broken = 0;
+      for (const [index, entry] of source.entries.entries()) {
+        out.textContent = t('옮기는 중 {n}/{m}…', { n: index + 1, m: source.entries.length });
+        if (!entry.owner || taken.has(entry.owner)) { skipped += 1; continue; }
+        let requests: SimulationRequest[] = [];
+        try {
+          const spec = await deps.server.raidSpec<{ requests?: SimulationRequest[] }>(fromId, entry.eid, pass);
+          requests = spec.requests ?? [];
+        } catch { requests = []; }
+        if (requests.length === 0) { broken += 1; continue; }
+        const rows: RaidDeck[] = [];
+        const rebased: SimulationRequest[] = [];
+        for (const [i, old] of requests.entries()) {
+          // 그 사람의 콘솔은 그대로, 조건만 이 레이드 것으로.
+          const battle = raidBattle(share, deps.battleFallback(), old.console);
+          const deck: DeckState = {
+            id: i + 1, squad: [...old.squad], characters: old.characters ?? {},
+            ...(old.burstSequence ? { burstSequence: old.burstSequence } : {}),
+          };
+          const request = requestForDeck(deck, battle, old.customCharacters);
+          const result = await deps.simulate(request);
+          const worn = Object.fromEntries(deck.squad.filter(Boolean).map((name) =>
+            [name, request.characters?.[name]?.cube ?? deps.defaultCube?.(name)]));
+          rows.push(raidDeckRow({ id: deck.id, squad: deck.squad, cubes: {}, burstSequence: deck.burstSequence }, result, worn));
+          rebased.push(request);
+        }
+        moved.push({
+          owner: entry.owner, name: entry.name ?? '', area: entry.area ?? 0, tail: entry.tail ?? '',
+          decks: rows, total: raidTotal(rows), engine: deps.engineVersion, spec: { requests: rebased },
+        });
+      }
+      const sent = moved.length > 0
+        ? await deps.server.migrateRaidEntries(target.id, fromId, moved, pass)
+        : { moved: 0, skipped: 0 };
+      await refresh();
+      say(t('{n}개를 옮겼습니다 · 이미 기록이 있어 건너뛴 {s}개 · 보관된 스펙이 없어 못 옮긴 {b}개',
+        { n: sent.moved, s: skipped + sent.skipped, b: broken }), true);
+    } catch (error) {
+      say(error instanceof Error ? error.message : String(error));
+    }
+  }
+
   async function removeEntry(entry: RaidEntry): Promise<void> {
     const raid = selected();
     if (!raid) return;
@@ -679,6 +737,7 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
     }
     box.append(actions);
     box.append(el('p', 'raid-fine', t('컨트롤 없음(규칙) · 엔진 {engine} · 스펙은 제출 때 함께 보관되며 어드민 재검증에만 쓰입니다', { engine: entry.engine || '?' })));
+    if (entry.from) box.append(el('p', 'raid-fine raid-from', t('다른 레이드의 기록을 이 조건으로 다시 계산해 옮긴 것입니다.')));
     return box;
   }
 
@@ -768,6 +827,29 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
         close.dataset.raidClose = '';
         close.addEventListener('click', () => { void closeRaid(); });
         bar.append(close);
+        // 다른 레이드의 기록을 이 조건으로 다시 돌려 옮겨 온다 — 시즌이 바뀌었을 때.
+        const others = raids.filter((other) => other.id !== raid.id);
+        if (others.length > 0) {
+          const row = el('div', 'raid-migrate');
+          const from = document.createElement('select');
+          from.dataset.raidMigrateFrom = '';
+          for (const other of others) {
+            const option = document.createElement('option');
+            option.value = other.id;
+            option.textContent = t('{title} ({n}명)', { title: other.title, n: other.count });
+            from.append(option);
+          }
+          const go = el('button', 'raid-ghost', t('이 조건으로 재계산해서 옮겨오기'));
+          go.type = 'button';
+          go.dataset.raidMigrate = '';
+          const out = el('span', 'raid-verify-out');
+          go.addEventListener('click', () => {
+            go.disabled = true;
+            void migrate(from.value, out).finally(() => { go.disabled = false; });
+          });
+          row.append(el('span', 'raid-migrate-label', t('기록 옮겨오기')), from, go, out);
+          bar.append(row);
+        }
       } else {
         const reopen = el('button', 'raid-ghost', t('다시 열기 (제출 재개)'));
         reopen.type = 'button';
@@ -888,6 +970,12 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
     const boardSection = el('section', 'raid-section');
     const head = el('div', 'raid-board-head');
     head.append(el('h4', '', t('랭킹')));
+    const reload = el('button', 'raid-ghost raid-refresh', t('⟳ 새로고침'));
+    reload.type = 'button';
+    reload.dataset.raidRefresh = '';
+    reload.disabled = loading;
+    reload.addEventListener('click', () => { void refresh(); });
+    head.append(reload);
     head.append(el('span', '', t('참가 {n}명 · 다른 참가자는 익명입니다 · 줄을 누르면 덱이 펼쳐집니다', { n: board?.entries.length ?? 0 })));
     boardSection.append(head, renderBoard());
     host.append(boardSection);

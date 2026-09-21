@@ -456,6 +456,15 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const cache = new ResultCache(storage, version, 30);
   const catalogByName = new Map(catalog.map((char) => [char.name, char]));
   const decks = Array.from({ length: 2 }, (_, index) => emptyDeck(index + 1));
+  /**
+   * 덱 세트 — 속성별 프리셋. «수냉 보스용 다섯 덱»과 «작열 보스용 다섯 덱»을 오가며
+   * 쓰는데, 결과 불러오기는 니케 설정까지 다시 만져야 해서 번거로웠다(피드백 2026-09-21).
+   * `decks`는 언제나 **지금 세트**의 덱이고, 나머지 세트는 여기 잠들어 있다.
+   */
+  const DECK_SETS = ['기본', '수냉', '작열', '철갑', '전격', '풍압'] as const;
+  type DeckSetKey = typeof DECK_SETS[number];
+  let activeDeckSet: DeckSetKey = '기본';
+  const sleepingDeckSets = new Map<DeckSetKey, DeckState[]>();
   decks[0]!.squad = initialSquad(catalog);
   let activeDeckId = 1;
   let activeSlot = 0;
@@ -665,6 +674,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     carryOverSettings: boolean;
     battle: BattleSettings;
     buffTargets: Array<{ id: number; sig: string; rows: Record<string, BuffTargetRow[]> }>;
+    /** 지금 보고 있는 덱 세트와, 잠들어 있는 나머지 세트의 덱. 옛 저장본에는 없다. */
+    deckSet?: string;
+    deckSets?: Record<string, DeckState[]>;
   }
   // 큐브 이름이 짧은 통칭에서 인게임 정식 명칭으로 바뀌었다. 이전 버전에서 저장된
   // 편성에는 옛 이름이 남아 있어 그대로 두면 엔진이 요청을 거부한다. 불러올 때 한 번
@@ -937,6 +949,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             </div>
             <p class="roster-note" data-roster-note hidden></p>
           </div>
+          <!-- 덱 세트 — 속성별 프리셋. 누르면 편성 전체(덱 다섯)가 그 세트로 바뀐다. -->
+          <div class="deck-sets" data-deck-sets role="tablist" aria-label="덱 세트"></div>
           <div class="deck-tabs" data-deck-tabs hidden></div>
           <div class="deck-controls">
             <button type="button" class="burst-order-open" data-burst-order-open title="사이클마다 1버·2버·3버를 누가 쓸지 직접 정합니다. 정한 만큼만 따르고 그 뒤는 평소 순서로 돌아갑니다"><span class="burst-order-mark" aria-hidden="true">1·2·3</span><span>버스트 순서</span><b class="burst-order-badge" data-burst-order-badge hidden></b></button>
@@ -1703,7 +1717,67 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     renderSquad();
   };
 
+  /** 세트에 니케가 하나라도 있나 — 단추에 점을 찍는 기준. */
+  const deckSetFilled = (key: DeckSetKey): boolean =>
+    (key === activeDeckSet ? decks : (sleepingDeckSets.get(key) ?? [])).some((deck) => deck.squad.some(Boolean));
+  const renderDeckSets = () => {
+    const host = root.querySelector<HTMLElement>('[data-deck-sets]');
+    if (!host) return;
+    host.replaceChildren();
+    for (const key of DECK_SETS) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.dataset.deckSet = key;
+      button.setAttribute('role', 'tab');
+      button.setAttribute('aria-selected', String(key === activeDeckSet));
+      button.className = key === activeDeckSet ? 'deck-set is-on' : 'deck-set';
+      button.classList.toggle('has-decks', deckSetFilled(key));
+      const icon = key === '기본' ? null : createElementIcon(key, 'deck-set-icon');
+      if (icon) button.append(icon);
+      button.append(createText('span', key));
+      button.title = key === '기본'
+        ? '기본 덱 세트. 속성 세트를 누르면 편성 전체가 그 세트로 바뀌고, 세트마다 따로 저장됩니다'
+        : `${key} 보스용 덱 세트 — 누르면 편성 전체가 이 세트로 바뀝니다. 세트마다 따로 저장됩니다`;
+      button.addEventListener('click', () => switchDeckSet(key));
+      host.append(button);
+    }
+  };
+  /** 세트를 바꾼다 — 지금 덱을 재우고 그 세트의 덱을 깨운다. 빈 세트는 빈 덱 둘로 시작한다. */
+  const switchDeckSet = (key: DeckSetKey) => {
+    if (key === activeDeckSet) return;
+    sleepingDeckSets.set(activeDeckSet, decks.map((deck) => structuredClone(deck)));
+    const woken = sleepingDeckSets.get(key) ?? [];
+    sleepingDeckSets.delete(key);
+    decks.splice(0, decks.length, ...Array.from({ length: Math.max(2, woken.length) }, (_, index) => {
+      const deck = woken[index] ?? emptyDeck(index + 1);
+      deck.id = index + 1;
+      return deck;
+    }));
+    activeDeckSet = key;
+    activeDeckId = 1;
+    activeSlot = 0;
+    // 「누가 이 버프를 받았나」는 그 세트의 계산에서 온 것이라 다른 세트에는 뜻이 없다.
+    buffTargetsByDeck.clear();
+    // 덱이 둘 이상 찬 세트를 단일덱 모드로 보면 나머지가 안 보인다 — 여러덱 모드로 켠다.
+    if (!fiveDeckMode && decks.filter((deck) => deck.squad.some(Boolean)).length > 1) {
+      fiveDeckMode = true;
+      element<HTMLInputElement>(root, '#squad-mode').checked = true;
+      deckTabs.hidden = false;
+      deckMoves.hidden = false;
+      clearAllButton.hidden = false;
+      deckNote.hidden = false;
+      deckCopy.hidden = false;
+    }
+    closeCharPanel();
+    closeDeckCopy();
+    showErrors([]);
+    saveState();
+    renderDeckTabs();
+    renderSquad();
+    renderRosterGrid();
+  };
   const renderDeckTabs = () => {
+    renderDeckSets();
     element<HTMLElement>(root, '[data-deck-mode-label]').textContent = fiveDeckMode ? '여러덱 모드' : '단일덱 모드';
     deckTabs.replaceChildren();
     for (const deck of decks) {
@@ -8089,6 +8163,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         // 새로고침해도 「누가 이 버프를 받았나」가 남게 한다 — 다시 계산하기 전까지
         // 빈 괄호만 보이면 기능이 꺼진 것처럼 보인다.
         buffTargets: [...buffTargetsByDeck].map(([id, v]) => ({ id, ...v })),
+        deckSet: activeDeckSet,
+        deckSets: Object.fromEntries(sleepingDeckSets),
       }));
     } catch {
       /* 저장 실패 무시 */
@@ -8116,6 +8192,26 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           if (deck.squad.includes(name)) deck.characters[name] = override;
         }
       });
+    }
+    // 잠든 세트도 되살린다 — 모르는 니케는 걸러 낸다(카탈로그가 바뀌었을 수 있다).
+    const setKeys = new Set<string>(DECK_SETS);
+    if (typeof savedState.deckSet === 'string' && setKeys.has(savedState.deckSet)) {
+      activeDeckSet = savedState.deckSet as DeckSetKey;
+    }
+    for (const [key, saved] of Object.entries(savedState.deckSets ?? {})) {
+      if (!setKeys.has(key) || key === activeDeckSet || !Array.isArray(saved)) continue;
+      sleepingDeckSets.set(key as DeckSetKey, saved.map((deck, index) => {
+        const squad = (deck.squad ?? ['', '', '', '', '']).map((name) => (name && catalogByName.has(name) ? name : ''));
+        const characters: DeckState['characters'] = {};
+        for (const [name, override] of Object.entries(deck.characters ?? {})) {
+          if (squad.includes(name)) characters[name] = override;
+        }
+        return {
+          id: index + 1, squad, characters,
+          ...(deck.name?.trim() ? { name: deck.name.trim() } : {}),
+          ...(deck.burstSequence ? { burstSequence: deck.burstSequence } : {}),
+        };
+      }));
     }
     // 「누가 이 버프를 받았나」는 서명이 지금 편성·설정과 맞을 때만 되살린다.
     // 어긋나면 지난 계산의 값이라 그대로 믿을 수 없다.

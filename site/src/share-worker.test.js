@@ -244,6 +244,41 @@ describe('계산기 레이드', () => {
     expect(JSON.stringify(board)).not.toContain('555555555');
   });
 
+  it('어드민이 다른 레이드의 기록을 옮긴다 — 동일인이 이미 있으면 건너뛰고, 스펙과 출처를 남긴다', async () => {
+    const kv = fakeKv();
+    const { raid: old } = await (await open(kv, '지난 시즌')).json();
+    await entry(kv, old.id);
+    await entry(kv, old.id, { openid: '555555555', name: 'B', total: 100_000_000 });
+    const oldBoard = await (await call(kv, '/raid/board', { method: 'POST', body: { id: old.id, password: ADMIN } })).json();
+    expect(oldBoard.entries.every((row) => /^[0-9a-f]+$/.test(row.owner))).toBe(true);
+    const { raid: fresh } = await (await open(kv, '새 시즌')).json();
+    // 새 시즌에 첫 계정(MORIS)이 이미 직접 올렸다.
+    await entry(kv, fresh.id, { total: 700_000_000 });
+    const items = oldBoard.entries.map((row) => ({
+      owner: row.owner, name: row.name, area: row.area, tail: row.tail,
+      decks: [deck(['리타'], 420_000_000)], total: 420_000_000, engine: 'new', spec: { requests: [{ squad: ['리타'] }] },
+    }));
+    // 비밀번호 없이는 안 된다.
+    expect((await call(kv, '/raid/migrate', { method: 'POST', body: { to: fresh.id, from: old.id, entries: items } })).status).toBe(403);
+    const moved = await (await call(kv, '/raid/migrate', { method: 'POST', body: { to: fresh.id, from: old.id, entries: items, password: ADMIN } })).json();
+    expect(moved).toEqual({ moved: 1, skipped: 1 });
+    const board = await (await call(kv, '/raid/board', { method: 'POST', body: { id: fresh.id, password: ADMIN } })).json();
+    expect(board.entries).toHaveLength(2);
+    // MORIS의 직접 올린 7억은 그대로(재계산본 4.2억으로 안 덮인다). B는 옮겨졌고 출처가 남는다.
+    const moris = board.entries.find((row) => row.name === 'MORIS');
+    expect(moris.total).toBe(700_000_000);
+    expect(moris.from).toBeUndefined();
+    const b = board.entries.find((row) => row.name === 'B');
+    expect(b.total).toBe(420_000_000);
+    expect(b.from).toBe(old.id);
+    const spec = await (await call(kv, '/raid/spec', { method: 'POST', body: { id: fresh.id, eid: b.eid, password: ADMIN } })).json();
+    expect(spec.spec.requests[0].squad).toEqual(['리타']);
+    // 남에게도 «옮겨진 기록»은 보이되 계정 해시는 안 보인다.
+    const anon = await (await call(kv, `/raid/board?id=${fresh.id}`)).json();
+    expect(anon.entries.find((row) => row.from)).toBeTruthy();
+    expect(anon.entries.every((row) => row.owner === undefined)).toBe(true);
+  });
+
   it('닫은 레이드는 다시 열거나 통째로 지울 수 있다 — 진행 중인 것은 못 지운다', async () => {
     const kv = fakeKv();
     const { raid } = await (await open(kv)).json();
