@@ -224,6 +224,23 @@ describe('계산기 레이드', () => {
     expect((await call(kv, '/raid/open', { method: 'POST', body: { title: 'x', code: 'NK3-abc' } })).status).toBe(403);
   });
 
+  it('설명이 길어도 튕기지 않는다 — 사이트가 만든 요약이라 넘치면 자른다', async () => {
+    const kv = fakeKv();
+    const long = '180초 · 전격 · '.repeat(60);
+    const response = await call(kv, '/raid/open', {
+      method: 'POST', body: { title: '긴 요약', code: 'NK3-abc', auto: long, password: ADMIN },
+    });
+    expect(response.status).toBe(200);
+    const { raid } = await response.json();
+    expect(raid.auto.length).toBeLessThanOrEqual(400);
+    expect(raid.auto.startsWith('180초 · 전격')).toBe(true);
+    // 어드민이 고친 설명은 그대로 남는다.
+    const edited = await (await call(kv, '/raid/open', {
+      method: 'POST', body: { title: '고친 설명', code: 'NK3-abc', auto: '전격 보스 · 코어 있음', password: ADMIN },
+    })).json();
+    expect(edited.raid.auto).toBe('전격 보스 · 코어 있음');
+  });
+
   it('기록을 올리면 남에게는 순위·덱·딜만 보이고, 어드민에게는 누구인지가 보인다', async () => {
     const kv = fakeKv();
     const { raid } = await (await open(kv)).json();

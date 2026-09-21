@@ -1620,4 +1620,8 @@ export const EN: Record<string, string> = {
   '랭킹에 올리기': 'Submit to ranking',
   '랭킹': 'Ranking',
   '참가 {n}명 · 다른 참가자는 익명입니다 · 줄을 누르면 덱이 펼쳐집니다': '{n} entries · other entrants are anonymous · click a row to unfold decks',
+  '레이드 제목 (40자까지)': 'Raid title (up to 40 chars)',
+  '설명 (400자까지)': 'Description (up to 400 chars)',
+  '레이드 열기': 'Open raid',
+  '레이드 제목을 적어 주세요.': 'Enter a raid title.',
 };

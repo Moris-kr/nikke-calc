@@ -348,15 +348,29 @@ describe('계산기 레이드 (BETA)', () => {
     expect(pane.querySelector('[data-raid-remove="e0"]')).not.toBeNull();
 
     // 전투 조건 공유 창의 목록에는 어드민에게만 «계산기 레이드로 올리기»가 붙는다.
+    // 누르면 제목·설명을 고치는 칸이 그 자리에서 열린다 — 설명은 요약이 미리 들어가 있다.
     root.querySelector<HTMLButtonElement>('[data-battle-share-open]')!.click();
     await flush();
     const open = root.querySelector<HTMLButtonElement>('[data-share-raid-open="b1"]')!;
     expect(open).not.toBeNull();
-    vi.stubGlobal('prompt', () => '9월 4주 솔레');
+    const form = root.querySelector<HTMLElement>('[data-share-raid-form="b1"]')!;
+    expect(form.hidden).toBe(true);
     open.click();
+    expect(form.hidden).toBe(false);
+    const title = form.querySelector<HTMLInputElement>('[data-share-raid-title]')!;
+    const auto = form.querySelector<HTMLTextAreaElement>('[data-share-raid-auto]')!;
+    expect(title.value).toBe('솔로 레이드 전격');
+    expect(auto.value).toContain('180초');
+    expect(auto.value).toContain('전격');
+    title.value = '9월 4주 솔레';
+    auto.value = '180초 · 전격 · 코어 있음';
+    auto.dispatchEvent(new Event('input'));
+    expect(form.querySelector('.share-raid-count')!.textContent).toBe('17/400');
+    form.querySelector<HTMLButtonElement>('[data-share-raid-go]')!.click();
     await flush();
     const opened = server.sent.find((call) => call.url.endsWith('/raid/open'))!;
-    expect(opened.body).toMatchObject({ title: '9월 4주 솔레', code: CODE, password: 'let-me-in' });
+    expect(opened.body).toMatchObject({ title: '9월 4주 솔레', auto: '180초 · 전격 · 코어 있음', code: CODE, password: 'let-me-in' });
+    expect(form.hidden).toBe(true);
     expect(server.raids).toHaveLength(2);
     expect(root.querySelector<HTMLElement>('[data-raid-band-list]')!.textContent).toContain('9월 4주 솔레');
     expect(pane.querySelectorAll('[data-raid-pick]')).toHaveLength(2);

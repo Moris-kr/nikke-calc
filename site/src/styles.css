@@ -2774,6 +2774,17 @@ img[src*="/temporary-characters/"][src$="-card.png"] { object-fit: contain; obje
 .share-raid-open { display: inline-block; margin-top: 6px; padding: 5px 10px; border: 1px solid rgba(255,191,60,.5); border-radius: 7px;
   background: rgba(255,191,60,.14); color: #ffe4a6; font: 800 11px/1.2 inherit; font-family: inherit; cursor: pointer; }
 .share-raid-open:hover { background: rgba(255,191,60,.24); color: var(--ink); }
+.share-raid-form { display: grid; gap: 6px; margin-top: 8px; padding: 10px; border: 1px solid rgba(255,191,60,.3); border-radius: 8px; background: rgba(255,191,60,.05); }
+.share-raid-form input, .share-raid-form textarea { width: 100%; box-sizing: border-box; padding: 7px 9px; border: 1px solid var(--line); border-radius: 7px;
+  background: rgba(8,16,20,.6); color: inherit; font: inherit; font-size: 12px; resize: vertical; }
+.share-raid-form input:focus, .share-raid-form textarea:focus { outline: none; border-color: var(--amber); }
+.share-raid-actions { display: flex; align-items: center; gap: 6px; }
+.share-raid-count { margin-right: auto; color: var(--muted); font: 700 10.5px/1 ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.share-raid-go { padding: 6px 12px; border: 1px solid rgba(255,191,60,.5); border-radius: 7px; background: rgba(255,191,60,.16); color: #ffe4a6; font: 800 11.5px/1.2 inherit; font-family: inherit; cursor: pointer; }
+.share-raid-go:hover:not(:disabled) { background: rgba(255,191,60,.26); color: var(--ink); }
+.share-raid-go:disabled { opacity: .5; cursor: wait; }
+.share-raid-cancel { padding: 6px 10px; border: 1px solid var(--line); border-radius: 7px; background: transparent; color: var(--muted); font: 700 11.5px/1.2 inherit; font-family: inherit; cursor: pointer; }
+.share-raid-cancel:hover { color: var(--ink); border-color: rgba(146,176,201,.4); }
 
 /* 레이드 판 */
 .raid-pane { display: grid; gap: 14px; margin-top: 12px; }

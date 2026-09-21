@@ -5284,21 +5284,69 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       // 이름이 곧 레이드 이름은 아니다 — «9월 3주 솔레» 같은 시즌 이름을 붙이고 싶어진다).
       extra: (item) => {
         if (!readAdminPass()) return null;
+        const box = document.createElement('div');
+        box.className = 'share-raid-extra';
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'share-raid-open';
         button.dataset.shareRaidOpen = item.id;
         button.textContent = '🏁 계산기 레이드로 올리기';
+        // 제목과 설명을 그 자리에서 고친다. 설명은 사이트가 전투 조건에서 만든 요약이
+        // 미리 들어가 있다 — 어드민이 쓴 글이 아니니 «너무 깁니다»로 막지 않고 고치게 둔다.
+        const form = document.createElement('div');
+        form.className = 'share-raid-form';
+        form.dataset.shareRaidForm = item.id;
+        form.hidden = true;
+        const title = document.createElement('input');
+        title.type = 'text';
+        title.maxLength = 40;
+        title.placeholder = '레이드 제목 (40자까지)';
+        title.value = item.name;
+        title.dataset.shareRaidTitle = '';
+        const auto = document.createElement('textarea');
+        auto.rows = 3;
+        auto.maxLength = 400;
+        auto.placeholder = '설명 (400자까지)';
+        auto.value = item.auto;
+        auto.dataset.shareRaidAuto = '';
+        const count = document.createElement('span');
+        count.className = 'share-raid-count';
+        const paintCount = () => { count.textContent = `${auto.value.length}/400`; };
+        paintCount();
+        auto.addEventListener('input', paintCount);
+        const go = document.createElement('button');
+        go.type = 'button';
+        go.className = 'share-raid-go';
+        go.dataset.shareRaidGo = item.id;
+        go.textContent = '레이드 열기';
+        const cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.className = 'share-raid-cancel';
+        cancel.dataset.shareRaidCancel = '';
+        cancel.textContent = '취소';
+        const actions = document.createElement('div');
+        actions.className = 'share-raid-actions';
+        actions.append(count, cancel, go);
+        form.append(title, auto, actions);
         button.addEventListener('click', () => {
-          const typed = window.prompt('레이드 제목 (40자까지)', item.name);
-          const title = (typed ?? '').trim().slice(0, 40);
-          if (!title) return;
-          raidHandle?.openRaid({ title, code: item.code, auto: item.auto }).then(
-            () => showBattleShareMsg(`«${title}» 레이드를 열었습니다 — 계산기 레이드 탭에서 확인하세요.`, true),
-            (error: unknown) => showBattleShareMsg(error instanceof Error ? error.message : String(error)),
-          );
+          form.hidden = !form.hidden;
+          if (!form.hidden) title.focus();
         });
-        return button;
+        cancel.addEventListener('click', () => { form.hidden = true; });
+        go.addEventListener('click', () => {
+          const name = title.value.trim().slice(0, 40);
+          if (!name) { showBattleShareMsg('레이드 제목을 적어 주세요.'); title.focus(); return; }
+          go.disabled = true;
+          raidHandle?.openRaid({ title: name, code: item.code, auto: auto.value.trim().slice(0, 400) }).then(
+            () => {
+              form.hidden = true;
+              showBattleShareMsg(`«${name}» 레이드를 열었습니다 — 계산기 레이드 탭에서 확인하세요.`, true);
+            },
+            (error: unknown) => showBattleShareMsg(error instanceof Error ? error.message : String(error)),
+          ).finally(() => { go.disabled = false; });
+        });
+        box.append(button, form);
+        return box;
       },
     },
   );

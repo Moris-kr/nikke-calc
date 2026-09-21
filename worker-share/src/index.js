@@ -25,6 +25,7 @@ const LIMITS = {
   feedbackItems: 1000,
   feedbackPerDay: 10,
   raidTitle: 40,       // 계산기 레이드 제목
+  raidAuto: 400,       // 레이드 설명 — 전투 조건 요약은 사이트가 만들어 160자를 쉽게 넘긴다
   raidName: 16,        // 제출자가 스스로 적는 표시 이름 (본인·어드민에게만 보인다)
   raids: 60,           // 보관하는 레이드 수(열린 것 + 닫힌 것)
   raidEntries: 500,    // 레이드당 기록 수
@@ -512,7 +513,10 @@ async function handleRaidOpen(env, body) {
   const title = text(body.title, LIMITS.raidTitle, '제목', true);
   const code = text(body.code, LIMITS.code, '전투 조건 코드', true);
   if (!code.startsWith(KINDS.boss)) throw new Fail(400, '전투 조건 코드(NK3-)만 레이드로 올릴 수 있습니다.');
-  const auto = text(body.auto, LIMITS.auto, '설명', false);
+  // 설명은 사이트가 전투 조건에서 자동으로 만든 요약이라(어드민이 고칠 수는 있다) 길다고
+  // 튕기지 않는다 — 넘치면 자른다. 사람이 쓴 글이 아닌 것을 «너무 깁니다»로 돌려보내면
+  // 고칠 길이 없다.
+  const auto = text(String(body.auto ?? '').slice(0, LIMITS.raidAuto), LIMITS.raidAuto, '설명', false);
   const index = await raidIndex(env);
   if (index.raids.length >= LIMITS.raids) throw new Fail(507, '보관할 수 있는 레이드 수를 넘었습니다. 지난 것을 지워 주세요.');
   const raid = {
