@@ -2147,12 +2147,40 @@ describe('calculator UI', () => {
     expect(rosterNames(root).length).toBe(catalog.length);
   });
 
+  it('코드 필터는 판 밖, 버스트와 같은 줄 오른쪽 끝에 아이콘으로 선다', () => {
+    mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const bar = root.querySelector<HTMLElement>('.picker-bar')!;
+    const group = bar.querySelector<HTMLElement>('[data-code-group]')!;
+    // 줄의 맨 끝 — 오른쪽 끝에 붙는다.
+    expect(bar.lastElementChild).toBe(group);
+    const chips = [...group.querySelectorAll<HTMLButtonElement>('.filter-chip')];
+    expect(chips.map((c) => c.dataset.filterChip)).toEqual(
+      ['code:작열', 'code:수냉', 'code:풍압', 'code:전격', 'code:철갑']);
+    // 글자 대신 아이콘, 이름은 접근성 라벨로 남는다.
+    for (const c of chips) {
+      expect(c.textContent).toBe('');
+      expect(c.querySelector('.element-icon')).not.toBeNull();
+    }
+    expect(chips[0]!.getAttribute('aria-label')).toBe('작열');
+    // 판 안에는 더 이상 코드가 없다.
+    expect(root.querySelector('[data-filter-groups] [data-filter-chip^="code"]')).toBeNull();
+
+    // 판을 펼치지 않고 바로 걸린다.
+    const iron = catalog.filter((meta) => meta.elementCode === '철갑').map((meta) => meta.name);
+    chip(root, 'code', '철갑').click();
+    expect(rosterNames(root).sort()).toEqual([...iron].sort());
+    expect(root.querySelector('[data-filter-badge]')!.textContent).toBe('1');
+    expect(root.querySelector('[data-filter-summary]')!.textContent).toContain('철갑');
+    chip(root, 'code', '철갑').click();
+    expect(rosterNames(root).length).toBe(catalog.length);
+  });
+
   it('애장품 필터로 목록을 가른다', () => {
     // 한 번 «안 쓰인다»고 뺐던 칸인데, 쓰는 사람이 달라고 해서 되살렸다.
     mountCalculator(root, { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage });
     const titles = [...root.querySelectorAll('[data-filter-groups] .filter-title')]
       .map((title) => title.textContent);
-    expect(titles).toEqual(['등급', '클래스', '코드', '무기', '기업', '애장품']);
+    expect(titles).toEqual(['등급', '클래스', '무기', '기업', '애장품']);
 
     const before = root.querySelectorAll('[data-roster-cell]').length;
     root.querySelector<HTMLButtonElement>('[data-filter-chip="item:있음"]')!.click();

@@ -21,6 +21,7 @@ export interface Notice {
 
 /** 최신이 맨 앞. */
 export const NOTICES: Notice[] = [
+  {id:'2026-09-21-picker-code-icons',date:'2026-09-21',title:'니케 고르기의 속성 필터를 버스트 줄 오른쪽 끝에 아이콘으로',items:[{tag:'개선',text:'니케 고르기와 빠른덱편성에서 속성(코드) 필터를 정렬·필터 판 안에서 꺼내, B1·B2·B3가 있는 줄의 오른쪽 끝에 속성 아이콘으로 두었습니다. 판을 펼치지 않고 바로 누를 수 있습니다.'}]},
   {
     id: '2026-09-21-raid-top10-3',
     date: '2026-09-21',

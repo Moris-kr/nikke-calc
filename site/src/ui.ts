@@ -1005,6 +1005,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
                 <input type="checkbox" data-portrait-badges /><span>육성 표시</span>
               </label>
               <span class="filter-summary" data-filter-summary></span>
+              <!-- 코드도 판 밖 — 버스트 다음으로 자주 거르는 축이라 같은 줄 오른쪽 끝에
+                   아이콘으로 세운다. 글자 없이 아이콘만이라 줄을 거의 안 차지한다. -->
+              <div class="filter-chips code-chips" data-code-group role="group" aria-label="코드 필터"></div>
             </div>
             <!-- 판은 목록을 밀어내지 않고 그 «위에» 얹힌다. 밀어내면 펼칠 때마다
                  목록이 화면 밖으로 내려가 무엇을 고르는 중이었는지 놓친다. -->
@@ -5663,7 +5666,6 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const filterGroups = (): Array<{ key: FilterKey; title: string; values: string[] }> => [
     { key: 'rarity', title: '등급', values: ['SSR', 'SR', 'R'] },
     { key: 'class', title: '클래스', values: ['화력형', '방어형', '지원형'] },
-    { key: 'code', title: '코드', values: ['작열', '수냉', '풍압', '전격', '철갑'] },
     { key: 'weapon', title: '무기', values: ['AR', 'SMG', 'SG', 'SR', 'RL', 'MG'] },
     { key: 'corp', title: '기업', values: ['엘리시온', '미실리스', '테트라', '필그림', '어브노말'] },
     { key: 'item', title: '애장품', values: ['있음', '없음'] },
@@ -5711,7 +5713,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     const label = SORTS.find((s) => s.key === sortKey)?.label;
     const pending = sortKey === 'power' && Object.keys(combatPower).length === 0;
     parts.push(`${t(label!)}${pending ? ` ${t('계산중')}` : sortDesc ? ' ▼' : ' ▲'}`);
-    for (const key of ['burst', ...filterGroups().map((group) => group.key)] as FilterKey[]) {
+    for (const key of ['burst', 'code', ...filterGroups().map((group) => group.key)] as FilterKey[]) {
       const set = picked[key];
       if (set.size > 0) {
         parts.push([...set].map((value) => labelOf(key, value)).join('·'));
@@ -5742,6 +5744,21 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const renderFilterPanel = () => {
     const burstBox = element<HTMLElement>(root, '[data-burst-group]');
     burstBox.replaceChildren(...BURST_VALUES.map((value) => filterChip('burst', value)));
+
+    // 코드는 아이콘만 — 글자는 title·aria-label로 남긴다. 아이콘이 없는 코드는 없지만,
+    // 혹시 없으면 글자 칩으로 그대로 선다.
+    const codeBox = element<HTMLElement>(root, '[data-code-group]');
+    codeBox.replaceChildren(...ELEMENT_CODES.map((value) => {
+      const chip = filterChip('code', value);
+      const icon = createElementIcon(value, 'code-chip-icon');
+      if (icon) {
+        icon.removeAttribute('title');
+        chip.replaceChildren(icon);
+        chip.title = t('{code} 코드만 보기', { code: value });
+        chip.setAttribute('aria-label', value);
+      }
+      return chip;
+    }));
 
     const sortBox = element<HTMLElement>(root, '[data-sort-group]');
     sortBox.replaceChildren();
