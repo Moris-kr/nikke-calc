@@ -1,3 +1,4 @@
+import { cubeDisplayName } from './cube-names';
 import { t, tLabel, tName } from './i18n';
 import { rollLines } from './overload-roll';
 import type {
@@ -1043,7 +1044,8 @@ export function renderCharacterSettings(
   for (const cubeName of Object.keys(catalog.cubes)) {
     const option = document.createElement('option');
     option.value = cubeName;
-    option.textContent = cubeName;
+    // 「렐릭 베어 큐브 (재장)」 — 정식 이름만으로는 무슨 큐브인지 바로 안 읽힌다.
+    option.textContent = cubeDisplayName(cubeName, catalog.cubes[cubeName]?.stat);
     cubeSelect.append(option);
   }
   // 저장된 편성이 지금 카탈로그에 없는 큐브를 가리킬 수 있다(데이터 갱신·구버전 상태).

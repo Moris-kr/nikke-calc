@@ -859,6 +859,21 @@ describe('character settings editor', () => {
     expect([...body.options].map((option) => option.textContent)).toContain('T9 (옛 설정)');
   });
 
+  it('큐브 드롭다운에도 별명이 붙는다 — 「렐릭 베어 큐브 (재장)」, 이름이 곧 별명이면 그대로', () => {
+    const withReal: SettingsCatalog = {
+      ...settings,
+      cubes: { ...settings.cubes, '렐릭 베어 큐브': { ...settings.cubes['재장']!, id: 1000303 } },
+    };
+    renderCharacterSettings(root, characterName, withReal, value, (next) => { value = next; });
+    setToggle('[data-custom-toggle]', true);
+    const texts = [...root.querySelector<HTMLSelectElement>('[data-cube-name]')!.options].map((option) => option.textContent);
+    expect(texts).toContain('렐릭 베어 큐브 (재장)');
+    expect(texts).toContain('재장');
+    // 값(value)은 정식 이름 그대로다 — 별명은 보여 주는 글일 뿐이다.
+    const values = [...root.querySelector<HTMLSelectElement>('[data-cube-name]')!.options].map((option) => option.value);
+    expect(values).toContain('렐릭 베어 큐브');
+  });
+
   it('lets a character wear no cube at all', () => {
     setToggle('[data-custom-toggle]', true);
     const cube = root.querySelector<HTMLSelectElement>('[data-cube-name]')!;

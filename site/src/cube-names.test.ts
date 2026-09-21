@@ -12,6 +12,8 @@ describe('큐브 부르는 이름', () => {
     expect(cubeNickname('새 큐브', 'reload_speed_pct')).toBe('재장');
     expect(cubeDisplayName('새 큐브', 'no_such_stat')).toBe('새 큐브');
     expect(cubeDisplayName('새 큐브')).toBe('새 큐브');
+    // 이름이 곧 별명이면(시험 카탈로그·옛 저장본) 「재장 (재장)」이 되지 않는다.
+    expect(cubeDisplayName('재장', 'reload_speed_pct')).toBe('재장');
   });
 
   it('레벨까지 한 줄로 · 안 낀 것은 «없음»', () => {

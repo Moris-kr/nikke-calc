@@ -60,7 +60,8 @@ export function cubeNickname(name: string, stat?: string): string {
 /** 「렐릭 베어 큐브 (재장)」. 별명을 모르면 정식 이름만. */
 export function cubeDisplayName(name: string, stat?: string): string {
   const nick = cubeNickname(name, stat);
-  return nick ? `${name} (${nick})` : name;
+  // 이름이 곧 별명이면(옛 저장본·시험 카탈로그) «재장 (재장)»이 되지 않게.
+  return nick && nick !== name ? `${name} (${nick})` : name;
 }
 
 /** 「렐릭 베어 큐브 (재장) Lv15」. 안 낀 것(`없음`)은 그대로 «없음». */
