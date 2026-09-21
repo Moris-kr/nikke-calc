@@ -24,7 +24,7 @@ import { DEFAULT_SYNCHRO_LEVEL, requestForDeck } from './model';
 import type { RaidBoard, RaidDeck, RaidEntry, RaidEntryInput, RaidSummary, ShareServer } from './share-server';
 import { decodeBattleCode, encodeShareCode, type BattleShare } from './share-code';
 import type {
-  BattleSettings, CharacterMeta, CharacterOverrides, DeckState, SimulationRequest, SimulationResult,
+  BattleSettings, CharacterMeta, CharacterOverrides, DeckResultEntry, DeckState, SimulationRequest, SimulationResult,
 } from './types';
 
 /**
@@ -234,6 +234,11 @@ export interface RaidDeps {
   adminPass: () => string;
   /** 엔진 판본 — 기록에 함께 적는다. */
   engineVersion: string;
+  /**
+   * 덱별 결과를 평소의 «전투 결과» 판에 세운다. 레이드도 계산이다 — 합계 숫자 하나만
+   * 보여 주면 어느 니케가 얼마를 넣었는지 볼 길이 없다. 덱이 끝날 때마다 부른다.
+   */
+  showResults?: (entries: DeckResultEntry[]) => void;
   imageOf: (name: string) => string | undefined;
   /** 열린 레이드 수가 바뀌면 알린다(머리의 안내 띠·탭의 점). */
   onRaids?: (raids: RaidSummary[]) => void;
@@ -271,7 +276,7 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
   let message = '';
   let messageOk = false;
   /** 마지막 계산. 덱별 줄과 합계. 제출할 때 그대로 싣는다. */
-  let computed: { rows: RaidDeck[]; requests: SimulationRequest[]; total: number; raidId: string } | null = null;
+  let computed: { rows: RaidDeck[]; requests: SimulationRequest[]; total: number; raidId: string; submitted: boolean } | null = null;
   let mine: Record<string, string> = {};
   try { mine = JSON.parse(localStorage.getItem(MINE_KEY) ?? '{}'); } catch { mine = {}; }
   const rememberMine = (raidId: string, eid: string) => {
@@ -333,6 +338,7 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
       const battle = raidBattle(share, deps.battleFallback(), account?.console);
       const rows: RaidDeck[] = [];
       const requests: SimulationRequest[] = [];
+      const entries: DeckResultEntry[] = [];
       const decks = deps.decks().filter((deck) => deck.squad.some(Boolean));
       for (const [index, deck] of decks.entries()) {
         message = t('덱 {n}/5 계산 중…', { n: index + 1 });
@@ -347,9 +353,21 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
         const result = await deps.simulate(request);
         rows.push(raidDeckRow(input, result));
         requests.push(request);
+        entries.push({ deckId: deck.id, request, result });
+        deps.showResults?.(entries);
       }
-      computed = { rows, requests, total: raidTotal(rows), raidId: raid.id };
+      computed = { rows, requests, total: raidTotal(rows), raidId: raid.id, submitted: false };
       message = '';
+      // 내 최고 딜이면 묻지 않고 올린다 — 위에서 미리 알렸다. 서버도 더 높을 때만 갈아
+      // 끼우므로, 여기서 낮은 것을 걸러 두면 «그대로 둡니다»만 돌아오는 요청을 안 보낸다.
+      const best = myRecord();
+      if (!best || computed.total > best.total) {
+        running = false;
+        await submit(true);
+        return;
+      }
+      message = t('내 기록({m})보다 낮아 올리지 않았습니다 — 더 높은 결과만 자동으로 올라갑니다.', { m: raidDamageText(best.total) });
+      messageOk = false;
     } catch (error) {
       message = error instanceof Error ? error.message : String(error);
       messageOk = false;
@@ -359,7 +377,13 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
     }
   }
 
-  async function submit(): Promise<void> {
+  /** 이 레이드에 올라가 있는 내 기록. 없으면 null — 첫 계산이 곧 첫 기록이다. */
+  const myRecord = (): RaidEntry | null => {
+    const eid = selectedId ? mine[selectedId] : undefined;
+    return (eid && board?.entries.find((entry) => entry.eid === eid)) || null;
+  };
+
+  async function submit(auto = false): Promise<void> {
     const raid = selected();
     const account = deps.account();
     if (!raid || !computed || computed.raidId !== raid.id || !account) return;
@@ -376,12 +400,15 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
     try {
       const result = await deps.server.submitRaidEntry(input);
       rememberMine(raid.id, result.entry.eid);
+      computed.submitted = true;
       await loadBoard();
       if (result.kept) {
         say(t('이미 올린 기록({n})이 더 높습니다 — 그대로 둡니다.', { n: raidDamageText(result.entry.total) }), true);
       } else {
         const rank = (board?.entries ?? []).findIndex((entry) => entry.eid === result.entry.eid) + 1;
-        say(t('올렸습니다 · 지금 {rank}위. 같은 계정으로 다시 올리면 더 높은 기록만 남습니다.', { rank }), true);
+        say(auto
+          ? t('내 최고 딜이라 바로 올렸습니다 · 지금 {rank}위.', { rank })
+          : t('올렸습니다 · 지금 {rank}위. 같은 계정으로 다시 올리면 더 높은 기록만 남습니다.', { rank }), true);
       }
     } catch (error) {
       say(error instanceof Error ? error.message : String(error));
@@ -508,6 +535,7 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
       ['no', t('임시 · 미구현 니케 불가')],
       ['no', t('안 가진 니케 불가')],
       ['ok', t('한 계정 한 기록 · 최고 기록만')],
+      ['ok', t('내 최고 딜이면 계산 즉시 자동 등록')],
       ['ok', t('다른 참가자는 익명')],
     ];
     for (const [kind, text] of rules) list.append(el('li', kind, text));
@@ -701,41 +729,51 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
     host.append(mySection);
 
     const bar = el('div', 'raid-run');
+    // 표시 이름은 계산 **전에** 받는다 — 내 최고 딜이면 결과가 나오는 순간 올라간다.
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.maxLength = 16;
+    nameInput.placeholder = t('표시 이름 (나와 어드민만 봄)');
+    nameInput.value = displayName;
+    nameInput.dataset.raidName = '';
+    nameInput.addEventListener('input', () => {
+      displayName = nameInput.value.trim();
+      try { localStorage.setItem(NAME_KEY, displayName); } catch { /* 무시 */ }
+    });
     const go = el('button', 'calculate-button raid-go');
     go.type = 'button';
     go.dataset.raidRun = '';
     go.disabled = running || raid.status !== 'open' || !account;
     go.append(el('span', '', raid.status !== 'open' ? t('마감된 레이드') : running ? t('계산 중…') : t('5덱 레이드 계산')));
     go.addEventListener('click', () => { void run(); });
-    bar.append(go);
-    if (!account) {
-      bar.append(el('span', 'raid-run-note', t('블라블라링크로 계정을 이어야 돌릴 수 있습니다. 보는 것은 누구나 됩니다.')));
-    }
+    bar.append(nameInput, go);
+    const best = myRecord();
+    const note = el('span', 'raid-run-note');
+    note.dataset.raidRunNote = '';
+    note.textContent = !account
+      ? t('블라블라링크로 계정을 이어야 돌릴 수 있습니다. 보는 것은 누구나 됩니다.')
+      : best
+        ? t('계산 결과가 내 기록({m})보다 높으면 묻지 않고 바로 랭킹에 올립니다.', { m: raidDamageText(best.total) })
+        : t('계산 결과는 묻지 않고 바로 랭킹에 올라갑니다 — 계정당 하나, 더 높을 때만 갱신됩니다.');
+    bar.append(note);
     host.append(bar);
 
     if (computed && computed.raidId === raid.id) {
       const result = el('div', 'raid-result');
       result.dataset.raidResult = '';
       result.append(el('b', 'raid-big', raidDamageText(computed.total)));
-      result.append(el('span', 'raid-sub', t('{n}덱 합산 · {title}', { n: computed.rows.length, title: raid.title })));
-      const who = el('div', 'raid-submit-row');
-      const nameInput = document.createElement('input');
-      nameInput.type = 'text';
-      nameInput.maxLength = 16;
-      nameInput.placeholder = t('표시 이름 (나와 어드민만 봄)');
-      nameInput.value = displayName;
-      nameInput.dataset.raidName = '';
-      nameInput.addEventListener('input', () => {
-        displayName = nameInput.value.trim();
-        try { localStorage.setItem(NAME_KEY, displayName); } catch { /* 무시 */ }
-      });
-      const submitButton = el('button', 'raid-submit', t('랭킹에 올리기'));
-      submitButton.type = 'button';
-      submitButton.dataset.raidSubmit = '';
-      submitButton.disabled = !account || raid.status !== 'open';
-      submitButton.addEventListener('click', () => { void submit(); });
-      who.append(nameInput, submitButton);
-      result.append(who);
+      result.append(el('span', 'raid-sub', t('{n}덱 합산 · {title} · 덱별 결과는 아래 전투 결과 판에', { n: computed.rows.length, title: raid.title })));
+      // 자동으로 안 올라갔을 때만(올리다 실패했거나 내 기록보다 낮을 때) 손으로 올리는 문을 낸다.
+      if (!computed.submitted) {
+        const who = el('div', 'raid-submit-row');
+        const submitButton = el('button', 'raid-submit', t('랭킹에 올리기'));
+        submitButton.type = 'button';
+        submitButton.dataset.raidSubmit = '';
+        submitButton.disabled = !account || raid.status !== 'open';
+        submitButton.addEventListener('click', () => { void submit(); });
+        who.append(submitButton);
+        result.append(who);
+      }
       host.append(result);
     }
 

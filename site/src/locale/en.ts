@@ -1614,7 +1614,6 @@ export const EN: Record<string, string> = {
   '마감된 레이드': 'Raid closed',
   '5덱 레이드 계산': 'Run 5-deck raid',
   '블라블라링크로 계정을 이어야 돌릴 수 있습니다. 보는 것은 누구나 됩니다.': 'Link a Blablalink account to run. Anyone can view.',
-  '{n}덱 합산 · {title}': '{n}-deck total · {title}',
   '표시 이름 (나와 어드민만 봄)': 'Display name (seen by you and the admin only)',
   '랭킹에 올리기': 'Submit to ranking',
   '랭킹': 'Ranking',
@@ -1634,4 +1633,10 @@ export const EN: Record<string, string> = {
   '어드민이 올린 전투 조건입니다. 바꿀 수 없고, 싱크로는 400 고정 · 콘솔은 내 블라블라링크 계정 값입니다.': 'Battle condition posted by the admin. It cannot be changed; Synchro is fixed at 400 and the console uses my Blablalink account values.',
   '계산기 레이드 중 — 덱 사이에 같은 니케를 둘 수 없습니다.': 'Calc Raid mode — the same NIKKE cannot be in more than one deck.',
   ' — 계산기 레이드에서는 한 니케는 한 덱에만 설 수 있습니다. 한쪽에서 빼 주세요.': ' — in Calc Raid a NIKKE may stand in one deck only. Remove her from one of them.',
+  '내 기록({m})보다 낮아 올리지 않았습니다 — 더 높은 결과만 자동으로 올라갑니다.': 'Lower than my record ({m}) — not submitted. Only a higher result is submitted automatically.',
+  '내 최고 딜이라 바로 올렸습니다 · 지금 {rank}위.': 'My best damage — submitted right away · now rank {rank}.',
+  '내 최고 딜이면 계산 즉시 자동 등록': 'My best damage is submitted automatically',
+  '계산 결과가 내 기록({m})보다 높으면 묻지 않고 바로 랭킹에 올립니다.': 'If the result beats my record ({m}) it is submitted to the ranking without asking.',
+  '계산 결과는 묻지 않고 바로 랭킹에 올라갑니다 — 계정당 하나, 더 높을 때만 갱신됩니다.': 'The result goes straight to the ranking without asking — one per account, replaced only by a higher one.',
+  '{n}덱 합산 · {title} · 덱별 결과는 아래 전투 결과 판에': '{n}-deck total · {title} · per-deck results are in the battle results below',
 };

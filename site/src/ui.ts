@@ -7464,6 +7464,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       },
       adminPass: readAdminPass,
       engineVersion: version,
+      // 레이드도 계산이다 — 덱별 결과를 평소의 전투 결과 판에 그대로 세운다.
+      showResults: (entries) => renderBatchResult(aggregateDeckResults(entries)),
       imageOf: (name) => {
         const image = catalogByName.get(name)?.image;
         return image ? `${import.meta.env.BASE_URL}${image}` : undefined;

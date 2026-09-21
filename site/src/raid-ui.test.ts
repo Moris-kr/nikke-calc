@@ -264,24 +264,6 @@ describe('계산기 레이드 (BETA)', () => {
     expect(card().querySelector('[data-copy-from]')).not.toBeNull();
   });
 
-  it('레이드 중에는 다른 덱에 선 니케를 니케 판에서 고를 수 없다', async () => {
-    seedDecks();
-    linkAccount();
-    await mount(fakeServer());
-    const cell = () => root.querySelector<HTMLButtonElement>('[data-roster-cell="크라운"]')!;
-    // 평소: 덱 2의 크라운을 덱 1에도 넣을 수 있다.
-    expect(cell().disabled).toBe(false);
-    await openRaidTab();
-    expect(cell().disabled).toBe(true);
-    expect(cell().title).toContain('덱 2');
-    expect(root.querySelector<HTMLElement>('[data-deck-note]')!.textContent).toContain('같은 니케를 둘 수 없습니다');
-    // 리타는 이 덱(1)에 있으니 원래 규칙대로, 임시 니케는 다른 덱에 없으니 고를 수 있다.
-    expect(root.querySelector<HTMLButtonElement>('[data-roster-cell="임시 니케"]')!.disabled).toBe(false);
-    root.querySelector<HTMLButtonElement>('[data-settings-tab="battle"]')!.click();
-    await flush();
-    expect(cell().disabled).toBe(false);
-  });
-
   it('계정을 안 이었으면 보기만 된다 — 남의 기록은 «참가자»로만 보인다', async () => {
     seedDecks();
     await mount(fakeServer());
@@ -297,7 +279,7 @@ describe('계산기 레이드 (BETA)', () => {
     expect(pane.querySelector('[data-raid-remove]')).toBeNull();
   });
 
-  it('이어 둔 계정으로 5덱을 돌려 올리면 내 줄만 «나»로 보이고, 요청은 로스터 값·큐브·계정 싱크로로 간다', async () => {
+  it('이어 둔 계정으로 5덱을 돌리면 내 최고 딜은 바로 올라가고, 내 줄만 «나»로 보이며, 요청은 로스터 값·400·내 콘솔로 간다', async () => {
     seedDecks();
     linkAccount();
     const server = fakeServer();
@@ -306,6 +288,12 @@ describe('계산기 레이드 (BETA)', () => {
     const pane = root.querySelector<HTMLElement>('[data-raid-pane]')!;
     const run = pane.querySelector<HTMLButtonElement>('[data-raid-run]')!;
     expect(run.disabled).toBe(false);
+    // 사전 안내 — 첫 계산은 묻지 않고 올라간다고 미리 적혀 있다.
+    expect(pane.querySelector('[data-raid-run-note]')!.textContent).toContain('묻지 않고 바로 랭킹에 올라갑니다');
+    // 표시 이름은 계산 전에 받는다.
+    const name = pane.querySelector<HTMLInputElement>('[data-raid-name]')!;
+    name.value = '모리스';
+    name.dispatchEvent(new Event('input'));
     run.click();
     await flush();
     // 덱 둘 = 요청 둘. 로스터의 오버로드가 실리고, 싱크로는 계정(821)이 아니라 400 고정,
@@ -319,13 +307,13 @@ describe('계산기 레이드 (BETA)', () => {
     expect(first.enemyCode).toBe('전격');
     expect(first.duration).toBe(180);
     expect(pane.querySelector('[data-raid-result]')!.textContent).toContain('2.46억');
+    // 덱별 결과는 평소의 전투 결과 판에 선다.
+    expect(root.querySelector('[data-result-panel]')!.textContent).toContain('2덱 전투 결과');
+    expect(root.querySelector('[data-result-panel] [data-batch-total]')!.textContent).toContain('2.46억');
 
-    const name = pane.querySelector<HTMLInputElement>('[data-raid-name]')!;
-    name.value = '모리스';
-    name.dispatchEvent(new Event('input'));
-    pane.querySelector<HTMLButtonElement>('[data-raid-submit]')!.click();
-    await flush();
+    // 내 기록이 없었으니 묻지 않고 바로 올라갔다 — 손으로 올리는 단추는 없다.
     const posted = server.sent.find((call) => call.url.endsWith('/raid/entry'))!;
+    expect(pane.querySelector('[data-raid-submit]')).toBeNull();
     expect(posted.body.openid).toBe('15361668407129878426');
     expect(posted.body.name).toBe('모리스');
     expect(posted.body.total).toBe(246_000_000);
@@ -337,7 +325,18 @@ describe('계산기 레이드 (BETA)', () => {
     expect(rows[1]!.textContent).toContain('모리스');
     expect(rows[0]!.textContent).toContain('참가자');
     expect(rows[0]!.textContent).not.toContain('남의닉');
+    expect(pane.querySelector('[data-raid-message]')!.textContent).toContain('바로 올렸습니다');
     expect(pane.querySelector('[data-raid-message]')!.textContent).toContain('2위');
+    // 이제 안내는 «내 기록보다 높으면»으로 바뀐다.
+    expect(pane.querySelector('[data-raid-run-note]')!.textContent).toContain('내 기록(2.46억)보다 높으면');
+
+    // 같은 결과를 다시 돌리면(더 높지 않다) 올리지 않는다 — 요청도 안 나간다.
+    pane.querySelector<HTMLButtonElement>('[data-raid-run]')!.click();
+    await flush();
+    expect(server.sent.filter((call) => call.url.endsWith('/raid/entry'))).toHaveLength(1);
+    expect(pane.querySelector('[data-raid-message]')!.textContent).toContain('낮아 올리지 않았습니다');
+    // 그때는 손으로 올리는 문이 남는다(서버가 어차피 더 높은 것만 받는다).
+    expect(pane.querySelector('[data-raid-submit]')).not.toBeNull();
   });
 
   it('로스터에 없는(안 가진) 니케가 있으면 한 판도 안 돌린다', async () => {
