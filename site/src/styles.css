@@ -2885,62 +2885,46 @@ img[src*="/temporary-characters/"][src$="-card.png"] { object-fit: contain; obje
 .raid-row.is-me td:first-child { box-shadow: inset 3px 0 0 var(--amber); }
 .raid-rank { width: 48px; font: 900 13px/1 ui-monospace, monospace; font-variant-numeric: tabular-nums; }
 .raid-rank.r1 { color: var(--amber); } .raid-rank.r2 { color: #dfe7ee; } .raid-rank.r3 { color: #d7a76f; }
-/* ── 상위 10 — 시상대(1~3)와 상위 판(4~10). 깎아 낸 트레이(바깥 링) 위에 얹은 유리판(안쪽 코어).
-   나머지는 표다 — 전부 카드면 아무것도 도드라지지 않는다. */
-.raid-top { position: relative; isolation: isolate; display: grid; gap: 12px; padding: 4px 0 2px; }
-.raid-top::before { content: ""; position: absolute; inset: -14px -10px; z-index: -1; pointer-events: none; border-radius: 22px;
-  background: radial-gradient(55% 60% at 50% 0%, rgba(255,191,60,.13), transparent 70%),
-              radial-gradient(35% 40% at 92% 100%, rgba(69,214,208,.07), transparent 70%); }
-.raid-podium { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; align-items: end; }
-.raid-podium.has-3 { grid-template-columns: 1fr 1.18fr 1fr; }
-.raid-podium.has-3 .rank-1 { order: 2; } .raid-podium.has-3 .rank-2 { order: 1; } .raid-podium.has-3 .rank-3 { order: 3; }
-.raid-top-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(228px, 1fr)); gap: 10px; }
-.raid-card { --tint: 255,191,60; padding: 5px; border-radius: 18px; background: rgba(255,255,255,.04);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.08), 0 24px 50px -28px rgba(5,11,19,.95);
-  cursor: pointer; transition: transform .5s cubic-bezier(.16,1,.3,1), box-shadow .5s cubic-bezier(.16,1,.3,1);
-  animation: raid-rise .7s cubic-bezier(.16,1,.3,1) backwards; animation-delay: calc(var(--i, 0) * 70ms); }
-.raid-card.no-anim { animation: none; }
-.raid-card:hover { transform: translateY(-3px); box-shadow: inset 0 0 0 1px rgba(255,255,255,.14), 0 30px 60px -26px rgba(var(--tint), .38); }
-.raid-card:active { transform: translateY(-1px) scale(.995); }
-.raid-card.rank-1 { --tint: 255,191,60; } .raid-card.rank-2 { --tint: 223,231,238; } .raid-card.rank-3 { --tint: 215,167,111; }
-.raid-card.is-me { box-shadow: inset 0 0 0 1px rgba(255,191,60,.5), 0 24px 50px -26px rgba(255,191,60,.45); }
-.raid-card-core { position: relative; display: grid; gap: 8px; padding: 14px 14px 12px; border-radius: 13px; overflow: hidden;
-  background: linear-gradient(180deg, rgba(15,28,44,.97), rgba(8,16,26,.97)); box-shadow: inset 0 1px 0 rgba(255,255,255,.08); }
-.raid-card-core::before { content: ""; position: absolute; inset: 0; pointer-events: none;
-  background: radial-gradient(120% 90% at 0% 0%, rgba(var(--tint), .2), transparent 60%); }
-.raid-card-core > * { position: relative; }
-.raid-card.rank-1 .raid-card-core { padding: 20px 16px 16px; gap: 10px; }
-.raid-card-head { display: flex; align-items: center; gap: 10px; min-width: 0; padding-right: 22px; }
-.raid-card-head .raid-who { flex: 1 1 auto; min-width: 0; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.raid-card-total { font: 900 24px/1 ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: var(--ink); }
-.raid-card.rank-1 .raid-card-total { font-size: 34px; color: var(--amber); text-shadow: 0 0 26px rgba(255,191,60,.35); }
-.raid-card.rank-2 .raid-card-total, .raid-card.rank-3 .raid-card-total { font-size: 27px; }
-.raid-card-sub { color: var(--muted); font: 700 10px/1 ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase; }
-.raid-card-faces { display: flex; align-items: center; gap: 10px; }
-.raid-card .raid-face { width: 30px; height: 30px; border-color: rgba(10,20,32,.95); }
-.raid-card.is-podium .raid-face { width: 36px; height: 36px; margin-right: -7px; }
-.raid-card-chev { position: absolute; top: 0; right: 0; color: var(--muted); font-size: 11px; transition: transform .5s cubic-bezier(.16,1,.3,1); }
-.raid-card.rank-1 .raid-card-chev { top: 0; }
-.raid-card.is-open .raid-card-chev { transform: rotate(180deg); }
-.raid-card-detail { margin: 4px -14px -12px; border-top: 1px solid rgba(255,255,255,.06); background: rgba(5,11,19,.55); cursor: default; }
-.raid-card.rank-1 .raid-card-detail { margin: 4px -16px -16px; }
-.raid-card-detail .raid-detail { grid-template-columns: 1fr; padding: 12px 14px 14px; }
-.raid-row-faces { display: flex; align-items: center; }
-.raid-medal { display: inline-grid; place-items: center; flex: none; width: 26px; height: 26px; border-radius: 50%;
+/* ── 상위 10 — 표는 그대로, 위쪽만 도드라진다. 1·2·3위는 금·은·동 메달과 그 색의 왼쪽 띠,
+   4~10위는 테두리 배지. 배경 틴트는 왼쪽에서 오른쪽으로 사라지고, 그림자는 바탕색을 띤다. */
+.raid-row, .raid-row td { transition: background .45s cubic-bezier(.16,1,.3,1); }
+.raid-row.is-top { --tint: 255,191,60; background: linear-gradient(90deg, rgba(var(--tint), .07), rgba(var(--tint), .02) 45%, transparent 75%); }
+.raid-row.is-top td, .raid-row.is-top:hover td { background: transparent; }
+.raid-row.is-top:hover { background: linear-gradient(90deg, rgba(var(--tint), .12), rgba(var(--tint), .04) 45%, rgba(69,214,208,.03) 75%); }
+.raid-row.is-top td:first-child { box-shadow: inset 3px 0 0 rgba(var(--tint), .55); }
+.raid-row.is-top .raid-total { font-size: 14px; }
+.raid-row.is-podium td { padding-top: 11px; padding-bottom: 11px; }
+.raid-row.is-podium { background: linear-gradient(90deg, rgba(var(--tint), .14), rgba(var(--tint), .04) 45%, transparent 75%); }
+.raid-row.is-podium:hover { background: linear-gradient(90deg, rgba(var(--tint), .2), rgba(var(--tint), .06) 45%, transparent 75%); }
+.raid-row.is-podium td:first-child { box-shadow: inset 3px 0 0 rgba(var(--tint), .9), inset 12px 0 18px -14px rgba(var(--tint), .6); }
+.raid-row.rank-1 { --tint: 255,191,60; } .raid-row.rank-2 { --tint: 223,231,238; } .raid-row.rank-3 { --tint: 215,167,111; }
+.raid-row.is-podium .raid-total { font-size: 16px; letter-spacing: -.01em; }
+.raid-row.rank-1 .raid-total { color: var(--amber); text-shadow: 0 0 18px rgba(255,191,60,.35); }
+.raid-row.rank-2 .raid-total { color: #eef3f7; } .raid-row.rank-3 .raid-total { color: #ecc9a3; }
+.raid-row.is-podium .raid-face { width: 30px; height: 30px; margin-right: -6px; }
+.raid-row.is-top.is-me { background: linear-gradient(90deg, rgba(255,191,60,.2), rgba(255,191,60,.08) 55%, rgba(255,191,60,.03)); }
+.raid-row.is-top.is-me td:first-child { box-shadow: inset 3px 0 0 var(--amber), inset 12px 0 18px -14px rgba(255,191,60,.7); }
+.raid-row.is-open td { background: rgba(69,214,208,.06); }
+.raid-row.is-top.is-open td { background: transparent; }
+.raid-row.is-top.is-open { background: linear-gradient(90deg, rgba(var(--tint), .16), rgba(69,214,208,.05) 60%); }
+.raid-row .raid-chev { transition: transform .5s cubic-bezier(.16,1,.3,1); }
+.raid-row.is-open .raid-chev { transform: rotate(180deg); }
+.raid-deckcell { white-space: nowrap; }
+.raid-medal { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
   border: 1.5px solid rgba(255,191,60,.5); background: rgba(255,191,60,.08); color: #ffe4a6;
-  font: 900 12px/1 ui-monospace, monospace; font-variant-numeric: tabular-nums; }
-.raid-medal.m1 { border-color: transparent; color: #1a1206; background: linear-gradient(160deg, #ffe08a, #e0a027); box-shadow: 0 0 0 2px rgba(255,191,60,.25), 0 0 16px rgba(255,191,60,.5); }
-.raid-medal.m2 { border-color: transparent; color: #101820; background: linear-gradient(160deg, #f2f6fa, #a9b7c4); box-shadow: 0 0 0 2px rgba(223,231,238,.2), 0 0 12px rgba(223,231,238,.3); }
-.raid-medal.m3 { border-color: transparent; color: #1e1208; background: linear-gradient(160deg, #e8b382, #a8703d); box-shadow: 0 0 0 2px rgba(215,167,111,.2), 0 0 12px rgba(215,167,111,.3); }
-.raid-medal.m1, .raid-medal.m2, .raid-medal.m3 { width: 32px; height: 32px; font-size: 14px; }
-.raid-cut { display: flex; align-items: center; gap: 10px; margin: 14px 0 6px; color: var(--muted); font: 700 10.5px/1.4 ui-monospace, monospace; letter-spacing: .1em; text-transform: uppercase; }
-.raid-cut::after { content: ""; flex: 1; border-top: 1px dashed rgba(255,191,60,.3); }
-@keyframes raid-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
-@media (prefers-reduced-motion: reduce) { .raid-card { animation: none; transition: none; } .raid-card:hover { transform: none; } }
-@media (max-width: 720px) {
-  .raid-podium.has-3 { grid-template-columns: 1fr; }
-  .raid-podium.has-3 .rank-1, .raid-podium.has-3 .rank-2, .raid-podium.has-3 .rank-3 { order: 0; }
-}
+  font: 900 12px/1 ui-monospace, monospace; font-variant-numeric: tabular-nums;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12); }
+.raid-medal.m1 { border-color: transparent; color: #1a1206; background: linear-gradient(160deg, #ffe08a, #e0a027);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.55), 0 0 0 2px rgba(255,191,60,.22), 0 6px 16px -4px rgba(255,191,60,.6); }
+.raid-medal.m2 { border-color: transparent; color: #101820; background: linear-gradient(160deg, #f4f7fa, #a9b7c4);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 0 0 2px rgba(223,231,238,.16), 0 6px 14px -4px rgba(223,231,238,.45); }
+.raid-medal.m3 { border-color: transparent; color: #1e1208; background: linear-gradient(160deg, #ecbb8b, #a8703d);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 0 0 2px rgba(215,167,111,.18), 0 6px 14px -4px rgba(215,167,111,.5); }
+.raid-medal.m1, .raid-medal.m2, .raid-medal.m3 { width: 30px; height: 30px; font-size: 13px; }
+.raid-cut td { padding: 6px 12px 4px; background: rgba(5,11,19,.7); border-bottom: 1px solid var(--line); }
+.raid-cut td span { display: flex; align-items: center; gap: 10px; color: var(--muted); font: 700 10.5px/1.4 ui-monospace, monospace; letter-spacing: .1em; text-transform: uppercase; }
+.raid-cut td span::after { content: ""; flex: 1; border-top: 1px dashed rgba(255,191,60,.32); }
+@media (prefers-reduced-motion: reduce) { .raid-row td, .raid-row .raid-chev { transition: none; } }
 .raid-who { font-weight: 800; }
 .raid-who .anon { color: var(--muted); font-weight: 600; }
 .raid-who small { margin-left: 6px; padding: 1px 6px; border: 1px solid rgba(255,191,60,.45); border-radius: 999px; color: var(--amber); font-size: 10px; font-weight: 800; }
