@@ -83,6 +83,16 @@ describe('단계별 후보', () => {
 
     expect(candidatesFor('1', { squad: withOther, metaOf: look })).toEqual(['리타']);
     expect(candidatesFor('1', { squad: alone, metaOf: look })).toEqual(['라피 : 레드 후드']);
+    // 레드 후드(`A`)는 «1버가 있다»로 세지 않는다 — 엔진 `no_burst1_ally`가 `"1"`만 세므로
+    // 둘이 함께 서면 둘 다 1버를 맡을 수 있다. 화면이 레드 후드를 1버로 치는 바람에
+    // 이 편성에서 라피를 1버로 못 두었다 (피드백 2026-09-21). 편성 순서는 그대로다.
+    expect(candidatesFor('1', { squad: ['레드 후드', '라피 : 레드 후드'], metaOf: look }))
+      .toEqual(['레드 후드', '라피 : 레드 후드']);
+    expect(candidatesFor('1', { squad: ['라피 : 레드 후드', '레드 후드'], metaOf: look }))
+      .toEqual(['라피 : 레드 후드', '레드 후드']);
+    // 제 단계가 1버인 사람이 끼면 도로 빠진다 — 레드 후드가 있어도 마찬가지다.
+    expect(candidatesFor('1', { squad: ['리타', '레드 후드', '라피 : 레드 후드'], metaOf: look }))
+      .toEqual(['리타', '레드 후드']);
     // 제 단계(3버)에는 언제나 선다.
     expect(candidatesFor('3', { squad: alone, metaOf: look })).toEqual(['라피 : 레드 후드']);
     // 「버스트 안 씀」이면 대타 자리에도 안 선다.

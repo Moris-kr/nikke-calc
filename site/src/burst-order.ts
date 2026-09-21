@@ -82,13 +82,18 @@ export interface CandidateSource {
  * 단계가 `A`인 니케는 어느 단계에나 선다.
  *
  * 라피 : 레드 후드처럼 «그 단계 아군이 없으면 내가 선다»는 사람(`altBurstStage`)은
- * **정말 아무도 없을 때만** 후보가 된다 — 엔진이 그렇게 굴리므로(조건
+ * **그 단계가 제 단계인 아군이 없을 때만** 후보가 된다 — 엔진이 그렇게 굴리므로(조건
  * `no_burst1_ally`), 화면이 먼저 세워 두면 엔진이 안 따르는 순서를 적게 된다.
+ *
+ * 단계가 `A`인 아군은 그 «제 단계인 아군»으로 세지 않는다. 엔진의 `no_burst1_ally`는
+ * `burst_stage == "1"`만 세어 레드 후드(`A`)를 1버로 치지 않고, 그래서 라피 : 레드 후드와
+ * 레드 후드가 함께 서면 **둘 다** 1버를 맡을 수 있다(GAMEPLAY §스쿼드 구성). 화면이
+ * 레드 후드를 «1버가 있다»로 세는 바람에 그 편성에서 라피를 1버로 못 두었다
+ * (피드백 2026-09-21).
  */
 export function candidatesFor(stage: BurstStage, source: CandidateSource): string[] {
   const seen = new Set<string>();
-  const out: string[] = [];
-  const fallback: string[] = [];
+  const rows: Array<{ name: string; kind: 'own' | 'any' | 'alt' }> = [];
   for (const raw of source.squad) {
     const name = (raw ?? '').trim();
     if (!name || seen.has(name)) continue;
@@ -97,10 +102,14 @@ export function candidatesFor(stage: BurstStage, source: CandidateSource): strin
     const meta = source.metaOf(name);
     if (!meta) continue;
     const own = String(meta.burstStage).toUpperCase();
-    if (own === stage || own === 'A') out.push(name);
-    else if (String(meta.altBurstStage ?? '') === stage) fallback.push(name);
+    if (own === stage) rows.push({ name, kind: 'own' });
+    else if (own === 'A') rows.push({ name, kind: 'any' });
+    else if (String(meta.altBurstStage ?? '') === stage) rows.push({ name, kind: 'alt' });
   }
-  return out.length > 0 ? out : fallback;
+  const hasOwn = rows.some((row) => row.kind === 'own');
+  return rows
+    .filter((row) => row.kind !== 'alt' || !hasOwn)
+    .map((row) => row.name);
 }
 
 /** 고른 것들(`걸음키 → 이름`)을 엔진이 받는 모양으로 편다. */
