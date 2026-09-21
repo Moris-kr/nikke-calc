@@ -3,9 +3,9 @@
  *
  * 무엇이 고정이고 무엇이 내 것인가
  * ------------------------------
- * * **전투 조건**은 어드민의 코드(NK3) 그대로다. 싱크로·콘솔은 코드에 없는 값이라
- *   **싱크로 400 · 콘솔 없음으로 못 박는다** — 계정 레벨이 아니라 덱과 육성을 겨루는
- *   판이다(유니온 레이드의 개인 계산도 같은 규칙, `readBossCode`).
+ * * **전투 조건**은 어드민의 코드(NK3) 그대로다. 싱크로는 코드에 없는 값이라 **400으로
+ *   못 박는다** — 계정 레벨이 아니라 덱과 육성을 겨루는 판이다. **콘솔은 내 계정 값**을
+ *   쓴다(블라블라링크로 받아 둔 것) — 콘솔은 육성의 일부라 로스터와 같은 편에 선다.
  * * **육성**은 블라블라링크로 받은 로스터 그대로다. 덱에서 손으로 만진 수치 설정은
  *   **안 본다** — 그래야 같은 계정이면 어디서 돌려도 같은 값이 나온다. 로스터에 없는
  *   니케(안 가진 니케)는 세울 수 없다 — 기본 스펙으로 세우면 «내 계정»이 아니다.
@@ -154,16 +154,21 @@ export function raidCharacters(
 }
 
 /**
- * 어드민 코드의 조건 + 싱크로 400 · 콘솔 없음. 덱마다 다른 값은 전부 지운다.
+ * 어드민 코드의 조건 + 싱크로 400 + 내 계정 콘솔. 덱마다 다른 값은 전부 지운다.
  * 화면의 전투 조건(`fallback`)은 코드에 안 실리는 자잘한 값을 채우는 데만 쓴다 —
- * 싱크로·콘솔·핵은 거기서 새지 않는다.
+ * 싱크로·핵은 거기서 새지 않는다. 콘솔은 블라블라링크에서 받은 것이 없으면(전초기지
+ * 비공개) 화면 값으로 물러난다.
  */
-export function raidBattle(share: BattleShare, fallback: BattleSettings): BattleSettings {
+export function raidBattle(
+  share: BattleShare,
+  fallback: BattleSettings,
+  console?: BattleSettings['console'] | null,
+): BattleSettings {
   const battle: BattleSettings = {
     ...fallback,
     ...share,
     synchroLevel: DEFAULT_SYNCHRO_LEVEL,
-    console: emptyConsole(),
+    console: console ? structuredClone(console) : (fallback.console ?? emptyConsole()),
   };
   delete battle.burstRegenPerDeck;
   delete battle.corePerDeck;
@@ -218,8 +223,8 @@ export interface RaidDeps {
   decks: () => DeckState[];
   /** 블라블라링크로 받은 로스터. 비어 있으면 아직 안 이은 것이다. */
   roster: () => Record<string, CharacterOverrides>;
-  /** 이어 둔 계정. 없으면 null — 기록은 못 올리고 보기만 된다. */
-  account: () => { openid: string; area: number } | null;
+  /** 이어 둔 계정. 없으면 null — 기록은 못 올리고 보기만 된다. 콘솔은 받아 둔 계정 값. */
+  account: () => { openid: string; area: number; console?: BattleSettings['console'] | null } | null;
   /** 코드에 없는 값을 채울 밑바탕(지금 화면의 전투 조건). */
   battleFallback: () => BattleSettings;
   simulate: (request: SimulationRequest) => Promise<SimulationResult>;
@@ -325,7 +330,7 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
     say(t('덱 {n}/5 계산 중…', { n: 1 }));
     try {
       const share = decodeBattleCode(raid.code);
-      const battle = raidBattle(share, deps.battleFallback());
+      const battle = raidBattle(share, deps.battleFallback(), account?.console);
       const rows: RaidDeck[] = [];
       const requests: SimulationRequest[] = [];
       const decks = deps.decks().filter((deck) => deck.squad.some(Boolean));
@@ -496,7 +501,7 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
     const rules: Array<[string, string]> = [
       ['ok', t('5덱 합산 — 니케는 한 덱에만')],
       ['ok', t('블라블라링크로 받은 내 육성 그대로 (수치 설정 잠김)')],
-      ['ok', t('싱크로 400 · 콘솔 없음으로 고정')],
+      ['ok', t('싱크로 400 고정 · 콘솔은 내 계정 값')],
       ['ok', t('큐브는 바꿀 수 있음')],
       ['ok', t('버스트 순서는 내 것')],
       ['no', t('컨트롤(톡톡이·장전컨) 불가 — 자동 고정')],
@@ -684,7 +689,7 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
     boss.append(el('h3', '', raid.title));
     boss.append(el('p', 'raid-boss-auto', raid.auto));
     boss.append(el('p', 'field-note', raid.status === 'open'
-      ? t('어드민이 올린 전투 조건입니다. 바꿀 수 없고, 싱크로는 400 · 콘솔은 없음으로 고정입니다.')
+      ? t('어드민이 올린 전투 조건입니다. 바꿀 수 없고, 싱크로는 400 고정 · 콘솔은 내 블라블라링크 계정 값입니다.')
       : t('마감된 레이드입니다. 기록을 더 받지 않고 랭킹만 남습니다.')));
     host.append(boss);
     host.append(renderRules());

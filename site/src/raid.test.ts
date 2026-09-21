@@ -87,20 +87,27 @@ describe('레이드용 설정', () => {
 });
 
 describe('레이드 전투 조건', () => {
-  it('어드민 코드가 조건을 정하고, 싱크로 400 · 콘솔 없음으로 못 박으며, 덱마다 다른 값은 지운다', () => {
+  it('어드민 코드가 조건을 정하고, 싱크로는 400으로 못 박고, 콘솔은 내 계정 값이며, 덱마다 다른 값은 지운다', () => {
     const share = { ...battle, duration: 60, enemyCode: '전격' as const, corePx: 60, coreEnabled: true };
     delete (share as { console?: unknown }).console;
     delete (share as { synchroLevel?: unknown }).synchroLevel;
-    // 화면에는 내 싱크로·콘솔이 잡혀 있어도 새지 않는다.
+    // 화면에 내 싱크로가 잡혀 있어도 새지 않는다.
     const screen = { ...battle, synchroLevel: 821, console: { common_level: 200, class_level: { 화력형: 30 }, company_level: {} } };
-    const out = raidBattle(share, screen);
+    const mine = { common_level: 460, class_level: { 화력형: 249 }, company_level: { 엘리시온: 460 } };
+    const out = raidBattle(share, screen, mine);
     expect(out.duration).toBe(60);
     expect(out.enemyCode).toBe('전격');
     expect(out.synchroLevel).toBe(400);
-    expect(out.console?.common_level).toBe(0);
-    expect(Object.values(out.console?.class_level ?? {}).every((level) => level === 0)).toBe(true);
+    expect(out.console).toEqual(mine);
     expect(out.burstRegenPerDeck).toBeUndefined();
     expect(out.corePerDeck).toBeUndefined();
+  });
+
+  it('받아 둔 콘솔이 없으면 화면 값으로 물러난다', () => {
+    const share = { ...battle };
+    delete (share as { console?: unknown }).console;
+    delete (share as { synchroLevel?: unknown }).synchroLevel;
+    expect(raidBattle(share, battle, null).console?.common_level).toBe(180);
   });
 });
 

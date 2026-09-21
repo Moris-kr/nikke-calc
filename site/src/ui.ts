@@ -7396,7 +7396,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         } catch { saved = null; }
         const openid = openidFromProfileUrl(saved?.url ?? '');
         if (!openid) return null;
-        return { openid, area: saved?.area ?? 0 };
+        return { openid, area: saved?.area ?? 0, console: importedConsole };
       },
       battleFallback: readBattle,
       simulate: async (request) => {

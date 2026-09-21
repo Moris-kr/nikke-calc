@@ -161,6 +161,7 @@ const linkAccount = () => {
   localStorage.setItem('nikke-roster-v1', JSON.stringify({ 리타: { growthStage: 3, overload: { atk_pct: 20 } }, 크라운: { growthStage: 3 } }));
   localStorage.setItem('nikke-roster-source-v1', 'blabla');
   localStorage.setItem('nikke-account-synchro-v1', JSON.stringify({ level: 821, enabled: true }));
+  localStorage.setItem('nikke-imported-console-v1', JSON.stringify({ common_level: 460, class_level: { 화력형: 249, 방어형: 259, 지원형: 240 }, company_level: { 엘리시온: 460, 테트라: 278, 미실리스: 435, 필그림: 354, 어브노말: 246 } }));
 };
 
 const seedDecks = () => {
@@ -290,12 +291,13 @@ describe('계산기 레이드 (BETA)', () => {
     run.click();
     await flush();
     // 덱 둘 = 요청 둘. 로스터의 오버로드가 실리고, 싱크로는 계정(821)이 아니라 400 고정,
-    // 콘솔은 없음, 적 코드는 어드민 것.
+    // 콘솔은 받아 둔 내 계정 값, 적 코드는 어드민 것.
     expect(client.requests).toHaveLength(2);
     const first = client.requests[0]!;
     expect(first.characters?.리타?.overload).toEqual({ atk_pct: 20 });
     expect(first.synchroLevel ?? 400).toBe(400);
-    expect(first.console?.common_level).toBe(0);
+    expect(first.console?.common_level).toBe(460);
+    expect(first.console?.class_level?.화력형).toBe(249);
     expect(first.enemyCode).toBe('전격');
     expect(first.duration).toBe(180);
     expect(pane.querySelector('[data-raid-result]')!.textContent).toContain('2.46억');
