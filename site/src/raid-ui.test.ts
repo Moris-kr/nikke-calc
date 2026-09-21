@@ -366,6 +366,10 @@ describe('계산기 레이드 (BETA)', () => {
     const rows = [...pane.querySelectorAll<HTMLElement>('[data-raid-row]')];
     expect(rows.map((row) => row.dataset.raidRow)).toEqual(['e0', 'e1']);
     expect(rows[1]!.classList.contains('is-me')).toBe(true);
+    // 상위 열 줄은 메달 배지 — 1위 금, 2위 은.
+    expect(rows[0]!.classList.contains('is-podium')).toBe(true);
+    expect(rows[0]!.querySelector('.raid-medal.m1')!.textContent).toBe('1');
+    expect(rows[1]!.querySelector('.raid-medal.m2')!.textContent).toBe('2');
     expect(rows[1]!.textContent).toContain('모리스');
     expect(rows[0]!.textContent).toContain('참가자');
     expect(rows[0]!.textContent).not.toContain('남의닉');

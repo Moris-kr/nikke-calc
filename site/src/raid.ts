@@ -772,7 +772,20 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
       const rank = index + 1;
       const row = el('tr', entry.eid === myEid ? 'raid-row is-me' : 'raid-row');
       row.dataset.raidRow = entry.eid;
-      row.append(el('td', `raid-rank r${rank}`, String(rank)));
+      // 상위 열 줄은 다르게 입힌다 — 1·2·3위는 금·은·동 메달, 4~10위는 테두리 배지.
+      // 랭킹판은 «누가 위에 있나»를 보는 자리라 위쪽이 먼저 눈에 들어와야 한다.
+      const top = rank <= 10;
+      row.classList.toggle('is-top', top);
+      row.classList.toggle('is-podium', rank <= 3);
+      const rankCell = el('td', `raid-rank r${rank}`);
+      if (top) {
+        const medal = el('span', `raid-medal m${Math.min(rank, 4)}`, String(rank));
+        medal.setAttribute('aria-label', t('{rank}위', { rank }));
+        rankCell.append(medal);
+      } else {
+        rankCell.textContent = String(rank);
+      }
+      row.append(rankCell);
       const who = el('td', 'raid-who');
       if (entry.eid === myEid) {
         who.append(el('span', '', displayName || t('나')));
@@ -807,6 +820,14 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
         opened = open ? null : detail;
       });
       body.append(row, detail);
+      // 열 번째 아래에 금을 긋는다 — 어디까지가 «상위»인지 한눈에.
+      if (rank === 10 && entries.length > 10) {
+        const cut = el('tr', 'raid-cut');
+        const cell = el('td', '', t('11위부터'));
+        cell.colSpan = 5;
+        cut.append(cell);
+        body.append(cut);
+      }
     });
     table.append(body);
     const scroll = el('div', 'raid-scroll');

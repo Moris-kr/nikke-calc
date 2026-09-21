@@ -2885,6 +2885,22 @@ img[src*="/temporary-characters/"][src$="-card.png"] { object-fit: contain; obje
 .raid-row.is-me td:first-child { box-shadow: inset 3px 0 0 var(--amber); }
 .raid-rank { width: 48px; font: 900 13px/1 ui-monospace, monospace; font-variant-numeric: tabular-nums; }
 .raid-rank.r1 { color: var(--amber); } .raid-rank.r2 { color: #dfe7ee; } .raid-rank.r3 { color: #d7a76f; }
+/* 상위 10 — 메달 배지와 옅은 금빛 바탕. 1·2·3위는 채운 원, 4~10위는 테두리 원. */
+.raid-row.is-top td { background: linear-gradient(90deg, rgba(255,191,60,.06), transparent 55%); }
+.raid-row.is-top .raid-total { font-size: 14px; }
+.raid-row.is-podium td { background: linear-gradient(90deg, rgba(255,191,60,.12), transparent 60%); }
+.raid-row.is-podium .raid-total { font-size: 15px; color: var(--amber); }
+.raid-row.is-podium .raid-face { width: 30px; height: 30px; }
+.raid-row.is-top.is-me td { background: linear-gradient(90deg, rgba(255,191,60,.16), rgba(255,191,60,.06)); }
+.raid-medal { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
+  border: 1.5px solid rgba(255,191,60,.5); background: rgba(255,191,60,.08); color: #ffe4a6;
+  font: 900 12px/1 ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.raid-medal.m1 { border-color: transparent; color: #1a1206; background: linear-gradient(160deg, #ffe08a, #e0a027); box-shadow: 0 0 0 2px rgba(255,191,60,.25), 0 0 14px rgba(255,191,60,.45); }
+.raid-medal.m2 { border-color: transparent; color: #101820; background: linear-gradient(160deg, #f2f6fa, #a9b7c4); box-shadow: 0 0 0 2px rgba(223,231,238,.2), 0 0 12px rgba(223,231,238,.3); }
+.raid-medal.m3 { border-color: transparent; color: #1e1208; background: linear-gradient(160deg, #e8b382, #a8703d); box-shadow: 0 0 0 2px rgba(215,167,111,.2), 0 0 12px rgba(215,167,111,.3); }
+.raid-medal.m1, .raid-medal.m2, .raid-medal.m3 { width: 30px; height: 30px; font-size: 13px; }
+.raid-cut td { padding: 4px 12px; color: var(--muted); font: 700 10.5px/1.4 ui-monospace, monospace; letter-spacing: .06em; text-transform: uppercase;
+  background: rgba(5,11,19,.7); border-top: 1px dashed rgba(255,191,60,.35); border-bottom: 1px solid var(--line); }
 .raid-who { font-weight: 800; }
 .raid-who .anon { color: var(--muted); font-weight: 600; }
 .raid-who small { margin-left: 6px; padding: 1px 6px; border: 1px solid rgba(255,191,60,.45); border-radius: 999px; color: var(--amber); font-size: 10px; font-weight: 800; }

@@ -22,6 +22,14 @@ export interface Notice {
 /** 최신이 맨 앞. */
 export const NOTICES: Notice[] = [
   {
+    id: '2026-09-21-raid-top10',
+    date: '2026-09-21',
+    title: '계산기 레이드 — 상위 10명 꾸밈',
+    items: [
+      { tag: '개선', text: '랭킹의 <b>상위 10명</b>이 다르게 보입니다 — 1·2·3위는 금·은·동 메달, 4~10위는 배지와 옅은 금빛 바탕, 열 번째 아래에 「11위부터」 금.' },
+    ],
+  },
+  {
     id: '2026-09-21-raid-console-required',
     date: '2026-09-21',
     title: '계산기 레이드 — 콘솔을 못 받은 계정은 기록을 올릴 수 없습니다',
