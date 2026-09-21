@@ -20,13 +20,18 @@ describe('큐브 부르는 이름', () => {
     expect(cubeLine(undefined)).toBe('없음');
   });
 
-  it('데이터의 큐브 전부에 별명이 있다', () => {
+  it('데이터의 큐브 전부가 이름표에 있다 — 어시스터는 «별명 없음»이 답이라 빈 값이다', () => {
     // cube.json의 종류(공통 제외). 새 큐브가 들어오면 여기와 이름표에 함께 더한다.
     const names = [
       '렐릭 어설트 큐브', '택티컬 어설트 큐브', '렐릭 베어 큐브', '택티컬 베어 큐브', '렐릭 부스트 큐브', '택티컬 부스트 큐브',
       '렐릭 퀀텀 큐브', '렐릭 비고르 큐브', '렐릭 인듀어 큐브', '렐릭 힐링 큐브', '렐릭 템퍼링 큐브', '렐릭 어시스터 큐브',
       '렐릭 디스트로이 큐브', '렐릭 피어싱 큐브', '렐릭 크래시 큐브', '렐릭 커버 큐브', '렐릭 디바이드 큐브',
     ];
-    for (const name of names) expect(CUBE_NICKNAMES[name], name).toBeTruthy();
+    for (const name of names) expect(name in CUBE_NICKNAMES, name).toBe(true);
+    expect(cubeDisplayName('렐릭 퀀텀 큐브')).toBe('렐릭 퀀텀 큐브 (버충)');
+    expect(cubeDisplayName('렐릭 커버 큐브')).toBe('렐릭 커버 큐브 (엄폐물)');
+    expect(cubeDisplayName('렐릭 크래시 큐브')).toBe('렐릭 크래시 큐브 (방무)');
+    // 어시스터는 max_hp_pct라 스탯 뒷길로 «체력»이 붙을 수 있다 — 이름표의 빈 값이 이긴다.
+    expect(cubeDisplayName('렐릭 어시스터 큐브', 'max_hp_pct')).toBe('렐릭 어시스터 큐브');
   });
 });
