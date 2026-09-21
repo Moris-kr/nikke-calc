@@ -7538,8 +7538,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         cache.set(key, result);
         return result;
       },
-      // 남의 덱을 내 판에 — 편성만. 스펙은 내 로스터가 얹힌다.
-      applyDecks: (codes) => {
+      // 남의 덱을 내 판에 — 편성만. 스펙은 내 로스터가 얹힌다. 큐브를 함께 받았으면
+      // 그것만 덮어쓴다(카탈로그에 없는 큐브·없는 레벨은 건너뛴다 — 요청이 깨진다).
+      applyDecks: (codes, cubes) => {
         const names = catalog.map((char) => char.name);
         const count = Math.max(2, codes.length);
         while (decks.length < count) decks.push(emptyDeck(decks.length + 1));
@@ -7551,6 +7552,17 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             (name) => (roster[name] ? cloneOverride(roster[name]!) : undefined),
             { into: index, from: 0 },
           );
+          const deck = decks[index];
+          const worn = cubes?.[index];
+          if (!deck || !worn) return;
+          for (const [name, cube] of Object.entries(worn)) {
+            if (!deck.squad.includes(name)) continue;
+            const known = cube.name === NO_CUBE || Boolean(settings.cubes[cube.name]?.levels[String(cube.level)]);
+            if (!known) continue;
+            const base = deck.characters[name] ? cloneOverride(deck.characters[name]!) : {};
+            base.cube = { name: cube.name, level: cube.name === NO_CUBE ? 0 : cube.level };
+            deck.characters[name] = base;
+          }
         });
         if (codes.length > 1 && !fiveDeckMode) {
           fiveDeckMode = true;

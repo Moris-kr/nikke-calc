@@ -249,8 +249,11 @@ export interface RaidDeps {
   /** 코드에 없는 값을 채울 밑바탕(지금 화면의 전투 조건). */
   battleFallback: () => BattleSettings;
   simulate: (request: SimulationRequest) => Promise<SimulationResult>;
-  /** 남의 덱 다섯을 내 판에 얹는다. 편성만이다. */
-  applyDecks: (codes: string[]) => void;
+  /**
+   * 남의 덱 다섯을 내 판에 얹는다. 편성만 — `cubes`를 주면 니케별 큐브까지 함께.
+   * 나머지 스펙은 언제나 내 것이다.
+   */
+  applyDecks: (codes: string[], cubes?: Array<Record<string, { name: string; level: number }> | undefined>) => void;
   /** 어드민 비밀번호. 확인 안 했으면 빈 문자열. */
   adminPass: () => string;
   /** 엔진 판본 — 기록에 함께 적는다. */
@@ -732,6 +735,21 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
       }
     });
     actions.append(take);
+    // 큐브까지 — 기록에 큐브가 실려 있을 때만(이 패치 전 기록에는 없다).
+    if (entry.decks.some((deck) => deck.cubes && Object.keys(deck.cubes).length > 0)) {
+      const takeCubes = el('button', 'raid-ghost', t('덱 {n}개 가져오기 (큐브도)', { n: entry.decks.length }));
+      takeCubes.type = 'button';
+      takeCubes.dataset.raidTakeCubes = entry.eid;
+      takeCubes.addEventListener('click', () => {
+        try {
+          deps.applyDecks(entry.decks.map((deck) => deck.code), entry.decks.map((deck) => deck.cubes));
+          say(t('덱 {n}개의 편성과 큐브를 가져왔습니다 — 나머지 스펙은 내 블라블라링크 값으로 돕니다.', { n: entry.decks.length }), true);
+        } catch (error) {
+          say(error instanceof Error ? error.message : String(error));
+        }
+      });
+      actions.append(takeCubes);
+    }
     if (admin) {
       const verifyButton = el('button', 'raid-ghost', t('재검증 (보관된 스펙으로 다시 계산)'));
       verifyButton.type = 'button';

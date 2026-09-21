@@ -13,7 +13,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { encodeBattleCode } from './share-code';
+import { encodeBattleCode, encodeShareCode } from './share-code';
 import type { CalculatorClientLike } from './ui';
 import type {
   CharacterMeta, CombatPowerRequest, SettingsCatalog, SimulationRequest, SimulationResult,
@@ -102,7 +102,7 @@ function fakeServer() {
   }];
   const entries: Entry[] = [{
     eid: 'e0', openid: '99999999999', name: '남의닉', area: 81, total: 900_000_000, engine: 'v1', at: '2026-09-21T01:00:00Z',
-    decks: [{ names: ['크라운'], code: 'NK2-x', order: '', dmg: 900_000_000, cubes: { 크라운: { name: '렐릭 베어 큐브', level: 15 } } }],
+    decks: [{ names: ['크라운'], code: encodeShareCode([{ id: 1, squad: ['크라운', '', '', '', ''], characters: {} }], false), order: '', dmg: 900_000_000, cubes: { 크라운: { name: '탄충', level: 15 } } }],
   }];
   const sent: Array<{ url: string; body: Record<string, unknown> }> = [];
   const publicEntry = (entry: Entry, admin: boolean) => ({
@@ -317,7 +317,15 @@ describe('계산기 레이드 (BETA)', () => {
     cubes.click();
     expect(list.hidden).toBe(false);
     expect(list.textContent).toContain('크라운');
-    expect(list.textContent).toContain('렐릭 베어 큐브 (재장) Lv15');
+    expect(list.textContent).toContain('탄충 Lv15');
+    // 큐브가 실린 기록에만 「큐브도」 단추가 있고, 누르면 편성과 함께 큐브가 덱에 잡힌다.
+    expect(pane.querySelector('[data-raid-take-cubes="e0"]')).not.toBeNull();
+    pane.querySelector<HTMLButtonElement>('[data-raid-take-cubes="e0"]')!.click();
+    await flush();
+    const saved = JSON.parse(localStorage.getItem('nikke-state-v1')!) as { decks: Array<{ squad: string[]; characters: Record<string, { cube?: { name: string; level: number } }> }> };
+    expect(saved.decks[0]!.squad[0]).toBe('크라운');
+    expect(saved.decks[0]!.characters['크라운']?.cube).toEqual({ name: '탄충', level: 15 });
+    expect(pane.querySelector('[data-raid-message]')!.textContent).toContain('편성과 큐브를 가져왔습니다');
   });
 
   it('이어 둔 계정으로 5덱을 돌리면 내 최고 딜은 바로 올라가고, 내 줄만 «나»로 보이며, 요청은 로스터 값·400·내 콘솔로 간다', async () => {
