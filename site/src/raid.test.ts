@@ -41,6 +41,16 @@ describe('레이드에 세울 수 있나', () => {
     expect(raidProblems([deck(1, [])], catalog, true)[0]).toContain('편성된 덱이 없습니다');
     expect(raidProblems([deck(1, ['리타', '크라운']), deck(2, ['이브'])], catalog, true)).toEqual([]);
   });
+
+  it('로스터를 주면 안 가진 니케를 막는다 — 기본 스펙으로 세우면 내 계정이 아니다', () => {
+    const roster = { 리타: { growthStage: 3 } };
+    const problems = raidProblems([deck(1, ['리타', '크라운'])], catalog, true, roster);
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain('크라운');
+    expect(problems[0]).toContain('로스터에 없습니다');
+    // 안 이었으면 로스터 검사는 뜻이 없다 — 첫 줄(계정을 이어 달라)만 나온다.
+    expect(raidProblems([deck(1, ['크라운'])], catalog, false, roster).some((line) => line.includes('로스터'))).toBe(false);
+  });
 });
 
 describe('레이드용 설정', () => {
@@ -77,26 +87,20 @@ describe('레이드용 설정', () => {
 });
 
 describe('레이드 전투 조건', () => {
-  it('어드민 코드가 조건을 정하고, 싱크로·콘솔은 내 계정 값이며, 덱마다 다른 값은 지운다', () => {
+  it('어드민 코드가 조건을 정하고, 싱크로 400 · 콘솔 없음으로 못 박으며, 덱마다 다른 값은 지운다', () => {
     const share = { ...battle, duration: 60, enemyCode: '전격' as const, corePx: 60, coreEnabled: true };
     delete (share as { console?: unknown }).console;
     delete (share as { synchroLevel?: unknown }).synchroLevel;
-    const out = raidBattle(share, { synchroLevel: 821, console: { common_level: 200, class_level: {}, company_level: {} } }, battle);
+    // 화면에는 내 싱크로·콘솔이 잡혀 있어도 새지 않는다.
+    const screen = { ...battle, synchroLevel: 821, console: { common_level: 200, class_level: { 화력형: 30 }, company_level: {} } };
+    const out = raidBattle(share, screen);
     expect(out.duration).toBe(60);
     expect(out.enemyCode).toBe('전격');
-    expect(out.synchroLevel).toBe(821);
-    expect(out.console?.common_level).toBe(200);
+    expect(out.synchroLevel).toBe(400);
+    expect(out.console?.common_level).toBe(0);
+    expect(Object.values(out.console?.class_level ?? {}).every((level) => level === 0)).toBe(true);
     expect(out.burstRegenPerDeck).toBeUndefined();
     expect(out.corePerDeck).toBeUndefined();
-  });
-
-  it('계정 값이 없으면 화면 값으로 채운다', () => {
-    const share = { ...battle };
-    delete (share as { console?: unknown }).console;
-    delete (share as { synchroLevel?: unknown }).synchroLevel;
-    const out = raidBattle(share, {}, battle);
-    expect(out.synchroLevel).toBe(400);
-    expect(out.console?.common_level).toBe(180);
   });
 });
 

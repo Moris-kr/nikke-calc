@@ -139,6 +139,16 @@ function fakeServer() {
       raids.push(raid);
       return ok({ raid });
     }
+    if (url.endsWith('/raid/close') || url.endsWith('/raid/reopen')) {
+      const raid = raids.find((item) => item.id === body.id)!;
+      raid.status = url.endsWith('/raid/close') ? 'closed' : 'open';
+      return ok({ raid });
+    }
+    if (url.endsWith('/raid/delete')) {
+      const at = raids.findIndex((item) => item.id === body.id);
+      if (at >= 0) raids.splice(at, 1);
+      return ok({ id: body.id });
+    }
     return new Response(JSON.stringify({ error: `없는 경로입니다: ${url}` }), { status: 404 });
   }) as unknown as typeof fetch;
   return { raids, entries, sent, fetcher };
@@ -148,7 +158,7 @@ function fakeServer() {
 const linkAccount = () => {
   const openid = btoa('29080-15361668407129878426');
   localStorage.setItem('nikke-blabla-profile-v1', JSON.stringify({ url: `https://www.blablalink.com/user?openid=${openid}`, area: 81 }));
-  localStorage.setItem('nikke-roster-v1', JSON.stringify({ 리타: { growthStage: 3, overload: { atk_pct: 20 } } }));
+  localStorage.setItem('nikke-roster-v1', JSON.stringify({ 리타: { growthStage: 3, overload: { atk_pct: 20 } }, 크라운: { growthStage: 3 } }));
   localStorage.setItem('nikke-roster-source-v1', 'blabla');
   localStorage.setItem('nikke-account-synchro-v1', JSON.stringify({ level: 821, enabled: true }));
 };
@@ -279,11 +289,13 @@ describe('계산기 레이드 (BETA)', () => {
     expect(run.disabled).toBe(false);
     run.click();
     await flush();
-    // 덱 둘 = 요청 둘. 로스터의 오버로드가 실리고, 싱크로는 계정 값, 적 코드는 어드민 것.
+    // 덱 둘 = 요청 둘. 로스터의 오버로드가 실리고, 싱크로는 계정(821)이 아니라 400 고정,
+    // 콘솔은 없음, 적 코드는 어드민 것.
     expect(client.requests).toHaveLength(2);
     const first = client.requests[0]!;
     expect(first.characters?.리타?.overload).toEqual({ atk_pct: 20 });
-    expect(first.synchroLevel).toBe(821);
+    expect(first.synchroLevel ?? 400).toBe(400);
+    expect(first.console?.common_level).toBe(0);
     expect(first.enemyCode).toBe('전격');
     expect(first.duration).toBe(180);
     expect(pane.querySelector('[data-raid-result]')!.textContent).toContain('2.46억');
@@ -306,6 +318,21 @@ describe('계산기 레이드 (BETA)', () => {
     expect(rows[0]!.textContent).toContain('참가자');
     expect(rows[0]!.textContent).not.toContain('남의닉');
     expect(pane.querySelector('[data-raid-message]')!.textContent).toContain('2위');
+  });
+
+  it('로스터에 없는(안 가진) 니케가 있으면 한 판도 안 돌린다', async () => {
+    seedDecks();
+    linkAccount();
+    // 크라운을 안 가진 계정 — 덱 2가 크라운이다.
+    localStorage.setItem('nikke-roster-v1', JSON.stringify({ 리타: { growthStage: 3 } }));
+    await mount(fakeServer());
+    await openRaidTab();
+    const pane = root.querySelector<HTMLElement>('[data-raid-pane]')!;
+    pane.querySelector<HTMLButtonElement>('[data-raid-run]')!.click();
+    await flush();
+    expect(client.requests).toHaveLength(0);
+    expect(pane.querySelector('[data-raid-message]')!.textContent).toContain('크라운');
+    expect(pane.querySelector('[data-raid-message]')!.textContent).toContain('로스터에 없습니다');
   });
 
   it('임시 니케나 두 덱에 겹친 니케가 있으면 한 판도 안 돌린다', async () => {
@@ -374,5 +401,35 @@ describe('계산기 레이드 (BETA)', () => {
     expect(server.raids).toHaveLength(2);
     expect(root.querySelector<HTMLElement>('[data-raid-band-list]')!.textContent).toContain('9월 4주 솔레');
     expect(pane.querySelectorAll('[data-raid-pick]')).toHaveLength(2);
+  });
+
+  it('어드민은 닫은 레이드를 다시 열거나 두 번 눌러 통째로 지운다', async () => {
+    seedDecks();
+    const server = fakeServer();
+    await mount(server);
+    root.querySelector<HTMLButtonElement>('[data-feedback-open]')!.click();
+    await flush();
+    root.querySelector<HTMLButtonElement>('[data-feedback-admin]')!.click();
+    await flush();
+    await openRaidTab();
+    const pane = root.querySelector<HTMLElement>('[data-raid-pane]')!;
+    // 진행 중: 종료만 있다.
+    expect(pane.querySelector('[data-raid-reopen]')).toBeNull();
+    pane.querySelector<HTMLButtonElement>('[data-raid-close]')!.click();
+    await flush();
+    // 닫힘: 다시 열기 · 완전히 삭제.
+    expect(pane.querySelector('[data-raid-close]')).toBeNull();
+    expect(pane.querySelector('[data-raid-reopen]')).not.toBeNull();
+    const remove = pane.querySelector<HTMLButtonElement>('[data-raid-delete]')!;
+    remove.click();
+    await flush();
+    // 한 번으로는 안 지워진다 — 단추 글이 바뀌고 두 번째에 지운다.
+    expect(server.sent.some((call) => call.url.endsWith('/raid/delete'))).toBe(false);
+    expect(server.raids).toHaveLength(1);
+    pane.querySelector<HTMLButtonElement>('[data-raid-delete]')!.click();
+    await flush();
+    expect(server.sent.some((call) => call.url.endsWith('/raid/delete') && call.body.password === 'let-me-in')).toBe(true);
+    expect(server.raids).toHaveLength(0);
+    expect(pane.textContent).toContain('지금 열린 계산기 레이드가 없습니다');
   });
 });

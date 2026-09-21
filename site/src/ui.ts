@@ -7396,12 +7396,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         } catch { saved = null; }
         const openid = openidFromProfileUrl(saved?.url ?? '');
         if (!openid) return null;
-        return {
-          openid,
-          area: saved?.area ?? 0,
-          ...(accountSynchro !== null ? { synchroLevel: accountSynchro } : {}),
-          ...(importedConsole ? { console: structuredClone(importedConsole) } : {}),
-        };
+        return { openid, area: saved?.area ?? 0 };
       },
       battleFallback: readBattle,
       simulate: async (request) => {

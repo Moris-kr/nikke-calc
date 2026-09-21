@@ -224,6 +224,30 @@ describe('계산기 레이드', () => {
     expect((await call(kv, '/raid/open', { method: 'POST', body: { title: 'x', code: 'NK3-abc' } })).status).toBe(403);
   });
 
+  it('닫은 레이드는 다시 열거나 통째로 지울 수 있다 — 진행 중인 것은 못 지운다', async () => {
+    const kv = fakeKv();
+    const { raid } = await (await open(kv)).json();
+    await entry(kv, raid.id);
+    // 진행 중에는 못 지운다.
+    expect((await call(kv, '/raid/delete', { method: 'POST', body: { id: raid.id, password: ADMIN } })).status).toBe(400);
+    await call(kv, '/raid/close', { method: 'POST', body: { id: raid.id, password: ADMIN } });
+    expect((await entry(kv, raid.id, { openid: '555555555' })).status).toBe(409);
+    // 다시 열면 제출이 다시 된다 — 기록은 그대로다.
+    const reopened = await (await call(kv, '/raid/reopen', { method: 'POST', body: { id: raid.id, password: ADMIN } })).json();
+    expect(reopened.raid.status).toBe('open');
+    expect((await entry(kv, raid.id, { openid: '555555555' })).status).toBe(200);
+    expect((await (await call(kv, `/raid/board?id=${raid.id}`)).json()).entries).toHaveLength(2);
+    // 닫고 지우면 목록·랭킹·스펙이 전부 사라진다.
+    await call(kv, '/raid/close', { method: 'POST', body: { id: raid.id, password: ADMIN } });
+    const eid = (await (await call(kv, `/raid/board?id=${raid.id}`)).json()).entries[0].eid;
+    expect((await call(kv, '/raid/delete', { method: 'POST', body: { id: raid.id } })).status).toBe(403);
+    const deleted = await call(kv, '/raid/delete', { method: 'POST', body: { id: raid.id, password: ADMIN } });
+    expect(deleted.status).toBe(200);
+    expect((await (await call(kv, '/raid')).json()).raids).toEqual([]);
+    expect((await call(kv, `/raid/board?id=${raid.id}`)).status).toBe(404);
+    expect((await call(kv, '/raid/spec', { method: 'POST', body: { id: raid.id, eid, password: ADMIN } })).status).toBe(404);
+  });
+
   it('설명이 길어도 튕기지 않는다 — 사이트가 만든 요약이라 넘치면 자른다', async () => {
     const kv = fakeKv();
     const long = '180초 · 전격 · '.repeat(60);

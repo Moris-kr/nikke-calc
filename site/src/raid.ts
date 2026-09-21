@@ -3,10 +3,12 @@
  *
  * 무엇이 고정이고 무엇이 내 것인가
  * ------------------------------
- * * **전투 조건**은 어드민의 코드(NK3) 그대로다. 싱크로·콘솔만은 코드에 없는 값이라
- *   블라블라링크로 받아 둔 내 계정 값을 쓴다.
+ * * **전투 조건**은 어드민의 코드(NK3) 그대로다. 싱크로·콘솔은 코드에 없는 값이라
+ *   **싱크로 400 · 콘솔 없음으로 못 박는다** — 계정 레벨이 아니라 덱과 육성을 겨루는
+ *   판이다(유니온 레이드의 개인 계산도 같은 규칙, `readBossCode`).
  * * **육성**은 블라블라링크로 받은 로스터 그대로다. 덱에서 손으로 만진 수치 설정은
- *   **안 본다** — 그래야 같은 계정이면 어디서 돌려도 같은 값이 나온다.
+ *   **안 본다** — 그래야 같은 계정이면 어디서 돌려도 같은 값이 나온다. 로스터에 없는
+ *   니케(안 가진 니케)는 세울 수 없다 — 기본 스펙으로 세우면 «내 계정»이 아니다.
  * * 예외는 **큐브**와 **버스트 순서**다. 둘은 육성이 아니라 «운용»이라 내 것으로 둔다.
  *   컨트롤(톡톡이·장전컨·버스트 운용)은 뺀다 — 조건이 늘수록 어드민 재검증이 무거워진다.
  * * 임시(프리뷰) 니케는 못 세운다. 창작 수치로 겨루는 것은 겨루는 것이 아니다.
@@ -15,9 +17,10 @@
  * 본다). 기록은 계정당 하나, 더 높을 때만 갈아 끼운다. 자기 기록을 지우는 길은 없다.
  */
 
+import { emptyConsole } from './blablalink';
 import { cycleLine, sequenceForDeck } from './burst-order';
 import { t } from './i18n';
-import { requestForDeck } from './model';
+import { DEFAULT_SYNCHRO_LEVEL, requestForDeck } from './model';
 import type { RaidBoard, RaidDeck, RaidEntry, RaidEntryInput, RaidSummary, ShareServer } from './share-server';
 import { decodeBattleCode, encodeShareCode, type BattleShare } from './share-code';
 import type {
@@ -100,6 +103,8 @@ export function raidProblems(
   decks: DeckState[],
   catalog: Map<string, CharacterMeta>,
   linked: boolean,
+  /** 블라블라링크 로스터. 여기 없는 니케는 안 가진 니케다 — 주면 그것도 막는다. */
+  roster?: Record<string, CharacterOverrides>,
 ): string[] {
   const problems: string[] = [];
   if (!linked) problems.push(t('블라블라링크로 계정을 먼저 이어 주세요 — 레이드는 그 육성으로만 돕니다.'));
@@ -112,6 +117,9 @@ export function raidProblems(
       const meta = catalog.get(name);
       if (!meta) { problems.push(t('{name}은(는) 계산기가 모르는 니케입니다.', { name })); continue; }
       if (meta.preview) problems.push(t('{name}은(는) 임시 니케라 레이드에 세울 수 없습니다.', { name }));
+      else if (linked && roster && !roster[name]) {
+        problems.push(t('{name}은(는) 블라블라링크 로스터에 없습니다 — 가진 니케만 세울 수 있습니다.', { name }));
+      }
       const before = seen.get(name);
       if (before !== undefined && before !== deck.id) {
         problems.push(t('{name}이(가) 덱 {a}와 덱 {b}에 함께 있습니다 — 한 니케는 한 덱에만 설 수 있습니다.',
@@ -145,17 +153,17 @@ export function raidCharacters(
   return out;
 }
 
-/** 어드민 코드의 조건 + 내 계정의 싱크로·콘솔. 덱마다 다른 값은 전부 지운다. */
-export function raidBattle(
-  share: BattleShare,
-  account: { synchroLevel?: number; console?: BattleSettings['console'] },
-  fallback: BattleSettings,
-): BattleSettings {
+/**
+ * 어드민 코드의 조건 + 싱크로 400 · 콘솔 없음. 덱마다 다른 값은 전부 지운다.
+ * 화면의 전투 조건(`fallback`)은 코드에 안 실리는 자잘한 값을 채우는 데만 쓴다 —
+ * 싱크로·콘솔·핵은 거기서 새지 않는다.
+ */
+export function raidBattle(share: BattleShare, fallback: BattleSettings): BattleSettings {
   const battle: BattleSettings = {
     ...fallback,
     ...share,
-    synchroLevel: account.synchroLevel ?? fallback.synchroLevel,
-    console: account.console ?? fallback.console,
+    synchroLevel: DEFAULT_SYNCHRO_LEVEL,
+    console: emptyConsole(),
   };
   delete battle.burstRegenPerDeck;
   delete battle.corePerDeck;
@@ -211,7 +219,7 @@ export interface RaidDeps {
   /** 블라블라링크로 받은 로스터. 비어 있으면 아직 안 이은 것이다. */
   roster: () => Record<string, CharacterOverrides>;
   /** 이어 둔 계정. 없으면 null — 기록은 못 올리고 보기만 된다. */
-  account: () => { openid: string; area: number; synchroLevel?: number; console?: BattleSettings['console'] } | null;
+  account: () => { openid: string; area: number } | null;
   /** 코드에 없는 값을 채울 밑바탕(지금 화면의 전투 조건). */
   battleFallback: () => BattleSettings;
   simulate: (request: SimulationRequest) => Promise<SimulationResult>;
@@ -309,15 +317,15 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
     const raid = selected();
     if (!raid || raid.status !== 'open') return;
     const account = deps.account();
-    const problems = raidProblems(deps.decks(), deps.catalog, account !== null);
+    const roster = deps.roster();
+    const problems = raidProblems(deps.decks(), deps.catalog, account !== null, roster);
     if (problems.length > 0) { say(problems[0]!); return; }
     running = true;
     computed = null;
     say(t('덱 {n}/5 계산 중…', { n: 1 }));
     try {
       const share = decodeBattleCode(raid.code);
-      const battle = raidBattle(share, account ?? {}, deps.battleFallback());
-      const roster = deps.roster();
+      const battle = raidBattle(share, deps.battleFallback());
       const rows: RaidDeck[] = [];
       const requests: SimulationRequest[] = [];
       const decks = deps.decks().filter((deck) => deck.squad.some(Boolean));
@@ -388,6 +396,28 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
       await deps.server.closeRaid(raid.id, deps.adminPass());
       await refresh();
       say(t('레이드를 닫았습니다 — 랭킹은 지난 레이드로 남고 제출만 막힙니다.'), true);
+    } catch (error) { say(error instanceof Error ? error.message : String(error)); }
+  }
+
+  async function reopenRaid(): Promise<void> {
+    const raid = selected();
+    if (!raid) return;
+    try {
+      await deps.server.reopenRaid(raid.id, deps.adminPass());
+      await refresh();
+      say(t('레이드를 다시 열었습니다 — 기록은 그대로고 제출을 다시 받습니다.'), true);
+    } catch (error) { say(error instanceof Error ? error.message : String(error)); }
+  }
+
+  async function deleteRaid(): Promise<void> {
+    const raid = selected();
+    if (!raid) return;
+    try {
+      await deps.server.deleteRaid(raid.id, deps.adminPass());
+      selectedId = null;
+      computed = null;
+      await refresh();
+      say(t('레이드를 지웠습니다 — 랭킹과 보관된 스펙까지 사라졌습니다.'), true);
     } catch (error) { say(error instanceof Error ? error.message : String(error)); }
   }
 
@@ -466,10 +496,12 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
     const rules: Array<[string, string]> = [
       ['ok', t('5덱 합산 — 니케는 한 덱에만')],
       ['ok', t('블라블라링크로 받은 내 육성 그대로 (수치 설정 잠김)')],
+      ['ok', t('싱크로 400 · 콘솔 없음으로 고정')],
       ['ok', t('큐브는 바꿀 수 있음')],
       ['ok', t('버스트 순서는 내 것')],
       ['no', t('컨트롤(톡톡이·장전컨) 불가 — 자동 고정')],
       ['no', t('임시 · 미구현 니케 불가')],
+      ['no', t('안 가진 니케 불가')],
       ['ok', t('한 계정 한 기록 · 최고 기록만')],
       ['ok', t('다른 참가자는 익명')],
     ];
@@ -626,6 +658,24 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
         close.dataset.raidClose = '';
         close.addEventListener('click', () => { void closeRaid(); });
         bar.append(close);
+      } else {
+        const reopen = el('button', 'raid-ghost', t('다시 열기 (제출 재개)'));
+        reopen.type = 'button';
+        reopen.dataset.raidReopen = '';
+        reopen.addEventListener('click', () => { void reopenRaid(); });
+        // 지우기는 두 번 누른다 — 랭킹·스펙까지 통째로 사라지는 일이라 한 번에 안 된다.
+        const remove = el('button', 'raid-ghost is-danger', t('완전히 삭제'));
+        remove.type = 'button';
+        remove.dataset.raidDelete = '';
+        remove.addEventListener('click', () => {
+          if (remove.dataset.armed === undefined) {
+            remove.dataset.armed = '';
+            remove.textContent = t('정말 지웁니다 — 한 번 더 누르기');
+            return;
+          }
+          void deleteRaid();
+        });
+        bar.append(reopen, remove);
       }
       host.append(bar);
     }
@@ -634,7 +684,7 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
     boss.append(el('h3', '', raid.title));
     boss.append(el('p', 'raid-boss-auto', raid.auto));
     boss.append(el('p', 'field-note', raid.status === 'open'
-      ? t('어드민이 올린 전투 조건입니다. 바꿀 수 없고, 싱크로·콘솔은 내 블라블라링크 계정 값을 씁니다.')
+      ? t('어드민이 올린 전투 조건입니다. 바꿀 수 없고, 싱크로는 400 · 콘솔은 없음으로 고정입니다.')
       : t('마감된 레이드입니다. 기록을 더 받지 않고 랭킹만 남습니다.')));
     host.append(boss);
     host.append(renderRules());

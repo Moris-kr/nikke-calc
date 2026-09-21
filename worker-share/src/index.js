@@ -643,6 +643,40 @@ async function handleRaidRemove(env, body) {
   return { eid };
 }
 
+/** 닫은 레이드를 다시 연다. 기록은 그대로 있고 제출만 다시 받는다. */
+async function handleRaidReopen(env, body) {
+  requireAdmin(env, body.password);
+  const id = text(body.id, 40, '레이드', true);
+  const index = await raidIndex(env);
+  const raid = index.raids.find((entry) => entry.id === id);
+  if (!raid) throw new Fail(404, '없는 레이드입니다.');
+  if (raid.status !== 'open') {
+    raid.status = 'open';
+    raid.closedAt = '';
+    await env.SHARE.put(RAID_INDEX_KEY, JSON.stringify(index));
+  }
+  return { raid: publicRaid(raid) };
+}
+
+/**
+ * 레이드를 통째로 지운다 — 목록에서도, 랭킹도, 보관된 스펙도. 닫은 레이드만 지울 수 있다:
+ * 진행 중인 것을 지우는 실수를 막으려면 «닫기 → 지우기» 두 걸음이어야 한다.
+ */
+async function handleRaidDelete(env, body) {
+  requireAdmin(env, body.password);
+  const id = text(body.id, 40, '레이드', true);
+  const index = await raidIndex(env);
+  const raid = index.raids.find((entry) => entry.id === id);
+  if (!raid) throw new Fail(404, '없는 레이드입니다.');
+  if (raid.status === 'open') throw new Fail(400, '진행 중인 레이드는 지울 수 없습니다. 먼저 닫아 주세요.');
+  const board = await readJson(env, raidBoardKey(id), { entries: [] });
+  for (const entry of board.entries ?? []) await env.SHARE.delete(raidSpecKey(id, entry.eid));
+  await env.SHARE.delete(raidBoardKey(id));
+  index.raids = index.raids.filter((entry) => entry.id !== id);
+  await env.SHARE.put(RAID_INDEX_KEY, JSON.stringify(index));
+  return { id };
+}
+
 /** 어드민 재검증용 스펙. 기록을 올린 브라우저가 돌린 요청 그대로다. */
 async function handleRaidSpec(env, body) {
   requireAdmin(env, body.password);
@@ -769,6 +803,12 @@ export default {
       }
       if (request.method === 'POST' && url.pathname === '/raid/close') {
         return json(await handleRaidClose(env, await request.json()));
+      }
+      if (request.method === 'POST' && url.pathname === '/raid/reopen') {
+        return json(await handleRaidReopen(env, await request.json()));
+      }
+      if (request.method === 'POST' && url.pathname === '/raid/delete') {
+        return json(await handleRaidDelete(env, await request.json()));
       }
       if (request.method === 'POST' && url.pathname === '/raid/remove') {
         return json(await handleRaidRemove(env, await request.json()));

@@ -363,6 +363,27 @@ export class ShareServer {
     return result.raid;
   }
 
+  /** 닫은 레이드를 다시 연다 — 기록은 그대로, 제출만 다시 받는다. */
+  async reopenRaid(id: string, password: string): Promise<RaidSummary> {
+    const response = await this.fetcher(`${this.base}/raid/reopen`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, password }),
+    });
+    const result = await this.unwrapReady<{ raid: RaidSummary }>(response, '계산기 레이드');
+    return result.raid;
+  }
+
+  /** 레이드를 통째로 지운다(랭킹·스펙까지). 서버가 닫은 것만 받는다. */
+  async deleteRaid(id: string, password: string): Promise<void> {
+    const response = await this.fetcher(`${this.base}/raid/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, password }),
+    });
+    await this.unwrapReady(response, '계산기 레이드');
+  }
+
   async removeRaidEntry(id: string, eid: string, password: string): Promise<void> {
     const response = await this.fetcher(`${this.base}/raid/remove`, {
       method: 'POST',
