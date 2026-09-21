@@ -1657,4 +1657,5 @@ export const EN: Record<string, string> = {
   '블라블라링크에서 콘솔(전초기지) 정보를 받지 못했습니다 — 콘솔 없이는 기록을 올릴 수 없습니다. 블라블라링크 프로필의 보안 설정에서 전초기지를 공개로 바꾼 뒤 「블라블라링크 연동」을 다시 눌러 주세요.': 'Could not read your console (Outpost) from Blablalink — no console, no ranking entry. In your Blablalink profile’s privacy settings make the Outpost public, then press “Link Blablalink” again.',
   '{rank}위': 'Rank {rank}',
   '11위부터': 'Rank 11 and below',
+  '{n}덱 합산': '{n}-deck total',
 };

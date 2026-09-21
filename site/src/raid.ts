@@ -750,6 +750,14 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
     return box;
   }
 
+  /** 마지막으로 «올라오는» 동작을 준 판. 같은 판을 다시 그릴 때는 뛰지 않는다. */
+  let boardAnimated = '';
+
+  /**
+   * 랭킹판. 1~3위는 시상대(카드 셋, 가운데가 1위), 4~10위는 상위 판(작은 카드),
+   * 11위부터는 표다. 랭킹판은 «누가 위에 있나»를 보는 자리라 위쪽이 먼저 눈에 들어와야
+   * 하고, 그래서 위쪽만 카드로 세운다 — 전부 카드면 아무것도 도드라지지 않는다.
+   */
   function renderBoard(): HTMLElement {
     const box = el('div', 'raid-board');
     box.dataset.raidBoard = '';
@@ -760,33 +768,13 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
       box.append(el('p', 'field-note', loading ? t('랭킹을 받는 중…') : t('아직 올라온 기록이 없습니다.')));
       return box;
     }
-    const table = el('table', 'raid-table');
-    const head = el('thead');
-    const hr = el('tr');
-    for (const label of [t('순위'), t('참가자'), t('덱'), t('5덱 합산'), '']) hr.append(el('th', '', label));
-    head.append(hr);
-    table.append(head);
-    const body = el('tbody');
-    let opened: HTMLTableRowElement | null = null;
-    entries.forEach((entry, index) => {
-      const rank = index + 1;
-      const row = el('tr', entry.eid === myEid ? 'raid-row is-me' : 'raid-row');
-      row.dataset.raidRow = entry.eid;
-      // 상위 열 줄은 다르게 입힌다 — 1·2·3위는 금·은·동 메달, 4~10위는 테두리 배지.
-      // 랭킹판은 «누가 위에 있나»를 보는 자리라 위쪽이 먼저 눈에 들어와야 한다.
-      const top = rank <= 10;
-      row.classList.toggle('is-top', top);
-      row.classList.toggle('is-podium', rank <= 3);
-      const rankCell = el('td', `raid-rank r${rank}`);
-      if (top) {
-        const medal = el('span', `raid-medal m${Math.min(rank, 4)}`, String(rank));
-        medal.setAttribute('aria-label', t('{rank}위', { rank }));
-        rankCell.append(medal);
-      } else {
-        rankCell.textContent = String(rank);
-      }
-      row.append(rankCell);
-      const who = el('td', 'raid-who');
+    // 처음 그릴 때만 올라오는 동작 — 메시지 한 줄 바뀔 때마다 다시 뛰면 산만하다.
+    const animKey = `${selectedId}:${entries.map((entry) => entry.eid).join(',')}`;
+    const animate = animKey !== boardAnimated;
+    boardAnimated = animKey;
+
+    const whoOf = (entry: RaidEntry): HTMLElement => {
+      const who = el('span', 'raid-who');
       if (entry.eid === myEid) {
         who.append(el('span', '', displayName || t('나')));
         who.append(el('small', '', t('나')));
@@ -798,12 +786,95 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
       if (admin && entry.name !== undefined) {
         who.append(el('span', 'raid-ident', `${entry.name || '(이름 없음)'} · ${entry.area || '?'} · …${entry.tail ?? ''}`));
       }
-      row.append(who);
-      const deckCell = el('td');
+      return who;
+    };
+    const facesOf = (entry: RaidEntry, className: string): HTMLElement => {
+      const wrap = el('div', className);
       const faces = el('span', 'raid-faces');
       for (const name of entry.decks[0]?.names ?? []) faces.append(face(name));
-      deckCell.append(faces);
-      if (entry.decks.length > 1) deckCell.append(el('span', 'raid-more', t('+ {n}덱', { n: entry.decks.length - 1 })));
+      wrap.append(faces);
+      if (entry.decks.length > 1) wrap.append(el('span', 'raid-more', t('+ {n}덱', { n: entry.decks.length - 1 })));
+      return wrap;
+    };
+
+    // 펼친 것은 하나만 — 두 개가 열리면 무엇을 보고 있는지 흐려진다.
+    let opened: { detail: HTMLElement; host: HTMLElement } | null = null;
+    const toggle = (detail: HTMLElement, host: HTMLElement) => {
+      const open = !detail.hidden;
+      if (opened && opened.detail !== detail) {
+        opened.detail.hidden = true;
+        opened.host.classList.remove('is-open');
+      }
+      detail.hidden = open;
+      host.classList.toggle('is-open', !open);
+      opened = open ? null : { detail, host };
+    };
+
+    /** 상위 카드 — 트레이(바깥 링) 위의 유리판(안쪽 코어). 1~3위는 메달 색으로 물든다. */
+    const card = (entry: RaidEntry, rank: number, index: number): HTMLElement => {
+      const article = el('article', `raid-card rank-${rank}`);
+      article.dataset.raidRow = entry.eid;
+      article.classList.toggle('is-me', entry.eid === myEid);
+      article.classList.toggle('is-podium', rank <= 3);
+      article.classList.add('is-top');
+      article.style.setProperty('--i', String(index));
+      if (!animate) article.classList.add('no-anim');
+      const core = el('div', 'raid-card-core');
+      const head = el('div', 'raid-card-head');
+      const medal = el('span', `raid-medal m${Math.min(rank, 4)}`, String(rank));
+      medal.setAttribute('aria-label', t('{rank}위', { rank }));
+      head.append(medal, whoOf(entry));
+      core.append(head);
+      core.append(el('b', 'raid-card-total', raidDamageText(entry.total)));
+      core.append(el('span', 'raid-card-sub', t('{n}덱 합산', { n: entry.decks.length })));
+      core.append(facesOf(entry, 'raid-card-faces'));
+      core.append(el('span', 'raid-card-chev', '▾'));
+      const detail = el('div', 'raid-card-detail');
+      detail.hidden = true;
+      detail.append(renderEntryDetail(entry, admin));
+      core.append(detail);
+      article.append(core);
+      article.addEventListener('click', (event) => {
+        // 펼친 안쪽(큐브 보기·덱 가져오기)을 누른 것은 접으라는 뜻이 아니다.
+        if ((event.target as HTMLElement | null)?.closest('.raid-card-detail')) return;
+        toggle(detail, article);
+      });
+      return article;
+    };
+
+    const top = el('div', 'raid-top');
+    const podium = el('div', 'raid-podium');
+    const podiumEntries = entries.slice(0, 3);
+    podium.classList.toggle('has-3', podiumEntries.length === 3);
+    podiumEntries.forEach((entry, index) => podium.append(card(entry, index + 1, index)));
+    top.append(podium);
+    if (entries.length > 3) {
+      const grid = el('div', 'raid-top-grid');
+      entries.slice(3, 10).forEach((entry, index) => grid.append(card(entry, index + 4, index + 3)));
+      top.append(grid);
+    }
+    box.append(top);
+    if (entries.length <= 10) return box;
+
+    // 열 번째 아래에 금을 긋고, 나머지는 표로.
+    box.append(el('div', 'raid-cut', t('11위부터')));
+    const table = el('table', 'raid-table');
+    const head = el('thead');
+    const hr = el('tr');
+    for (const label of [t('순위'), t('참가자'), t('덱'), t('5덱 합산'), '']) hr.append(el('th', '', label));
+    head.append(hr);
+    table.append(head);
+    const body = el('tbody');
+    entries.slice(10).forEach((entry, index) => {
+      const rank = index + 11;
+      const row = el('tr', entry.eid === myEid ? 'raid-row is-me' : 'raid-row');
+      row.dataset.raidRow = entry.eid;
+      row.append(el('td', 'raid-rank', String(rank)));
+      const who = el('td');
+      who.append(whoOf(entry));
+      row.append(who);
+      const deckCell = el('td');
+      deckCell.append(facesOf(entry, 'raid-row-faces'));
       row.append(deckCell);
       row.append(el('td', 'raid-total', raidDamageText(entry.total)));
       row.append(el('td', 'raid-chev', '▾'));
@@ -813,21 +884,8 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
       cell.colSpan = 5;
       cell.append(renderEntryDetail(entry, admin));
       detail.append(cell);
-      row.addEventListener('click', () => {
-        const open = !detail.hidden;
-        if (opened && opened !== detail) opened.hidden = true;
-        detail.hidden = open;
-        opened = open ? null : detail;
-      });
+      row.addEventListener('click', () => toggle(detail, row));
       body.append(row, detail);
-      // 열 번째 아래에 금을 긋는다 — 어디까지가 «상위»인지 한눈에.
-      if (rank === 10 && entries.length > 10) {
-        const cut = el('tr', 'raid-cut');
-        const cell = el('td', '', t('11위부터'));
-        cell.colSpan = 5;
-        cut.append(cell);
-        body.append(cut);
-      }
     });
     table.append(body);
     const scroll = el('div', 'raid-scroll');
