@@ -24,6 +24,13 @@ const LIMITS = {
   feedbackReply: 1000, // 운영자 코멘트
   feedbackItems: 1000,
   feedbackPerDay: 10,
+  raidTitle: 40,       // 계산기 레이드 제목
+  raidName: 16,        // 제출자가 스스로 적는 표시 이름 (본인·어드민에게만 보인다)
+  raids: 60,           // 보관하는 레이드 수(열린 것 + 닫힌 것)
+  raidEntries: 500,    // 레이드당 기록 수
+  raidDecks: 5,        // 한 기록의 덱 수
+  raidSpec: 400_000,   // 어드민 재검증용 스펙 묶음(JSON 글자 수) — 다섯 덱의 요청 전부
+  raidPerDay: 40,      // IP당 하루 제출 횟수
 };
 
 class Fail extends Error {
@@ -431,6 +438,217 @@ async function handleFeedbackRemove(env, body) {
   return { id };
 }
 
+// ── 계산기 레이드 ────────────────────────────────────────────────────────
+// 어드민이 공유된 전투 조건(NK3) 하나를 «레이드»로 올리면, 모두가 같은 조건으로 다섯 덱을
+// 돌려 합산 딜을 겨룬다. 여러 레이드가 동시에 열릴 수 있고, 기록은 레이드마다 따로다.
+//
+// 누가 올렸는지는 **남에게 안 나간다.** 공개 목록에는 순위·덱·딜뿐이고, 표시 이름·서버·
+// 계정 꼬리는 어드민 비밀번호가 붙은 요청에만 실린다. 한 계정 한 기록은 계정(openid)을
+// 소금과 함께 해시한 값으로 가린다 — 목록에 계정이 그대로 앉아 있지 않게.
+//
+// 스펙(다섯 덱의 계산 요청 전부)은 기록과 **따로** 둔다(`raid:<id>:spec:<eid>`). 목록 한
+// 장에 실으면 500명이면 수십 MB가 되어 KV 한 값의 한도를 넘고, 어차피 어드민 재검증에만
+// 쓰는 값이라 그때 하나만 읽으면 된다.
+
+const RAID_INDEX_KEY = 'raid:index';
+const raidBoardKey = (id) => `raid:${id}:board`;
+const raidSpecKey = (id, eid) => `raid:${id}:spec:${eid}`;
+const raidRateKey = (voter) => `rrate:${voter}`;
+
+/** 계정을 가린 열쇠. 같은 계정이면 같은 값이 나와 «한 계정 한 기록»이 되고, 값에서 계정은 안 나온다. */
+async function raidOwner(env, openid) {
+  const salt = String(env.VOTE_SALT ?? 'nikke-calc');
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`raid:${salt}:${openid}`));
+  return [...new Uint8Array(digest)].slice(0, 12).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+const publicRaid = (raid) => ({
+  id: raid.id,
+  title: raid.title,
+  auto: raid.auto,
+  code: raid.code,
+  status: raid.status,
+  openedAt: raid.openedAt,
+  closedAt: raid.closedAt ?? '',
+  count: raid.count ?? 0,
+});
+
+/** 기록 한 줄. `admin`일 때만 누구인지가 실린다. */
+const publicEntry = (entry, admin) => ({
+  eid: entry.eid,
+  decks: entry.decks,
+  total: entry.total,
+  engine: entry.engine,
+  at: entry.at,
+  ...(admin ? { name: entry.name, area: entry.area, tail: entry.tail } : {}),
+});
+
+const sortEntries = (entries) => [...entries].sort((a, b) => b.total - a.total || a.at.localeCompare(b.at));
+
+async function raidIndex(env) {
+  const index = await readJson(env, RAID_INDEX_KEY, { raids: [] });
+  index.raids = index.raids ?? [];
+  return index;
+}
+
+async function handleRaidList(env) {
+  const index = await raidIndex(env);
+  return { raids: index.raids.map(publicRaid) };
+}
+
+async function handleRaidBoard(env, id, admin) {
+  const index = await raidIndex(env);
+  const raid = index.raids.find((entry) => entry.id === id);
+  if (!raid) throw new Fail(404, '없는 레이드입니다.');
+  const board = await readJson(env, raidBoardKey(id), { entries: [] });
+  return {
+    raid: publicRaid(raid),
+    entries: sortEntries(board.entries ?? []).map((entry) => publicEntry(entry, admin)),
+  };
+}
+
+async function handleRaidOpen(env, body) {
+  requireAdmin(env, body.password);
+  const title = text(body.title, LIMITS.raidTitle, '제목', true);
+  const code = text(body.code, LIMITS.code, '전투 조건 코드', true);
+  if (!code.startsWith(KINDS.boss)) throw new Fail(400, '전투 조건 코드(NK3-)만 레이드로 올릴 수 있습니다.');
+  const auto = text(body.auto, LIMITS.auto, '설명', false);
+  const index = await raidIndex(env);
+  if (index.raids.length >= LIMITS.raids) throw new Fail(507, '보관할 수 있는 레이드 수를 넘었습니다. 지난 것을 지워 주세요.');
+  const raid = {
+    id: crypto.randomUUID().slice(0, 8),
+    title, code, auto,
+    status: 'open',
+    openedAt: new Date().toISOString(),
+    closedAt: '',
+    count: 0,
+  };
+  index.raids.unshift(raid);
+  await env.SHARE.put(RAID_INDEX_KEY, JSON.stringify(index));
+  return { raid: publicRaid(raid) };
+}
+
+async function handleRaidClose(env, body) {
+  requireAdmin(env, body.password);
+  const id = text(body.id, 40, '레이드', true);
+  const index = await raidIndex(env);
+  const raid = index.raids.find((entry) => entry.id === id);
+  if (!raid) throw new Fail(404, '없는 레이드입니다.');
+  if (raid.status !== 'closed') {
+    raid.status = 'closed';
+    raid.closedAt = new Date().toISOString();
+    await env.SHARE.put(RAID_INDEX_KEY, JSON.stringify(index));
+  }
+  return { raid: publicRaid(raid) };
+}
+
+/** 덱 한 칸의 모양을 검사한다. 이름 다섯·조합 코드·버스트 순서 한 줄·딜. */
+const raidDeck = (value, index) => {
+  if (!value || typeof value !== 'object') throw new Fail(400, `덱 ${index + 1}의 모양이 잘못됐습니다.`);
+  const names = Array.isArray(value.names) ? value.names.map((name) => text(name, 60, '니케 이름', true)) : [];
+  if (names.length === 0 || names.length > 5) throw new Fail(400, `덱 ${index + 1}은 니케 1~5명이어야 합니다.`);
+  const code = text(value.code, LIMITS.code, '조합 코드', true);
+  if (!code.startsWith(KINDS.squad)) throw new Fail(400, `덱 ${index + 1}의 조합 코드가 아닙니다.`);
+  const order = text(value.order, 200, '버스트 순서', false);
+  const dmg = Number(value.dmg);
+  if (!Number.isFinite(dmg) || dmg < 0) throw new Fail(400, `덱 ${index + 1}의 딜이 숫자가 아닙니다.`);
+  return { names, code, order, dmg: Math.round(dmg) };
+};
+
+async function handleRaidEntry(request, env, body) {
+  const id = text(body.id, 40, '레이드', true);
+  const index = await raidIndex(env);
+  const raid = index.raids.find((entry) => entry.id === id);
+  if (!raid) throw new Fail(404, '없는 레이드입니다.');
+  if (raid.status !== 'open') throw new Fail(409, '마감된 레이드입니다. 기록을 더 받지 않습니다.');
+
+  const openid = text(body.openid, 64, '계정', true);
+  if (!/^[0-9A-Za-z_-]{4,64}$/.test(openid)) throw new Fail(400, '블라블라링크 계정을 알아보지 못했습니다.');
+  const name = text(body.name, LIMITS.raidName, '표시 이름', false);
+  const area = Number.isFinite(Number(body.area)) ? Number(body.area) : 0;
+  const decks = Array.isArray(body.decks) ? body.decks.map(raidDeck) : [];
+  if (decks.length === 0 || decks.length > LIMITS.raidDecks) throw new Fail(400, '덱은 1~5개여야 합니다.');
+  // 같은 니케가 두 덱에 서면 솔로 레이드가 아니다.
+  const seen = new Set();
+  for (const deck of decks) {
+    for (const who of deck.names) {
+      if (seen.has(who)) throw new Fail(400, `${who}이(가) 두 덱에 있습니다. 한 니케는 한 덱에만 설 수 있습니다.`);
+      seen.add(who);
+    }
+  }
+  const total = Number(body.total);
+  if (!Number.isFinite(total) || total < 0) throw new Fail(400, '합산 딜이 숫자가 아닙니다.');
+  const engine = text(body.engine, 40, '엔진', false);
+  const spec = body.spec === undefined ? null : JSON.stringify(body.spec);
+  if (spec && spec.length > LIMITS.raidSpec) throw new Fail(413, '스펙 묶음이 너무 큽니다.');
+
+  const voter = await voterId(request, env);
+  const today = new Date().toISOString().slice(0, 10);
+  const rate = await readJson(env, raidRateKey(voter), { day: today, count: 0 });
+  const count = rate.day === today ? rate.count : 0;
+  if (count >= LIMITS.raidPerDay) throw new Fail(429, '오늘 올릴 수 있는 횟수를 넘었습니다. 내일 다시 시도해 주세요.');
+
+  const owner = await raidOwner(env, openid);
+  const board = await readJson(env, raidBoardKey(id), { entries: [] });
+  board.entries = board.entries ?? [];
+  const mine = board.entries.find((entry) => entry.owner === owner);
+  // 더 낮은 기록은 받지 않는다 — 한 계정에는 최고 기록 하나만 남는다.
+  if (mine && mine.total >= Math.round(total)) {
+    return { entry: publicEntry(mine, false), kept: true };
+  }
+  if (!mine && board.entries.length >= LIMITS.raidEntries) throw new Fail(507, '이 레이드의 기록함이 가득 찼습니다.');
+
+  const entry = {
+    eid: crypto.randomUUID().slice(0, 8),
+    owner,
+    name,
+    area,
+    // 어드민이 «같은 사람인가»를 볼 꼬리. 계정 전체는 어디에도 남기지 않는다.
+    tail: openid.slice(-4),
+    decks,
+    total: Math.round(total),
+    engine,
+    at: new Date().toISOString(),
+  };
+  if (mine) {
+    await env.SHARE.delete(raidSpecKey(id, mine.eid));
+    board.entries = board.entries.filter((row) => row.owner !== owner);
+  }
+  board.entries.push(entry);
+  await env.SHARE.put(raidBoardKey(id), JSON.stringify(board));
+  if (spec) await env.SHARE.put(raidSpecKey(id, entry.eid), spec);
+  await env.SHARE.put(raidRateKey(voter), JSON.stringify({ day: today, count: count + 1 }));
+  raid.count = board.entries.length;
+  await env.SHARE.put(RAID_INDEX_KEY, JSON.stringify(index));
+  return { entry: publicEntry(entry, false), kept: false, replaced: Boolean(mine) };
+}
+
+async function handleRaidRemove(env, body) {
+  requireAdmin(env, body.password);
+  const id = text(body.id, 40, '레이드', true);
+  const eid = text(body.eid, 40, '기록', true);
+  const board = await readJson(env, raidBoardKey(id), { entries: [] });
+  const before = (board.entries ?? []).length;
+  board.entries = (board.entries ?? []).filter((entry) => entry.eid !== eid);
+  if (board.entries.length === before) throw new Fail(404, '이미 사라진 기록입니다.');
+  await env.SHARE.put(raidBoardKey(id), JSON.stringify(board));
+  await env.SHARE.delete(raidSpecKey(id, eid));
+  const index = await raidIndex(env);
+  const raid = index.raids.find((entry) => entry.id === id);
+  if (raid) { raid.count = board.entries.length; await env.SHARE.put(RAID_INDEX_KEY, JSON.stringify(index)); }
+  return { eid };
+}
+
+/** 어드민 재검증용 스펙. 기록을 올린 브라우저가 돌린 요청 그대로다. */
+async function handleRaidSpec(env, body) {
+  requireAdmin(env, body.password);
+  const id = text(body.id, 40, '레이드', true);
+  const eid = text(body.eid, 40, '기록', true);
+  const raw = await env.SHARE.get(raidSpecKey(id, eid));
+  if (!raw) throw new Fail(404, '보관된 스펙이 없습니다.');
+  return { spec: JSON.parse(raw) };
+}
+
 /** 관리자 확인만. 사이트가 «관리자 화면을 열어도 되는지» 물을 때 쓴다. */
 const handleAdminCheck = (env, body) => {
   requireAdmin(env, body.password);
@@ -527,6 +745,32 @@ export default {
       }
       if (request.method === 'POST' && url.pathname === '/feedback/remove') {
         return json(await handleFeedbackRemove(env, await request.json()));
+      }
+      if (request.method === 'GET' && url.pathname === '/raid') {
+        return json(await handleRaidList(env));
+      }
+      if (request.method === 'GET' && url.pathname === '/raid/board') {
+        return json(await handleRaidBoard(env, url.searchParams.get('id') ?? '', false));
+      }
+      if (request.method === 'POST' && url.pathname === '/raid/board') {
+        const body = await request.json();
+        requireAdmin(env, body.password);
+        return json(await handleRaidBoard(env, String(body.id ?? ''), true));
+      }
+      if (request.method === 'POST' && url.pathname === '/raid/entry') {
+        return json(await handleRaidEntry(request, env, await request.json()));
+      }
+      if (request.method === 'POST' && url.pathname === '/raid/open') {
+        return json(await handleRaidOpen(env, await request.json()));
+      }
+      if (request.method === 'POST' && url.pathname === '/raid/close') {
+        return json(await handleRaidClose(env, await request.json()));
+      }
+      if (request.method === 'POST' && url.pathname === '/raid/remove') {
+        return json(await handleRaidRemove(env, await request.json()));
+      }
+      if (request.method === 'POST' && url.pathname === '/raid/spec') {
+        return json(await handleRaidSpec(env, await request.json()));
       }
       if (request.method === 'POST' && url.pathname === '/admin/check') {
         return json(handleAdminCheck(env, await request.json()));

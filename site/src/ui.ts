@@ -76,6 +76,7 @@ import { startPresence } from './presence';
 import { mountUnionRaid, type UnionHandle } from './union-raid';
 import { mountBossMaker, type BossMakerHandle } from './boss-maker-view';
 import { mountOverloadLab } from './overload-lab';
+import { lockCardForRaid, mountRaid, openidFromProfileUrl, RAID_LOCK_NOTE, type RaidHandle } from './raid';
 import { openGrowthEfficiency } from './growth-efficiency-ui';
 import { EXTERNAL_LINKS, hostOf } from './external-links';
 import {
@@ -445,6 +446,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const blablaProxy = (deps.blablaProxy ?? BLABLA_PROXY).trim().replace(/\/+$/, '');
   /** 유니온 탭 손잡이. 프록시가 없어 탭을 안 만든 배포에서는 끝까지 비어 있다. */
   let unionHandle: UnionHandle | null = null;
+  let raidHandle: RaidHandle | null = null;
+  /** 계산기 레이드 탭이 켜져 있나. 켜지면 편성 카드의 육성 조작이 잠긴다(큐브만 산다). */
+  let raidMode = false;
   const cache = new ResultCache(storage, version, 30);
   const catalogByName = new Map(catalog.map((char) => [char.name, char]));
   const decks = Array.from({ length: 2 }, (_, index) => emptyDeck(index + 1));
@@ -712,6 +716,12 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         <a class="site-campaign-link" data-campaign-link target="_blank" rel="noreferrer noopener"></a>
         <button type="button" class="site-campaign-close" data-campaign-close aria-label="닫기">✕</button>
       </div>
+      <!-- 계산기 레이드 띠. 열린 레이드가 있을 때만 보인다 — 제목은 스크립트가 넣는다. -->
+      <div class="raid-band" data-raid-band hidden>
+        <span class="raid-live"><i aria-hidden="true"></i>계산기 레이드 진행중</span>
+        <span class="raid-band-list" data-raid-band-list></span>
+        <button type="button" class="raid-band-go" data-raid-band-go>참가하기 →</button>
+      </div>
       <!-- 초읽기. 안내 띠를 닫아도 남는다 — 닫는 것은 «읽었다»는 뜻이지
            «시계도 필요 없다»는 뜻이 아니다. 말은 스크립트가 넣는다. -->
       <p class="site-countdown" data-countdown hidden>[<span data-countdown-label></span> <b data-countdown-clock>00:00:00</b>]</p>
@@ -946,6 +956,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           </div>
           </div>
           <p class="deck-note" data-deck-note hidden>덱 사이에는 같은 캐릭터를 다시 편성할 수 있습니다.</p>
+          <p class="raid-lock-note" data-raid-lock hidden>${RAID_LOCK_NOTE}</p>
           <div class="squad-grid" data-squad-grid></div>
 
           <!-- 니케 고르기. 창을 띄우지 않고 늘 펼쳐 두고, 검색은 이 판을 거른다.
@@ -1004,6 +1015,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
                    제목 h2를 탭으로 갈아 끼웠으므로 id를 여기로 옮긴다. -->
               <button type="button" class="settings-tab is-on" id="settings-heading" data-settings-tab="battle" role="tab" aria-selected="true">전투 조건</button>
               <button type="button" class="settings-tab" data-settings-tab="maker" role="tab" aria-selected="false" title="보스의 모양·코어·파츠를 직접 그려 두고, 그 위에서 덱의 사격을 읽습니다. 구성은 PC에서만 됩니다">보스 메이커<b class="tab-beta">BETA</b></button>
+              <button type="button" class="settings-tab" data-settings-tab="raid" role="tab" aria-selected="false" title="어드민이 올린 전투 조건 하나로 모두가 다섯 덱을 돌려 합산 딜을 겨룹니다. 육성은 블라블라링크 값 그대로, 큐브와 버스트 순서만 내 것입니다">계산기 레이드<b class="tab-beta">BETA</b><b class="raid-dot" data-raid-dot hidden aria-hidden="true"></b></button>
             </div>
             <div class="target-actions">
               <!-- 핵은 창 안 탭에 살지만, 들어가는 문은 밖에 내놓는다 — 찾으려고
@@ -1020,6 +1032,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
                없애고, «이 조건으로 → 실행»이 한 줄로 읽히게 하려는 것이다. -->
           <!-- 적 코드와 코어는 보스가 바뀔 때마다 손대는 둘이라 창 밖에 꺼내 둔다.
                나머지 조건은 한 번 정해 두면 그대로 쓰는 값이라 창 안에 남는다. -->
+          <!-- 레이드 탭이 켜지면 이 뭉치(조건·실행·상태)가 통째로 숨고 레이드 판이 선다. -->
+          <div data-battle-home>
           <div class="quick-cond" data-quick-cond>
             <label class="quick-code">
               <span>보스 코드</span>
@@ -1070,6 +1084,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           <p class="battle-first-note" data-battle-first-note>계산하기 전에 <b>전투 조건을 한 번 확인해 주세요</b> — 몇 초짜리 전투인지, 적 코드가 무엇인지에 따라 결과가 완전히 달라집니다.</p>
           <!-- 막힌 이유는 누른 단추 바로 아래에서 읽혀야 한다. -->
           <div class="error-box" data-errors hidden role="alert"></div>
+          </div>
+          <div class="raid-pane" data-raid-pane hidden></div>
 
           <!-- 창은 조건 패널 «안»에 둔다 — 설정 입력을 지켜보는 리스너가 이 패널을
                기준으로 걸려 있어, 밖으로 빼면 값을 바꿔도 저장되지 않는다. -->
@@ -2933,6 +2949,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             scheduleSquadPower();
             // 이 콜백은 카드가 다시 그려지기 **직전**에 불린다 — 다 그린 뒤에 창을 맞춘다.
             queueMicrotask(syncOpenPanel);
+            // 설정 판은 스스로 다시 그리므로 잠금도 그 뒤에 다시 건다.
+            if (raidMode) queueMicrotask(() => lockCardForRaid(editor, stepper));
           }, buffTargetRowsFor(deck.id, cname), (row) => showBuffOrder(cname, row),
           (kind, panel, label) => {
             openCharPanel = { name: cname, kind };
@@ -3042,9 +3060,15 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
 
         renderEditor();
         card.append(editor);
-        card.append(copyFromControl(cname), spreadControl(cname));
-        const restore = restoreControl(cname);
-        if (restore) card.append(restore);
+        if (raidMode) {
+          // 레이드 중에는 육성이 블라블라링크 값으로 잠긴다 — 베껴오기·퍼뜨리기·되돌리기는
+          // 전부 수치를 옮기는 문이라 아예 안 낸다. 큐브만 산다.
+          lockCardForRaid(editor, stepper);
+        } else {
+          card.append(copyFromControl(cname), spreadControl(cname));
+          const restore = restoreControl(cname);
+          if (restore) card.append(restore);
+        }
       }
       squadGrid.append(card);
     }
@@ -3859,6 +3883,11 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   // 전투 조건과 조합이 같은 서버·같은 판을 쓴다. 주소가 없으면 판을 아예 만들지
   // 않고 코드 주고받기만 남는다.
   const shareServer = SHARE_API ? new ShareServer(SHARE_API) : null;
+  /** 피드백 창에서 확인을 마친 어드민 비밀번호. 같은 창(sessionStorage) 안에서만 산다. */
+  const ADMIN_KEY = 'nikke-feedback-admin';
+  const readAdminPass = (): string => {
+    try { return sessionStorage.getItem(ADMIN_KEY) ?? ''; } catch { return ''; }
+  };
   const sharePanelHosts = (prefix: 'share' | 'battle-share') => ({
     tabs: element<HTMLElement>(root, `[data-${prefix}-tabs]`),
     upload: element<HTMLElement>(root, `[data-${prefix}-pane="upload"]`),
@@ -5251,6 +5280,26 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         showBattleShareMsg(`«${item.name}»을(를) 적용했습니다. 콘솔은 내 값 그대로입니다.`, true);
       },
       notify: showBattleShareMsg,
+      // 어드민에게만 — 이 조건으로 계산기 레이드를 연다. 제목은 물어서 받는다(공유 글의
+      // 이름이 곧 레이드 이름은 아니다 — «9월 3주 솔레» 같은 시즌 이름을 붙이고 싶어진다).
+      extra: (item) => {
+        if (!readAdminPass()) return null;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'share-raid-open';
+        button.dataset.shareRaidOpen = item.id;
+        button.textContent = '🏁 계산기 레이드로 올리기';
+        button.addEventListener('click', () => {
+          const typed = window.prompt('레이드 제목 (40자까지)', item.name);
+          const title = (typed ?? '').trim().slice(0, 40);
+          if (!title) return;
+          raidHandle?.openRaid({ title, code: item.code, auto: item.auto }).then(
+            () => showBattleShareMsg(`«${title}» 레이드를 열었습니다 — 계산기 레이드 탭에서 확인하세요.`, true),
+            (error: unknown) => showBattleShareMsg(error instanceof Error ? error.message : String(error)),
+          );
+        });
+        return button;
+      },
     },
   );
 
@@ -6174,8 +6223,6 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     const feedbackKind = element<HTMLSelectElement>(root, '[data-feedback-kind]');
     const feedbackSend = element<HTMLButtonElement>(root, '[data-feedback-send]');
     const feedbackAdminBar = element<HTMLElement>(root, '[data-feedback-admin-bar]');
-    const ADMIN_KEY = 'nikke-feedback-admin';
-
     let feedbackItems: FeedbackItem[] = [];
     // 지금 코멘트를 쓰고 있는 글. 목록은 통째로 다시 그려지므로 «어느 칸이 열려
     // 있나»를 여기 적어 둔다.
@@ -7264,6 +7311,108 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       } : {}),
     },
   );
+  // ── 계산기 레이드 (BETA) ────────────────────────────────────────────────
+  // 어드민이 올린 전투 조건 하나로 모두가 다섯 덱을 돌린다. 이 탭이 켜지면 전투 조건
+  // 뭉치가 숨고, 편성 카드는 큐브만 남기고 잠긴다 — 육성은 블라블라링크 값으로만 돈다.
+  const raidPane = element<HTMLElement>(root, '[data-raid-pane]');
+  const battleHome = element<HTMLElement>(root, '[data-battle-home]');
+  const raidLockNote = element<HTMLElement>(root, '[data-raid-lock]');
+  const raidBand = element<HTMLElement>(root, '[data-raid-band]');
+  const raidDot = element<HTMLElement>(root, '[data-raid-dot]');
+  const setRaidMode = (on: boolean) => {
+    if (raidMode === on) return;
+    raidMode = on;
+    raidPane.hidden = !on;
+    battleHome.hidden = on;
+    raidLockNote.hidden = !on;
+    root.classList.toggle('is-raid', on);
+    // 열려 있던 수치 설정 창은 닫는다 — 잠긴 값을 창에서 만지게 두면 잠근 뜻이 없다.
+    closeCharPanel();
+    renderSquad();
+  };
+  if (shareServer) {
+    raidHandle = mountRaid(raidPane, {
+      server: shareServer,
+      catalog: catalogByName,
+      // 단일덱 모드에서는 보이는 덱 하나만 — 안 보이는 두 번째 덱이 몰래 실리면 안 된다.
+      decks: () => (fiveDeckMode ? decks : decks.slice(0, 1)),
+      roster: () => roster,
+      // 식별은 블라블라링크 프로필 주소에서 꺼낸 계정 번호다. 로스터가 블라블라링크에서
+      // 온 것이 아니면(CSV·손) «이은 계정»이 아니다 — 스펙이 그 계정 것이 아니니까.
+      account: () => {
+        if (rosterSource !== 'blabla') return null;
+        let saved: { url?: string; area?: number } | null = null;
+        try {
+          const raw = resolveStorage()?.getItem('nikke-blabla-profile-v1');
+          saved = raw ? JSON.parse(raw) as { url?: string; area?: number } : null;
+        } catch { saved = null; }
+        const openid = openidFromProfileUrl(saved?.url ?? '');
+        if (!openid) return null;
+        return {
+          openid,
+          area: saved?.area ?? 0,
+          ...(accountSynchro !== null ? { synchroLevel: accountSynchro } : {}),
+          ...(importedConsole ? { console: structuredClone(importedConsole) } : {}),
+        };
+      },
+      battleFallback: readBattle,
+      simulate: async (request) => {
+        await prepared;
+        const key = cacheKey(request, version);
+        const kept = cache.get(key);
+        if (kept) return kept;
+        const result = await client.simulate(request);
+        cache.set(key, result);
+        return result;
+      },
+      // 남의 덱을 내 판에 — 편성만. 스펙은 내 로스터가 얹힌다.
+      applyDecks: (codes) => {
+        const names = catalog.map((char) => char.name);
+        const count = Math.max(2, codes.length);
+        while (decks.length < count) decks.push(emptyDeck(decks.length + 1));
+        codes.forEach((code, index) => {
+          const payload = decodeShareCode(code, names);
+          applyShareToDecks(
+            payload, decks,
+            (name) => catalogByName.has(name),
+            (name) => (roster[name] ? cloneOverride(roster[name]!) : undefined),
+            { into: index, from: 0 },
+          );
+        });
+        if (codes.length > 1 && !fiveDeckMode) {
+          fiveDeckMode = true;
+          element<HTMLInputElement>(root, '#squad-mode').checked = true;
+          deckTabs.hidden = false;
+          deckMoves.hidden = false;
+          clearAllButton.hidden = false;
+          deckNote.hidden = false;
+        }
+        activeDeckId = 1;
+        saveState();
+        renderDeckTabs();
+        renderSquad();
+      },
+      adminPass: readAdminPass,
+      engineVersion: version,
+      imageOf: (name) => {
+        const image = catalogByName.get(name)?.image;
+        return image ? `${import.meta.env.BASE_URL}${image}` : undefined;
+      },
+      onRaids: (raids) => {
+        const open = raids.filter((raid) => raid.status === 'open');
+        raidBand.hidden = open.length === 0;
+        raidDot.hidden = open.length === 0;
+        element<HTMLElement>(root, '[data-raid-band-list]').textContent = open.map((raid) => raid.title).join(' · ');
+      },
+    });
+    void raidHandle.refresh();
+  } else {
+    const note = document.createElement('p');
+    note.className = 'field-note';
+    note.textContent = '공유 서버가 없는 빌드입니다 — 계산기 레이드는 서버가 있어야 열립니다.';
+    raidPane.append(note);
+  }
+
   // 탭처럼 오간다 — 보스 메이커를 열면 그 탭이 켜지고, 닫으면 전투 조건으로 돌아온다.
   const settingsTabs = [...root.querySelectorAll<HTMLButtonElement>('[data-settings-tab]')];
   const markSettingsTab = (which: string) => {
@@ -7276,11 +7425,20 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   for (const tab of settingsTabs) {
     tab.addEventListener('click', () => {
       const which = tab.dataset.settingsTab ?? 'battle';
+      // 보스 메이커를 닫으면 onClose가 «전투 조건» 탭을 켠다 — 그래서 닫기를 먼저 하고
+      // 그 뒤에 이번 탭을 켠다(레이드 탭이 닫기에 지워지지 않게).
+      if (which !== 'maker') bossMaker.close();
       markSettingsTab(which);
+      setRaidMode(which === 'raid');
       if (which === 'maker') bossMaker.open();
-      else bossMaker.close();
+      else if (which === 'raid') void raidHandle?.refresh();
     });
   }
+  element<HTMLButtonElement>(root, '[data-raid-band-go]').addEventListener('click', () => {
+    switchView('calc');
+    settingsTabs.find((tab) => tab.dataset.settingsTab === 'raid')?.click();
+    if (typeof raidPane.scrollIntoView === 'function') raidPane.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  });
 
   // ── 오버효율 (BETA) ─────────────────────────────────────────────────────
   // 옵션 두 벌을 같은 자리에 놓고 견주는 판. 편성도 조건도 계산기 쪽 것을 빌려 쓰므로

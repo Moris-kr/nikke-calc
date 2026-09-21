@@ -1020,10 +1020,15 @@ export function renderCharacterSettings(
     body.append(overloadGrid, chargeOptionNote);
   }
 
-  const cubeBox = document.createElement('section');
-  cubeBox.className = 'cube-editor';
-  const cubeHeading = document.createElement('h4');
-  cubeHeading.textContent = '하모니 큐브';
+  // 큐브는 수치 설정 창 **밖**, 카드에 둔다 — 「수치 설정」과 「컨트롤」 사이. 큐브는
+  // 육성이 아니라 «운용»이라 창을 열지 않고 갈아 끼우게 하고, 계산기 레이드처럼 수치
+  // 설정이 잠기는 자리에서도 이것만은 살아 있어야 한다.
+  const cubeField = document.createElement('div');
+  cubeField.className = 'cube-field';
+  cubeField.dataset.cubeField = '';
+  const cubeLabel = document.createElement('span');
+  cubeLabel.className = 'cube-field-label';
+  cubeLabel.textContent = '큐브';
   const cubeControls = document.createElement('div');
   cubeControls.className = 'cube-controls';
   const cubeSelect = document.createElement('select');
@@ -1082,16 +1087,20 @@ export function renderCharacterSettings(
   });
   cubeControls.append(cubeSelect, levelSelect);
   const level = noCube ? undefined : cubeMeta.levels[String(current.cube.level)];
-  const cubeSummary = document.createElement('p');
-  cubeSummary.className = 'cube-summary';
+  // 스탯 요약은 툴팁으로 낸다 — 카드 폭에서 한 줄을 더 쓰면 다섯 장이 서로를 밀어낸다.
+  let cubeSummary = '';
   if (noCube) {
-    cubeSummary.textContent = '큐브를 끼지 않습니다 — 큐브의 스탯도, 우월 코드 효과도 붙지 않습니다.';
+    cubeSummary = '큐브를 끼지 않습니다 — 큐브의 스탯도, 우월 코드 효과도 붙지 않습니다.';
   } else if (level) {
     const effect = cubeMeta.template.replace('{0}', String(level.effect));
-    cubeSummary.textContent = `공격 ${level.atk.toLocaleString('en-US')} · 방어 ${level.def.toLocaleString('en-US')} · `
+    cubeSummary = `공격 ${level.atk.toLocaleString('en-US')} · 방어 ${level.def.toLocaleString('en-US')} · `
       + `체력 ${level.hp.toLocaleString('en-US')} · ${effect} · 우월 코드 ${level.commonElement}%`;
   }
-  cubeBox.append(cubeHeading, cubeControls, cubeSummary);
+  cubeField.title = cubeSummary;
+  cubeSelect.title = cubeSummary;
+  cubeSelect.setAttribute('aria-label', `${name} 큐브`);
+  levelSelect.setAttribute('aria-label', `${name} 큐브 레벨`);
+  cubeField.append(cubeLabel, cubeControls);
   // 고유 스킬이 계산에 안 들어가는 큐브는 그 사실을 숨기지 않는다. 스탯은 붙으므로
   // 선택 자체는 의미가 있고, 표시된 효과 수치만 결과에 반영되지 않는다.
   if (!noCube && cubeMeta.unsupported) {
@@ -1100,9 +1109,8 @@ export function renderCharacterSettings(
     note.dataset.cubeUnsupported = '';
     note.textContent = `이 큐브의 고유 효과는 아직 계산에 반영되지 않습니다 — `
       + `공격력·방어력·체력과 우월 코드 효과만 적용됩니다. (${cubeMeta.unsupported})`;
-    cubeBox.append(note);
+    cubeField.append(note);
   }
-  body.append(cubeBox);
 
   const controlEditor = document.createElement('section');
   controlEditor.className = 'control-editor';
@@ -1468,7 +1476,7 @@ export function renderCharacterSettings(
     advanced.hidden = !advancedToggle.checked;
   });
   body.append(advanced);
-  const bodyFold = panelOpener('돌파 · 스킬 · 오버로드 · 큐브', 'settings', '수치 설정');
+  const bodyFold = panelOpener('돌파 · 스킬 · 오버로드', 'settings', '수치 설정');
 
   // 「이만큼 더 키우면 얼마나 오르나」를 보려면 양 끝을 한 번씩 눌러 봐야 하는데,
   // 지금은 돌파·스킬·장비·소장품·큐브를 하나씩 열 번 넘게 만져야 한다. 그 양 끝을
@@ -1552,6 +1560,6 @@ export function renderCharacterSettings(
     bodyFold.panel.append(bar);
   }
   bodyFold.panel.append(body);
-  container.append(bodyFold.head, bodyFold.panel, controlEditor);
+  container.append(bodyFold.head, bodyFold.panel, cubeField, controlEditor);
   lastPanels.set(container, [bodyFold.panel]);
 }

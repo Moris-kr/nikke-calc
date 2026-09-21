@@ -76,6 +76,27 @@ describe('share server client', () => {
     expect(item.reply).toBe('고쳤습니다.');
   });
 
+  it('레이드 랭킹은 비밀번호가 있을 때만 어드민 길로 간다', async () => {
+    const { fetcher, calls } = fakeFetch({ raid: { id: 'r1' }, entries: [] });
+    const server = new ShareServer('https://share.example.com', fetcher);
+    await server.raidBoard('r1');
+    expect(calls[0]!.url).toBe('https://share.example.com/raid/board?id=r1');
+    expect(calls[0]!.init).toBeUndefined();
+    await server.raidBoard('r1', 'pw');
+    expect(calls[1]!.url).toBe('https://share.example.com/raid/board');
+    expect(JSON.parse(String(calls[1]!.init!.body))).toEqual({ id: 'r1', password: 'pw' });
+  });
+
+  it('기록 제출은 스펙까지 한 몸으로 보낸다', async () => {
+    const { fetcher, calls } = fakeFetch({ entry: { eid: 'e1', decks: [], total: 1, engine: '', at: '' }, kept: false });
+    const result = await new ShareServer('https://share.example.com', fetcher).submitRaidEntry({
+      id: 'r1', openid: '1234', name: 'MORIS', area: 83, decks: [], total: 1, engine: 'x', spec: { a: 1 },
+    });
+    expect(calls[0]!.url).toBe('https://share.example.com/raid/entry');
+    expect(JSON.parse(String(calls[0]!.init!.body)).spec).toEqual({ a: 1 });
+    expect(result.kept).toBe(false);
+  });
+
   it('falls back to a readable message when the body is not JSON', async () => {
     const fetcher = (async () => new Response('nope', { status: 502 })) as unknown as typeof fetch;
     await expect(new ShareServer('https://share.example.com', fetcher).list('boss'))

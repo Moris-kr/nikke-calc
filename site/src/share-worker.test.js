@@ -9,6 +9,7 @@ function fakeKv(seed = {}) {
     store,
     async get(key) { return store.has(key) ? store.get(key) : null; },
     async put(key, value) { store.set(key, value); },
+    async delete(key) { store.delete(key); },
   };
 }
 
@@ -192,5 +193,118 @@ describe('피드백 코멘트', () => {
   it('사라진 항목에는 404로 답한다', async () => {
     const kv = fakeKv();
     expect((await reply(kv, 'gone', '있나요')).status).toBe(404);
+  });
+});
+
+describe('계산기 레이드', () => {
+  const open = (kv, title = '9월 4주차 · 전격 보스') => call(kv, '/raid/open', {
+    method: 'POST', body: { title, code: 'NK3-abc', auto: '180초 · 전격 · 코어 52px', password: ADMIN },
+  });
+  const deck = (names, dmg) => ({ names, code: 'NK2-x', order: '1버 리타 → 2버 크라운 → 3버 이브', dmg });
+  const entry = (kv, id, over = {}) => call(kv, '/raid/entry', {
+    method: 'POST', ip: over.ip,
+    body: {
+      id, openid: '123456789', name: 'MORIS', area: 83,
+      decks: [deck(['리타', '크라운', '이브'], 300_000_000), deck(['토브', '민트'], 200_000_000)],
+      total: 500_000_000, engine: 'c5c4d9a4', spec: { decks: [{ squad: ['리타'] }] },
+      ...over,
+    },
+  });
+
+  it('어드민이 전투 조건 코드로 레이드를 열고, 목록에 뜬다', async () => {
+    const kv = fakeKv();
+    const opened = await (await open(kv)).json();
+    expect(opened.raid.status).toBe('open');
+    const list = await (await call(kv, '/raid')).json();
+    expect(list.raids.map((r) => r.title)).toEqual(['9월 4주차 · 전격 보스']);
+    // NK3가 아니면 레이드가 될 수 없다.
+    const bad = await call(kv, '/raid/open', { method: 'POST', body: { title: 'x', code: 'NK2-abc', password: ADMIN } });
+    expect(bad.status).toBe(400);
+    // 비밀번호 없이는 못 연다.
+    expect((await call(kv, '/raid/open', { method: 'POST', body: { title: 'x', code: 'NK3-abc' } })).status).toBe(403);
+  });
+
+  it('기록을 올리면 남에게는 순위·덱·딜만 보이고, 어드민에게는 누구인지가 보인다', async () => {
+    const kv = fakeKv();
+    const { raid } = await (await open(kv)).json();
+    const posted = await (await entry(kv, raid.id)).json();
+    expect(posted.kept).toBe(false);
+    expect(posted.entry.name).toBeUndefined();
+
+    const board = await (await call(kv, `/raid/board?id=${raid.id}`)).json();
+    expect(board.entries).toHaveLength(1);
+    const row = board.entries[0];
+    expect(row.total).toBe(500_000_000);
+    expect(row.decks[0].names).toEqual(['리타', '크라운', '이브']);
+    // 누구인지 알 수 있는 값은 하나도 없다.
+    expect(row.name).toBeUndefined();
+    expect(row.area).toBeUndefined();
+    expect(row.tail).toBeUndefined();
+    expect(row.owner).toBeUndefined();
+    expect(JSON.stringify(board)).not.toContain('123456789');
+
+    const admin = await (await call(kv, '/raid/board', { method: 'POST', body: { id: raid.id, password: ADMIN } })).json();
+    expect(admin.entries[0]).toMatchObject({ name: 'MORIS', area: 83, tail: '6789' });
+    expect(JSON.stringify(admin)).not.toContain('123456789');
+  });
+
+  it('한 계정에는 최고 기록 하나만 남는다', async () => {
+    const kv = fakeKv();
+    const { raid } = await (await open(kv)).json();
+    await entry(kv, raid.id, { total: 500_000_000 });
+    const lower = await (await entry(kv, raid.id, { total: 400_000_000 })).json();
+    expect(lower.kept).toBe(true);
+    const higher = await (await entry(kv, raid.id, { total: 600_000_000 })).json();
+    expect(higher.replaced).toBe(true);
+    const board = await (await call(kv, `/raid/board?id=${raid.id}`)).json();
+    expect(board.entries).toHaveLength(1);
+    expect(board.entries[0].total).toBe(600_000_000);
+    // 계정이 다르면 따로 선다.
+    await entry(kv, raid.id, { openid: '987654321', total: 550_000_000, ip: '2.2.2.2' });
+    const two = await (await call(kv, `/raid/board?id=${raid.id}`)).json();
+    expect(two.entries.map((r) => r.total)).toEqual([600_000_000, 550_000_000]);
+  });
+
+  it('같은 니케가 두 덱에 서면 막는다', async () => {
+    const kv = fakeKv();
+    const { raid } = await (await open(kv)).json();
+    const dup = await entry(kv, raid.id, { decks: [deck(['리타', '크라운'], 1), deck(['리타'], 1)] });
+    expect(dup.status).toBe(400);
+    expect((await dup.json()).error).toContain('리타');
+  });
+
+  it('닫힌 레이드는 기록을 더 받지 않고, 랭킹은 남는다', async () => {
+    const kv = fakeKv();
+    const { raid } = await (await open(kv)).json();
+    await entry(kv, raid.id);
+    const closed = await (await call(kv, '/raid/close', { method: 'POST', body: { id: raid.id, password: ADMIN } })).json();
+    expect(closed.raid.status).toBe('closed');
+    expect((await entry(kv, raid.id, { total: 900_000_000 })).status).toBe(409);
+    const board = await (await call(kv, `/raid/board?id=${raid.id}`)).json();
+    expect(board.entries).toHaveLength(1);
+  });
+
+  it('어드민은 기록을 지우고 스펙을 다시 읽을 수 있다', async () => {
+    const kv = fakeKv();
+    const { raid } = await (await open(kv)).json();
+    const { entry: mine } = await (await entry(kv, raid.id)).json();
+    const spec = await (await call(kv, '/raid/spec', { method: 'POST', body: { id: raid.id, eid: mine.eid, password: ADMIN } })).json();
+    expect(spec.spec).toEqual({ decks: [{ squad: ['리타'] }] });
+    // 스펙은 비밀번호 없이는 못 본다 — 남의 육성은 남에게 안 나간다.
+    expect((await call(kv, '/raid/spec', { method: 'POST', body: { id: raid.id, eid: mine.eid } })).status).toBe(403);
+    await call(kv, '/raid/remove', { method: 'POST', body: { id: raid.id, eid: mine.eid, password: ADMIN } });
+    const board = await (await call(kv, `/raid/board?id=${raid.id}`)).json();
+    expect(board.entries).toEqual([]);
+    expect((await call(kv, '/raid/spec', { method: 'POST', body: { id: raid.id, eid: mine.eid, password: ADMIN } })).status).toBe(404);
+  });
+
+  it('레이드는 여럿이 동시에 열리고 기록은 레이드마다 따로다', async () => {
+    const kv = fakeKv();
+    const a = (await (await open(kv, 'A')).json()).raid;
+    const b = (await (await open(kv, 'B')).json()).raid;
+    await entry(kv, a.id);
+    const list = await (await call(kv, '/raid')).json();
+    expect(list.raids.map((r) => [r.title, r.count])).toEqual([['B', 0], ['A', 1]]);
+    expect((await (await call(kv, `/raid/board?id=${b.id}`)).json()).entries).toEqual([]);
   });
 });

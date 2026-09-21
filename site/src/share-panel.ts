@@ -40,6 +40,11 @@ export interface SharePanelDeps {
    * 같은 입력칸이 두 군데 있으면 어느 쪽이 진짜인지 헷갈린다.
    */
   tabs?: TabKey[];
+  /**
+   * 글마다 덧붙일 것(어드민의 「계산기 레이드로 올리기」 같은). 줄 아래에 놓는다 —
+   * «적용» 옆 칸을 늘리면 좁은 화면에서 단추끼리 겹친다. null이면 아무것도 안 낸다.
+   */
+  extra?: (item: ShareItem) => HTMLElement | null;
 }
 
 export interface SharePanel {
@@ -340,6 +345,8 @@ export function mountSharePanel(hosts: SharePanelHosts, deps: SharePanelDeps): S
         void countApply(item);
       });
 
+      const extra = deps.extra?.(item);
+      if (extra) body.append(extra);
       row.append(body, votes, apply);
       box.append(row);
     }

@@ -1,0 +1,708 @@
+/**
+ * 계산기 레이드 (BETA) — 어드민이 올린 전투 조건 하나로 모두가 다섯 덱을 돌려 겨룬다.
+ *
+ * 무엇이 고정이고 무엇이 내 것인가
+ * ------------------------------
+ * * **전투 조건**은 어드민의 코드(NK3) 그대로다. 싱크로·콘솔만은 코드에 없는 값이라
+ *   블라블라링크로 받아 둔 내 계정 값을 쓴다.
+ * * **육성**은 블라블라링크로 받은 로스터 그대로다. 덱에서 손으로 만진 수치 설정은
+ *   **안 본다** — 그래야 같은 계정이면 어디서 돌려도 같은 값이 나온다.
+ * * 예외는 **큐브**와 **버스트 순서**다. 둘은 육성이 아니라 «운용»이라 내 것으로 둔다.
+ *   컨트롤(톡톡이·장전컨·버스트 운용)은 뺀다 — 조건이 늘수록 어드민 재검증이 무거워진다.
+ * * 임시(프리뷰) 니케는 못 세운다. 창작 수치로 겨루는 것은 겨루는 것이 아니다.
+ *
+ * 남에게 보이는 것은 순위·덱·딜뿐이다. 누구인지는 서버가 애초에 내보내지 않는다(어드민만
+ * 본다). 기록은 계정당 하나, 더 높을 때만 갈아 끼운다. 자기 기록을 지우는 길은 없다.
+ */
+
+import { cycleLine, sequenceForDeck } from './burst-order';
+import { t } from './i18n';
+import { requestForDeck } from './model';
+import type { RaidBoard, RaidDeck, RaidEntry, RaidEntryInput, RaidSummary, ShareServer } from './share-server';
+import { decodeBattleCode, encodeShareCode, type BattleShare } from './share-code';
+import type {
+  BattleSettings, CharacterMeta, CharacterOverrides, DeckState, SimulationRequest, SimulationResult,
+} from './types';
+
+/**
+ * 알고리즘이 바뀌면 딜이 함께 움직인다. 그때 어떻게 하는지를 판에 적어 둔다 — 랭킹이
+ * 갑자기 내려갔을 때 「내가 뭘 잘못했나」가 아니라 「엔진이 바뀌었구나」로 읽히게.
+ */
+export const RAID_ALGORITHM_NOTE = '계산기 알고리즘 변경 등으로 딜이 하락하는 것이 확인될 경우, 기존 레이드는 닫으며 새 시즌으로 다시 엽니다. 알고리즘 변경으로 딜이 상승되는 경우에는 그대로 진행합니다.';
+
+/** 편성 카드에 붙는 잠금 안내. 레이드 탭이 켜져 있는 동안만 보인다. */
+export const RAID_LOCK_NOTE = '🏁 계산기 레이드 중 — 수치 설정과 컨트롤은 블라블라링크 값으로 잠깁니다. 큐브와 버스트 순서만 바꿀 수 있습니다.';
+
+/**
+ * 블라블라링크 프로필 주소에서 계정 식별자(intl_open_id)를 꺼낸다. 프록시(`worker/`)의
+ * `openidFrom`과 같은 규칙이다 — 주소창의 값은 base64로 감싸여 있고("MjkwODAt…" →
+ * "29080-1536…"), 그 뒤 숫자만이 식별자다. 못 읽으면 null.
+ *
+ * 이 값은 **서버로만** 간다. 화면에는 어디에도 안 적는다 — 남에게 보이면 안 되는 값이다.
+ */
+export function openidFromProfileUrl(input: string): string | null {
+  const text = String(input ?? '').trim();
+  if (!text) return null;
+  const candidates: string[] = [];
+  try {
+    const url = new URL(text);
+    if (!/(^|\.)blablalink\.com$/i.test(url.hostname)) return null;
+    for (const key of ['openid', 'uid', 'intl_open_id', 'open_id']) {
+      const value = url.searchParams.get(key);
+      if (value) candidates.push(value);
+    }
+  } catch {
+    candidates.push(text);
+  }
+  for (const raw of candidates) {
+    let decoded = raw;
+    try {
+      const unpadded = raw.replace(/-/g, '+').replace(/_/g, '/');
+      const guess = atob(unpadded.padEnd(Math.ceil(unpadded.length / 4) * 4, '='));
+      if (/^[\x20-\x7e]+$/.test(guess)) decoded = guess;
+    } catch { /* base64가 아니면 원문 그대로 */ }
+    const match = decoded.match(/(\d{6,})\s*$/);
+    if (match) return match[1]!;
+  }
+  return null;
+}
+
+/** 레이드 중에도 살아 있는 카드 조작 — 큐브 고르기, «개별값» 접기, 개별 설정 켜기. */
+export const RAID_CARD_KEEP = '[data-cube-name], [data-cube-level], [data-loadout-open], [data-custom-toggle]';
+
+/**
+ * 편성 카드를 레이드용으로 잠근다. 설정 창을 여는 단추·컨트롤·돌파 계단까지 전부 —
+ * 육성은 블라블라링크 값으로 돈다는 규칙을 화면이 먼저 지킨다. 큐브만 남긴다.
+ */
+export function lockCardForRaid(...hosts: HTMLElement[]): void {
+  for (const host of hosts) {
+    for (const node of host.querySelectorAll<HTMLButtonElement | HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
+      'button, input, select, textarea',
+    )) {
+      if (node.matches(RAID_CARD_KEEP)) continue;
+      node.disabled = true;
+      node.dataset.raidLocked = '';
+    }
+  }
+}
+
+/** 덱에서 레이드가 가져가는 것 — 편성·큐브·버스트 순서. 나머지는 로스터가 정한다. */
+export interface RaidDeckInput {
+  id: number;
+  squad: string[];
+  /** 큐브만 본다. 덱에 잡힌 다른 수치는 무시한다. */
+  cubes: Record<string, CharacterOverrides['cube']>;
+  burstSequence: DeckState['burstSequence'];
+}
+
+/** 이 편성으로 레이드를 돌릴 수 있나. 아니면 무엇이 막는지 — 첫 줄이 이유다. */
+export function raidProblems(
+  decks: DeckState[],
+  catalog: Map<string, CharacterMeta>,
+  linked: boolean,
+): string[] {
+  const problems: string[] = [];
+  if (!linked) problems.push(t('블라블라링크로 계정을 먼저 이어 주세요 — 레이드는 그 육성으로만 돕니다.'));
+  const filled = decks.filter((deck) => deck.squad.some(Boolean));
+  if (filled.length === 0) problems.push(t('편성된 덱이 없습니다.'));
+  const seen = new Map<string, number>();
+  for (const deck of decks) {
+    for (const name of deck.squad) {
+      if (!name) continue;
+      const meta = catalog.get(name);
+      if (!meta) { problems.push(t('{name}은(는) 계산기가 모르는 니케입니다.', { name })); continue; }
+      if (meta.preview) problems.push(t('{name}은(는) 임시 니케라 레이드에 세울 수 없습니다.', { name }));
+      const before = seen.get(name);
+      if (before !== undefined && before !== deck.id) {
+        problems.push(t('{name}이(가) 덱 {a}와 덱 {b}에 함께 있습니다 — 한 니케는 한 덱에만 설 수 있습니다.',
+          { name, a: before, b: deck.id }));
+      }
+      seen.set(name, deck.id);
+    }
+  }
+  return [...new Set(problems)];
+}
+
+/**
+ * 레이드용 캐릭터 설정. 로스터(블라블라링크) 값을 밑에 깔고 큐브만 덱 것으로 갈아 끼운다.
+ * 컨트롤·버스트 운용은 지운다. 로스터에 없는 니케(안 키운 니케)는 기본 스펙으로 선다 —
+ * 그것도 «내 계정의 상태»다.
+ */
+export function raidCharacters(
+  deck: RaidDeckInput,
+  roster: Record<string, CharacterOverrides>,
+): Record<string, CharacterOverrides> {
+  const out: Record<string, CharacterOverrides> = {};
+  for (const name of deck.squad) {
+    if (!name) continue;
+    const base = roster[name] ? structuredClone(roster[name]) : {};
+    delete base.control;
+    delete base.burst;
+    const cube = deck.cubes[name];
+    if (cube) base.cube = { ...cube };
+    if (Object.keys(base).length > 0) out[name] = base;
+  }
+  return out;
+}
+
+/** 어드민 코드의 조건 + 내 계정의 싱크로·콘솔. 덱마다 다른 값은 전부 지운다. */
+export function raidBattle(
+  share: BattleShare,
+  account: { synchroLevel?: number; console?: BattleSettings['console'] },
+  fallback: BattleSettings,
+): BattleSettings {
+  const battle: BattleSettings = {
+    ...fallback,
+    ...share,
+    synchroLevel: account.synchroLevel ?? fallback.synchroLevel,
+    console: account.console ?? fallback.console,
+  };
+  delete battle.burstRegenPerDeck;
+  delete battle.corePerDeck;
+  delete (battle as { firstBurstPerDeck?: unknown }).firstBurstPerDeck;
+  // 핵은 레이드에서 언제나 꺼진다 — 코드에 안 실리지만 화면 값이 새지 않게 못 박는다.
+  delete (battle as { hacks?: unknown }).hacks;
+  return battle;
+}
+
+/** 덱 하나의 계산 요청. 편성·큐브·버스트 순서만 덱에서, 나머지는 로스터와 어드민 조건에서. */
+export function raidRequest(
+  deck: RaidDeckInput,
+  roster: Record<string, CharacterOverrides>,
+  battle: BattleSettings,
+): SimulationRequest {
+  const shaped: DeckState = {
+    id: deck.id,
+    squad: [...deck.squad],
+    characters: raidCharacters(deck, roster),
+    ...(deck.burstSequence ? { burstSequence: deck.burstSequence } : {}),
+  };
+  return requestForDeck(shaped, battle);
+}
+
+/** 제출에 실을 덱 한 칸 — 이름·조합 코드·버스트 순서 한 줄·딜. */
+export function raidDeckRow(deck: RaidDeckInput, result: SimulationResult): RaidDeck {
+  const squad = deck.squad.filter(Boolean);
+  const shaped: DeckState = { id: deck.id, squad: [...deck.squad], characters: {},
+    ...(deck.burstSequence ? { burstSequence: deck.burstSequence } : {}) };
+  const sequence = sequenceForDeck(shaped);
+  return {
+    names: squad,
+    code: encodeShareCode([{ id: 1, squad: [...deck.squad], characters: {} }], false),
+    order: sequence ? cycleLine(sequence[0]) : '',
+    dmg: Math.round(result.squadTotal),
+  };
+}
+
+/** 여러 덱의 합. 빈 덱은 애초에 돌리지 않았으니 여기 안 온다. */
+export const raidTotal = (rows: RaidDeck[]): number =>
+  rows.reduce((sum, row) => sum + row.dmg, 0);
+
+/** 억 단위로 접어 읽기 쉽게. 결과 판과 같은 규칙이다. */
+export const raidDamageText = (value: number): string =>
+  (value >= 100_000_000 ? `${(value / 100_000_000).toFixed(2)}억` : new Intl.NumberFormat('ko-KR').format(Math.round(value)));
+
+// ── 화면 ───────────────────────────────────────────────────────────────────
+
+export interface RaidDeps {
+  server: ShareServer;
+  catalog: Map<string, CharacterMeta>;
+  decks: () => DeckState[];
+  /** 블라블라링크로 받은 로스터. 비어 있으면 아직 안 이은 것이다. */
+  roster: () => Record<string, CharacterOverrides>;
+  /** 이어 둔 계정. 없으면 null — 기록은 못 올리고 보기만 된다. */
+  account: () => { openid: string; area: number; synchroLevel?: number; console?: BattleSettings['console'] } | null;
+  /** 코드에 없는 값을 채울 밑바탕(지금 화면의 전투 조건). */
+  battleFallback: () => BattleSettings;
+  simulate: (request: SimulationRequest) => Promise<SimulationResult>;
+  /** 남의 덱 다섯을 내 판에 얹는다. 편성만이다. */
+  applyDecks: (codes: string[]) => void;
+  /** 어드민 비밀번호. 확인 안 했으면 빈 문자열. */
+  adminPass: () => string;
+  /** 엔진 판본 — 기록에 함께 적는다. */
+  engineVersion: string;
+  imageOf: (name: string) => string | undefined;
+  /** 열린 레이드 수가 바뀌면 알린다(머리의 안내 띠·탭의 점). */
+  onRaids?: (raids: RaidSummary[]) => void;
+}
+
+export interface RaidHandle {
+  /** 서버에서 레이드 목록을 다시 받는다. 탭을 열 때·머리 띠를 그릴 때 부른다. */
+  refresh(): Promise<void>;
+  /** 어드민이 전투 조건 공유 목록에서 레이드를 열 때. */
+  openRaid(input: { title: string; code: string; auto: string }): Promise<void>;
+  /** 지금 열린 레이드들. */
+  openRaids(): RaidSummary[];
+}
+
+const el = <K extends keyof HTMLElementTagNameMap>(
+  tag: K, className = '', text = '',
+): HTMLElementTagNameMap[K] => {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text) node.textContent = text;
+  return node;
+};
+
+/** 표시 이름 — 본인과 어드민에게만 보인다. 브라우저에 남겨 다음에 또 안 묻는다. */
+const NAME_KEY = 'nikke-raid-name-v1';
+/** 내가 올린 기록의 자리(레이드별 eid). 목록에서 «내 줄»을 찾는 유일한 열쇠다. */
+const MINE_KEY = 'nikke-raid-mine-v1';
+
+export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
+  let raids: RaidSummary[] = [];
+  let selectedId: string | null = null;
+  let board: RaidBoard | null = null;
+  let loading = false;
+  let running = false;
+  let message = '';
+  let messageOk = false;
+  /** 마지막 계산. 덱별 줄과 합계. 제출할 때 그대로 싣는다. */
+  let computed: { rows: RaidDeck[]; requests: SimulationRequest[]; total: number; raidId: string } | null = null;
+  let mine: Record<string, string> = {};
+  try { mine = JSON.parse(localStorage.getItem(MINE_KEY) ?? '{}'); } catch { mine = {}; }
+  const rememberMine = (raidId: string, eid: string) => {
+    mine[raidId] = eid;
+    try { localStorage.setItem(MINE_KEY, JSON.stringify(mine)); } catch { /* 무시 */ }
+  };
+  let displayName = '';
+  try { displayName = localStorage.getItem(NAME_KEY) ?? ''; } catch { displayName = ''; }
+
+  const say = (text: string, ok = false) => { message = text; messageOk = ok; render(); };
+  const selected = (): RaidSummary | null => raids.find((raid) => raid.id === selectedId) ?? null;
+
+  async function refresh(): Promise<void> {
+    loading = true;
+    render();
+    try {
+      raids = await deps.server.raidList();
+      if (!selectedId || !raids.some((raid) => raid.id === selectedId)) {
+        selectedId = raids.find((raid) => raid.status === 'open')?.id ?? raids[0]?.id ?? null;
+      }
+      deps.onRaids?.(raids);
+      await loadBoard();
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+      messageOk = false;
+    } finally {
+      loading = false;
+      render();
+    }
+  }
+
+  async function loadBoard(): Promise<void> {
+    if (!selectedId) { board = null; return; }
+    board = await deps.server.raidBoard(selectedId, deps.adminPass());
+  }
+
+  async function pick(id: string): Promise<void> {
+    selectedId = id;
+    computed = null;
+    message = '';
+    render();
+    try { await loadBoard(); } catch (error) { message = error instanceof Error ? error.message : String(error); }
+    render();
+  }
+
+  /** 다섯 덱을 어드민 조건으로 돌린다. 하나라도 막히면 한 판도 안 돌린다. */
+  async function run(): Promise<void> {
+    const raid = selected();
+    if (!raid || raid.status !== 'open') return;
+    const account = deps.account();
+    const problems = raidProblems(deps.decks(), deps.catalog, account !== null);
+    if (problems.length > 0) { say(problems[0]!); return; }
+    running = true;
+    computed = null;
+    say(t('덱 {n}/5 계산 중…', { n: 1 }));
+    try {
+      const share = decodeBattleCode(raid.code);
+      const battle = raidBattle(share, account ?? {}, deps.battleFallback());
+      const roster = deps.roster();
+      const rows: RaidDeck[] = [];
+      const requests: SimulationRequest[] = [];
+      const decks = deps.decks().filter((deck) => deck.squad.some(Boolean));
+      for (const [index, deck] of decks.entries()) {
+        message = t('덱 {n}/5 계산 중…', { n: index + 1 });
+        render();
+        const input: RaidDeckInput = {
+          id: deck.id,
+          squad: deck.squad,
+          cubes: Object.fromEntries(Object.entries(deck.characters).map(([name, value]) => [name, value.cube])),
+          burstSequence: deck.burstSequence,
+        };
+        const request = raidRequest(input, roster, battle);
+        const result = await deps.simulate(request);
+        rows.push(raidDeckRow(input, result));
+        requests.push(request);
+      }
+      computed = { rows, requests, total: raidTotal(rows), raidId: raid.id };
+      message = '';
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+      messageOk = false;
+    } finally {
+      running = false;
+      render();
+    }
+  }
+
+  async function submit(): Promise<void> {
+    const raid = selected();
+    const account = deps.account();
+    if (!raid || !computed || computed.raidId !== raid.id || !account) return;
+    const input: RaidEntryInput = {
+      id: raid.id,
+      openid: account.openid,
+      name: displayName,
+      area: account.area,
+      decks: computed.rows,
+      total: computed.total,
+      engine: deps.engineVersion,
+      spec: { requests: computed.requests },
+    };
+    try {
+      const result = await deps.server.submitRaidEntry(input);
+      rememberMine(raid.id, result.entry.eid);
+      await loadBoard();
+      if (result.kept) {
+        say(t('이미 올린 기록({n})이 더 높습니다 — 그대로 둡니다.', { n: raidDamageText(result.entry.total) }), true);
+      } else {
+        const rank = (board?.entries ?? []).findIndex((entry) => entry.eid === result.entry.eid) + 1;
+        say(t('올렸습니다 · 지금 {rank}위. 같은 계정으로 다시 올리면 더 높은 기록만 남습니다.', { rank }), true);
+      }
+    } catch (error) {
+      say(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  async function openRaid(input: { title: string; code: string; auto: string }): Promise<void> {
+    const raid = await deps.server.openRaid(input, deps.adminPass());
+    selectedId = raid.id;
+    await refresh();
+  }
+
+  async function closeRaid(): Promise<void> {
+    const raid = selected();
+    if (!raid) return;
+    try {
+      await deps.server.closeRaid(raid.id, deps.adminPass());
+      await refresh();
+      say(t('레이드를 닫았습니다 — 랭킹은 지난 레이드로 남고 제출만 막힙니다.'), true);
+    } catch (error) { say(error instanceof Error ? error.message : String(error)); }
+  }
+
+  async function removeEntry(entry: RaidEntry): Promise<void> {
+    const raid = selected();
+    if (!raid) return;
+    try {
+      await deps.server.removeRaidEntry(raid.id, entry.eid, deps.adminPass());
+      await loadBoard();
+      say(t('기록을 지웠습니다.'), true);
+    } catch (error) { say(error instanceof Error ? error.message : String(error)); }
+  }
+
+  /** 어드민 재검증 — 보관된 요청 그대로 내 브라우저에서 다시 돌려 합계를 맞춰 본다. */
+  async function verify(entry: RaidEntry, out: HTMLElement): Promise<void> {
+    const raid = selected();
+    if (!raid) return;
+    out.textContent = t('계산 중…');
+    try {
+      const spec = await deps.server.raidSpec<{ requests?: SimulationRequest[] }>(raid.id, entry.eid, deps.adminPass());
+      const requests = spec.requests ?? [];
+      let total = 0;
+      for (const request of requests) total += (await deps.simulate(request)).squadTotal;
+      const same = Math.abs(total - entry.total) <= Math.max(1, entry.total * 0.001);
+      out.textContent = same
+        ? t('일치 ✓ {n}', { n: raidDamageText(total) })
+        : t('불일치 — 다시 돌리니 {n} (기록 {m})', { n: raidDamageText(total), m: raidDamageText(entry.total) });
+    } catch (error) {
+      out.textContent = error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  const face = (name: string): HTMLElement => {
+    const src = deps.imageOf(name);
+    const node = el('span', 'raid-face');
+    node.title = name;
+    if (src) {
+      const img = document.createElement('img');
+      img.src = src; img.alt = name; img.loading = 'lazy';
+      node.append(img);
+    } else {
+      node.textContent = name.slice(0, 1);
+    }
+    return node;
+  };
+
+  function renderPicker(): HTMLElement {
+    const box = el('div', 'raid-picker');
+    const open = raids.filter((raid) => raid.status === 'open');
+    const closed = raids.filter((raid) => raid.status !== 'open');
+    if (raids.length === 0) {
+      box.append(el('p', 'field-note', loading ? t('레이드 목록을 받는 중…') : t('지금 열린 계산기 레이드가 없습니다.')));
+      return box;
+    }
+    const list = el('div', 'raid-list');
+    list.dataset.raidList = '';
+    for (const raid of [...open, ...closed]) {
+      const button = el('button', raid.id === selectedId ? 'raid-pick is-on' : 'raid-pick');
+      button.type = 'button';
+      button.dataset.raidPick = raid.id;
+      if (raid.status !== 'open') button.classList.add('is-closed');
+      button.append(el('b', '', raid.title));
+      button.append(el('span', 'raid-pick-auto', raid.auto));
+      button.append(el('small', '', raid.status === 'open'
+        ? t('진행중 · 참가 {n}명', { n: raid.count })
+        : t('마감 · 참가 {n}명', { n: raid.count })));
+      button.addEventListener('click', () => { void pick(raid.id); });
+      list.append(button);
+    }
+    box.append(list);
+    return box;
+  }
+
+  function renderRules(): HTMLElement {
+    const list = el('ul', 'raid-rules');
+    const rules: Array<[string, string]> = [
+      ['ok', t('5덱 합산 — 니케는 한 덱에만')],
+      ['ok', t('블라블라링크로 받은 내 육성 그대로 (수치 설정 잠김)')],
+      ['ok', t('큐브는 바꿀 수 있음')],
+      ['ok', t('버스트 순서는 내 것')],
+      ['no', t('컨트롤(톡톡이·장전컨) 불가 — 자동 고정')],
+      ['no', t('임시 · 미구현 니케 불가')],
+      ['ok', t('한 계정 한 기록 · 최고 기록만')],
+      ['ok', t('다른 참가자는 익명')],
+    ];
+    for (const [kind, text] of rules) list.append(el('li', kind, text));
+    return list;
+  }
+
+  function renderMyDecks(): HTMLElement {
+    const box = el('div', 'raid-decks');
+    box.dataset.raidMyDecks = '';
+    const decks = deps.decks();
+    for (const deck of decks) {
+      if (!deck.squad.some(Boolean)) continue;
+      const line = el('div', 'raid-deck-line');
+      line.append(el('b', '', t('덱 {n}', { n: deck.id })));
+      const faces = el('span', 'raid-faces');
+      for (const name of deck.squad) if (name) faces.append(face(name));
+      line.append(faces);
+      const sequence = sequenceForDeck(deck);
+      line.append(el('span', 'raid-order', sequence ? cycleLine(sequence[0]) : t('버스트 순서 자동')));
+      const row = computed?.rows.find((entry) => entry.names.join('|') === deck.squad.filter(Boolean).join('|'));
+      line.append(el('span', row ? 'raid-dmg' : 'raid-dmg dim', row ? raidDamageText(row.dmg) : '—'));
+      box.append(line);
+    }
+    if (box.childElementCount === 0) box.append(el('p', 'field-note', t('편성된 덱이 없습니다.')));
+    return box;
+  }
+
+  function renderEntryDetail(entry: RaidEntry, admin: boolean): HTMLElement {
+    const box = el('div', 'raid-detail');
+    const decks = el('div', 'raid-decks');
+    for (const [index, deck] of entry.decks.entries()) {
+      const line = el('div', 'raid-deck-line');
+      line.append(el('b', '', t('덱 {n}', { n: index + 1 })));
+      const faces = el('span', 'raid-faces');
+      for (const name of deck.names) faces.append(face(name));
+      line.append(faces);
+      line.append(el('span', 'raid-order', deck.order || t('버스트 순서 자동')));
+      line.append(el('span', 'raid-dmg', raidDamageText(deck.dmg)));
+      decks.append(line);
+    }
+    box.append(decks);
+    const actions = el('div', 'raid-actions');
+    const take = el('button', 'raid-ghost', t('덱 {n}개 가져오기 (편성만)', { n: entry.decks.length }));
+    take.type = 'button';
+    take.dataset.raidTake = entry.eid;
+    take.addEventListener('click', () => {
+      try {
+        deps.applyDecks(entry.decks.map((deck) => deck.code));
+        say(t('덱 {n}개의 편성만 가져왔습니다 — 스펙은 내 블라블라링크 값으로 돕니다.', { n: entry.decks.length }), true);
+      } catch (error) {
+        say(error instanceof Error ? error.message : String(error));
+      }
+    });
+    actions.append(take);
+    if (admin) {
+      const verifyButton = el('button', 'raid-ghost', t('재검증 (보관된 스펙으로 다시 계산)'));
+      verifyButton.type = 'button';
+      verifyButton.dataset.raidVerify = entry.eid;
+      const out = el('span', 'raid-verify-out');
+      verifyButton.addEventListener('click', () => { void verify(entry, out); });
+      const remove = el('button', 'raid-ghost is-danger', t('기록 삭제'));
+      remove.type = 'button';
+      remove.dataset.raidRemove = entry.eid;
+      remove.addEventListener('click', () => { void removeEntry(entry); });
+      actions.append(verifyButton, out, remove);
+    }
+    box.append(actions);
+    box.append(el('p', 'raid-fine', t('컨트롤 없음(규칙) · 엔진 {engine} · 스펙은 제출 때 함께 보관되며 어드민 재검증에만 쓰입니다', { engine: entry.engine || '?' })));
+    return box;
+  }
+
+  function renderBoard(): HTMLElement {
+    const box = el('div', 'raid-board');
+    box.dataset.raidBoard = '';
+    const entries = board?.entries ?? [];
+    const admin = deps.adminPass() !== '';
+    const myEid = selectedId ? mine[selectedId] : undefined;
+    if (entries.length === 0) {
+      box.append(el('p', 'field-note', loading ? t('랭킹을 받는 중…') : t('아직 올라온 기록이 없습니다.')));
+      return box;
+    }
+    const table = el('table', 'raid-table');
+    const head = el('thead');
+    const hr = el('tr');
+    for (const label of [t('순위'), t('참가자'), t('덱'), t('5덱 합산'), '']) hr.append(el('th', '', label));
+    head.append(hr);
+    table.append(head);
+    const body = el('tbody');
+    let opened: HTMLTableRowElement | null = null;
+    entries.forEach((entry, index) => {
+      const rank = index + 1;
+      const row = el('tr', entry.eid === myEid ? 'raid-row is-me' : 'raid-row');
+      row.dataset.raidRow = entry.eid;
+      row.append(el('td', `raid-rank r${rank}`, String(rank)));
+      const who = el('td', 'raid-who');
+      if (entry.eid === myEid) {
+        who.append(el('span', '', displayName || t('나')));
+        who.append(el('small', '', t('나')));
+      } else {
+        who.append(el('span', 'anon', t('참가자')));
+      }
+      if (admin && entry.name !== undefined) {
+        who.append(el('span', 'raid-ident', `${entry.name || '(이름 없음)'} · ${entry.area || '?'} · …${entry.tail ?? ''}`));
+      }
+      row.append(who);
+      const deckCell = el('td');
+      const faces = el('span', 'raid-faces');
+      for (const name of entry.decks[0]?.names ?? []) faces.append(face(name));
+      deckCell.append(faces);
+      if (entry.decks.length > 1) deckCell.append(el('span', 'raid-more', t('+ {n}덱', { n: entry.decks.length - 1 })));
+      row.append(deckCell);
+      row.append(el('td', 'raid-total', raidDamageText(entry.total)));
+      row.append(el('td', 'raid-chev', '▾'));
+      const detail = el('tr', 'raid-detail-row');
+      detail.hidden = true;
+      const cell = el('td');
+      cell.colSpan = 5;
+      cell.append(renderEntryDetail(entry, admin));
+      detail.append(cell);
+      row.addEventListener('click', () => {
+        const open = !detail.hidden;
+        if (opened && opened !== detail) opened.hidden = true;
+        detail.hidden = open;
+        opened = open ? null : detail;
+      });
+      body.append(row, detail);
+    });
+    table.append(body);
+    const scroll = el('div', 'raid-scroll');
+    scroll.append(table);
+    box.append(scroll);
+    return box;
+  }
+
+  function render(): void {
+    host.replaceChildren();
+    const raid = selected();
+    const account = deps.account();
+    const admin = deps.adminPass() !== '';
+
+    host.append(el('p', 'raid-lede', t('어드민이 올린 전투 조건 하나로 모두가 다섯 덱을 돌려 합산 딜을 겨룹니다. 육성은 블라블라링크로 받은 값 그대로이고, 큐브와 버스트 순서만 내 것입니다.')));
+    host.append(renderPicker());
+    if (!raid) return;
+
+    if (admin) {
+      const bar = el('div', 'raid-admin');
+      bar.append(el('b', '', t('어드민')));
+      bar.append(el('span', '', t('{date}에 열림 · 참가 {n}명 · 제출자 식별은 어드민에게만 보입니다',
+        { date: raid.openedAt.slice(0, 10), n: raid.count })));
+      if (raid.status === 'open') {
+        const close = el('button', 'raid-ghost', t('레이드 종료 (랭킹 고정)'));
+        close.type = 'button';
+        close.dataset.raidClose = '';
+        close.addEventListener('click', () => { void closeRaid(); });
+        bar.append(close);
+      }
+      host.append(bar);
+    }
+
+    const boss = el('div', 'raid-boss');
+    boss.append(el('h3', '', raid.title));
+    boss.append(el('p', 'raid-boss-auto', raid.auto));
+    boss.append(el('p', 'field-note', raid.status === 'open'
+      ? t('어드민이 올린 전투 조건입니다. 바꿀 수 없고, 싱크로·콘솔은 내 블라블라링크 계정 값을 씁니다.')
+      : t('마감된 레이드입니다. 기록을 더 받지 않고 랭킹만 남습니다.')));
+    host.append(boss);
+    host.append(renderRules());
+    host.append(el('p', 'raid-note', RAID_ALGORITHM_NOTE));
+
+    const mySection = el('section', 'raid-section');
+    mySection.append(el('h4', '', t('내 5덱')));
+    mySection.append(renderMyDecks());
+    host.append(mySection);
+
+    const bar = el('div', 'raid-run');
+    const go = el('button', 'calculate-button raid-go');
+    go.type = 'button';
+    go.dataset.raidRun = '';
+    go.disabled = running || raid.status !== 'open' || !account;
+    go.append(el('span', '', raid.status !== 'open' ? t('마감된 레이드') : running ? t('계산 중…') : t('5덱 레이드 계산')));
+    go.addEventListener('click', () => { void run(); });
+    bar.append(go);
+    if (!account) {
+      bar.append(el('span', 'raid-run-note', t('블라블라링크로 계정을 이어야 돌릴 수 있습니다. 보는 것은 누구나 됩니다.')));
+    }
+    host.append(bar);
+
+    if (computed && computed.raidId === raid.id) {
+      const result = el('div', 'raid-result');
+      result.dataset.raidResult = '';
+      result.append(el('b', 'raid-big', raidDamageText(computed.total)));
+      result.append(el('span', 'raid-sub', t('{n}덱 합산 · {title}', { n: computed.rows.length, title: raid.title })));
+      const who = el('div', 'raid-submit-row');
+      const nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.maxLength = 16;
+      nameInput.placeholder = t('표시 이름 (나와 어드민만 봄)');
+      nameInput.value = displayName;
+      nameInput.dataset.raidName = '';
+      nameInput.addEventListener('input', () => {
+        displayName = nameInput.value.trim();
+        try { localStorage.setItem(NAME_KEY, displayName); } catch { /* 무시 */ }
+      });
+      const submitButton = el('button', 'raid-submit', t('랭킹에 올리기'));
+      submitButton.type = 'button';
+      submitButton.dataset.raidSubmit = '';
+      submitButton.disabled = !account || raid.status !== 'open';
+      submitButton.addEventListener('click', () => { void submit(); });
+      who.append(nameInput, submitButton);
+      result.append(who);
+      host.append(result);
+    }
+
+    if (message) {
+      const note = el('p', messageOk ? 'raid-msg is-ok' : 'raid-msg');
+      note.dataset.raidMessage = '';
+      note.textContent = message;
+      host.append(note);
+    }
+
+    const boardSection = el('section', 'raid-section');
+    const head = el('div', 'raid-board-head');
+    head.append(el('h4', '', t('랭킹')));
+    head.append(el('span', '', t('참가 {n}명 · 다른 참가자는 익명입니다 · 줄을 누르면 덱이 펼쳐집니다', { n: board?.entries.length ?? 0 })));
+    boardSection.append(head, renderBoard());
+    host.append(boardSection);
+  }
+
+  render();
+  return {
+    refresh,
+    openRaid,
+    openRaids: () => raids.filter((raid) => raid.status === 'open'),
+  };
+}

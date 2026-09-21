@@ -628,9 +628,15 @@ describe('character settings editor', () => {
     cube.dispatchEvent(new Event('change'));
 
     expect(value?.cube).toEqual({ name: '탄충', level: 15 });
-    expect(root.textContent).toContain('공격 2,780');
-    expect(root.textContent).toContain('10발 사격 시 탄환 충전 3발 ▲');
-    expect(root.textContent).toContain('우월 코드 19.09%');
+    // 큐브는 수치 설정 창 밖, 카드의 「수치 설정」과 「컨트롤」 사이에 선다. 스탯 요약은
+    // 카드 폭을 안 잡아먹게 툴팁으로 낸다.
+    const field = root.querySelector<HTMLElement>('[data-cube-field]')!;
+    expect(field.previousElementSibling?.matches('[data-char-panel="settings"]')).toBe(true);
+    expect(field.nextElementSibling?.matches('.control-editor')).toBe(true);
+    expect(root.querySelector('[data-char-panel="settings"] [data-cube-name]')).toBeNull();
+    expect(field.title).toContain('공격 2,780');
+    expect(field.title).toContain('10발 사격 시 탄환 충전 3발 ▲');
+    expect(field.title).toContain('우월 코드 19.09%');
   });
 
   it('searches, adds, edits, deduplicates, and removes advanced stats', () => {
@@ -746,7 +752,7 @@ describe('character settings editor', () => {
     );
     setToggle('[data-custom-toggle]', true);
     root.querySelector<HTMLButtonElement>('[data-char-panel-open="settings"]')!.click();
-    expect(opened).toEqual([{ kind: 'settings', label: '돌파 · 스킬 · 오버로드 · 큐브', hasBurst: false }]);
+    expect(opened).toEqual([{ kind: 'settings', label: '돌파 · 스킬 · 오버로드', hasBurst: false }]);
     // 넘겼으면 제자리에서 펼치지는 않는다 — 같은 것이 두 곳에 보이면 안 된다.
     expect(root.querySelector<HTMLElement>('[data-char-panel="settings"]')!.hidden).toBe(true);
     // 컨트롤은 애초에 창으로 넘기지 않는다 — 카드에서 그 자리에 펴진다.
@@ -863,7 +869,7 @@ describe('character settings editor', () => {
     // 레벨은 뜻이 없으므로 0으로 못 박고, 레벨 칸도 잠근다.
     expect(value?.cube).toEqual({ name: '없음', level: 0 });
     expect(root.querySelector<HTMLSelectElement>('[data-cube-level]')!.disabled).toBe(true);
-    expect(root.querySelector('.cube-summary')!.textContent).toContain('큐브를 끼지 않습니다');
+    expect(root.querySelector<HTMLElement>('[data-cube-field]')!.title).toContain('큐브를 끼지 않습니다');
     expect(root.querySelector('[data-loadout-summary]')!.textContent).toContain('큐브 없음');
 
     // 다시 큐브를 고르면 레벨이 되살아난다.

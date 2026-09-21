@@ -94,6 +94,64 @@ export interface FeedbackInput {
   by: string;
 }
 
+// ── 계산기 레이드 ────────────────────────────────────────────────────────
+// 어드민이 전투 조건 코드 하나를 «레이드»로 올리면 모두가 같은 조건으로 다섯 덱을 돌려
+// 합산 딜을 겨룬다. 여럿이 동시에 열릴 수 있다.
+
+export type RaidStatus = 'open' | 'closed';
+
+export interface RaidSummary {
+  id: string;
+  title: string;
+  /** 전투 조건 한 줄 설명. 공유 목록과 같은 문장이다. */
+  auto: string;
+  /** 전투 조건 코드(NK3-). 이것으로 조건을 되읽는다. */
+  code: string;
+  status: RaidStatus;
+  openedAt: string;
+  closedAt: string;
+  count: number;
+}
+
+/** 기록에 실린 덱 한 칸. 남에게 보이는 것은 이것뿐이다. */
+export interface RaidDeck {
+  names: string[];
+  /** 조합 코드(NK2-). 「덱 가져오기」가 쓴다. */
+  code: string;
+  /** 버스트 순서 한 줄. 비어 있으면 자동이다. */
+  order: string;
+  dmg: number;
+}
+
+export interface RaidEntry {
+  eid: string;
+  decks: RaidDeck[];
+  total: number;
+  engine: string;
+  at: string;
+  /** 어드민에게만 온다 — 표시 이름·서버·계정 꼬리. */
+  name?: string;
+  area?: number;
+  tail?: string;
+}
+
+export interface RaidBoard {
+  raid: RaidSummary;
+  entries: RaidEntry[];
+}
+
+export interface RaidEntryInput {
+  id: string;
+  openid: string;
+  name: string;
+  area: number;
+  decks: RaidDeck[];
+  total: number;
+  engine: string;
+  /** 어드민 재검증용 — 다섯 덱의 계산 요청 그대로. 남에게는 안 나간다. */
+  spec: unknown;
+}
+
 type Fetcher = typeof fetch;
 
 /**
@@ -253,6 +311,76 @@ export class ShareServer {
       body: JSON.stringify({ id, password }),
     });
     await this.unwrapReady<unknown>(response, '피드백');
+  }
+
+  // ── 계산기 레이드 ──────────────────────────────────────────────────────
+
+  async raidList(): Promise<RaidSummary[]> {
+    const response = await this.fetcher(`${this.base}/raid`);
+    const result = await this.unwrapReady<{ raids?: RaidSummary[] }>(response, '계산기 레이드');
+    return result.raids ?? [];
+  }
+
+  /** 랭킹. 비밀번호를 주면 어드민 모양(누구인지 포함)으로 온다. */
+  async raidBoard(id: string, password = ''): Promise<RaidBoard> {
+    const response = password
+      ? await this.fetcher(`${this.base}/raid/board`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, password }),
+      })
+      : await this.fetcher(`${this.base}/raid/board?id=${encodeURIComponent(id)}`);
+    return this.unwrapReady<RaidBoard>(response, '계산기 레이드');
+  }
+
+  /** 기록 올리기. 더 낮은 기록이면 서버가 `kept: true`로 돌려주고 아무것도 안 바꾼다. */
+  async submitRaidEntry(input: RaidEntryInput): Promise<{ entry: RaidEntry; kept: boolean; replaced?: boolean }> {
+    const response = await this.fetcher(`${this.base}/raid/entry`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    return this.unwrapReady(response, '계산기 레이드');
+  }
+
+  async openRaid(input: { title: string; code: string; auto: string }, password: string): Promise<RaidSummary> {
+    const response = await this.fetcher(`${this.base}/raid/open`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...input, password }),
+    });
+    const result = await this.unwrapReady<{ raid: RaidSummary }>(response, '계산기 레이드');
+    return result.raid;
+  }
+
+  async closeRaid(id: string, password: string): Promise<RaidSummary> {
+    const response = await this.fetcher(`${this.base}/raid/close`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, password }),
+    });
+    const result = await this.unwrapReady<{ raid: RaidSummary }>(response, '계산기 레이드');
+    return result.raid;
+  }
+
+  async removeRaidEntry(id: string, eid: string, password: string): Promise<void> {
+    const response = await this.fetcher(`${this.base}/raid/remove`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, eid, password }),
+    });
+    await this.unwrapReady<unknown>(response, '계산기 레이드');
+  }
+
+  /** 어드민 재검증용 스펙. 기록을 올린 브라우저가 돌린 요청 그대로다. */
+  async raidSpec<T = unknown>(id: string, eid: string, password: string): Promise<T> {
+    const response = await this.fetcher(`${this.base}/raid/spec`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, eid, password }),
+    });
+    const result = await this.unwrapReady<{ spec: T }>(response, '계산기 레이드');
+    return result.spec;
   }
 
   async adminCheck(password: string): Promise<boolean> {

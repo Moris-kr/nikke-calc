@@ -695,8 +695,6 @@ input:where([type="checkbox"], [type="radio"]) {
 .overload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .overload-grid label, .manual-row { display: grid; gap: 5px; color: var(--muted); font-size: 9px; font-weight: 700; }
 .overload-grid input, .manual-row input { min-height: 36px; padding-inline: 9px 30px; font-size: 11px; }
-.cube-editor { padding: 10px; border: 1px solid rgba(69,214,208,.13); background: rgba(69,214,208,.035); }
-.cube-editor h4 { margin: 0 0 8px; font-size: 11px; color: var(--cyan); }
 .cube-controls { display: grid; grid-template-columns: 1fr .75fr; gap: 7px; }
 .cube-controls select { min-height: 36px; font-size: 11px; }
 .favorite-item-note { padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: color-mix(in srgb, var(--panel) 88%, transparent); }
@@ -733,7 +731,6 @@ input:where([type="checkbox"], [type="radio"]) {
 .tap-rate-hint.is-warning { color: var(--amber); }
 .control-toggle { flex-wrap: wrap; }
 .field-note.warning { color: var(--accent); }
-.cube-summary { margin: 8px 0 0; color: #849cac; font-size: 9px; line-height: 1.55; }
 .cube-unsupported-note { margin: 6px 0 0; color: #e0b25a; font-size: 9px; line-height: 1.55; }
 .advanced-toggle { padding-top: 2px; }
 .advanced-editor { display: grid; gap: 9px; padding-top: 2px; }
@@ -2741,4 +2738,132 @@ img[src*="/temporary-characters/"][src$="-card.png"] { object-fit: contain; obje
  .result-panel .deck-result-header{grid-template-columns:minmax(0,1fr)}
  .result-panel .deck-result-header h3{grid-row:auto}
  .result-panel .deck-result-header strong,.result-panel .deck-result-header small{text-align:left;overflow-wrap:anywhere}
+}
+
+/* ── 계산기 레이드 (BETA) ───────────────────────────────────────────────── */
+/* 머리의 안내 띠 — 열린 레이드가 있을 때만. 커뮤니티 띠와 같은 호박색 계열이다. */
+.raid-band { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; margin: 0 0 6px; padding: 9px 14px;
+  border: 1px solid rgba(255,191,60,.3); border-radius: 8px; background: rgba(255,191,60,.1); font-size: 13px; }
+.raid-live { display: inline-flex; align-items: center; gap: 6px; color: var(--amber); font-weight: 900; letter-spacing: .02em; white-space: nowrap; }
+.raid-live i { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 10px var(--amber); animation: raid-blink 1.6s ease-in-out infinite; }
+@keyframes raid-blink { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .raid-live i { animation: none; } }
+.raid-band-list { flex: 1 1 auto; min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.raid-band-go { margin-left: auto; padding: 5px 12px; border: 1px solid rgba(255,191,60,.5); border-radius: 7px;
+  background: rgba(255,191,60,.14); color: #ffe4a6; font: 800 12px/1.2 inherit; font-family: inherit; cursor: pointer; white-space: nowrap; }
+.raid-band-go:hover { background: rgba(255,191,60,.24); color: var(--ink); }
+/* 탭의 점 — 열린 레이드가 있다는 신호. BETA 딱지 뒤에 붙는다. */
+.raid-dot { display: inline-block; width: 7px; height: 7px; margin-left: 5px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 8px var(--amber); vertical-align: middle; }
+
+/* 편성 카드 잠금 안내 */
+.raid-lock-note { margin: 0 0 10px; padding: 8px 12px; border: 1px solid rgba(255,191,60,.35); border-radius: 8px;
+  background: rgba(255,191,60,.07); color: #ffe4a6; font-size: 12px; font-weight: 700; line-height: 1.5; }
+.is-raid .squad-slot [data-raid-locked] { opacity: .4; cursor: not-allowed; }
+.is-raid .squad-slot .char-panel-open[data-raid-locked] { border-style: dashed; }
+
+/* 큐브 — 수치 설정 밖으로 나온 자리(「수치 설정」과 「컨트롤」 사이). 레이드 중에도 산다. */
+.cube-field { display: grid; grid-template-columns: auto 1fr; gap: 6px; align-items: center; margin-top: 5px; padding: 4px 6px 4px 8px;
+  border: 1px solid rgba(69,214,208,.4); border-radius: 7px; background: rgba(69,214,208,.06); }
+.cube-field-label { color: var(--cyan); font: 900 10px/1 ui-monospace, monospace; letter-spacing: .04em; }
+.cube-field .cube-controls { grid-template-columns: 1fr .72fr; gap: 4px; }
+.cube-field .cube-controls select { min-height: 28px; padding: 2px 4px; font-size: 10.5px; font-weight: 700; }
+.cube-field .cube-unsupported-note { grid-column: 1 / -1; margin: 2px 0 0; }
+.is-raid .squad-slot .cube-field { box-shadow: 0 0 0 1px rgba(69,214,208,.25), 0 0 14px rgba(69,214,208,.18); }
+
+/* 전투 조건 공유 목록의 어드민 단추 */
+.share-raid-open { display: inline-block; margin-top: 6px; padding: 5px 10px; border: 1px solid rgba(255,191,60,.5); border-radius: 7px;
+  background: rgba(255,191,60,.14); color: #ffe4a6; font: 800 11px/1.2 inherit; font-family: inherit; cursor: pointer; }
+.share-raid-open:hover { background: rgba(255,191,60,.24); color: var(--ink); }
+
+/* 레이드 판 */
+.raid-pane { display: grid; gap: 14px; margin-top: 12px; }
+.raid-lede { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.raid-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.raid-pick { display: grid; gap: 3px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: rgba(5,11,19,.5);
+  color: var(--muted); text-align: left; cursor: pointer; font: inherit; }
+.raid-pick b { color: var(--ink); font-size: 13px; }
+.raid-pick-auto { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.raid-pick small { font: 700 10.5px/1.3 ui-monospace, monospace; color: var(--amber); }
+.raid-pick.is-closed small { color: var(--muted); }
+.raid-pick:hover { border-color: rgba(255,191,60,.45); }
+.raid-pick.is-on { border-color: var(--amber); background: rgba(255,191,60,.08); }
+.raid-admin { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid rgba(255,191,60,.35); border-radius: 8px;
+  background: rgba(255,191,60,.06); font-size: 12px; }
+.raid-admin b { color: var(--amber); }
+.raid-admin .raid-ghost { margin-left: auto; }
+.raid-boss { padding: 14px 16px; border: 1px solid rgba(255,191,60,.28); border-radius: 10px;
+  background: linear-gradient(90deg, rgba(255,191,60,.08), transparent 70%); }
+.raid-boss h3 { margin: 0 0 4px; font-size: 16px; }
+.raid-boss-auto { margin: 0 0 6px; color: #cfe0ea; font: 600 11.5px/1.5 ui-monospace, monospace; }
+.raid-boss .field-note { margin: 0; }
+.raid-rules { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.raid-rules li { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 8px; font-size: 12px; font-weight: 700; }
+.raid-rules li::before { font-size: 10px; }
+.raid-rules .ok { background: rgba(69,214,208,.1); color: #bfeeec; border: 1px solid rgba(69,214,208,.3); }
+.raid-rules .ok::before { content: "✓"; }
+.raid-rules .no { background: rgba(255,119,135,.1); color: #ffd7de; border: 1px solid rgba(255,119,135,.3); }
+.raid-rules .no::before { content: "✕"; }
+.raid-note { margin: 0; padding: 9px 12px; border-left: 3px solid var(--amber); background: rgba(255,191,60,.06); color: #f3dfae; font-size: 12px; line-height: 1.6; }
+.raid-section { display: grid; gap: 8px; }
+.raid-section > h4 { margin: 6px 0 0; font-size: 13px; letter-spacing: .02em; }
+.raid-board-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
+.raid-board-head h4 { margin: 0; font-size: 13px; letter-spacing: .02em; }
+.raid-board-head span { color: var(--muted); font-size: 12px; }
+.raid-decks { display: grid; gap: 6px; }
+.raid-deck-line { display: grid; grid-template-columns: 44px 1fr auto auto; gap: 10px; align-items: center; padding: 7px 12px;
+  border: 1px solid var(--line); border-radius: 8px; background: rgba(5,11,19,.4); }
+.raid-deck-line > b { font: 800 12px/1 ui-monospace, monospace; }
+.raid-faces { display: flex; }
+.raid-face { width: 26px; height: 26px; margin-right: -5px; border: 2px solid var(--panel-strong, #0b1620); border-radius: 50%; overflow: hidden;
+  display: grid; place-items: center; background: rgba(146,176,201,.2); color: var(--ink); font-size: 10px; font-weight: 900; }
+.raid-face img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+.raid-order { color: var(--muted); font-size: 11px; }
+.raid-dmg { min-width: 64px; text-align: right; color: var(--amber); font: 900 12px/1 ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.raid-dmg.dim { color: var(--muted); font-weight: 600; }
+.raid-run { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.raid-run .calculate-button { margin: 0; }
+.raid-run-note { color: var(--muted); font-size: 12px; }
+.raid-result { display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; align-items: center; padding: 14px 16px;
+  border: 1px solid var(--line); border-radius: 10px; background: rgba(5,11,19,.55); }
+.raid-big { font: 900 28px/1 ui-monospace, monospace; color: var(--amber); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.raid-sub { grid-column: 1; color: var(--muted); font-size: 12px; }
+.raid-submit-row { grid-column: 2; grid-row: 1 / span 2; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.raid-submit-row input { min-width: 0; width: 180px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: rgba(8,16,20,.6); color: inherit; font: inherit; }
+.raid-submit-row input:focus { outline: none; border-color: var(--cyan); }
+.raid-submit { min-height: 38px; padding: 0 16px; border: 1px solid rgba(69,214,208,.45); border-radius: 8px; background: rgba(69,214,208,.12); color: #cfeceb; font: 800 13px/1 inherit; font-family: inherit; cursor: pointer; }
+.raid-submit:hover:not(:disabled) { background: rgba(69,214,208,.2); }
+.raid-submit:disabled { opacity: .5; cursor: not-allowed; }
+.raid-msg { margin: 0; color: var(--danger, #ff7787); font-size: 12px; font-weight: 700; }
+.raid-msg.is-ok { color: var(--cyan); }
+.raid-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: rgba(5,11,19,.4); }
+.raid-table { width: 100%; min-width: 640px; border-collapse: collapse; font-size: 13px; }
+.raid-table th { padding: 9px 12px; text-align: left; color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: .04em; border-bottom: 1px solid var(--line); background: rgba(5,11,19,.6); }
+.raid-table td { padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.raid-row { cursor: pointer; }
+.raid-row:hover td { background: rgba(69,214,208,.05); }
+.raid-row.is-me td { background: rgba(255,191,60,.08); }
+.raid-row.is-me td:first-child { box-shadow: inset 3px 0 0 var(--amber); }
+.raid-rank { width: 48px; font: 900 13px/1 ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.raid-rank.r1 { color: var(--amber); } .raid-rank.r2 { color: #dfe7ee; } .raid-rank.r3 { color: #d7a76f; }
+.raid-who { font-weight: 800; }
+.raid-who .anon { color: var(--muted); font-weight: 600; }
+.raid-who small { margin-left: 6px; padding: 1px 6px; border: 1px solid rgba(255,191,60,.45); border-radius: 999px; color: var(--amber); font-size: 10px; font-weight: 800; }
+.raid-ident { display: block; margin-top: 2px; color: var(--muted); font: 600 10px/1.4 ui-monospace, monospace; }
+.raid-more { margin-left: 10px; color: var(--muted); font: 700 11px/1 ui-monospace, monospace; }
+.raid-total { text-align: right; white-space: nowrap; font: 900 13px/1 ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.raid-chev { width: 24px; text-align: center; color: var(--muted); font-size: 11px; }
+.raid-detail-row td { padding: 0; background: rgba(5,11,19,.65); }
+.raid-detail { display: grid; grid-template-columns: 1fr auto; gap: 12px 20px; padding: 14px 16px 14px 60px; }
+.raid-actions { display: grid; gap: 6px; align-content: start; }
+.raid-ghost { min-height: 32px; padding: 0 12px; border: 1px solid var(--line); border-radius: 7px; background: transparent; color: #cfe0ea;
+  font: 700 12px/1 inherit; font-family: inherit; cursor: pointer; white-space: nowrap; }
+.raid-ghost:hover { border-color: rgba(69,214,208,.45); color: var(--ink); }
+.raid-ghost.is-danger:hover { border-color: var(--danger, #ff7787); color: #ffd7de; }
+.raid-verify-out { color: var(--cyan); font: 700 11px/1.4 ui-monospace, monospace; }
+.raid-fine { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: 11px; }
+@media (max-width: 640px) {
+  .raid-deck-line, .raid-result, .raid-detail { grid-template-columns: 1fr; }
+  .raid-submit-row { grid-column: 1; grid-row: auto; }
+  .raid-sub { grid-column: 1; }
+  .raid-detail { padding-left: 16px; }
 }
