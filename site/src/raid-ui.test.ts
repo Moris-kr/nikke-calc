@@ -264,6 +264,24 @@ describe('계산기 레이드 (BETA)', () => {
     expect(card().querySelector('[data-copy-from]')).not.toBeNull();
   });
 
+  it('레이드 중에는 다른 덱에 선 니케를 니케 판에서 고를 수 없다', async () => {
+    seedDecks();
+    linkAccount();
+    await mount(fakeServer());
+    const cell = () => root.querySelector<HTMLButtonElement>('[data-roster-cell="크라운"]')!;
+    // 평소: 덱 2의 크라운을 덱 1에도 넣을 수 있다.
+    expect(cell().disabled).toBe(false);
+    await openRaidTab();
+    expect(cell().disabled).toBe(true);
+    expect(cell().title).toContain('덱 2');
+    expect(root.querySelector<HTMLElement>('[data-deck-note]')!.textContent).toContain('같은 니케를 둘 수 없습니다');
+    // 리타는 이 덱(1)에 있으니 원래 규칙대로, 임시 니케는 다른 덱에 없으니 고를 수 있다.
+    expect(root.querySelector<HTMLButtonElement>('[data-roster-cell="임시 니케"]')!.disabled).toBe(false);
+    root.querySelector<HTMLButtonElement>('[data-settings-tab="battle"]')!.click();
+    await flush();
+    expect(cell().disabled).toBe(false);
+  });
+
   it('계정을 안 이었으면 보기만 된다 — 남의 기록은 «참가자»로만 보인다', async () => {
     seedDecks();
     await mount(fakeServer());

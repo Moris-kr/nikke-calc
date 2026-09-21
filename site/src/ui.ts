@@ -1796,11 +1796,15 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         deckNote.replaceChildren(
           createText('b', `여러 덱에 겹친 니케 ${shared.length}명: `),
           createText('span', shared.map(([name, ids]) => `${name}(덱 ${ids.join('·')})`).join(', ')),
-          createText('em', ' — 견주려고 일부러 겹쳤다면 그대로 두셔도 됩니다. 한 번에 내보내는 편성이라면 겹칠 수 없습니다.'),
+          createText('em', raidMode
+            ? ' — 계산기 레이드에서는 한 니케는 한 덱에만 설 수 있습니다. 한쪽에서 빼 주세요.'
+            : ' — 견주려고 일부러 겹쳤다면 그대로 두셔도 됩니다. 한 번에 내보내는 편성이라면 겹칠 수 없습니다.'),
         );
         deckNote.classList.add('is-dup');
       } else {
-        deckNote.textContent = '덱 사이에는 같은 캐릭터를 다시 편성할 수 있습니다.';
+        deckNote.textContent = raidMode
+          ? '계산기 레이드 중 — 덱 사이에 같은 니케를 둘 수 없습니다.'
+          : '덱 사이에는 같은 캐릭터를 다시 편성할 수 있습니다.';
         deckNote.classList.remove('is-dup');
       }
     }
@@ -5826,6 +5830,14 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         cell.classList.add('is-taken');
         cell.title = `이미 덱 ${deck.id}의 ${takenAt + 1}번에 있습니다`;
       }
+      // 계산기 레이드 중에는 다른 덱에 선 니케도 못 고른다 — 한 니케는 한 덱에만.
+      // 돌릴 때 막는 것으로는 늦다: 다섯 덱을 다 짜고 나서야 «겹쳤다»를 듣게 된다.
+      const raidTakenIn = raidMode ? raidDeckOf(char.name, deck.id) : null;
+      if (raidTakenIn !== null) {
+        cell.disabled = true;
+        cell.classList.add('is-taken');
+        cell.title = `덱 ${raidTakenIn}에 이미 있습니다 — 계산기 레이드에서는 한 니케는 한 덱에만 섭니다`;
+      }
       const portrait = document.createElement('div');
       portrait.className = 'roster-portrait';
       if (char.image) {
@@ -5917,9 +5929,22 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     saveState();
   });
 
+  /** 레이드 편성 범위(단일덱이면 첫 덱만) 안에서 그 니케가 선 «다른» 덱. 없으면 null. */
+  const raidDeckOf = (name: string, exceptDeckId: number): number | null => {
+    const scope = fiveDeckMode ? decks : decks.slice(0, 1);
+    const other = scope.find((deck) => deck.id !== exceptDeckId && deck.squad.includes(name));
+    return other ? other.id : null;
+  };
   const pickCharacter = (name: string, targetSlot = activeSlot) => {
     if (quickDeckOpen && quickDeckComplete) return;
     const deck = activeDeck();
+    if (raidMode) {
+      const takenIn = raidDeckOf(name, deck.id);
+      if (takenIn !== null) {
+        showErrors([`${name}은(는) 덱 ${takenIn}에 이미 있습니다 — 계산기 레이드에서는 한 니케는 한 덱에만 설 수 있습니다.`]);
+        return;
+      }
+    }
     const slot = Math.max(0, Math.min(4, targetSlot));
     const previous = deck.squad[slot] ?? '';
     deck.squad[slot] = name;
@@ -7376,7 +7401,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     root.classList.toggle('is-raid', on);
     // 열려 있던 수치 설정 창은 닫는다 — 잠긴 값을 창에서 만지게 두면 잠근 뜻이 없다.
     closeCharPanel();
+    renderDeckTabs();
     renderSquad();
+    renderRosterGrid();
   };
   if (shareServer) {
     raidHandle = mountRaid(raidPane, {

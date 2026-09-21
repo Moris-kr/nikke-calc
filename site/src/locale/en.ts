@@ -1632,4 +1632,6 @@ export const EN: Record<string, string> = {
   '레이드를 지웠습니다 — 랭킹과 보관된 스펙까지 사라졌습니다.': 'Raid deleted — the ranking and stored specs are gone too.',
   '싱크로 400 고정 · 콘솔은 내 계정 값': 'Synchro fixed at 400 · console from my account',
   '어드민이 올린 전투 조건입니다. 바꿀 수 없고, 싱크로는 400 고정 · 콘솔은 내 블라블라링크 계정 값입니다.': 'Battle condition posted by the admin. It cannot be changed; Synchro is fixed at 400 and the console uses my Blablalink account values.',
+  '계산기 레이드 중 — 덱 사이에 같은 니케를 둘 수 없습니다.': 'Calc Raid mode — the same NIKKE cannot be in more than one deck.',
+  ' — 계산기 레이드에서는 한 니케는 한 덱에만 설 수 있습니다. 한쪽에서 빼 주세요.': ' — in Calc Raid a NIKKE may stand in one deck only. Remove her from one of them.',
 };
