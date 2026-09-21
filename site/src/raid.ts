@@ -34,6 +34,12 @@ import type {
  */
 export const RAID_ALGORITHM_NOTE = '계산기 알고리즘 변경 등으로 딜이 하락하는 것이 확인될 경우, 기존 레이드는 닫으며 새 시즌으로 다시 엽니다. 알고리즘 변경으로 딜이 상승되는 경우에는 그대로 진행합니다.';
 
+/**
+ * 콘솔을 못 받은 계정에 주는 말. 블라블라링크는 전초기지(콘솔)를 비공개로 두면 안 내준다 —
+ * 그때 화면의 콘솔 값으로 대신 돌리면 그 기록은 그 계정의 것이 아니다. 올리지 않는다.
+ */
+export const RAID_CONSOLE_MISSING = '블라블라링크에서 콘솔(전초기지) 정보를 받지 못했습니다 — 콘솔 없이는 기록을 올릴 수 없습니다. 블라블라링크 프로필의 보안 설정에서 전초기지를 공개로 바꾼 뒤 「블라블라링크 연동」을 다시 눌러 주세요.';
+
 /** 편성 카드에 붙는 잠금 안내. 레이드 탭이 켜져 있는 동안만 보인다. */
 export const RAID_LOCK_NOTE = '🏁 계산기 레이드 중 — 수치 설정과 컨트롤은 블라블라링크 값으로 잠깁니다. 큐브와 버스트 순서만 바꿀 수 있습니다.';
 
@@ -373,6 +379,9 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
       ? raidProblems(deps.decks(), deps.catalog, true).filter((line) => !line.includes(t('임시 니케')))
       : raidProblems(deps.decks(), deps.catalog, account !== null, roster);
     if (problems.length > 0) { say(problems[0]!); return; }
+    // 콘솔은 계정 육성의 일부다. 못 받았으면(전초기지 비공개) 화면 값으로 대신 돌리지 않는다 —
+    // 그 기록은 그 계정의 것이 아니다. 모의전은 기록을 안 올리니 화면 값으로 돌려도 된다.
+    if (!mocking && account && !account.console) { say(RAID_CONSOLE_MISSING); return; }
     running = true;
     computed = null;
     say(t('덱 {n}/5 계산 중…', { n: 1 }));
@@ -907,19 +916,23 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
     go.append(el('span', '', raid.status !== 'open' ? t('마감된 레이드') : running ? t('계산 중…') : t('5덱 레이드 계산')));
     go.addEventListener('click', () => { void run(); });
     const mocking = mock && deps.mockRequest !== undefined;
-    // 모의전이면 계정이 없어도 돌린다 — 올리지 않으니까.
-    go.disabled = running || raid.status !== 'open' || (!account && !mocking);
+    const consoleMissing = account !== null && !account.console;
+    // 모의전이면 계정이 없어도 돌린다 — 올리지 않으니까. 콘솔을 못 받은 계정도 진짜 계산은 못 돌린다.
+    go.disabled = running || raid.status !== 'open' || (!mocking && (!account || consoleMissing));
     bar.append(nameInput, go);
     const best = myRecord();
     const note = el('span', 'raid-run-note');
     note.dataset.raidRunNote = '';
+    if (!mocking && consoleMissing) note.classList.add('is-warn');
     note.textContent = mocking
       ? t('모의전 — 수치 설정·컨트롤을 자유롭게 바꿔 계산합니다. 결과는 랭킹에 올라가지 않고 «이대로라면 몇 등»만 알려 줍니다.')
       : !account
         ? t('블라블라링크로 계정을 이어야 돌릴 수 있습니다. 보는 것은 누구나 됩니다.')
-        : best
-          ? t('계산 결과가 내 기록({m})보다 높으면 묻지 않고 바로 랭킹에 올립니다.', { m: raidDamageText(best.total) })
-          : t('계산 결과는 묻지 않고 바로 랭킹에 올라갑니다 — 계정당 하나, 더 높을 때만 갱신됩니다.');
+        : consoleMissing
+          ? RAID_CONSOLE_MISSING
+          : best
+            ? t('계산 결과가 내 기록({m})보다 높으면 묻지 않고 바로 랭킹에 올립니다.', { m: raidDamageText(best.total) })
+            : t('계산 결과는 묻지 않고 바로 랭킹에 올라갑니다 — 계정당 하나, 더 높을 때만 갱신됩니다.');
     bar.append(note);
     if (deps.mockRequest) {
       const mockLabel = el('label', 'raid-mock');

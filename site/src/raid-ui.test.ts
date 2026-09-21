@@ -429,6 +429,31 @@ describe('계산기 레이드 (BETA)', () => {
     expect(card().querySelector<HTMLButtonElement>('[data-char-panel-open="settings"]')!.disabled).toBe(true);
   });
 
+  it('콘솔(전초기지)을 못 받은 계정은 진짜 계산을 못 돌리고, 공개로 바꾸라는 안내가 뜬다 — 모의전은 된다', async () => {
+    seedDecks();
+    linkAccount();
+    localStorage.removeItem('nikke-imported-console-v1');
+    const server = fakeServer();
+    await mount(server);
+    await openRaidTab();
+    const pane = root.querySelector<HTMLElement>('[data-raid-pane]')!;
+    expect(pane.querySelector<HTMLButtonElement>('[data-raid-run]')!.disabled).toBe(true);
+    const note = pane.querySelector<HTMLElement>('[data-raid-run-note]')!;
+    expect(note.textContent).toContain('전초기지');
+    expect(note.textContent).toContain('기록을 올릴 수 없습니다');
+    expect(note.classList.contains('is-warn')).toBe(true);
+    // 모의전은 올리지 않으니 돌아간다.
+    const mockBox = pane.querySelector<HTMLInputElement>('[data-raid-mock]')!;
+    mockBox.checked = true;
+    mockBox.dispatchEvent(new Event('change'));
+    await flush();
+    expect(pane.querySelector<HTMLButtonElement>('[data-raid-run]')!.disabled).toBe(false);
+    pane.querySelector<HTMLButtonElement>('[data-raid-run]')!.click();
+    await flush();
+    expect(client.requests.length).toBeGreaterThan(0);
+    expect(server.sent.some((call) => call.url.endsWith('/raid/entry'))).toBe(false);
+  });
+
   it('로스터에 없는(안 가진) 니케가 있으면 한 판도 안 돌린다', async () => {
     seedDecks();
     linkAccount();

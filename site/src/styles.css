@@ -2851,6 +2851,7 @@ img[src*="/temporary-characters/"][src$="-card.png"] { object-fit: contain; obje
 .raid-run { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .raid-run .calculate-button { margin: 0; }
 .raid-run-note { color: var(--muted); font-size: 12px; }
+.raid-run-note.is-warn { color: #ffd7de; font-weight: 700; }
 .raid-run input[data-raid-name] { min-width: 0; width: 160px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: rgba(8,16,20,.6); color: inherit; font: inherit; }
 .raid-run input[data-raid-name]:focus { outline: none; border-color: var(--cyan); }
 .raid-mock { flex-basis: 100%; display: inline-flex; align-items: center; gap: 8px; color: #b9c8d4; font-size: 12px; font-weight: 750; cursor: pointer; }
