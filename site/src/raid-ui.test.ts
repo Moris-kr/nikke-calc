@@ -92,6 +92,7 @@ const CODE = (() => {
 
 type Entry = {
   eid: string; openid: string; name: string; area: number; decks: unknown[]; total: number; engine: string; at: string;
+  recalculatedAt?: string;
 };
 
 /** 서버 흉내. 레이드 하나가 열려 있고, 남의 기록이 하나 올라와 있다. */
@@ -102,11 +103,12 @@ function fakeServer() {
   }];
   const entries: Entry[] = [{
     eid: 'e0', openid: '99999999999', name: '남의닉', area: 81, total: 900_000_000, engine: 'v1', at: '2026-09-21T01:00:00Z',
-    decks: [{ names: ['크라운'], code: encodeShareCode([{ id: 1, squad: ['크라운', '', '', '', ''], characters: {} }], false), order: '', dmg: 900_000_000, cubes: { 크라운: { name: '탄충', level: 15 } } }],
+    decks: [{ names: ['크라운'], code: encodeShareCode([{ id: 1, squad: ['크라운', '', '', '', ''], characters: {} }], false), order: '', dmg: 900_000_000, cubes: { 크라운: { name: '탄충', level: 15 } }, controls: { 크라운: { burst: { mode: 'skip' } } } }],
   }];
   const sent: Array<{ url: string; body: Record<string, unknown> }> = [];
   const publicEntry = (entry: Entry, admin: boolean) => ({
     eid: entry.eid, tag: entry.openid.slice(0, 4), decks: entry.decks, total: entry.total, engine: entry.engine, at: entry.at,
+    ...(entry.recalculatedAt ? { recalculatedAt: entry.recalculatedAt } : {}),
     ...(admin ? { name: entry.name, area: entry.area, tail: entry.openid.slice(-4), owner: 'h' + entry.openid } : {}),
   });
   /** 지난 시즌 — 닫혀 있고, 남의 기록 하나(스펙 보관)와 «남의닉»과 같은 계정의 기록 하나. */
@@ -121,6 +123,7 @@ function fakeServer() {
   const specs: Record<string, unknown> = {
     'r0:o1': { requests: [{ squad: ['리타', '', '', '', ''], characters: { 리타: { overload: { atk_pct: 33 }, cube: { name: '탄충', level: 15 } } }, duration: 180, enemyCode: '철갑', console: { common_level: 300, class_level: {}, company_level: {} } }] },
     'r0:o2': { requests: [{ squad: ['크라운', '', '', '', ''], characters: {}, duration: 180, enemyCode: '철갑' }] },
+    'r1:e0': { requests: [{ squad: ['크라운', '', '', '', ''], characters: { 크라운: { burst: { mode: 'skip' }, cube: { name: '탄충', level: 15 } } }, duration: 180, enemyCode: '전격', console: { common_level: 300, class_level: {}, company_level: {} } }] },
   };
   const board = (admin: boolean, id = 'r1') => id === 'r0'
     ? { raid: oldRaid, entries: oldEntries.map((entry) => publicEntry(entry, admin)) }
@@ -143,6 +146,17 @@ function fakeServer() {
     if (url.endsWith('/raid/spec')) {
       const spec = specs[`${body.id}:${body.eid}`];
       return spec ? ok({ spec }) : new Response(JSON.stringify({ error: '보관된 스펙이 없습니다.' }), { status: 404 });
+    }
+    if (url.endsWith('/raid/recalc')) {
+      const items = body.entries as Array<{ eid: string; decks: unknown[]; total: number; engine: string }>;
+      let updated = 0; let missing = 0;
+      for (const item of items) {
+        const entry = entries.find((row) => row.eid === item.eid);
+        if (!entry) { missing += 1; continue; }
+        entry.decks = item.decks; entry.total = item.total; entry.engine = item.engine; entry.recalculatedAt = '2026-09-22T05:00:00Z';
+        updated += 1;
+      }
+      return ok({ updated, missing });
     }
     if (url.endsWith('/raid/migrate')) {
       const items = body.entries as Array<{ owner: string; name: string; decks: unknown[]; total: number }>;
@@ -248,7 +262,7 @@ describe('계산기 레이드 (BETA)', () => {
     expect(pane.hidden).toBe(false);
     expect(pane.querySelector('[data-raid-pick="r1"]')?.classList.contains('is-on')).toBe(true);
     expect(pane.textContent).toContain('새 시즌으로 다시 엽니다');
-    expect(pane.textContent).toContain('컨트롤(톡톡이·장전컨) 불가');
+    expect(pane.textContent).toContain('컨트롤(톡톡이·장전컨·홀드·버스트 운용)은 내 것 — 톡톡이는 3.6발/s 고정');
     // 전투 조건 탭으로 돌아오면 원래대로.
     root.querySelector<HTMLButtonElement>('[data-settings-tab="battle"]')!.click();
     await flush();
@@ -272,7 +286,9 @@ describe('계산기 레이드 (BETA)', () => {
     expect(root.classList.contains('is-raid')).toBe(true);
     expect(root.querySelector<HTMLElement>('[data-raid-lock]')!.hidden).toBe(false);
     expect(card().querySelector<HTMLButtonElement>('[data-char-panel-open="settings"]')!.disabled).toBe(true);
-    expect(card().querySelector<HTMLButtonElement>('[data-control-open]')!.disabled).toBe(true);
+    // 컨트롤 판은 산다 — 레이드에서도 컨트롤은 내 것이다(톡톡이 발사 속도만 3.6 고정).
+    expect(card().querySelector<HTMLButtonElement>('[data-control-open]')!.disabled).toBe(false);
+    expect(card().querySelector<HTMLInputElement>('[data-control-mode="manual"]')!.disabled).toBe(false);
     expect(card().querySelector<HTMLButtonElement>('[data-growth-step="plus"]')!.disabled).toBe(true);
     expect(card().querySelector('[data-copy-from]')).toBeNull();
     expect(card().querySelector('[data-restore-one]')).toBeNull();
@@ -596,6 +612,97 @@ describe('계산기 레이드 (BETA)', () => {
     expect(server.entries.some((entry) => entry.name === '옛사람')).toBe(true);
     expect(pane.querySelector('[data-raid-message]')!.textContent).toContain('1개를 옮겼습니다');
     expect(pane.querySelector('[data-raid-message]')!.textContent).toContain('건너뛴 1개');
+  });
+
+  it('레이드 중 컨트롤은 내 것 — 톡톡이만 3.6으로 못 박히고, 요청과 기록에 컨트롤이 실린다', async () => {
+    localStorage.setItem('nikke-state-v1', JSON.stringify({
+      decks: [
+        { id: 1, squad: ['리타', '', '', '', ''], characters: { 리타: { control: { tap_fire: { rate: 4.4, release: 0.03, policy: 'burst_charge' }, reload: { policy: 'into_fb', margin: 0.3 } }, burst: { mode: 'priority', every: 2 } } } },
+        { id: 2, squad: ['크라운', '', '', '', ''], characters: {} },
+      ],
+      fiveDeckMode: true, activeDeckId: 1, carryOverSettings: false,
+    }));
+    linkAccount();
+    const server = fakeServer();
+    await mount(server);
+    await openRaidTab();
+    const card = root.querySelector<HTMLElement>('[data-slot-card="0"]')!;
+    // 규칙 줄이 바뀌었다 — 컨트롤은 내 것, 톡톡이 3.6 고정.
+    const pane = root.querySelector<HTMLElement>('[data-raid-pane]')!;
+    expect(pane.querySelector('.raid-rules')!.textContent).toContain('톡톡이는 3.6발/s 고정');
+    expect(root.querySelector('[data-raid-lock]')!.textContent).toContain('컨트롤(톡톡이는 3.6발/s 고정)은 내 것');
+    // 컨트롤 판 안의 것들은 살아 있다 — 정책·장전컨 선택은 되고, 발사 속도 칸만 3.6으로 잠긴다.
+    const policy = card.querySelector<HTMLSelectElement>('[data-control-policy="reload"]');
+    if (policy) expect(policy.disabled).toBe(false);
+    const rate = card.querySelector<HTMLInputElement>('[data-tap-rate]');
+    if (rate) { expect(rate.disabled).toBe(true); expect(rate.value).toBe('3.6'); }
+    pane.querySelector<HTMLButtonElement>('[data-raid-run]')!.click();
+    await flush();
+    const first = client.requests[0]!;
+    expect(first.characters?.리타?.control?.tap_fire).toMatchObject({ rate: 3.6, policy: 'burst_charge' });
+    expect(first.characters?.리타?.control?.reload).toMatchObject({ policy: 'into_fb' });
+    expect(first.characters?.리타?.burst).toEqual({ mode: 'priority', every: 2 });
+    const posted = server.sent.find((call) => call.url.endsWith('/raid/entry'))!;
+    const decks = posted.body.decks as Array<{ controls?: Record<string, { control?: { tap_fire?: { rate: number } }; burst?: unknown }> }>;
+    expect(decks[0]!.controls?.리타?.control?.tap_fire?.rate).toBe(3.6);
+    expect(decks[0]!.controls?.리타?.burst).toEqual({ mode: 'priority', every: 2 });
+    expect(decks[1]!.controls).toBeUndefined();
+  });
+
+  it('기록에 컨트롤이 실려 있으면 「컨트롤 보기」와 「편성·큐브·컨트롤 가져오기」가 선다', async () => {
+    seedDecks();
+    linkAccount();
+    await mount(fakeServer());
+    await openRaidTab();
+    const pane = root.querySelector<HTMLElement>('[data-raid-pane]')!;
+    pane.querySelector<HTMLElement>('[data-raid-row="e0"]')!.click();
+    await flush();
+    const open = pane.querySelector<HTMLButtonElement>('[data-raid-controls="e0:0"]')!;
+    expect(open).not.toBeNull();
+    const list = open.closest('.raid-decks')!.querySelectorAll<HTMLElement>('.raid-cubes')[1]!;
+    open.click();
+    expect(list.hidden).toBe(false);
+    expect(list.textContent).toContain('버스트 운용 skip');
+    pane.querySelector<HTMLButtonElement>('[data-raid-take-controls="e0"]')!.click();
+    await flush();
+    const saved = JSON.parse(localStorage.getItem('nikke-state-v1')!) as { decks: Array<{ squad: string[]; characters: Record<string, { burst?: { mode: string }; cube?: { name: string } }> }> };
+    expect(saved.decks[0]!.squad[0]).toBe('크라운');
+    expect(saved.decks[0]!.characters['크라운']?.burst).toEqual({ mode: 'skip' });
+    expect(saved.decks[0]!.characters['크라운']?.cube?.name).toBe('탄충');
+  });
+
+  it('어드민이 열린 레이드를 새 엔진으로 자리 그대로 재계산하면 「재계산됨」이 붙는다', async () => {
+    seedDecks();
+    const server = fakeServer();
+    await mount(server);
+    root.querySelector<HTMLButtonElement>('[data-feedback-open]')!.click();
+    await flush();
+    root.querySelector<HTMLButtonElement>('[data-feedback-admin]')!.click();
+    await flush();
+    await openRaidTab();
+    const pane = root.querySelector<HTMLElement>('[data-raid-pane]')!;
+    expect(pane.querySelector('[data-raid-recalc]')).not.toBeNull();
+    expect(pane.querySelector('[data-raid-recalc-all]')).not.toBeNull();
+    pane.querySelector<HTMLButtonElement>('[data-raid-recalc-all]')!.click();
+    await flush();
+    await flush();
+    // 보관된 스펙(r1:e0)으로 다시 돌려 자리 그대로 보냈다 — 버스트 게이지는 신 방식, 그 사람의 콘솔 그대로.
+    const request = client.requests.at(-1)!;
+    expect(request.squad[0]).toBe('크라운');
+    expect(request.burstGaugeMode).toBe('new');
+    expect(request.console?.common_level).toBe(300);
+    expect(request.characters?.크라운?.burst).toEqual({ mode: 'skip' });
+    const posted = server.sent.find((call) => call.url.endsWith('/raid/recalc'))!;
+    expect(posted.body.id).toBe('r1');
+    const items = posted.body.entries as Array<{ eid: string; total: number; decks: Array<{ controls?: Record<string, unknown> }> }>;
+    expect(items).toHaveLength(1);
+    expect(items[0]!.eid).toBe('e0');
+    expect(items[0]!.total).toBe(123_000_000);
+    expect(items[0]!.decks[0]!.controls?.크라운).toEqual({ burst: { mode: 'skip' } });
+    expect(pane.querySelector('[data-raid-message]')!.textContent).toContain('1개를 다시 계산했습니다');
+    // 새로 받은 랭킹에는 «재계산됨»이 붙는다.
+    const row = pane.querySelector<HTMLElement>('[data-raid-row="e0"]')!;
+    expect(row.querySelector('.raid-recalc')!.textContent).toBe('재계산됨');
   });
 
   it('어드민은 닫은 레이드를 다시 열거나 두 번 눌러 통째로 지운다', async () => {

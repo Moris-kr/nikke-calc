@@ -22,11 +22,15 @@ import { cubeLine } from './cube-names';
 import { cycleLine, sequenceForDeck } from './burst-order';
 import { t } from './i18n';
 import { DEFAULT_SYNCHRO_LEVEL, requestForDeck } from './model';
-import type { RaidBoard, RaidDeck, RaidEntry, RaidEntryInput, RaidMigrateEntry, RaidSummary, ShareServer } from './share-server';
-import { decodeBattleCode, encodeShareCode, type BattleShare } from './share-code';
+import type {
+  RaidBoard, RaidControl, RaidDeck, RaidEntry, RaidEntryInput, RaidMigrateEntry, RaidRecalcEntry, RaidSummary, ShareServer,
+} from './share-server';
+import { decodeBattleCode, encodeBattleCode, encodeShareCode, type BattleShare } from './share-code';
 import type {
   BattleSettings, CharacterMeta, CharacterOverrides, DeckResultEntry, DeckState, SimulationRequest, SimulationResult,
 } from './types';
+
+export type { RaidControl } from './share-server';
 
 /**
  * 알고리즘이 바뀌면 딜이 함께 움직인다. 그때 어떻게 하는지를 판에 적어 둔다 — 랭킹이
@@ -41,7 +45,7 @@ export const RAID_ALGORITHM_NOTE = '계산기 알고리즘 변경 등으로 딜�
 export const RAID_CONSOLE_MISSING = '블라블라링크에서 콘솔(전초기지) 정보를 받지 못했습니다 — 콘솔 없이는 기록을 올릴 수 없습니다. 블라블라링크 프로필의 보안 설정에서 전초기지를 공개로 바꾼 뒤 「블라블라링크 연동」을 다시 눌러 주세요.';
 
 /** 편성 카드에 붙는 잠금 안내. 레이드 탭이 켜져 있는 동안만 보인다. */
-export const RAID_LOCK_NOTE = '🏁 계산기 레이드 중 — 수치 설정과 컨트롤은 블라블라링크 값으로 잠깁니다. 큐브와 버스트 순서만 바꿀 수 있습니다.';
+export const RAID_LOCK_NOTE = '🏁 계산기 레이드 중 — 수치 설정은 블라블라링크 값으로 잠깁니다. 큐브·버스트 순서·컨트롤(톡톡이는 3.6발/s 고정)은 내 것입니다.';
 
 /**
  * 블라블라링크 프로필 주소에서 계정 식별자(intl_open_id)를 꺼낸다. 프록시(`worker/`)의
@@ -77,12 +81,16 @@ export function openidFromProfileUrl(input: string): string | null {
   return null;
 }
 
-/** 레이드 중에도 살아 있는 카드 조작 — 큐브 고르기, «개별값» 접기, 개별 설정 켜기. */
-export const RAID_CARD_KEEP = '[data-cube-name], [data-cube-level], [data-loadout-open], [data-custom-toggle]';
+/** 레이드 중에도 살아 있는 카드 조작 — 큐브 고르기, «개별값» 접기, 개별 설정 켜기, 컨트롤 판 열기. */
+export const RAID_CARD_KEEP = '[data-cube-name], [data-cube-level], [data-loadout-open], [data-custom-toggle], [data-control-open]';
+/** 레이드 규칙 — 톡톡이 발사 속도. 사람마다 다른 손을 한 값으로 못 박아 겨룬다. */
+export const RAID_TAP_RATE = 3.6;
 
 /**
- * 편성 카드를 레이드용으로 잠근다. 설정 창을 여는 단추·컨트롤·돌파 계단까지 전부 —
- * 육성은 블라블라링크 값으로 돈다는 규칙을 화면이 먼저 지킨다. 큐브만 남긴다.
+ * 편성 카드를 레이드용으로 잠근다. 설정 창을 여는 단추·돌파 계단은 잠긴다 — 육성은
+ * 블라블라링크 값으로 돈다는 규칙을 화면이 먼저 지킨다. 큐브와 **컨트롤·버스트 판**
+ * (`[data-control-panel]`)은 산다. 그 안에서 톡톡이 발사 속도만 3.6으로 못 박는다
+ * (값도 그렇게 보여 준다 — 요청은 `raidControlOf`가 같은 값으로 맞춘다).
  */
 export function lockCardForRaid(...hosts: HTMLElement[]): void {
   for (const host of hosts) {
@@ -90,18 +98,77 @@ export function lockCardForRaid(...hosts: HTMLElement[]): void {
       'button, input, select, textarea',
     )) {
       if (node.matches(RAID_CARD_KEEP)) continue;
+      if (node.closest('[data-control-panel]')) {
+        if (!node.matches('[data-tap-rate]')) continue;
+        (node as HTMLInputElement).value = String(RAID_TAP_RATE);
+        node.title = t('계산기 레이드에서는 톡톡이 3.6발/s로 고정됩니다.');
+      }
       node.disabled = true;
       node.dataset.raidLocked = '';
     }
   }
 }
 
-/** 덱에서 레이드가 가져가는 것 — 편성·큐브·버스트 순서. 나머지는 로스터가 정한다. */
+/** 레이드 규칙에 맞춘 컨트롤 묶음 — 톡톡이 발사 속도는 3.6으로 못 박는다. 아무것도 없으면 undefined. */
+export function raidControlOf(over: CharacterOverrides | undefined): RaidControl | undefined {
+  if (!over) return undefined;
+  const out: RaidControl = {};
+  if (over.control) {
+    const control = structuredClone(over.control);
+    if (control.tap_fire) control.tap_fire = { ...control.tap_fire, rate: RAID_TAP_RATE };
+    out.control = control;
+  }
+  if (over.burst) out.burst = structuredClone(over.burst);
+  if (over.weaponModeSwapAt !== undefined) out.weaponModeSwapAt = over.weaponModeSwapAt;
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+/** 요청에 실린 캐릭터 설정에서 니케별 컨트롤 묶음을 뽑는다(없는 사람은 뺀다). */
+export function raidControlsOf(
+  squad: string[], characters: Record<string, CharacterOverrides> | undefined,
+): Record<string, RaidControl> {
+  const out: Record<string, RaidControl> = {};
+  for (const name of squad) {
+    if (!name) continue;
+    const ctl = raidControlOf(characters?.[name]);
+    if (ctl) out[name] = ctl;
+  }
+  return out;
+}
+
+/** 컨트롤 한 줄 — 「컨트롤 보기」가 니케마다 적는 요약. */
+export function controlLine(ctl: RaidControl | undefined): string {
+  if (!ctl) return t('컨트롤 없음(자동)');
+  const parts: string[] = [];
+  const c = ctl.control;
+  if (c) {
+    if (c.tap_fire) {
+      parts.push(t('톡톡이 {rate}발/s', { rate: c.tap_fire.rate })
+        + (c.tap_fire.policy === 'burst_charge' ? ` · ${t('버충 구간만')}` : ''));
+    }
+    if (c.reload) parts.push(t('장전컨 {policy}', { policy: c.reload.policy }));
+    if (c.hold) parts.push(t('홀드 {policy}', { policy: c.hold.policy }));
+    if (c.cover) parts.push(t('엄폐컨'));
+    if (c.bunny_mode) parts.push(t('바니 모드 {mode}', { mode: c.bunny_mode }));
+    if (parts.length === 0) parts.push(t('직접 설정 (컨트롤 없음)'));
+  }
+  if (ctl.burst) {
+    const mode = ctl.burst.mode === 'priority' ? `every:${ctl.burst.every}`
+      : ctl.burst.mode === 'endgame' ? `last:${ctl.burst.seconds}s` : 'skip';
+    parts.push(t('버스트 운용 {mode}', { mode }));
+  }
+  if (ctl.weaponModeSwapAt !== undefined) parts.push(t('무기 모드 전환 {t}초', { t: ctl.weaponModeSwapAt }));
+  return parts.length > 0 ? parts.join(' · ') : t('컨트롤 없음(자동)');
+}
+
+/** 덱에서 레이드가 가져가는 것 — 편성·큐브·컨트롤·버스트 순서. 나머지는 로스터가 정한다. */
 export interface RaidDeckInput {
   id: number;
   squad: string[];
   /** 큐브만 본다. 덱에 잡힌 다른 수치는 무시한다. */
   cubes: Record<string, CharacterOverrides['cube']>;
+  /** 니케별 컨트롤·버스트 운용·무기 모드 전환 — 이미 레이드 규칙(톡톡이 3.6)에 맞춘 것(`raidControlOf`). */
+  controls?: Record<string, RaidControl | undefined>;
   burstSequence: DeckState['burstSequence'];
 }
 
@@ -139,9 +206,9 @@ export function raidProblems(
 }
 
 /**
- * 레이드용 캐릭터 설정. 로스터(블라블라링크) 값을 밑에 깔고 큐브만 덱 것으로 갈아 끼운다.
- * 컨트롤·버스트 운용은 지운다. 로스터에 없는 니케(안 키운 니케)는 기본 스펙으로 선다 —
- * 그것도 «내 계정의 상태»다.
+ * 레이드용 캐릭터 설정. 로스터(블라블라링크) 값을 밑에 깔고 큐브와 컨트롤(톡톡이 3.6 고정)만
+ * 덱 것으로 갈아 끼운다. 로스터에 남아 있던 컨트롤·버스트 운용은 지운다 — 그건 덱이 정한다.
+ * 로스터에 없는 니케(안 키운 니케)는 기본 스펙으로 선다 — 그것도 «내 계정의 상태»다.
  */
 export function raidCharacters(
   deck: RaidDeckInput,
@@ -153,8 +220,13 @@ export function raidCharacters(
     const base = roster[name] ? structuredClone(roster[name]) : {};
     delete base.control;
     delete base.burst;
+    delete base.weaponModeSwapAt;
     const cube = deck.cubes[name];
     if (cube) base.cube = { ...cube };
+    const ctl = deck.controls?.[name];
+    if (ctl?.control) base.control = structuredClone(ctl.control);
+    if (ctl?.burst) base.burst = structuredClone(ctl.burst);
+    if (ctl?.weaponModeSwapAt !== undefined) base.weaponModeSwapAt = ctl.weaponModeSwapAt;
     if (Object.keys(base).length > 0) out[name] = base;
   }
   return out;
@@ -219,12 +291,18 @@ export function raidDeckRow(
     const cube = cubes[name];
     if (cube) worn[name] = { name: cube.name, level: cube.level };
   }
+  const controls: Record<string, RaidControl> = {};
+  for (const name of squad) {
+    const ctl = deck.controls?.[name];
+    if (ctl) controls[name] = ctl;
+  }
   return {
     names: squad,
     code: encodeShareCode([{ id: 1, squad: [...deck.squad], characters: {} }], false),
     order: sequence ? cycleLine(sequence[0]) : '',
     dmg: Math.round(result.squadTotal),
     ...(Object.keys(worn).length > 0 ? { cubes: worn } : {}),
+    ...(Object.keys(controls).length > 0 ? { controls } : {}),
   };
 }
 
@@ -250,10 +328,14 @@ export interface RaidDeps {
   battleFallback: () => BattleSettings;
   simulate: (request: SimulationRequest) => Promise<SimulationResult>;
   /**
-   * 남의 덱 다섯을 내 판에 얹는다. 편성만 — `cubes`를 주면 니케별 큐브까지 함께.
-   * 나머지 스펙은 언제나 내 것이다.
+   * 남의 덱 다섯을 내 판에 얹는다. 편성만 — `cubes`를 주면 니케별 큐브까지, `controls`를 주면
+   * 컨트롤·버스트 운용까지 함께. 나머지 스펙은 언제나 내 것이다.
    */
-  applyDecks: (codes: string[], cubes?: Array<Record<string, { name: string; level: number }> | undefined>) => void;
+  applyDecks: (
+    codes: string[],
+    cubes?: Array<Record<string, { name: string; level: number }> | undefined>,
+    controls?: Array<Record<string, RaidControl> | undefined>,
+  ) => void;
   /** 어드민 비밀번호. 확인 안 했으면 빈 문자열. */
   adminPass: () => string;
   /** 엔진 판본 — 기록에 함께 적는다. */
@@ -402,6 +484,7 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
           id: deck.id,
           squad: deck.squad,
           cubes: Object.fromEntries(Object.entries(deck.characters).map(([name, value]) => [name, value.cube])),
+          controls: raidControlsOf(deck.squad, deck.characters),
           burstSequence: deck.burstSequence,
         };
         const request = mocking ? deps.mockRequest!(deck, battle) : raidRequest(input, roster, battle);
@@ -559,7 +642,10 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
           const result = await deps.simulate(request);
           const worn = Object.fromEntries(deck.squad.filter(Boolean).map((name) =>
             [name, request.characters?.[name]?.cube ?? deps.defaultCube?.(name)]));
-          rows.push(raidDeckRow({ id: deck.id, squad: deck.squad, cubes: {}, burstSequence: deck.burstSequence }, result, worn));
+          rows.push(raidDeckRow({
+            id: deck.id, squad: deck.squad, cubes: {}, controls: raidControlsOf(deck.squad, request.characters),
+            burstSequence: deck.burstSequence,
+          }, result, worn));
           rebased.push(request);
         }
         moved.push({
@@ -573,6 +659,69 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
       await refresh();
       say(t('{n}개를 옮겼습니다 · 이미 기록이 있어 건너뛴 {s}개 · 보관된 스펙이 없어 못 옮긴 {b}개',
         { n: sent.moved, s: skipped + sent.skipped, b: broken }), true);
+    } catch (error) {
+      say(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  /**
+   * 이 레이드의 기록 전부를 보관된 스펙으로 **자리 그대로** 다시 돌려 갱신한다 — 엔진 알고리즘이
+   * 바뀌었을 때(버스트 게이지 실누적). 조건은 이 레이드 것이되 버스트 게이지는 신 방식으로 두고,
+   * 코드가 구 방식을 명시하고 있었으면 레이드의 조건 코드도 신 방식으로 다시 적는다.
+   * 보관된 스펙이 없는 기록은 손대지 않는다. 사람의 콘솔·육성은 스펙에 든 그대로다.
+   */
+  async function recalc(raid: RaidSummary, out: HTMLElement): Promise<{ updated: number; broken: number }> {
+    const pass = deps.adminPass();
+    const here = await deps.server.raidBoard(raid.id, pass);
+    const decoded = decodeBattleCode(raid.code);
+    const share: BattleShare = { ...decoded, burstGaugeMode: 'new' };
+    const code = decoded.burstGaugeMode === 'legacy' ? encodeBattleCode(raidBattle(share, deps.battleFallback())) : '';
+    const rows: RaidRecalcEntry[] = [];
+    let broken = 0;
+    for (const [index, entry] of here.entries.entries()) {
+      out.textContent = t('다시 계산하는 중 {n}/{m}…', { n: index + 1, m: here.entries.length });
+      let requests: SimulationRequest[] = [];
+      try {
+        const spec = await deps.server.raidSpec<{ requests?: SimulationRequest[] }>(raid.id, entry.eid, pass);
+        requests = spec.requests ?? [];
+      } catch { requests = []; }
+      if (requests.length === 0) { broken += 1; continue; }
+      const decks: RaidDeck[] = [];
+      const rebased: SimulationRequest[] = [];
+      for (const [i, old] of requests.entries()) {
+        const battle = raidBattle(share, deps.battleFallback(), old.console);
+        const deck: DeckState = {
+          id: i + 1, squad: [...old.squad], characters: old.characters ?? {},
+          ...(old.burstSequence ? { burstSequence: old.burstSequence } : {}),
+        };
+        const request = requestForDeck(deck, battle, old.customCharacters);
+        const result = await deps.simulate(request);
+        const worn = Object.fromEntries(deck.squad.filter(Boolean).map((name) =>
+          [name, request.characters?.[name]?.cube ?? deps.defaultCube?.(name)]));
+        decks.push(raidDeckRow({
+          id: deck.id, squad: deck.squad, cubes: {}, controls: raidControlsOf(deck.squad, request.characters),
+          burstSequence: deck.burstSequence,
+        }, result, worn));
+        rebased.push(request);
+      }
+      rows.push({ eid: entry.eid, decks, total: raidTotal(decks), engine: deps.engineVersion, spec: { requests: rebased } });
+    }
+    const sent = rows.length > 0
+      ? await deps.server.recalcRaidEntries(raid.id, code, rows, pass)
+      : { updated: 0, missing: 0 };
+    return { updated: sent.updated, broken: broken + sent.missing };
+  }
+
+  async function recalcRaids(targets: RaidSummary[], out: HTMLElement): Promise<void> {
+    const lines: string[] = [];
+    try {
+      for (const raid of targets) {
+        const done = await recalc(raid, out);
+        lines.push(t('「{title}」 {n}개를 다시 계산했습니다 · 보관된 스펙이 없어 못 한 {b}개',
+          { title: raid.title, n: done.updated, b: done.broken }));
+      }
+      await refresh();
+      say(lines.join(' / '), true);
     } catch (error) {
       say(error instanceof Error ? error.message : String(error));
     }
@@ -656,7 +805,7 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
       ['ok', t('싱크로 400 고정 · 콘솔은 내 계정 값')],
       ['ok', t('큐브는 바꿀 수 있음')],
       ['ok', t('버스트 순서는 내 것')],
-      ['no', t('컨트롤(톡톡이·장전컨) 불가 — 자동 고정')],
+      ['ok', t('컨트롤(톡톡이·장전컨·홀드·버스트 운용)은 내 것 — 톡톡이는 3.6발/s 고정')],
       ['no', t('임시 · 미구현 니케 불가')],
       ['no', t('안 가진 니케 불가')],
       ['ok', t('한 계정 한 기록 · 최고 기록만')],
@@ -720,6 +869,26 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
         line.append(open);
         decks.append(list);
       }
+      // 컨트롤 보기 — 니케마다 톡톡이·장전컨·홀드·버스트 운용. 이 패치 전 기록에는 없다.
+      if (deck.controls && Object.keys(deck.controls).length > 0) {
+        const controls = deck.controls;
+        const open = el('button', 'raid-ghost raid-cubes-open', t('컨트롤 보기'));
+        open.type = 'button';
+        open.dataset.raidControls = `${entry.eid}:${index}`;
+        const list = el('ul', 'raid-cubes');
+        list.hidden = true;
+        for (const name of deck.names) {
+          const item = el('li');
+          item.append(el('b', '', name), el('span', '', controlLine(controls[name])));
+          list.append(item);
+        }
+        open.addEventListener('click', () => {
+          list.hidden = !list.hidden;
+          open.textContent = list.hidden ? t('컨트롤 보기') : t('컨트롤 접기');
+        });
+        line.append(open);
+        decks.append(list);
+      }
     }
     box.append(decks);
     const actions = el('div', 'raid-actions');
@@ -750,6 +919,25 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
       });
       actions.append(takeCubes);
     }
+    // 컨트롤까지 — 기록에 컨트롤이 실려 있을 때만. 큐브가 있으면 큐브도 같이 간다.
+    if (entry.decks.some((deck) => deck.controls && Object.keys(deck.controls).length > 0)) {
+      const takeAll = el('button', 'raid-ghost', t('덱 {n}개 가져오기 (편성·큐브·컨트롤)', { n: entry.decks.length }));
+      takeAll.type = 'button';
+      takeAll.dataset.raidTakeControls = entry.eid;
+      takeAll.addEventListener('click', () => {
+        try {
+          deps.applyDecks(
+            entry.decks.map((deck) => deck.code),
+            entry.decks.map((deck) => deck.cubes),
+            entry.decks.map((deck) => deck.controls),
+          );
+          say(t('덱 {n}개의 편성·큐브·컨트롤을 가져왔습니다 — 나머지 스펙은 내 블라블라링크 값으로 돕니다.', { n: entry.decks.length }), true);
+        } catch (error) {
+          say(error instanceof Error ? error.message : String(error));
+        }
+      });
+      actions.append(takeAll);
+    }
     if (admin) {
       const verifyButton = el('button', 'raid-ghost', t('재검증 (보관된 스펙으로 다시 계산)'));
       verifyButton.type = 'button';
@@ -763,8 +951,11 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
       actions.append(verifyButton, out, remove);
     }
     box.append(actions);
-    box.append(el('p', 'raid-fine', t('컨트롤 없음(규칙) · 엔진 {engine} · 스펙은 제출 때 함께 보관되며 어드민 재검증에만 쓰입니다', { engine: entry.engine || '?' })));
+    box.append(el('p', 'raid-fine', t('컨트롤 기록됨(톡톡이 3.6 고정) · 엔진 {engine} · 스펙은 제출 때 함께 보관되며 어드민 재검증에만 쓰입니다', { engine: entry.engine || '?' })));
     if (entry.from) box.append(el('p', 'raid-fine raid-from', t('다른 레이드의 기록을 이 조건으로 다시 계산해 옮긴 것입니다.')));
+    if (entry.recalculatedAt) {
+      box.append(el('p', 'raid-fine raid-from', t('엔진이 바뀐 뒤 어드민이 보관된 스펙으로 다시 계산한 기록입니다 ({date}).', { date: entry.recalculatedAt.slice(0, 10) })));
+    }
     return box;
   }
 
@@ -845,6 +1036,12 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
       for (const name of entry.decks[0]?.names ?? []) faces.append(face(name));
       deckCell.append(faces);
       if (entry.decks.length > 1) deckCell.append(el('span', 'raid-more', t('+ {n}덱', { n: entry.decks.length - 1 })));
+      // 재계산됨 — 엔진이 바뀐 뒤 어드민이 자리 그대로 다시 돌린 기록. 직접 돌린 기록과 다르다.
+      if (entry.recalculatedAt) {
+        const badge = el('span', 'raid-recalc', t('재계산됨'));
+        badge.title = entry.recalculatedAt.slice(0, 10);
+        deckCell.append(badge);
+      }
       row.append(deckCell);
       row.append(el('td', 'raid-total', raidDamageText(entry.total)));
       row.append(el('td', 'raid-chev', '▾'));
@@ -894,6 +1091,26 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
         close.dataset.raidClose = '';
         close.addEventListener('click', () => { void closeRaid(); });
         bar.append(close);
+        // 엔진이 바뀌면 기록을 자리 그대로 다시 돌린다 — 이 레이드만, 또는 열린 것 전부.
+        const recalcRow = el('div', 'raid-migrate');
+        const recalcOne = el('button', 'raid-ghost', t('이 레이드 전체 재계산 (새 엔진 · 버충 신 방식)'));
+        recalcOne.type = 'button';
+        recalcOne.dataset.raidRecalc = '';
+        const recalcAll = el('button', 'raid-ghost', t('열린 레이드 전부 재계산'));
+        recalcAll.type = 'button';
+        recalcAll.dataset.raidRecalcAll = '';
+        const recalcOut = el('span', 'raid-verify-out');
+        recalcOne.addEventListener('click', () => {
+          recalcOne.disabled = recalcAll.disabled = true;
+          void recalcRaids([raid], recalcOut).finally(() => { recalcOne.disabled = recalcAll.disabled = false; });
+        });
+        recalcAll.addEventListener('click', () => {
+          recalcOne.disabled = recalcAll.disabled = true;
+          void recalcRaids(raids.filter((other) => other.status === 'open'), recalcOut)
+            .finally(() => { recalcOne.disabled = recalcAll.disabled = false; });
+        });
+        recalcRow.append(recalcOne, recalcAll, recalcOut);
+        bar.append(recalcRow);
         // 다른 레이드의 기록을 이 조건으로 다시 돌려 옮겨 온다 — 시즌이 바뀌었을 때.
         const others = raids.filter((other) => other.id !== raid.id);
         if (others.length > 0) {

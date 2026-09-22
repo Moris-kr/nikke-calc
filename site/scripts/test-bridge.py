@@ -52,7 +52,8 @@ class FirstBurstBridgeTest(unittest.TestCase):
         self.assertGreater(report['shotgunReport']['드레이크']['fired'], 0)
 
     def test_first_burst_reaches_engine_and_defaults_to_zero(self):
-        payload = {"squad": ["리타", "크라운", "앨리스"], "duration": 12, "enemyDef": 0, "enemyCode": "", "corePx": 0, "hasParts": False, "seed": 42, "detail": True}
+        # 첫 버스트 시간은 구 방식(고정 시간)의 값이다 — 신 방식은 게이지가 정하므로 이 값을 안 본다.
+        payload = {"squad": ["리타", "크라운", "앨리스"], "duration": 12, "enemyDef": 0, "enemyCode": "", "corePx": 0, "hasParts": False, "seed": 42, "detail": True, "burstGaugeMode": "legacy"}
         default = json.loads(run_request(json.dumps(payload)))
         immediate = json.loads(run_request(json.dumps({**payload, "firstBurstTime": 0})))
         delayed = json.loads(run_request(json.dumps({**payload, "firstBurstTime": 5})))
@@ -1082,6 +1083,36 @@ class GuiltyBunnyReleasedBridgeTest(unittest.TestCase):
 
 class SinBunnyReleasedBridgeTest(GuiltyBunnyReleasedBridgeTest):
     NAME = "신 : 스위프트 바니"
+
+
+
+class BurstGaugeBridgeTest(unittest.TestCase):
+    """버스트 게이지 방식 — 안 주면 신 방식(실누적), legacy면 종전 고정 시간. 타임라인에 게이지가 실린다."""
+
+    PAYLOAD = {"squad": ["크라운", "루주", "치사토"], "duration": 40, "enemyDef": 0, "enemyCode": "",
+               "corePx": 0, "hasParts": False, "seed": 42, "rngMode": "expected", "firstBurstTime": 3}
+
+    def test_new_is_default_and_legacy_keeps_fixed_timing(self):
+        new = json.loads(run_request(json.dumps(self.PAYLOAD)))
+        explicit = json.loads(run_request(json.dumps({**self.PAYLOAD, "burstGaugeMode": "new"})))
+        legacy = json.loads(run_request(json.dumps({**self.PAYLOAD, "burstGaugeMode": "legacy"})))
+        self.assertEqual(new["squadTotal"], explicit["squadTotal"])
+        # 구 방식은 첫 버스트 시간(3초) + 반응·전환 딜레이에 시작한다. 신 방식은 게이지가 정한다.
+        self.assertAlmostEqual(legacy["timeline"]["fullBurst"][0][0], 3.4, delta=0.3)
+        self.assertGreater(abs(new["timeline"]["fullBurst"][0][0] - legacy["timeline"]["fullBurst"][0][0]), 0.5)
+        for result in (new, legacy):
+            gauge = result["timeline"]["gauge"]
+            self.assertEqual(len(gauge), result["timeline"]["buckets"])
+            self.assertTrue(all(0 <= v <= 100 for v in gauge))
+        # 신 방식은 만충(100)에 닿아야 1단계다 — 칸 끝 값이라 같은 칸에서 차고 비면 100 아래로 보이지만,
+        # 높이 올랐다가 **뚝 떨어지는 칸**(소모)이 있어야 한다. 구 방식은 고정 시간에 진입해 소모하므로
+        # 그만큼 못 오른다.
+        gauge = new["timeline"]["gauge"]
+        self.assertGreaterEqual(max(gauge), 80)
+        self.assertTrue(any(gauge[i] < gauge[i - 1] - 50 for i in range(1, len(gauge))), gauge)
+        self.assertLess(max(legacy["timeline"]["gauge"]), max(gauge))
+        with self.assertRaises(ValueError):
+            run_request(json.dumps({**self.PAYLOAD, "burstGaugeMode": "old"}))
 
 
 if __name__ == "__main__":

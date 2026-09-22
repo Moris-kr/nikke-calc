@@ -18,6 +18,13 @@ export interface SkillLevels {
   '3': number;
 }
 
+/**
+ * 버스트 게이지 판정. `new` = 히트마다 실제로 쌓아 100%에 1단계(신 방식, 기본).
+ * `legacy` = 고정 시간(첫 버스트 시간·버스트 게이지 충전, 구 방식). **없으면 신 방식이다** —
+ * 이 항목이 생기기 전에 저장·공유된 조건은 전부 신 방식으로 읽힌다.
+ */
+export type BurstGaugeMode = 'new' | 'legacy';
+
 export interface CharacterControl {
   bunny_mode?: 'stance' | 'engage';
   tap_fire?: {
@@ -173,7 +180,9 @@ export interface SimulationRequest {
   console?: ConsoleLevels;
   /** 싱크로 레벨. 안 주면 엔진 기본 스펙 레벨(400)을 쓴다. */
   synchroLevel?: number;
-  // 버스트 게이지 충전 시간(초). 게이지 누적 대신 쓰는 고정 시간이다.
+  /** 버스트 게이지 판정 — 안 주면 신 방식(`new`, 히트 실누적). */
+  burstGaugeMode?: BurstGaugeMode;
+  // 버스트 게이지 충전 시간(초). 구 방식(`legacy`)에서 게이지 누적 대신 쓰는 고정 시간이다.
   burstRegenTime?: number;
   /** 버스트 반응속도(초). 안 주면 엔진 기본값(0.05)을 쓴다. */
   burstReaction?: number;
@@ -273,6 +282,8 @@ export interface BattleSettings {
   rngMode: RngMode;
   immuneBlocksBurst: boolean;
   console: ConsoleLevels;
+  /** 버스트 게이지 판정. 없으면 신 방식(`new`). 아래 충전 시간·첫 버스트 시간은 구 방식에서만 쓴다. */
+  burstGaugeMode?: BurstGaugeMode;
   burstRegenTime: number;
   /**
    * 덱마다 다른 버스트 게이지 충전 시간(초). 덱 번호 → 초.
@@ -367,6 +378,8 @@ export interface BattleTimeline {
   };
   /** 버프가 걸려 있던 구간. 구버전 캐시에는 없다. */
   buffs?: BuffTrack[];
+  /** 버스트 게이지(%) — 칸 끝 시점의 값. 두 방식 모두 실린다. 옛 결과에는 없다. */
+  gauge?: number[];
 }
 
 /**

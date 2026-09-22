@@ -32,6 +32,7 @@ const LIMITS = {
   raidDecks: 5,        // 한 기록의 덱 수
   raidSpec: 400_000,   // 어드민 재검증용 스펙 묶음(JSON 글자 수) — 다섯 덱의 요청 전부
   raidPerDay: 40,      // IP당 하루 제출 횟수
+  raidControl: 600,    // 니케 한 명의 컨트롤 묶음(JSON 글자 수)
 };
 
 class Fail extends Error {
@@ -487,6 +488,8 @@ const publicEntry = (entry, admin) => ({
   // 다른 레이드에서 재계산해 옮겨 온 기록이면 어디서 왔는지. 남에게도 보인다 — 직접 돌린
   // 기록과 옮겨진 기록은 다르다.
   ...(entry.from ? { from: entry.from } : {}),
+  // 엔진이 바뀐 뒤 어드민이 자리 그대로 다시 계산한 기록이면 그 시각 — «재계산됨» 표시.
+  ...(entry.recalculatedAt ? { recalculatedAt: entry.recalculatedAt } : {}),
   // 어드민에게는 계정 해시(owner)도 — 기록 옮기기가 «동일인»을 가리는 열쇠다.
   ...(admin ? { name: entry.name, area: entry.area, tail: entry.tail, owner: entry.owner } : {}),
 });
@@ -575,7 +578,33 @@ const raidDeck = (value, index) => {
       cubes[who] = { name: cubeName, level };
     }
   }
-  return { names, code, order, dmg: Math.round(dmg), ...(Object.keys(cubes).length > 0 ? { cubes } : {}) };
+  // 니케별 컨트롤 — 편성 니케에 대해서만. 모양은 사이트가 정하고 여기서는 크기·형식만 좁힌다.
+  // 톡톡이 발사 속도는 레이드 규칙(3.6)으로 못 박는다 — 남의 값을 그대로 믿지 않는다.
+  const controls = {};
+  if (value.controls && typeof value.controls === 'object') {
+    for (const who of names) {
+      const raw = value.controls[who];
+      if (!raw || typeof raw !== 'object') continue;
+      const row = {};
+      if (raw.control && typeof raw.control === 'object' && !Array.isArray(raw.control)) {
+        const control = { ...raw.control };
+        if (control.tap_fire && typeof control.tap_fire === 'object') control.tap_fire = { ...control.tap_fire, rate: 3.6 };
+        row.control = control;
+      }
+      if (raw.burst && typeof raw.burst === 'object' && !Array.isArray(raw.burst)) row.burst = { ...raw.burst };
+      if (raw.weaponModeSwapAt !== undefined && Number.isFinite(Number(raw.weaponModeSwapAt))) {
+        row.weaponModeSwapAt = Number(raw.weaponModeSwapAt);
+      }
+      if (Object.keys(row).length === 0) continue;
+      if (JSON.stringify(row).length > LIMITS.raidControl) throw new Fail(400, `덱 ${index + 1}의 ${who} 컨트롤이 너무 큽니다.`);
+      controls[who] = row;
+    }
+  }
+  return {
+    names, code, order, dmg: Math.round(dmg),
+    ...(Object.keys(cubes).length > 0 ? { cubes } : {}),
+    ...(Object.keys(controls).length > 0 ? { controls } : {}),
+  };
 };
 
 async function handleRaidEntry(request, env, body) {
@@ -747,6 +776,51 @@ async function handleRaidMigrate(env, body) {
   return { moved, skipped };
 }
 
+/**
+ * 이 레이드의 기록을 **자리 그대로** 다시 계산한 값으로 바꾼다 — 엔진 알고리즘이 바뀌었을 때
+ * 어드민 브라우저가 보관된 스펙을 새 조건으로 돌린 결과다. 계정·이름·꼬리표·올린 시각은 그대로 두고
+ * 덱·합산·엔진·스펙만 갈고 `recalculatedAt`을 찍는다. `code`를 주면 레이드의 전투 조건 코드도
+ * 그것으로 바꾼다(버스트 게이지 신 방식 전환). 모르는 eid는 세기만 하고 건너뛴다.
+ */
+async function handleRaidRecalc(env, body) {
+  requireAdmin(env, body.password);
+  const id = text(body.id, 40, '레이드', true);
+  const index = await raidIndex(env);
+  const raid = index.raids.find((entry) => entry.id === id);
+  if (!raid) throw new Fail(404, '없는 레이드입니다.');
+  const code = text(body.code, LIMITS.code, '전투 조건 코드', false);
+  if (code && !code.startsWith(KINDS.boss)) throw new Fail(400, '전투 조건 코드(NK3-)만 레이드에 둘 수 있습니다.');
+  const list = Array.isArray(body.entries) ? body.entries : [];
+  if (list.length > LIMITS.raidEntries) throw new Fail(400, '한 번에 다시 계산할 수 있는 기록 수를 넘었습니다.');
+  const board = await readJson(env, raidBoardKey(id), { entries: [] });
+  board.entries = board.entries ?? [];
+  const now = new Date().toISOString();
+  let updated = 0;
+  let missing = 0;
+  for (const [i, item] of list.entries()) {
+    const eid = text(item && item.eid, 40, '기록', true);
+    const entry = board.entries.find((row) => row.eid === eid);
+    if (!entry) { missing += 1; continue; }
+    const decks = Array.isArray(item.decks) ? item.decks.map(raidDeck) : [];
+    if (decks.length === 0 || decks.length > LIMITS.raidDecks) throw new Fail(400, `${i + 1}번째 기록의 덱은 1~5개여야 합니다.`);
+    const total = Number(item.total);
+    if (!Number.isFinite(total) || total < 0) throw new Fail(400, `${i + 1}번째 기록의 합산 딜이 숫자가 아닙니다.`);
+    const spec = item.spec === undefined ? null : JSON.stringify(item.spec);
+    if (spec && spec.length > LIMITS.raidSpec) throw new Fail(413, `${i + 1}번째 기록의 스펙 묶음이 너무 큽니다.`);
+    entry.decks = decks;
+    entry.total = Math.round(total);
+    entry.engine = text(item.engine, 40, '엔진', false) || entry.engine;
+    entry.recalculatedAt = now;
+    if (spec) await env.SHARE.put(raidSpecKey(id, eid), spec);
+    updated += 1;
+  }
+  await env.SHARE.put(raidBoardKey(id), JSON.stringify(board));
+  if (code && code !== raid.code) raid.code = code;
+  raid.count = board.entries.length;
+  await env.SHARE.put(RAID_INDEX_KEY, JSON.stringify(index));
+  return { updated, missing };
+}
+
 /** 어드민 재검증용 스펙. 기록을 올린 브라우저가 돌린 요청 그대로다. */
 async function handleRaidSpec(env, body) {
   requireAdmin(env, body.password);
@@ -885,6 +959,9 @@ export default {
       }
       if (request.method === 'POST' && url.pathname === '/raid/migrate') {
         return json(await handleRaidMigrate(env, await request.json()));
+      }
+      if (request.method === 'POST' && url.pathname === '/raid/recalc') {
+        return json(await handleRaidRecalc(env, await request.json()));
       }
       if (request.method === 'POST' && url.pathname === '/raid/spec') {
         return json(await handleRaidSpec(env, await request.json()));

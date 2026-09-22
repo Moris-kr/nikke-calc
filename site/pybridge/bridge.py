@@ -219,6 +219,20 @@ def _build_timeline(result, names: list[str], bucket: float = TIMELINE_BUCKET) -
             summary["lastDuration"] = round(max(0, end - pending_start), 2)
             summary["lastTruncated"] = planned_end is not None and planned_end > result.duration + 1e-8
 
+    # 버스트 게이지(%) — 칸 **끝** 시점의 값. 가산·소모 로그를 시간순으로 훑는다(이미 시간순이고,
+    # 같은 프레임에서는 소모가 가산보다 먼저 적힌다 — BurstController.tick이 캐릭터 tick보다 앞이다).
+    gauge: list[float] | None = None
+    if result.log is not None and result.log.gauge_log:
+        gauge = [0.0] * buckets
+        events = result.log.gauge_log
+        j, cur = 0, 0.0
+        for i in range(buckets):
+            end = (i + 1) * bucket + 1e-9
+            while j < len(events) and events[j].t <= end:
+                cur = events[j].gauge
+                j += 1
+            gauge[i] = round(cur, 1)
+
     return {
         "bucket": bucket,
         "buckets": buckets,
@@ -227,6 +241,7 @@ def _build_timeline(result, names: list[str], bucket: float = TIMELINE_BUCKET) -
         "fullBurst": full_burst,
         "fullBurstSummary": summary,
         "buffs": _build_buff_spans(result, names),
+        **({"gauge": gauge} if gauge is not None else {}),
     }
 
 
@@ -618,6 +633,12 @@ def run_request(raw: str, include_effective: bool = False) -> str:
     # 족자 중 버스트 게이지 정지 여부. 안 주면 켠 것으로 본다(인게임 기준).
     blocks = payload.get("immuneBlocksBurst")
     config_in["immune_blocks_burst"] = True if blocks is None else bool(blocks)
+    # 버스트 게이지 판정 — "new"(히트 실누적 = 엔진 accumulate) / "legacy"(고정 시간 = fixed).
+    # **안 주면 신 방식이다.** 이 항목이 생기기 전의 요청·저장본은 전부 신 방식으로 돈다.
+    gauge_mode = str(payload.get("burstGaugeMode") or "new")
+    if gauge_mode not in ("new", "legacy"):
+        raise ValueError("버스트 게이지 방식은 new 또는 legacy여야 합니다")
+    config_in["burst_gauge_mode"] = "accumulate" if gauge_mode == "new" else "fixed"
     # 핵. 하나도 안 켰으면 아예 안 싣는다 — 옛 요청과 캐시 키가 갈리지 않게.
     hacks = normalize_hacks(payload.get("hacks"))
     if hacks is not None:

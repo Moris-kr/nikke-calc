@@ -242,7 +242,7 @@ describe('전투 조건 공유 코드 (NK3)', () => {
     const code = encodeBattleCode(battle, COEFF);
     expect(code.length).toBeLessThan(200);   // 붙여넣기 한도(약 400자)의 절반 아래
     const { console: _drop, synchroLevel: _level, ...expected } = battle;
-    expect(decodeBattleCode(code)).toEqual({ ...expected, firstBurstTime: 0, normalHitCoeff: {}, bossSize: 'large', shotgunHitRate: 1 });
+    expect(decodeBattleCode(code)).toEqual({ ...expected, firstBurstTime: 0, normalHitCoeff: {}, bossSize: 'large', shotgunHitRate: 1, burstGaugeMode: 'new' });
   });
 
   it('유효 사거리 구간과 빈 무기군을 공유한다', () => {
@@ -299,6 +299,13 @@ describe('전투 조건 공유 코드 (NK3)', () => {
     expect(decodeBattleCode(encodeBattleCode(base, COEFF)).immuneBlocksBurst).toBe(true);
     const off = encodeBattleCode({ ...base, immuneBlocksBurst: false }, COEFF);
     expect(decodeBattleCode(off).immuneBlocksBurst).toBe(false);
+  });
+
+  it('버스트 게이지 방식 — 없으면 신 방식이고, 구 방식만 코드에 실린다', () => {
+    expect(decodeBattleCode(encodeBattleCode(base, COEFF)).burstGaugeMode).toBe('new');
+    // 신 방식은 키를 안 남긴다 — 이 항목이 생기기 전의 코드와 같은 바이트다.
+    expect(encodeBattleCode({ ...base, burstGaugeMode: 'new' }, COEFF)).toBe(encodeBattleCode(base, COEFF));
+    expect(decodeBattleCode(encodeBattleCode({ ...base, burstGaugeMode: 'legacy' }, COEFF)).burstGaugeMode).toBe('legacy');
   });
 
   it('범위를 벗어난 값과 못 쓰는 구간은 기본값으로 되돌린다', () => {

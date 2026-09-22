@@ -34,7 +34,7 @@ from calculator.sim_result import print_team_analysis
 from calculator.timeline import simulate
 from context import spec as char_spec
 
-VIEWS = ("summary", "breakdown", "analysis", "burst", "buff", "hits")
+VIEWS = ("summary", "breakdown", "analysis", "burst", "buff", "hits", "gauge")
 
 
 def main() -> None:
@@ -91,6 +91,16 @@ def main() -> None:
              "버프 유지용(밀크 관통 특화 6초 → 5.5). "
              "예: --tap \"앨리스:4.0\" / --tap \"밀크 : 블루밍 바니:4.0:0.03:5.5\" "
              "(context/CONTROL.md §톡톡이)",
+    )
+    ap.add_argument(
+        "--gauge-mode", choices=["fixed", "accumulate"], default="fixed",
+        help="버스트 게이지 판정. fixed(기본, 고정 시간) / accumulate(히트당 실누적 — 사이트 신 방식). "
+             "`--view gauge`로 충전 내역을 본다 (원본 저장소 docs/mechanics/버스트 게이지.md)",
+    )
+    ap.add_argument(
+        "--camera", metavar="이름",
+        help="풀차지 게이지 배율을 받는 니케(카메라). 빈 문자열은 아무도 안 봄. "
+             "안 주면 버충 톡톡이 담당 → 컨트롤 1명(차지 무기) → 3번 자리 순으로 유도한다",
     )
     ap.add_argument(
         "--reload-ctrl", action="append", metavar="이름:정책[:값]",
@@ -156,7 +166,10 @@ def main() -> None:
         sys.exit(2)
 
     config: dict = {"first_burst_time": args.first_burst,
-                    "allow_unparsed": args.allow_unparsed}
+                    "allow_unparsed": args.allow_unparsed,
+                    "burst_gauge_mode": args.gauge_mode}
+    if args.camera is not None:
+        config["camera"] = args.camera
     if args.expected:
         config["rng_mode"] = "expected"
     if args.no_burst:
@@ -310,6 +323,8 @@ def main() -> None:
         print(result.log.buff_summary(chars))
     elif args.view == "hits":
         print(result.hit_summary(chars))
+    elif args.view == "gauge":
+        print(result.log.gauge_summary())
 
 
 if __name__ == "__main__":

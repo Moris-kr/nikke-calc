@@ -447,3 +447,22 @@ it('preserves defense rate bands without requiring an exposed core', () => {
   expect(buildSeries(timeline, ['라피'], 4, { defenseRateWindows })?.defenseRateWindows).toEqual(defenseRateWindows);
   expect(buildSeries(timeline, ['라피'], 4)?.defenseRateWindows).toEqual([]);
 });
+
+describe('버스트 게이지', () => {
+  const base = { bucket: 1, buckets: 3, damage: { a: [1, 2, 3] }, bursts: {}, fullBurst: [] as [number, number][] };
+  it('칸 수가 맞을 때만 시리즈에 싣는다 — 옛 결과(없음)와 다른 버킷은 null', () => {
+    expect(buildSeries({ ...base, gauge: [10, 55, 100] }, ['a'], 3)!.gauge).toEqual([10, 55, 100]);
+    expect(buildSeries(base, ['a'], 3)!.gauge).toBeNull();
+    expect(buildSeries({ ...base, gauge: [10, 55] }, ['a'], 3)!.gauge).toBeNull();
+  });
+
+  it('게이지가 있으면 「버충 표시」 토글이 서고, 누르면 켜진다', () => {
+    const withGauge = { ...entry, result: { ...entry.result, timeline: { ...entry.result.timeline!, gauge: entry.result.timeline!.damage[Object.keys(entry.result.timeline!.damage)[0]!]!.map((_, i) => Math.min(100, i * 10)) } } } as DeckResultEntry;
+    const block = createTimelineBlock(withGauge)!;
+    const toggle = block.querySelector<HTMLButtonElement>('[data-timeline-gauge]')!;
+    expect(toggle).not.toBeNull();
+    toggle.click();
+    expect(toggle.getAttribute('aria-pressed')).toBe('true');
+    expect(createTimelineBlock(entry)!.querySelector('[data-timeline-gauge]')).toBeNull();
+  });
+});

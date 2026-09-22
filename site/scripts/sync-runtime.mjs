@@ -37,6 +37,7 @@ const runtimeFiles = [
   'data/char_defaults.json',
   'data/weapon_delays.json',
   'data/weapon_mechanics.json',
+  'data/burst_gauge.json',
   'data/base_stat_tables/affinity.json',
   'data/base_stat_tables/collection.json',
   'data/base_stat_tables/console.json',

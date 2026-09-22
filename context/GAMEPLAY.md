@@ -255,8 +255,18 @@ print(nikke["캐릭터명"]["burst_cooldown"]) # 초 단위
 
 #### 사이클 주기의 구성
 
-계산기는 게이지 충전을 실제 누적이 아니라 **고정 시간**으로 모델링한다
-(`burst_regen_time = 2.0초`). 첫 버스트만 이를 무시하고 `first_burst_time`에 발동한다.
+계산기는 게이지를 두 방식으로 모델링한다(`burst_gauge_mode`, 2026-09-22 원본 저장소 이식).
+
+- **`accumulate`(사이트 기본 = 신 방식)** — 히트당 `burst_energy`(CDN `target_burst_energy_pershot`/10000,
+  «대상» 기준. parsed_nikke.json)를 **스쿼드 공용 게이지**에 실제로 쌓아 100%에 1단계 진입하고 그때
+  0으로 소모한다. 초과분은 폐기, 1단계 진입 ~ 풀버스트 종료 사이에는 안 찬다. 스킬 대미지 히트도
+  같은 히트당 값(예외: `data/burst_gauge.json`), 풀차지 샷은 카메라가 보는 니케에만 `full_charge_mult`
+  (CONTROL.md §카메라). `burst_charge_pct`(즉시 N%)·`burst_charge_speed_pct`(시전자 기준 히트당 가산)가
+  여기서 먹는다. 로그: `SimLog.gauge_log` / `python -m context.sim --gauge-mode accumulate --view gauge`.
+- **`fixed`(엔진 기본 = 구 방식)** — 아래처럼 **고정 시간**(`burst_regen_time = 2.0초`)이며 첫 버스트만
+  `first_burst_time`에 발동한다. 게이지는 계산·기록되지만 사이클을 판정하지 않는다.
+
+아래 실측 타임라인은 `fixed` 기준이다.
 
 표준 스쿼드(7.48 버쿨감 보유)의 실측 타임라인 — 사이클 12.55초의 내역:
 

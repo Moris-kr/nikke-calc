@@ -92,6 +92,8 @@ export function normalizeRequest(request: SimulationRequest): SimulationRequest 
     // 흔들려도 같은 설정이므로 정렬해 싣는다.
     ...(normalizeRecord(request.normalHitCoeff)
       ? { normalHitCoeff: normalizeRecord(request.normalHitCoeff)! } : {}),
+    // 게이지 방식은 **언제나** 싣는다 — 안 주면 신 방식이고, 그 결과는 옛(고정 시간) 캐시와 다르다.
+    burstGaugeMode: request.burstGaugeMode === 'legacy' ? 'legacy' : 'new',
     ...(request.burstRegenTime !== undefined
       ? { burstRegenTime: request.burstRegenTime } : {}),
     // 기본값(0.05초)은 요청에서 뺀다 — 엔진이 같은 값을 쓰므로 옛 캐시 키와 갈리지 않는다.
@@ -339,6 +341,8 @@ export function requestForDeck(
     shotgunHitRate: battle.shotgunHitRate ?? 1,
     console: battle.console,
     // 덱마다 따로 잡아 뒀으면 그 값이 이긴다 — 버스트 쿨이 밀리는 덱만 달리 잰다.
+    // 게이지 방식은 언제나 싣는다 — 신 방식이 기본이 된 뒤의 결과와 옛 캐시가 섞이면 안 된다.
+    burstGaugeMode: battle.burstGaugeMode ?? 'new',
     burstRegenTime: battle.burstRegenPerDeck?.[deck.id] ?? battle.burstRegenTime,
     burstReaction: battle.burstReaction,
     firstBurstTime: battle.firstBurstPerDeck?.[deck.id] ?? battle.firstBurstTime ?? 0,

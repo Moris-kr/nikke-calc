@@ -1,4 +1,5 @@
 import type { BattleShare } from './share-code';
+import type { BurstAssignment, CharacterControl } from './types';
 import { t } from './i18n';
 
 // 설정 공유 서버(`worker-share/`)와 이야기하는 쪽. 서버가 아는 것은 공유 코드 문자열과
@@ -123,6 +124,18 @@ export interface RaidDeck {
   dmg: number;
   /** 니케별 큐브(이름·레벨). 남의 덱을 볼 때 «무슨 큐브 몇 레벨»을 읽는 자리다. 옛 기록엔 없다. */
   cubes?: Record<string, { name: string; level: number }>;
+  /**
+   * 니케별 컨트롤·버스트 운용·무기 모드 전환 시각. 「편성·큐브·컨트롤 가져오기」와 「컨트롤 보기」가
+   * 읽는다. 톡톡이 발사 속도는 레이드 규칙(3.6발/s)으로 못 박혀 실린다. 옛 기록엔 없다.
+   */
+  controls?: Record<string, RaidControl>;
+}
+
+/** 기록에 실리는 니케 한 명의 컨트롤 묶음 — 카드의 «컨트롤 · 버스트» 판이 정하는 것들. */
+export interface RaidControl {
+  control?: CharacterControl;
+  burst?: BurstAssignment;
+  weaponModeSwapAt?: number;
 }
 
 export interface RaidEntry {
@@ -138,6 +151,8 @@ export interface RaidEntry {
   tag?: string;
   /** 다른 레이드에서 재계산해 옮겨 온 기록이면 그 레이드 id. */
   from?: string;
+  /** 엔진이 바뀐 뒤 어드민이 보관된 스펙으로 다시 계산한 시각. 남에게도 보인다 — «재계산됨». */
+  recalculatedAt?: string;
   /** 어드민에게만 온다 — 표시 이름·서버·계정 꼬리·계정 해시(기록 옮기기의 «동일인» 열쇠). */
   name?: string;
   area?: number;
@@ -151,6 +166,15 @@ export interface RaidMigrateEntry {
   name: string;
   area: number;
   tail: string;
+  decks: RaidDeck[];
+  total: number;
+  engine: string;
+  spec: unknown;
+}
+
+/** 자리 그대로 다시 계산한 결과 한 줄 — 어드민 브라우저가 새 엔진·조건으로 돌린 값. */
+export interface RaidRecalcEntry {
+  eid: string;
   decks: RaidDeck[];
   total: number;
   engine: string;
@@ -428,6 +452,21 @@ export class ShareServer {
     return this.unwrapReady(response, '계산기 레이드');
   }
 
+  /**
+   * 이 레이드의 기록들을 **자리(eid) 그대로** 새 값으로 갈아 끼운다 — 엔진 알고리즘이 바뀌었을 때.
+   * `code`를 주면 레이드의 전투 조건 코드도 그것으로 바꾼다(버스트 게이지 신 방식 전환).
+   */
+  async recalcRaidEntries(
+    id: string, code: string, entries: RaidRecalcEntry[], password: string,
+  ): Promise<{ updated: number; missing: number }> {
+    const response = await this.fetcher(`${this.base}/raid/recalc`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, code, entries, password }),
+    });
+    return this.unwrapReady(response, '계산기 레이드');
+  }
+
   async raidSpec<T = unknown>(id: string, eid: string, password: string): Promise<T> {
     const response = await this.fetcher(`${this.base}/raid/spec`, {
       method: 'POST',
@@ -481,6 +520,8 @@ export function summarizeBattle(battle: BattleShare): string {
   if (battle.immuneWindows.length > 0) parts.push(t('족자 {n}', { n: battle.immuneWindows.length }));
   if (battle.elementWindows.length > 0) parts.push(t('속저 {n}', { n: battle.elementWindows.length }));
   parts.push(battle.rngMode === 'expected' ? t('기대값') : t('난수'));
+  // 신 방식(히트 실누적)이 기본이라 구 방식일 때만 적는다 — 옛 요약 글이 흔들리지 않는다.
+  if (battle.burstGaugeMode === 'legacy') parts.push(t('버충 구 방식(고정 시간)'));
   return parts.join(' · ');
 }
 

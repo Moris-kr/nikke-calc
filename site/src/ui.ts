@@ -1147,8 +1147,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <div class="field-grid">
               <label><span>적 방어력</span><input id="enemy-def" type="number" min="0" max="999999" step="1" value="31784" /></label>
               <label><span>난수 시드</span><input id="seed" type="number" min="0" max="2147483647" step="1" value="42" /></label>
-              <label title="게이지 충전만의 시간입니다. 여기에 단계 전환 0.3초와 버스트 쿨 여유가 더해져 실제 공백은 더 깁니다."><span>버스트 게이지 충전</span><div class="input-unit"><input id="burst-regen" type="number" min="0" max="20" step="0.1" value="2" /><em>초</em></div></label>
-              <label title="전투 시작 기준 첫 버스트를 시작할 최소 시각입니다. 0초는 즉시 시작하며 단계 전환과 반응속도는 별도로 적용됩니다."><span>첫 버스트 시간</span><div class="input-unit"><input id="first-burst" type="number" min="0" max="3600" step="0.1" value="3" /><em>초</em></div></label>
+              <label title="신 방식은 히트마다 버스트 게이지를 실제로 쌓아 100%가 되면 1단계에 들어갑니다(원본 알고리즘). 구 방식은 게이지를 히트로 채우지 않고 아래 고정 시간이 지나면 찬 것으로 봅니다."><span>버스트 게이지</span><select id="burst-gauge-mode"><option value="new">신 방식 — 히트마다 실제 누적</option><option value="legacy">구 방식 — 고정 시간</option></select></label>
               <label title="조건이 갖춰진 뒤 실제로 버스트를 누르기까지 걸리는 시간입니다. 버스트 하나하나마다 더해지므로 3단계까지 쓰면 그 세 배만큼 늦어집니다."><span>버스트 반응속도</span><div class="input-unit"><input id="burst-reaction" type="number" min="0" max="3" step="0.01" value="${DEFAULT_BURST_REACTION}" /><em>초</em></div></label>
               <label><span>난수 처리</span><select id="rng-mode"><option value="expected">기대값 (권장)</option><option value="random">난수</option></select></label>
               <label class="toggle-field" title="족자 구간에는 평타가 빗나가므로 게이지도 차지 않는 것으로 계산합니다. 켜면 그만큼 버스트가 밀립니다."><input id="immune-blocks-burst" type="checkbox" checked /><span class="toggle"></span><span>족자 중 버스트 충전 정지</span></label>
@@ -1156,11 +1155,20 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <!-- 덱마다 따로 잡는 값들. **스위치 바로 아래에 그 칸이 선다** — 칸이
                  격자 저 아래에 떨어져 있어 켜고도 어디에 적는지 못 찾았다
                  (피드백 2026-09-08). -->
-            <div class="deck-split">
-              <label class="toggle-field deck-regen-toggle"><input id="first-burst-per-deck" type="checkbox" /><span class="toggle"></span><span>첫 버스트 시간을 덱마다 따로</span></label>
-              <div class="deck-regen-grid" data-deck-first-burst hidden></div>
-              <label class="toggle-field deck-regen-toggle" title="버스트 쿨이 밀리는 덱만 다른 값으로 재고 싶을 때 켭니다"><input id="burst-regen-per-deck" type="checkbox" /><span class="toggle"></span><span>버스트 충전을 덱마다 따로</span></label>
-              <div class="deck-regen-grid" data-deck-regen hidden></div>
+            <!-- 구 방식(고정 시간) 전용 — 신 방식에서는 게이지가 히트로 차므로 이 값들이 쓰이지 않는다.
+                 「버스트 게이지」에서 구 방식을 골랐을 때만 보인다. 옛 저장본·코드는 신 방식으로 읽힌다. -->
+            <div class="legacy-burst" data-legacy-burst hidden>
+              <p class="field-note"><b>구 방식 전용</b> — 게이지를 히트로 채우지 않고 아래 시간이 지나면 찬 것으로 봅니다. 신 방식에서는 쓰지 않습니다.</p>
+              <div class="field-grid">
+                <label title="게이지 충전만의 시간입니다. 여기에 단계 전환 0.3초와 버스트 쿨 여유가 더해져 실제 공백은 더 깁니다."><span>버스트 게이지 충전</span><div class="input-unit"><input id="burst-regen" type="number" min="0" max="20" step="0.1" value="2" /><em>초</em></div></label>
+                <label title="전투 시작 기준 첫 버스트를 시작할 최소 시각입니다. 0초는 즉시 시작하며 단계 전환과 반응속도는 별도로 적용됩니다."><span>첫 버스트 시간</span><div class="input-unit"><input id="first-burst" type="number" min="0" max="3600" step="0.1" value="3" /><em>초</em></div></label>
+              </div>
+              <div class="deck-split">
+                <label class="toggle-field deck-regen-toggle"><input id="first-burst-per-deck" type="checkbox" /><span class="toggle"></span><span>첫 버스트 시간을 덱마다 따로</span></label>
+                <div class="deck-regen-grid" data-deck-first-burst hidden></div>
+                <label class="toggle-field deck-regen-toggle" title="버스트 쿨이 밀리는 덱만 다른 값으로 재고 싶을 때 켭니다"><input id="burst-regen-per-deck" type="checkbox" /><span class="toggle"></span><span>버스트 충전을 덱마다 따로</span></label>
+                <div class="deck-regen-grid" data-deck-regen hidden></div>
+              </div>
             </div>
             <div class="deck-split">
               <label class="toggle-field deck-regen-toggle" title="같은 편성을 코어 있는 판과 없는 판으로 나란히 재고 싶을 때 켭니다. 코어 크기는 위에서 정한 하나를 함께 씁니다"><input id="core-per-deck" type="checkbox" /><span class="toggle"></span><span>코어 유무를 덱마다 따로</span></label>
@@ -3688,6 +3696,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     elementWindows: elementWindows.map((w) => ({ ...w })),
     rngMode: element<HTMLSelectElement>(root, '#rng-mode').value as RngMode,
     immuneBlocksBurst: element<HTMLInputElement>(root, '#immune-blocks-burst').checked,
+    burstGaugeMode: element<HTMLSelectElement>(root, '#burst-gauge-mode').value === 'legacy' ? 'legacy' : 'new',
     normalHitCoeff: readHitCoeff(),
     burstRegenTime: Number(element<HTMLInputElement>(root, '#burst-regen').value),
     ...(element<HTMLInputElement>(root, '#burst-regen-per-deck').checked
@@ -3749,6 +3758,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     renderPhases();
     element<HTMLSelectElement>(root, '#rng-mode').value = battle.rngMode ?? 'expected';
     element<HTMLInputElement>(root, '#immune-blocks-burst').checked = Boolean(battle.immuneBlocksBurst);
+    // 없는 저장본은 신 방식이다 — 이 항목이 생기기 전의 조건은 전부 그렇게 읽는다.
+    element<HTMLSelectElement>(root, '#burst-gauge-mode').value = battle.burstGaugeMode === 'legacy' ? 'legacy' : 'new';
+    element<HTMLElement>(root, '[data-legacy-burst]').hidden = battle.burstGaugeMode !== 'legacy';
     writeHitCoeff(battle.normalHitCoeff);
     if (battle.burstRegenTime !== undefined) {
       element<HTMLInputElement>(root, '#burst-regen').value = String(battle.burstRegenTime);
@@ -5305,6 +5317,11 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   });
   element<HTMLSelectElement>(root, '#shotgun-model').addEventListener('change', refreshShotgunControls);
   refreshShotgunControls();
+  // 구 방식 전용 칸(충전 시간·첫 버스트 시간)은 구 방식을 골랐을 때만 보인다.
+  const gaugeModeSelect = element<HTMLSelectElement>(root, '#burst-gauge-mode');
+  gaugeModeSelect.addEventListener('change', () => {
+    element<HTMLElement>(root, '[data-legacy-burst]').hidden = gaugeModeSelect.value !== 'legacy';
+  });
   // 전투 조건 입력이 바뀌면 저장한다.
   form.addEventListener('change', (event) => {
     const target = event.target as HTMLElement | null;
@@ -7540,7 +7557,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       },
       // 남의 덱을 내 판에 — 편성만. 스펙은 내 로스터가 얹힌다. 큐브를 함께 받았으면
       // 그것만 덮어쓴다(카탈로그에 없는 큐브·없는 레벨은 건너뛴다 — 요청이 깨진다).
-      applyDecks: (codes, cubes) => {
+      // 컨트롤(톡톡이·장전컨·홀드·버스트 운용·무기 모드 전환)을 함께 받았으면 그것도 얹는다.
+      applyDecks: (codes, cubes, controls) => {
         const names = catalog.map((char) => char.name);
         const count = Math.max(2, codes.length);
         while (decks.length < count) decks.push(emptyDeck(decks.length + 1));
@@ -7553,14 +7571,23 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             { into: index, from: 0 },
           );
           const deck = decks[index];
+          if (!deck) return;
           const worn = cubes?.[index];
-          if (!deck || !worn) return;
-          for (const [name, cube] of Object.entries(worn)) {
+          for (const [name, cube] of Object.entries(worn ?? {})) {
             if (!deck.squad.includes(name)) continue;
             const known = cube.name === NO_CUBE || Boolean(settings.cubes[cube.name]?.levels[String(cube.level)]);
             if (!known) continue;
             const base = deck.characters[name] ? cloneOverride(deck.characters[name]!) : {};
             base.cube = { name: cube.name, level: cube.name === NO_CUBE ? 0 : cube.level };
+            deck.characters[name] = base;
+          }
+          for (const [name, ctl] of Object.entries(controls?.[index] ?? {})) {
+            if (!deck.squad.includes(name)) continue;
+            const base = deck.characters[name] ? cloneOverride(deck.characters[name]!) : {};
+            if (ctl.control) base.control = structuredClone(ctl.control); else delete base.control;
+            if (ctl.burst) base.burst = structuredClone(ctl.burst); else delete base.burst;
+            if (ctl.weaponModeSwapAt !== undefined) base.weaponModeSwapAt = ctl.weaponModeSwapAt;
+            else delete base.weaponModeSwapAt;
             deck.characters[name] = base;
           }
         });

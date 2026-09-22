@@ -53,6 +53,10 @@ def _get_skill_lv(char: dict, eff: dict) -> str:
 
 
 _NIKKE = _load(os.path.join(_DATA_DIR, "parsed_nikke.json"))
+# 버스트 게이지 손 관리 예외표. {캐릭터: {스킬명: {"burst_energy": 히트당 %}}} —
+# 무기값과 다른 버충 계수를 갖는 스킬(라피 : 레드 후드 부착형 유탄). 정본: data/burst_gauge.json
+_BURST_GAUGE = _load(os.path.join(_DATA_DIR, "burst_gauge.json"))
+BURST_GAUGE_EXCEPTIONS: dict = _BURST_GAUGE.get("_exceptions", {})
 _PARSED_SKILLS = _load(os.path.join(_DATA_DIR, "parsed_skills.json"))
 
 FAVORITE_MAX_STAGE = 3          # 애장품 단계는 0(미보유)~3
@@ -170,6 +174,10 @@ _BUFFS_ZERO: dict[str, Any] = {
     "skill_cooldown_pct": 0.0,  # 스킬 쿨타임 % 감소 (음수 = 감소)
     "charge_speed_overflow_conversion_pct": 0.0,  # charge_speed 100% 초과분 × N% → charge_dmg_pct 추가
     "mg_warmup_speed_pct": 0.0,  # MG 예열 진행 속도 % (음수 = 감소). -100이면 warmup_shots 증가 정지
+    # 「버스트 충전 속도」는 수령자와 무관하게 **시전자의 발당 기준 게이지 × 버프값**을
+    # 매 히트에 가산한다(히트당 가산, 곱연산 아님 — 에이드 : 에이전트 바니 실측이 결정).
+    # `_route_burst_charge()`가 %값을 시전자 기준 %p로 환산해 여기 싣는다.
+    "burst_charge_speed_flat": 0.0,  # 모든 시전자가 주는 히트당 게이지 가산량(%p)
 }
 
 # parsed_skills stat → buffs 딕셔너리 키 매핑
@@ -238,6 +246,9 @@ _STAT_TO_BUFF: dict[str, str] = {
     "skill_cooldown_pct":   "skill_cooldown_pct",
     "charge_speed_overflow_conversion_pct": "charge_speed_overflow_conversion_pct",
     "mg_warmup_speed_pct": "mg_warmup_speed_pct",
+    # 2024-12-05에 「버스트 게이지 획득량」 → 「버스트 게이지 충전 속도」로 표기만 바뀌었다.
+    # 별개 메커니즘이 아니므로 stat도 하나다. `_route_burst_charge()`가 환산한다.
+    "burst_charge_speed_pct": "burst_charge_speed_flat",
 }
 
 # 크리확률로 합산되는 stat 집합 (백분율 → 확률 환산 후 기본 15%와 합연산)
@@ -350,6 +361,35 @@ _RUNTIME_COND_PREFIXES = frozenset([
 ])
 
 
+def _is_cond_finite_passive(eff: dict) -> bool:
+    """조건부 `passive` 중 **유한 지속**인 것인가.
+
+    `passive`는 `battle_start`에 한 번만 등록된다(`_timing_match`). 지속이 `-1`이면 그걸로
+    충분하다 — 게이팅을 런타임 재평가(`_RUNTIME_COND_PREFIXES`)에 맡기면 조건이 곧 유효
+    구간이 된다. 그런데 **유한 지속이면 한 번 만료된 뒤 다시 켤 경로가 없다.** 조건이
+    t=0에 거짓이면 등록되자마자 수명만 흘러 죽고, 조건이 참이 되어도 돌아오지 않는다.
+
+    원문 「자신의 체력이 90% 이하일 때 … [5초 유지]」는 *조건이 유지되는 동안 계속 걸리고
+    조건이 깨진 뒤 5초 더 남는다*는 뜻이다. 그래서 이 부류는 `tick()`이 따로 돌본다 —
+    조건이 참인 동안 만료 시각을 밀고, 거짓이 되면 그대로 잔류시켜 만료시킨다.
+    (치사토 `사격 간파` · 비스킷 `터그 놀이`. 원본 저장소 e9d195d 이식, 2026-09-22)
+
+    `[N발 유지]`는 대상이 아니다 — 발수 수명은 시간 축으로 밀 수 없다.
+    """
+    if eff.get("type") != "buff":
+        return False
+    if "passive" not in eff["trigger"]["timing"]:
+        return False
+    if not eff["trigger"].get("condition"):
+        return False
+    if eff.get("duration_bullets", -1) != -1:
+        return False
+    duration = eff.get("duration")
+    if duration is None and "duration_values" in eff:
+        return True
+    return duration is not None and duration != -1
+
+
 def _has_runtime_cond(conditions: list, expires: float, duration_bullets: int = -1) -> bool:
     """
     이 버프가 get_buffs 시점마다 조건을 재평가해야 하는지.
@@ -451,6 +491,11 @@ class ActiveBuff:
     shield_max_per_target: dict[str, float] = field(default_factory=dict)
                                       # 보호막 회복 상한(최초 생성량).
                                       # 수명은 ActiveBuff와 같아 별도 만료 상태를 두지 않는다.
+    hp_bonus_flat: float = 0.0        # max_hp_from_max_hp_pct가 부여 시점에 확정한 최대 체력
+                                      # 가산분(절대값). 「시전자의 **최종** 최대 체력 비례」라
+                                      # 조회 시점에 다시 재면 시전자 자신이 대상일 때
+                                      # effective_max_hp가 자기를 다시 부르는 재귀가 된다 —
+                                      # 보호막(`shield_per_target`)과 같이 부여 시점 스냅샷으로 둔다.
 
     plan_steps: dict = field(default_factory=dict, repr=False, compare=False)
     # 시간 불변 버프의 `_build_plan` 스텝 캐시. {(caster, target, exclude): 스텝}
@@ -530,6 +575,15 @@ class BuffManager:
 
         # 이벤트별 발동 횟수 (hit_count, burst_cast_count 등 추적용)
         self._event_counts: dict[str, dict[str, int]] = {}  # caster → {event_key: count}
+        # 버스트 게이지 가산 로그 콜백. 타임라인이 register_gauge_event_handler()로 주입
+        self._gauge_event_handler: Any = None
+        # pellet_hit_in_shot:N 임계값 캐시 (캐스터별). `pellet_in_shot_thresholds()` 참조
+        self._pellet_in_shot_cache: dict[str, list[tuple[int, str]]] = {}
+        # `debuff_immune_count` 소모량: (니케, 버프 이름) → 쓴 개수. 재부여 시 0으로 되돌린다
+        self._immune_used: dict[tuple[str, str], float] = {}
+        # 조건부 passive 중 유한 지속인 것 — tick()이 조건이 참인 동안 만료를 민다.
+        # `_effects`가 다 채워진 뒤(아래 등록 루프 뒤)에 만든다 — `_build_cond_finite_passives()`.
+        self._cond_finite_passives: list[tuple[dict, str]] = []
         self._conditional_event_counts: dict[tuple[str, str], tuple[int, int]] = {}
 
         # max_trigger 추적: id(effect) → 발동 횟수 (buff/instant/damage/weapon_change 공통)
@@ -645,6 +699,7 @@ class BuffManager:
                 self._effects.append((self._make_manual_effect(stat, float(value)), name))
 
         self._build_notify_index()
+        self._build_cond_finite_passives()
 
     def _timing_to_index_key(self, timing: str) -> str | None:
         """timing 문자열 → notify 인덱스 조회 키. every:* 는 None 반환 (틱 전용)."""
@@ -664,6 +719,8 @@ class BuffManager:
             return "full_burst_end"
         if timing.startswith("full_charge_count:"):
             return "full_charge_hit"
+        if timing.startswith("on_attack_count:"):
+            return "on_attack"
         if timing.startswith("hit_count:"):
             parts = timing.split(":", 2)
             if len(parts) == 3 and not parts[1].lstrip("-").isdigit():
@@ -914,6 +971,145 @@ class BuffManager:
         handler(name, caster, target, t, stat, value) 시그니처.
         """
         self._instant_event_handler = handler
+
+    def register_gauge_event_handler(self, handler):
+        """타임라인이 버스트 게이지 가산 로그 콜백을 등록한다.
+        handler(t, caster, source, amount, gauge) 시그니처.
+        """
+        self._gauge_event_handler = handler
+
+    def _build_cond_finite_passives(self) -> None:
+        """조건부 유한 passive 목록을 `_effects`에서 뽑는다. 등록이 끝난 뒤 한 번 부른다."""
+        self._cond_finite_passives = [
+            (eff, caster) for eff, caster in self._effects if _is_cond_finite_passive(eff)
+        ]
+
+    def _expires_at(self, eff: dict, caster: str, t: float) -> float:
+        """이 효과를 지금 걸면 언제 만료되는가. 종료 조건이 없으면 `inf`."""
+        duration = eff.get("duration")
+        if duration is None and "duration_values" in eff:
+            char = self._char.get(caster, {})
+            skill_lv = _get_skill_lv(char, eff)
+            dv = eff["duration_values"]
+            duration = float(dv.get(skill_lv, dv.get("10", 0.0)))
+        return math.inf if duration is None or duration == -1 else t + float(duration)
+
+    # ── 버스트 게이지 (실누적) ─────────────────────────────────────────────
+    def add_burst_gauge(self, amount: float, t: float,
+                        caster: str = "", source: str = "") -> float:
+        """공용 버스트 게이지에 가산하고 실제로 들어간 양을 돌려준다.
+
+        **충전 창·상한·폐기 규칙을 여기 한 곳에 가둔다.** 부르는 쪽(발사·차지·스킬 대미지·
+        instant 핸들러)은 "얼마를 만들었나"만 알면 된다.
+
+        - 게이지는 스쿼드 공용 1개다 (캐릭터별이 아니다).
+        - **풀버스트가 끝나기 전까지는 충전되지 않는다** (유저 인게임 확인). 그 조건이
+          `BurstController._phase == "idle"`과 같아서 컨트롤러가 매 tick
+          `state["burst_gauge_charging"]`에 그 값을 실어 준다.
+        - 만충 100 초과분은 버려진다 — 그래서 min()이지 이월이 아니다.
+
+        정본: 원본 저장소 docs/mechanics/버스트 게이지.md (2026-09-22 이식)
+        """
+        if amount <= 0.0 or not self.state.get("burst_gauge_charging", False):
+            return 0.0
+        cur = self.state.get("burst_gauge", 0.0)
+        new = min(100.0, cur + amount)
+        self.state["burst_gauge"] = new
+        added = new - cur
+        if self._gauge_event_handler is not None and added > 0.0:
+            self._gauge_event_handler(t, caster, source, added, new)
+        return added
+
+    def consume_burst_gauge(self, t: float) -> float:
+        """1단계 진입이 게이지를 0으로 소모한다. 소모량을 로그(`consume`)에 남기고 돌려준다.
+
+        100을 넘긴 몫은 여기서 사라진다(초과분은 이월되지 않는다 — 유저 인게임 확인).
+        두 모드 모두 소모한다 — 로그에 남겨야 화면이 «어디서 비웠나»를 그린다.
+        """
+        cur = self.state.get("burst_gauge", 0.0)
+        self.state["burst_gauge"] = 0.0
+        if self._gauge_event_handler is not None and cur > 0.0:
+            self._gauge_event_handler(t, "", "consume", -cur, 0.0)
+        return cur
+
+    def mark_normal_attack_landed(self, caster: str) -> None:
+        """일반 공격 첫 명중을 기록하고 버충속 집계 캐시를 갱신한다.
+
+        시전자가 일반 공격을 한 번이라도 명중시키면 그 사람이 건 「버스트 충전 속도」의
+        기준값이 `(발당)`에서 `(대상)`으로 바뀐다(아니스 : 스타·그레이브 실측). 충전 창
+        밖(풀버스트 중) 명중도 전환을 일으킨다.
+        """
+        landed = self.state.setdefault("normal_attack_landed", set())
+        if caster not in landed:
+            landed.add(caster)
+            self._invalidate_buffs_cache()
+
+    def _route_burst_charge(self, ab: ActiveBuff, buff_key: str, val: float) -> tuple[str, float]:
+        """같은 버충속 값을 시전자 기준 히트당 게이지(%p)로 환산한다.
+
+        버프 수령자가 시전자 본인인지 아군인지는 가르지 않는다. 시전자가 일반 공격을
+        한 번도 명중시키지 않았으면 CDN `(발당)`, 한 번이라도 명중시켰으면 `(대상)`을
+        참조해 히트당 고정 가산량으로 바꾼다.
+        """
+        if buff_key != "burst_charge_speed_flat":
+            return buff_key, val
+        weapon = _NIKKE.get(ab.caster, {})
+        if ab.caster in self.state.get("normal_attack_landed", ()):
+            reference = weapon.get("burst_energy", 0.0)
+        else:
+            reference = weapon.get("burst_energy_raw", weapon.get("burst_energy", 0.0) / 2.0)
+        return buff_key, reference * val / 100.0
+
+    def pellet_in_shot_thresholds(self, caster: str) -> list[tuple[int, str]]:
+        """이 캐스터의 효과가 쓰는 `pellet_hit_in_shot:N` 임계값 — `(값, 원문 표기)`.
+
+        「일반 공격 1회로 펠릿 N개 이상 명중 시」는 **한 발 안의** 명중 펠릿 수를 보므로
+        누적 카운터인 `pellet_hit_count:N`과 다른 축이다. 판정은 타임라인이 발사마다 하고
+        여기서는 임계값만 모아 준다(`charge_hold_thresholds`와 같은 모양).
+        """
+        cached = self._pellet_in_shot_cache.get(caster)
+        if cached is not None:
+            return cached
+        found: dict[str, int] = {}
+        for eff, eff_caster in self._effects:
+            if eff_caster != caster:
+                continue
+            for timing in eff["trigger"]["timing"]:
+                if not timing.startswith("pellet_hit_in_shot:"):
+                    continue
+                raw = timing.split(":", 1)[1]
+                try:
+                    found[raw] = int(raw)
+                except ValueError:
+                    continue
+        result = sorted(((v, raw) for raw, v in found.items()))
+        self._pellet_in_shot_cache[caster] = result
+        return result
+
+    def _consume_immune_charge(self, name: str) -> bool:
+        """`debuff_immune_count` 잔량이 있으면 하나 쓰고 True.
+
+        잔량은 버프 이름 단위 풀이다 — 같은 이름의 항목들은 합이 아니라 최대값 하나를
+        공유한다. 재부여(`_activate` 후처리)가 그 이름의 소모량을 0으로 되돌린다.
+        개수는 대상 니케 1인당이다.
+        """
+        cap: dict[str, float] = {}
+        for ab in self._active:
+            if ab.effect.get("stat") != "debuff_immune_count":
+                continue
+            if name not in (ab.target_chars or []):
+                continue
+            val = self._get_value(ab.effect, ab, name)
+            if val is None:
+                continue
+            key = ab.effect.get("name", "")
+            cap[key] = max(cap.get(key, 0.0), float(val))
+        for key, total in cap.items():
+            used = self._immune_used.get((name, key), 0.0)
+            if used < total:
+                self._immune_used[(name, key)] = used + 1.0
+                return True
+        return False
 
     def _dispatch_instant(self, eff: dict, caster: str, t: float, from_tick: bool = False):
         """instant 효과를 핸들러로 라우팅하거나 내장 로직으로 처리.
@@ -1454,7 +1650,14 @@ class BuffManager:
                     if is_passive:
                         conditions = eff["trigger"].get("condition", [])
                         cond_met = not conditions or self._condition_ok(conditions, caster, t, eff)
-                        self._activate(eff, caster, t, suppress_event=not cond_met)
+                        if _is_cond_finite_passive(eff):
+                            # 유한 지속은 조건이 거짓이면 아예 걸지 않는다 — 걸어 두면 런타임
+                            # 재평가 대상이 아니라서 조건이 거짓인 동안에도 수치가 그대로 먹는다.
+                            # 조건이 참이 되는 시점은 tick()의 조건부 유한 passive 블록이 잡는다.
+                            if cond_met:
+                                self._activate(eff, caster, t)
+                        else:
+                            self._activate(eff, caster, t, suppress_event=not cond_met)
                     elif self._condition_ok(eff["trigger"].get("condition", []), caster, t, eff):
                         self._activate(eff, caster, t)
                     break
@@ -1533,6 +1736,15 @@ class BuffManager:
         # every:Ns: 내부 타이머로 관리 (tick에서 처리), notify에서는 무시
         if timing.startswith("every:"):
             return False
+
+        # on_attack_count:N — `일반 공격 N회 공격 시`. 발사 카운터라 총구·펠릿과 무관하게
+        # 발사 1회당 1씩 오른다. 짝인 `hit_count:N`(명중)은 탄 단위라 총구만큼 오른다.
+        # (원본 저장소 5abe65e 이식 — 「공격 시」와 「명중 시」를 갈라 센다)
+        if timing.startswith("on_attack_count:") and event == "on_attack":
+            raw = timing.split(":")[1]
+            if not raw.lstrip("-").isdigit(): return False
+            n = self._apply_trigger_count_reduce(int(raw), eff, caster, t)
+            return n > 0 and count % n == 0
 
         # burst_cast_count:N — N번째 이후 버스트마다 누적 발동 (count >= N)
         if timing.startswith("burst_cast_count:") and event == "burst_cast":
@@ -1875,6 +2087,14 @@ class BuffManager:
                 )
                 if has != (cond == "has_defender_ally"):
                     return False
+            elif cond == "optimal_range":
+                # 적정 사거리 여부의 정본은 `enemy["optimal_range_weapons"]`다 — ③ 고정 +30%를
+                # 태우는 것과 같은 판정을 쓴다(timeline `is_optimal_range`). 기본값이 빈
+                # 목록이므로 전투 조건이 무기군을 명시하지 않으면 무발동이다. 무기 유형은
+                # 로스터 값을 본다(원본 저장소 be5cfb9 이식).
+                wt = _NIKKE.get(caster, {}).get("weapon_type")
+                if wt not in (self.state.get("enemy", {}).get("optimal_range_weapons") or []):
+                    return False
             elif cond.startswith("gauge_above:"):
                 parts = cond.split(":")
                 gauge_id, threshold = parts[1], float(parts[2])
@@ -2109,6 +2329,10 @@ class BuffManager:
                 val = self._get_value(ab.effect, ab, name)
                 if val is not None:
                     bonus_flat += caster_base_hp * val / 100.0
+            elif stat == "max_hp_from_max_hp_pct":
+                # 부여 시점에 확정한 절대값(`ActiveBuff.hp_bonus_flat`). 여기서 시전자의
+                # effective_max_hp를 다시 부르면 시전자가 자기 대상일 때 재귀다.
+                bonus_flat += ab.hp_bonus_flat
         return base_hp * (1.0 + bonus_pct / 100.0) + bonus_flat
 
     def shield_amount(self, name: str) -> float:
@@ -2428,6 +2652,7 @@ class BuffManager:
                 c for c in targets
                 if not self._has_immune(c, "debuff_immune")
                 and (named_immune is None or not self._has_immune(c, named_immune))
+                and not self._consume_immune_charge(c)
             ]
             if not targets:
                 return
@@ -2543,6 +2768,24 @@ class BuffManager:
                 scaling_stack=self._capture_scaling_stack(eff, caster),
             ))
             name = eff.get("name", "")
+            # debuff_immune_count 재부여 — 그 이름의 소모량을 되돌린다(잠량 재충전).
+            if eff.get("stat") == "debuff_immune_count" and targets:
+                for tgt in targets:
+                    self._immune_used.pop((tgt, name), None)
+            # max_hp_from_max_hp_pct — 「시전자의 최종 최대 체력 비례 최대 체력 N% ▲」.
+            # 가산분은 **부여 시점의 시전자 effective_max_hp** 기준으로 확정해 버프에 싣는다.
+            # 「최대 체력만」이 아니므로 현재 체력도 같이 오른다(`max_hp_pct`와 같은 쪽).
+            if eff.get("stat") == "max_hp_from_max_hp_pct" and targets and "hp" in self.state:
+                ab_ref = self._active[-1]
+                full_val = self._get_value(eff, ab_ref, caster)
+                if full_val is not None:
+                    ab_ref.hp_bonus_flat = 0.0
+                    ab_ref.hp_bonus_flat = self.effective_max_hp(caster) * full_val / 100.0
+                    for tgt in targets:
+                        if tgt in self.state["hp"]:
+                            self.state["hp"][tgt] = min(self.state["hp"][tgt] + ab_ref.hp_bonus_flat,
+                                                        self.effective_max_hp(tgt))
+                            self.sync_hp(tgt)
             if name:
                 # 기본은 스쿼드 전체 브로드캐스트, event_scope: "recipients"면 수령자 한정
                 for _sq in self._event_audience(eff, targets, caster):
@@ -2643,6 +2886,24 @@ class BuffManager:
         - every:Ns 효과 발동 체크
         """
         self._cur_t = t
+
+        # 조건부 passive + 유한 지속: 조건이 참인 동안 만료를 민다(`_is_cond_finite_passive`).
+        # 원문 「… 일 때 … [N초 유지]」는 *조건이 유지되는 동안 계속 걸리고 조건이 깨진 뒤
+        # N초 더 남는다*는 뜻이라, 참인 동안 만료 시각을 밀고 거짓이 되면 그대로 둔다.
+        if self._cond_finite_passives:
+            down = self.state.get("down")
+            for eff, caster in self._cond_finite_passives:
+                if down and caster in down:
+                    continue
+                if not self._condition_ok(eff["trigger"].get("condition", []), caster, t, eff):
+                    continue
+                ab = next((a for a in self._active
+                           if a.effect is eff and a.caster == caster), None)
+                if ab is None:
+                    self._activate(eff, caster, t)
+                else:
+                    # 갱신은 조용히 한다 — 조건이 참인 내내 activate 로그가 쌓이지 않도록.
+                    ab.expires_at = max(ab.expires_at, self._expires_at(eff, caster, t))
 
         # ── `same_target:[이름]` DoT 중첩 램프 ────────────────────────────
         #
@@ -2957,6 +3218,10 @@ class BuffManager:
             return False
         if ab.bullets_left != -1 or ab.bullets_per_target:
             return False
+        if eff.get("stat") == "burst_charge_speed_pct":
+            # 그 시전자가 일반 공격을 명중시켰는지에 따라 참조값이 바뀐다.
+            # 계획에 접으면 전투 시작 시점의 값이 그대로 굳는다.
+            return False
         return True
 
     def _plan_step(self, ab: ActiveBuff, caster: str, target: str,
@@ -3169,6 +3434,8 @@ class BuffManager:
             val = self._get_value(eff, ab, actual_recipient, stack_override=char_stack)
             if val is None:
                 continue
+            # 「버스트 충전 속도」는 시전자 기준 히트당 %p로 환산해 싣는다(실누적 게이지).
+            buff_key, val = self._route_burst_charge(ab, buff_key, val)
 
             if stat in _CRIT_RATE_STATS:
                 crit_rate_parts.append(val / 100)

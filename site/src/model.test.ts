@@ -98,6 +98,8 @@ describe('request normalization', () => {
       enemyDef: 31_784,
       corePx: 4,
       seed: 42,
+      // 게이지 방식은 언제나 실린다 — 없으면 신 방식.
+      burstGaugeMode: 'new',
       // 난수 모드는 기본값이어도 언제나 실린다 — 브리지와 기본값이 어긋나지 않게.
       rngMode: 'expected',
       firstBurstTime: 0,

@@ -55,6 +55,8 @@ export interface TimelineSeries {
   elementWindows: Array<{ from: number; to: number; code: string }>;
   /** 버프가 걸려 있던 구간. 「버프 표시」를 켰을 때만 그린다. */
   buffs: BuffTrack[];
+  /** 버스트 게이지(%) — 칸 끝 값. 「버충 표시」를 켰을 때만 그린다. 옛 결과에는 없어 null. */
+  gauge: number[] | null;
   peak: number;
   buckets: number;
   /**
@@ -164,6 +166,8 @@ export function buildSeries(
     elementWindows: phases.elementWindows ?? [],
     // 이 덱에 없는 사람이 건 버프는 색을 줄 수 없으니 뺀다(옛 결과에는 목록 자체가 없다).
     buffs: (timeline.buffs ?? []).filter((track) => names.includes(track.caster)),
+    // 칸 수가 안 맞으면(다른 버킷으로 저장된 옛 결과) 안 그린다 — 엉뚱한 자리에 선을 긋지 않는다.
+    gauge: timeline.gauge && timeline.gauge.length === timeline.buckets ? timeline.gauge : null,
     peak,
     buckets: timeline.buckets,
     // 옛 결과에는 이 값이 없을 수 있다 — 그때는 1초 버킷이었다.
@@ -235,6 +239,8 @@ class TimelineChart {
 
   /** 「장탄 표시」를 켰는가. 껐을 때는 레인을 아예 만들지 않는다. */
   private showAmmo = false;
+  /** 「버충 표시」 — 버스트 게이지(%) 점선. 기본은 끔이다. */
+  private showGauge = false;
   private fixedYMax: number | null = null;
 
   setYMax(value: number | null): void {
@@ -418,6 +424,16 @@ class TimelineChart {
 
   get hasBuffs(): boolean {
     return this.series.buffs.length > 0;
+  }
+
+  get hasGauge(): boolean {
+    return this.series.gauge !== null;
+  }
+
+  /** 「버충 표시」 켜기·끄기. */
+  setShowGauge(on: boolean): void {
+    this.showGauge = on && this.series.gauge !== null;
+    this.draw();
   }
 
   private xFor(t: number): number {
@@ -652,6 +668,35 @@ class TimelineChart {
       ctx.stroke();
     }
     ctx.restore();
+
+    // 버스트 게이지 — 0~100%를 플롯 높이에 얹은 점선. 만충에서 뚝 떨어지는 자리가 1단계
+    // 진입이고, 평평한 구간은 풀버스트(안 찬다)다. 대미지 축과 무관한 눈금이라 오른쪽 안에 %를 적는다.
+    if (this.showGauge && this.series.gauge) {
+      const row = this.series.gauge;
+      const gy = (pct: number) => top + height - (pct / 100) * height;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(left, top, width, height);
+      ctx.clip();
+      ctx.strokeStyle = 'rgba(255,191,60,0.92)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.moveTo(this.xFor(0), gy(0));
+      for (let i = 0; i < row.length; i += 1) {
+        const t = (i + 1) * this.series.bucket;
+        if (t < this.view0 - step || t > this.view1 + step) continue;
+        ctx.lineTo(this.xFor(t), gy(row[i]!));
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(255,191,60,0.85)';
+      ctx.font = '700 9px ui-monospace, monospace';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      for (const pct of [50, 100]) ctx.fillText(`게이지 ${pct}%`, left + width - 4, gy(pct) + (pct === 100 ? 7 : 0));
+      ctx.restore();
+    }
 
     // 장탄 레인 — 그래프와 축 사이. 켰을 때만 자리를 차지한다.
     if (this.showAmmo) this.drawAmmo(ctx, top + height + AMMO_PAD);
@@ -1053,6 +1098,26 @@ function createSeriesBlock(
       chart.setShowBuffs(on);
     });
     controls.prepend(buffToggle);
+  }
+  // 버충 표시 — 버스트 게이지(%)를 점선으로 얹는다. «다음 풀버스트가 왜 여기서 왔나»는
+  // 게이지가 답한다. 기본은 끔이다(대미지 선과 눈금이 다르다).
+  if (chart.hasGauge) {
+    const gaugeToggle = document.createElement('button');
+    gaugeToggle.type = 'button';
+    gaugeToggle.className = 'timeline-buff-toggle';
+    gaugeToggle.dataset.timelineGauge = '';
+    gaugeToggle.setAttribute('aria-pressed', 'false');
+    gaugeToggle.title = '버스트 게이지(%)를 점선으로 얹습니다. 만충에서 뚝 떨어지는 자리가 1단계 진입이고, 풀버스트 동안은 차지 않습니다';
+    const mark = textSpan('', 'tl-gauge-mark');
+    mark.setAttribute('aria-hidden', 'true');
+    gaugeToggle.append(mark, textSpan('버충 표시', ''));
+    gaugeToggle.addEventListener('click', () => {
+      const on = gaugeToggle.getAttribute('aria-pressed') !== 'true';
+      gaugeToggle.setAttribute('aria-pressed', String(on));
+      gaugeToggle.classList.toggle('is-on', on);
+      chart.setShowGauge(on);
+    });
+    controls.prepend(gaugeToggle);
   }
   // 장탄 표시 — 「왜 여기서 딜이 끊기나」가 대개 탄이 떨어져서다. 초당 대미지만으로는
   // 그 골이 재장전인지 버프가 꺼진 것인지 안 갈린다. 기본은 끔이다(줄이 다섯 늘어난다).
