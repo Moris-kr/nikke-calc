@@ -821,6 +821,24 @@ async function handleRaidRecalc(env, body) {
   return { updated, missing };
 }
 
+/**
+ * 레이드 목록의 순서를 어드민이 정한 대로 바꾼다 — 화면의 목록은 이 순서를 그대로 따른다.
+ * 같은 id 집합이어야 한다(빠지거나 모르는 id가 있으면 거절) — 순서를 바꾸다 레이드가 사라지면 안 된다.
+ */
+async function handleRaidReorder(env, body) {
+  requireAdmin(env, body.password);
+  const ids = Array.isArray(body.ids) ? body.ids.map((id) => text(id, 40, '레이드', true)) : [];
+  const index = await raidIndex(env);
+  const have = index.raids.map((raid) => raid.id);
+  if (ids.length !== have.length || new Set(ids).size !== ids.length || ids.some((id) => !have.includes(id))) {
+    throw new Fail(409, '레이드 목록이 그 사이 바뀌었습니다. 새로고침한 뒤 다시 옮겨 주세요.');
+  }
+  const byId = new Map(index.raids.map((raid) => [raid.id, raid]));
+  index.raids = ids.map((id) => byId.get(id));
+  await env.SHARE.put(RAID_INDEX_KEY, JSON.stringify(index));
+  return { raids: index.raids.map(publicRaid) };
+}
+
 /** 어드민 재검증용 스펙. 기록을 올린 브라우저가 돌린 요청 그대로다. */
 async function handleRaidSpec(env, body) {
   requireAdmin(env, body.password);
@@ -959,6 +977,9 @@ export default {
       }
       if (request.method === 'POST' && url.pathname === '/raid/migrate') {
         return json(await handleRaidMigrate(env, await request.json()));
+      }
+      if (request.method === 'POST' && url.pathname === '/raid/reorder') {
+        return json(await handleRaidReorder(env, await request.json()));
       }
       if (request.method === 'POST' && url.pathname === '/raid/recalc') {
         return json(await handleRaidRecalc(env, await request.json()));

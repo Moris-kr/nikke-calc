@@ -821,7 +821,24 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
     }
     const list = el('div', 'raid-list');
     list.dataset.raidList = '';
-    for (const raid of [...open, ...closed]) {
+    const admin = deps.adminPass() !== '';
+    const ordered = [...open, ...closed];
+    // 어드민은 끌어다 놓아 순서를 바꾼다(손가락은 끌기가 안 되므로 ▲▼도 둔다). 열린 것과 닫힌
+    // 것은 무리가 갈라져 있어 서로의 자리로는 못 간다 — 무리 안에서만 옮긴다.
+    let dragging: string | null = null;
+    const move = (id: string, to: number) => {
+      const group = raids.find((raid) => raid.id === id)?.status === 'open' ? open : closed;
+      const from = group.findIndex((raid) => raid.id === id);
+      if (from < 0 || to < 0 || to >= group.length || from === to) return;
+      const [item] = group.splice(from, 1);
+      group.splice(to, 0, item!);
+      raids = [...open, ...closed];
+      render();
+      void deps.server.reorderRaids(raids.map((raid) => raid.id), deps.adminPass())
+        .then((fresh) => { raids = fresh; deps.onRaids?.(raids); render(); })
+        .catch((error) => { say(error instanceof Error ? error.message : String(error)); void refresh(); });
+    };
+    for (const raid of ordered) {
       const button = el('button', raid.id === selectedId ? 'raid-pick is-on' : 'raid-pick');
       button.type = 'button';
       button.dataset.raidPick = raid.id;
@@ -832,6 +849,48 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
         ? t('진행중 · 참가 {n}명', { n: raid.count })
         : t('마감 · 참가 {n}명', { n: raid.count })));
       button.addEventListener('click', () => { void pick(raid.id); });
+      if (admin) {
+        const group = raid.status === 'open' ? open : closed;
+        const at = group.findIndex((other) => other.id === raid.id);
+        button.draggable = true;
+        button.classList.add('is-sortable');
+        button.title = t('끌어다 놓아 순서를 바꿉니다');
+        button.addEventListener('dragstart', (event) => {
+          dragging = raid.id;
+          button.classList.add('is-dragging');
+          event.dataTransfer?.setData('text/plain', raid.id);
+        });
+        button.addEventListener('dragend', () => { dragging = null; button.classList.remove('is-dragging'); });
+        button.addEventListener('dragover', (event) => {
+          if (!dragging || dragging === raid.id) return;
+          const same = raids.find((other) => other.id === dragging)?.status === raid.status;
+          if (!same) return;
+          event.preventDefault();
+          button.classList.add('is-drop');
+        });
+        button.addEventListener('dragleave', () => button.classList.remove('is-drop'));
+        button.addEventListener('drop', (event) => {
+          event.preventDefault();
+          button.classList.remove('is-drop');
+          if (dragging && dragging !== raid.id) move(dragging, at);
+          dragging = null;
+        });
+        const handle = el('span', 'raid-sort');
+        const up = el('button', 'raid-sort-btn', '▲');
+        up.type = 'button';
+        up.dataset.raidUp = raid.id;
+        up.disabled = at === 0;
+        up.setAttribute('aria-label', t('위로'));
+        up.addEventListener('click', (event) => { event.stopPropagation(); move(raid.id, at - 1); });
+        const down = el('button', 'raid-sort-btn', '▼');
+        down.type = 'button';
+        down.dataset.raidDown = raid.id;
+        down.disabled = at === group.length - 1;
+        down.setAttribute('aria-label', t('아래로'));
+        down.addEventListener('click', (event) => { event.stopPropagation(); move(raid.id, at + 1); });
+        handle.append(up, down);
+        button.append(handle);
+      }
       list.append(button);
     }
     box.append(list);

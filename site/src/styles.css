@@ -2842,6 +2842,13 @@ img[src*="/temporary-characters/"][src$="-card.png"] { object-fit: contain; obje
 .raid-pick b { color: var(--ink); font-size: 13px; }
 .raid-pick-auto { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .raid-pick small { font: 700 10.5px/1.3 ui-monospace, monospace; color: var(--amber); }
+.raid-pick.is-sortable { cursor: grab; position: relative; padding-right: 34px; }
+.raid-pick.is-dragging { opacity: .45; }
+.raid-pick.is-drop { border-color: var(--cyan); box-shadow: inset 0 0 0 1px var(--cyan); }
+.raid-sort { position: absolute; right: 6px; top: 6px; display: grid; gap: 2px; }
+.raid-sort-btn { width: 22px; height: 18px; padding: 0; border: 1px solid var(--line); border-radius: 5px; background: rgba(7,15,25,.6); color: var(--muted); font-size: 9px; line-height: 1; cursor: pointer; }
+.raid-sort-btn:disabled { opacity: .3; cursor: default; }
+.raid-sort-btn:hover:not(:disabled) { color: var(--ink); border-color: var(--muted); }
 .raid-pick.is-closed small { color: var(--muted); }
 .raid-pick:hover { border-color: rgba(255,191,60,.45); }
 .raid-pick.is-on { border-color: var(--amber); background: rgba(255,191,60,.08); }

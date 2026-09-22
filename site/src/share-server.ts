@@ -467,6 +467,17 @@ export class ShareServer {
     return this.unwrapReady(response, '계산기 레이드');
   }
 
+  /** 레이드 목록 순서 — 어드민이 끌어 놓은 대로. 전체 id를 그 순서로 보낸다. */
+  async reorderRaids(ids: string[], password: string): Promise<RaidSummary[]> {
+    const response = await this.fetcher(`${this.base}/raid/reorder`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, password }),
+    });
+    const result = await this.unwrapReady<{ raids?: RaidSummary[] }>(response, '계산기 레이드');
+    return result.raids ?? [];
+  }
+
   async raidSpec<T = unknown>(id: string, eid: string, password: string): Promise<T> {
     const response = await this.fetcher(`${this.base}/raid/spec`, {
       method: 'POST',

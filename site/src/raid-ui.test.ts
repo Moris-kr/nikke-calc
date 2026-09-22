@@ -112,6 +112,7 @@ function fakeServer() {
     decks: [{ names: ['크라운'], code: encodeShareCode([{ id: 1, squad: ['크라운', '', '', '', ''], characters: {} }], false), order: '', dmg: 900_000_000, cubes: { 크라운: { name: '탄충', level: 15 } }, controls: { 크라운: { burst: { mode: 'skip' } } } }],
   }];
   const sent: Array<{ url: string; body: Record<string, unknown> }> = [];
+  const reordered: string[][] = [];
   const publicEntry = (entry: Entry, admin: boolean) => ({
     eid: entry.eid, tag: entry.openid.slice(0, 4), decks: entry.decks, total: entry.total, engine: entry.engine, at: entry.at,
     ...(entry.recalculatedAt ? { recalculatedAt: entry.recalculatedAt } : {}),
@@ -152,6 +153,13 @@ function fakeServer() {
     if (url.endsWith('/raid/spec')) {
       const spec = specs[`${body.id}:${body.eid}`];
       return spec ? ok({ spec }) : new Response(JSON.stringify({ error: '보관된 스펙이 없습니다.' }), { status: 404 });
+    }
+    if (url.endsWith('/raid/reorder')) {
+      const ids = body.ids as string[];
+      const all = [...raids.map((raid) => ({ ...raid, count: entries.length })), oldRaid];
+      const sorted = ids.map((id) => all.find((raid) => raid.id === id)!);
+      reordered.push(ids);
+      return ok({ raids: sorted });
     }
     if (url.endsWith('/raid/recalc')) {
       const items = body.entries as Array<{ eid: string; decks: unknown[]; total: number; engine: string }>;
@@ -200,7 +208,7 @@ function fakeServer() {
     }
     return new Response(JSON.stringify({ error: `없는 경로입니다: ${url}` }), { status: 404 });
   }) as unknown as typeof fetch;
-  return { raids, entries, sent, fetcher };
+  return { raids, entries, sent, reordered, fetcher };
 }
 
 /** 블라블라링크로 이어 둔 계정 — 프로필 주소(base64 openid)·로스터·출처. */
@@ -758,6 +766,42 @@ describe('계산기 레이드 (BETA)', () => {
     // 새로 받은 랭킹에는 «재계산됨»이 붙는다.
     const row = pane.querySelector<HTMLElement>('[data-raid-row="e0"]')!;
     expect(row.querySelector('.raid-recalc')!.textContent).toBe('재계산됨');
+  });
+
+  it('어드민은 레이드 목록을 끌어다 놓거나 ▲▼로 옮긴다 — 열린 것과 닫힌 것은 무리를 넘지 않는다', async () => {
+    seedDecks();
+    const server = fakeServer();
+    // 열린 레이드를 하나 더 — 옮길 상대가 있어야 한다.
+    server.raids.push({ id: 'r2', title: '9월 4주 솔레', auto: '180초 · 철갑', code: CODE, status: 'open',
+      openedAt: '2026-09-22T00:00:00Z', closedAt: '', count: 0 });
+    await mount(server);
+    const pane = root.querySelector<HTMLElement>('[data-raid-pane]')!;
+    await openRaidTab();
+    // 어드민이 아니면 손잡이도 끌기도 없다.
+    expect(pane.querySelector('[data-raid-up]')).toBeNull();
+    expect(pane.querySelector<HTMLButtonElement>('[data-raid-pick="r1"]')!.draggable).toBe(false);
+    root.querySelector<HTMLButtonElement>('[data-feedback-open]')!.click();
+    await flush();
+    root.querySelector<HTMLButtonElement>('[data-feedback-admin]')!.click();
+    await flush();
+    await openRaidTab();
+    const order = () => [...pane.querySelectorAll<HTMLElement>('[data-raid-pick]')].map((node) => node.dataset.raidPick);
+    expect(order()).toEqual(['r1', 'r2', 'r0']);
+    expect(pane.querySelector<HTMLButtonElement>('[data-raid-pick="r1"]')!.draggable).toBe(true);
+    // ▼ — r1이 r2 아래로. 서버에는 전체 순서가 간다.
+    pane.querySelector<HTMLButtonElement>('[data-raid-down="r1"]')!.click();
+    await flush();
+    expect(order()).toEqual(['r2', 'r1', 'r0']);
+    expect(server.reordered.at(-1)).toEqual(['r2', 'r1', 'r0']);
+    // 끌어다 놓기 — r1을 r2 위에 놓는다.
+    pane.querySelector<HTMLButtonElement>('[data-raid-pick="r1"]')!.dispatchEvent(new Event('dragstart', { bubbles: true }));
+    pane.querySelector<HTMLButtonElement>('[data-raid-pick="r2"]')!.dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }));
+    await flush();
+    expect(order()).toEqual(['r1', 'r2', 'r0']);
+    expect(server.reordered.at(-1)).toEqual(['r1', 'r2', 'r0']);
+    // 닫힌 r0은 열린 무리 위로 못 간다 — ▲가 죽어 있다.
+    expect(pane.querySelector<HTMLButtonElement>('[data-raid-up="r0"]')!.disabled).toBe(true);
+    expect(pane.querySelector<HTMLButtonElement>('[data-raid-down="r2"]')!.disabled).toBe(true);
   });
 
   it('어드민은 닫은 레이드를 다시 열거나 두 번 눌러 통째로 지운다', async () => {

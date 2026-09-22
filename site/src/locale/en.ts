@@ -1700,4 +1700,5 @@ export const EN: Record<string, string> = {
   '버충 구 방식(고정 시간)': 'legacy burst gauge (fixed time)',
   "계산을 취소했습니다 — 결과는 남기지 않았습니다.": "Calculation cancelled — nothing was recorded.",
   "모의전 — 수치 설정·컨트롤을 자유롭게 바꿔 계산합니다(톡톡이만 3.6발/s 고정). 결과는 랭킹에 올라가지 않고 «이대로라면 몇 등»만 알려 줍니다.": "Mock run — change stats and controls freely (tap-fire stays fixed at 3.6/s). The result is not ranked; you only see \"where you would place\".",
+  "끌어다 놓아 순서를 바꿉니다": "Drag to reorder",
 };
