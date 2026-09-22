@@ -747,6 +747,16 @@ def run_request(raw: str, include_effective: bool = False) -> str:
         response["shots"] = _build_shots(result, names)
         # 사격 트랙을 볼 때는 탄환·재장전도 같이 본다 — 둘이 한 화면에서 읽힌다.
         response["states"] = _build_states(result, names)
+        # 차지 무기의 발마다 [시작, 풀차지 도달, 발사, 풀차지 배율%, 풀차지였나] — 재생 화면의 차징 게이지.
+        charges: dict[str, list] = {}
+        if result.log is not None:
+            for entry in result.log.charge_log:
+                if entry.caster in names:
+                    charges.setdefault(entry.caster, []).append([
+                        round(entry.start, 3), round(entry.full_at, 3), round(entry.fire, 3),
+                        round(entry.value, 1), 1 if entry.full else 0])
+        if charges:
+            response["charges"] = charges
     elif bool(payload.get("stateTrack")):
         # 계산기 타임라인의 장탄 레인. 「왜 여기서 딜이 끊기나」가 대개 탄이 떨어져서라,
         # 초당 대미지와 같은 축에 깔면 재장전인지 버프가 꺼진 것인지가 갈린다.

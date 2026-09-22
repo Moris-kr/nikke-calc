@@ -233,6 +233,9 @@ export interface StateTrack {
   }>;
 }
 
+/** 차지 한 발 — [시작, 풀차지 도달, 발사, 풀차지 배율%, 풀차지였나(1/0)]. 재생 화면의 차징 게이지. */
+export type ChargeRecord = [number, number, number, number, number];
+
 export interface ShotTrack {
   bucket: number;
   buckets: number;
@@ -453,6 +456,8 @@ export interface SimulationResult {
   shots?: ShotTrack;
   /** 캐릭터별 탄환·재장전. 사격 트랙과 함께 온다. */
   states?: StateTrack;
+  /** 차지 무기의 발마다 차지 구간. `shotTrack`을 켠 요청에만 실린다. */
+  charges?: Record<string, ChargeRecord[]>;
   /** 감시 대상 버프의 실제 수령자 — `{시전자: [...]}`. 구버전 캐시에는 없다. */
   buffTargets?: Record<string, BuffTargetRow[]>;
   /** 0.1초 칸으로 나눈 같은 결과. `fineTimeline`을 켠 요청에만 실려 온다. */

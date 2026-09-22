@@ -17,19 +17,28 @@ import sdShootUrl from './assets/replay/sd-shoot.webp';
 import sdReloadUrl from './assets/replay/sd-reload.webp';
 import enemyUrl from './assets/replay/enemy.webp';
 import battleBgUrl from './assets/replay/battle-bg.webp';
+import rrhShootUrl from './assets/replay/sd/rapi-red-hood-shoot.webp';
+import rrhReloadUrl from './assets/replay/sd/rapi-red-hood-reload.webp';
+import { inlineCodeIcon } from './element-inline';
 import './battle-replay.css';
 import { formatDamage } from './model';
 import { statText } from './stat-names';
 import { t } from './i18n';
 import type {
-  BattleTimeline, BuffTrack, BurstCast, DeckResultEntry, ShotTrack, SimulationRequest, SimulationResult, StateTrack,
+  BattleTimeline, BuffTrack, BurstCast, ChargeRecord, DeckResultEntry, ShotTrack, SimulationRequest, SimulationResult,
+  StateTrack,
 } from './types';
 import { spanTargets } from './types';
 
 export type ReplayPose = 'shoot' | 'reload';
 
-/** 캐릭터별 SD. 없으면 회색 자리표시자를 쓴다. 나중에 이름 → 두 자세 그림으로 채운다. */
-export const SD_SPRITES: Record<string, { shoot: string; reload: string }> = {};
+/**
+ * 캐릭터별 SD. 없으면 회색 자리표시자를 쓴다. 사격은 뒷모습, 재장전은 **이쪽(화면)을 보는** 앞모습이다.
+ * 그림은 `assets/replay/sd/<이름>-shoot|reload.webp`에 두고 여기에 이름으로 건다.
+ */
+export const SD_SPRITES: Record<string, { shoot: string; reload: string }> = {
+  '라피 : 레드 후드': { shoot: rrhShootUrl, reload: rrhReloadUrl },
+};
 export const DEFAULT_SD = { shoot: sdShootUrl, reload: sdReloadUrl };
 
 export function spriteFor(name: string, pose: ReplayPose): string {
@@ -168,6 +177,74 @@ export function damageUntil(timeline: BattleTimeline | undefined, name: string, 
   return sum;
 }
 
+/**
+ * 그 시각의 차징 표시(%). 인게임처럼 0 → 풀차지 배율까지 오른다 — 풀차지 배율은
+ * `기본 배율 × (1 + 차지 대미지 배율%) + 차지 대미지%`(엔진이 발마다 기록한 값)다.
+ * 차지 중이 아니면 null. `full`은 풀차지에 닿았나.
+ */
+export function chargeAt(
+  records: ChargeRecord[] | undefined, time: number,
+): { value: number; full: boolean; max: number } | null {
+  if (!records || records.length === 0) return null;
+  let lo = 0;
+  let hi = records.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (records[mid]![0] <= time) lo = mid + 1; else hi = mid;
+  }
+  const record = records[lo - 1];
+  if (!record) return null;
+  const [start, fullAt, fire, max] = record;
+  if (time > fire) return null;
+  const span = fullAt - start;
+  const progress = span > 0 ? Math.min(1, Math.max(0, (time - start) / span)) : 1;
+  return { value: progress * max, full: progress >= 1, max };
+}
+
+export interface BossPatterns {
+  /** 족자 — 평타가 빗나간다(보스가 사라진다). */
+  immune: boolean;
+  /** 속성 저지 — 이 코드만 통과한다. */
+  element: string | null;
+  /** 코어가 드러나 있나. 코어가 없는 판이면 null. */
+  core: boolean | null;
+  /** 방어력 배율(%). 없으면 null. */
+  defenseRate: number | null;
+  /** 적정거리 무기군. 없으면 null. */
+  optimal: string[] | null;
+  /** 샷건 표적 크기(시간별 조건). 없으면 null. */
+  shotgunDiameter: number | null;
+  /** 마지막 파츠 파괴로부터 흐른 시간(초). 파괴 주기가 없거나 아직이면 null. */
+  partBreakAge: number | null;
+}
+
+const within = <T extends { from: number; to: number }>(windows: T[] | undefined, time: number): T | undefined =>
+  (windows ?? []).find((window) => time >= window.from && time < window.to);
+
+/** 그 시각에 켜져 있는 보스 패턴. 전투 조건(요청)에서 바로 읽는다. */
+export function patternsAt(request: SimulationRequest, time: number): BossPatterns {
+  const element = within(request.elementWindows, time);
+  const defense = within(request.defenseRateWindows, time);
+  const optimal = within(request.optimalRangeWindows, time);
+  const size = within(request.shotgunSizeWindows, time);
+  const coreWindows = request.coreWindows ?? [];
+  const core = request.corePx > 0 ? (coreWindows.length === 0 || Boolean(within(coreWindows, time))) : null;
+  const interval = request.partBreakInterval ?? 0;
+  const breaks = interval > 0 ? Math.floor(time / interval) : 0;
+  return {
+    immune: Boolean(within(request.immuneWindows, time)),
+    element: element ? element.code : null,
+    core,
+    defenseRate: defense ? defense.rate : null,
+    optimal: optimal ? optimal.weapons : null,
+    shotgunDiameter: size ? size.diameter : null,
+    partBreakAge: breaks > 0 ? time - breaks * interval : null,
+  };
+}
+
+/** 적에게 걸린 버프·디버프의 대상 이름(엔진 센티널). */
+export const ENEMY = '__enemy__';
+
 /** 표시용 난수 — 같은 (캐릭터, 칸)은 늘 같은 자리에 튄다. */
 function hash(a: number, b: number): number {
   let h = Math.imul(a + 0x9e3779b9, 0x85ebca6b) ^ Math.imul(b + 0x7f4a7c15, 0xc2b2ae35);
@@ -275,7 +352,10 @@ export function openBattleReplay(
   banner.hidden = true;
 
   const squadRow = el('div', 'br-squad');
-  const slots: Array<{ name: string; root: HTMLButtonElement; sprite: HTMLImageElement; ammo: HTMLElement; ammoFill: HTMLElement; mark: HTMLElement }> = [];
+  const slots: Array<{
+    name: string; root: HTMLButtonElement; sprite: HTMLImageElement; ammo: HTMLElement; ammoFill: HTMLElement;
+    mark: HTMLElement; charge: HTMLElement; chargeFill: HTMLElement; chargeText: HTMLElement; dealt: HTMLElement;
+  }> = [];
   squad.forEach((name, index) => {
     const root = el('button', 'br-slot');
     root.type = 'button';
@@ -288,15 +368,26 @@ export function openBattleReplay(
     sprite.alt = '';
     sprite.draggable = false;
     const mark = el('span', 'br-mark');
+    // 차징 — 머리 위 막대와 %. 풀차지 배율(예: 285%)까지 오른다.
+    const charge = el('span', 'br-charge');
+    charge.dataset.replayCharge = name;
+    charge.hidden = true;
+    const chargeBar = el('span', 'br-charge-bar');
+    const chargeFill = el('i', 'br-charge-fill');
+    chargeBar.append(chargeFill);
+    const chargeText = el('b', 'br-charge-text');
+    charge.append(chargeText, chargeBar);
     const cardRow = el('span', 'br-card');
     const ammo = el('span', 'br-ammo');
     const ammoBar = el('span', 'br-ammo-bar');
     const ammoFill = el('i', 'br-ammo-fill');
     ammoBar.append(ammoFill);
-    cardRow.append(faceNode(name, deps, 'br-card-face'), ammo, ammoBar);
-    root.append(mark, sprite, cardRow);
+    const dealt = el('span', 'br-dealt');
+    dealt.dataset.replayDealt = name;
+    cardRow.append(faceNode(name, deps, 'br-card-face'), ammo, ammoBar, dealt);
+    root.append(charge, mark, sprite, cardRow);
     squadRow.append(root);
-    slots.push({ name, root, sprite, ammo, ammoFill, mark });
+    slots.push({ name, root, sprite, ammo, ammoFill, mark, charge, chargeFill, chargeText, dealt });
   });
 
   const buffPanel = el('div', 'br-buffs');
@@ -304,7 +395,22 @@ export function openBattleReplay(
   buffPanel.hidden = true;
   buffPanel.setAttribute('role', 'dialog');
 
-  stage.append(bg, enemy, hitbox, fx, topBar, gauge, log, banner, squadRow, buffPanel);
+  // 적 — 누르면 걸린 버프·디버프 창. 그림과 피격 범위 어디를 눌러도 된다.
+  const enemyHit = el('button', 'br-enemy-hit');
+  enemyHit.type = 'button';
+  enemyHit.dataset.replayEnemy = '';
+  enemyHit.title = t('눌러서 보스에게 걸린 버프·디버프 보기');
+  enemyHit.setAttribute('aria-label', t('보스 버프·디버프 보기'));
+  const core = el('i', 'br-core');
+  core.hidden = true;
+  const enemyBuffs = el('div', 'br-enemy-buffs');
+  enemyBuffs.dataset.replayEnemyBuffs = '';
+  const patterns = el('div', 'br-patterns');
+  patterns.dataset.replayPatterns = '';
+  const vanish = el('div', 'br-vanish', t('사라짐'));
+  vanish.hidden = true;
+
+  stage.append(bg, enemy, vanish, hitbox, core, fx, enemyHit, enemyBuffs, patterns, topBar, gauge, log, banner, squadRow, buffPanel);
 
   const controls = el('div', 'br-controls');
   controls.hidden = true;
@@ -444,7 +550,10 @@ export function openBattleReplay(
             ctx.stroke();
           }
           const size = (isSkill ? 7 : 4) * (width / 1280) * (0.6 + 0.4 * alpha);
+          // 족자 중 평타는 빗나간다 — 회색으로 흩어진다. 스킬은 그대로 맞는다.
+          const missed = !isSkill && patternsAt(entry.request, i * shots.bucket).immune;
           ctx.fillStyle = isSkill ? `rgba(196,140,255,${alpha.toFixed(3)})`
+            : missed ? `rgba(170,178,186,${(alpha * 0.8).toFixed(3)})`
             : isCore ? `rgba(255,208,97,${alpha.toFixed(3)})` : `rgba(255,120,90,${alpha.toFixed(3)})`;
           ctx.beginPath();
           ctx.arc(x, y, size, 0, Math.PI * 2);
@@ -457,13 +566,19 @@ export function openBattleReplay(
   function renderBuffPanel(res: SimulationResult) {
     if (!openBuffs) { buffPanel.hidden = true; return; }
     const name = openBuffs;
+    const isEnemy = name === ENEMY;
     const index = squad.indexOf(name);
     buffPanel.hidden = false;
+    buffPanel.classList.toggle('is-enemy', isEnemy);
     buffPanel.style.setProperty('--slot', String(Math.max(0, index)));
-    buffPanel.setAttribute('aria-label', `${name} ${t('버프')}`);
+    buffPanel.setAttribute('aria-label', isEnemy ? t('보스 버프·디버프') : `${name} ${t('버프')}`);
     buffPanel.replaceChildren();
     const headRow = el('div', 'br-buffs-head');
-    headRow.append(faceNode(name, deps), el('b', '', name), el('span', '', secondsText(cursor)));
+    if (isEnemy) {
+      const face = el('i', 'br-face br-enemy-face');
+      face.style.backgroundImage = `url(${enemyUrl})`;
+      headRow.append(face, el('b', '', t('보스')), el('span', '', secondsText(cursor)));
+    } else headRow.append(faceNode(name, deps), el('b', '', name), el('span', '', secondsText(cursor)));
     const x = el('button', 'br-buffs-close', '✕');
     x.type = 'button';
     x.setAttribute('aria-label', t('버프 창 닫기'));
@@ -472,7 +587,8 @@ export function openBattleReplay(
     buffPanel.append(headRow);
     const rows = buffsOnAt(res.timeline?.buffs, name, cursor);
     if (rows.length === 0) {
-      buffPanel.append(el('p', 'br-buffs-empty', res.timeline?.buffs ? t('지금 걸린 버프가 없습니다.') : t('이 결과에는 버프 기록이 없습니다.')));
+      buffPanel.append(el('p', 'br-buffs-empty', !res.timeline?.buffs ? t('이 결과에는 버프 기록이 없습니다.')
+        : isEnemy ? t('지금 보스에게 걸린 버프·디버프가 없습니다.') : t('지금 걸린 버프가 없습니다.')));
       return;
     }
     const list = el('ul', 'br-buffs-list');
@@ -530,6 +646,42 @@ export function openBattleReplay(
       log.append(item);
     });
 
+    // 보스 패턴 — 족자(사라짐)·속성 저지·코어 노출·방어력·적정거리·샷건 표적·파츠 파괴
+    const pat = patternsAt(entry.request, cursor);
+    stage.classList.toggle('is-immune', pat.immune);
+    vanish.hidden = !pat.immune;
+    hitbox.classList.toggle('is-immune', pat.immune);
+    hitbox.classList.toggle('is-shielded', pat.element !== null);
+    hitbox.dataset.element = pat.element ?? '';
+    core.hidden = pat.core !== true || pat.immune;
+    patterns.replaceChildren();
+    const badge = (text: string, kind: string, icon?: HTMLElement) => {
+      const chip = el('span', `br-pattern is-${kind}`);
+      chip.dataset.replayPattern = kind;
+      if (icon) chip.append(icon);
+      chip.append(document.createTextNode(text));
+      patterns.append(chip);
+    };
+    if (pat.immune) badge(t('족자 · 평타 빗나감'), 'immune');
+    if (pat.element) badge(t('속성 저지 · {code}만 통과', { code: pat.element }), 'element', inlineCodeIcon(pat.element));
+    if (pat.core === true && !pat.immune && (entry.request.coreWindows?.length ?? 0) > 0) badge(t('코어 노출'), 'core');
+    if (pat.defenseRate !== null) badge(t('방어력 {rate}%', { rate: pat.defenseRate }), 'defense');
+    if (pat.optimal) badge(t('적정거리 · {weapons}', { weapons: pat.optimal.join('·') }), 'optimal');
+    if (pat.shotgunDiameter !== null) badge(t('샷건 표적 ⌀{d}', { d: pat.shotgunDiameter }), 'shotgun');
+    if (pat.partBreakAge !== null && pat.partBreakAge < 1.4) badge(t('파츠 파괴!'), 'parts');
+
+    // 적에게 걸린 버프·디버프 — 적 위에 시전자 얼굴 아이콘으로
+    enemyBuffs.replaceChildren();
+    for (const row of buffsOnAt(timeline?.buffs, ENEMY, cursor).slice(0, 10)) {
+      const chip = el('span', 'br-enemy-buff');
+      chip.dataset.replayEnemyBuff = row.name;
+      chip.append(faceNode(row.caster, deps, 'br-enemy-buff-face'));
+      if (row.stack > 1) chip.append(el('b', '', String(row.stack)));
+      chip.title = `${row.name} · ${row.caster}${row.stat ? ` · ${statText(row.stat, row.value)}` : ''}`;
+      enemyBuffs.append(chip);
+    }
+    enemyHit.classList.toggle('is-open', openBuffs === ENEMY);
+
     // SD
     for (const slot of slots) {
       const pose = poseAt(res.states, slot.name, cursor);
@@ -546,6 +698,15 @@ export function openBattleReplay(
       slot.ammo.textContent = ammo === null ? '∞' : max > 0 ? `${ammo}/${max}` : String(ammo);
       slot.ammoFill.style.width = ammo === null ? '100%' : max > 0 ? `${Math.min(100, (ammo / max) * 100).toFixed(1)}%` : '0%';
       slot.root.classList.toggle('is-empty', ammo === 0);
+      // 차징 — 재장전 중에는 감춘다.
+      const charging = pose === 'reload' ? null : chargeAt(res.charges?.[slot.name], cursor);
+      slot.charge.hidden = charging === null;
+      if (charging) {
+        slot.chargeText.textContent = `${Math.round(charging.value)}%`;
+        slot.chargeFill.style.width = `${Math.min(100, (charging.value / Math.max(1, charging.max)) * 100).toFixed(1)}%`;
+        slot.charge.classList.toggle('is-full', charging.full);
+      }
+      slot.dealt.textContent = formatDamage(damageUntil(timeline, slot.name, cursor));
     }
 
     // 피격 범위 — 이번 칸에 맞은 게 있으면 테두리가 한 번 번쩍인다.
@@ -602,6 +763,10 @@ export function openBattleReplay(
       draw();
     });
   }
+  enemyHit.addEventListener('click', () => {
+    openBuffs = openBuffs === ENEMY ? null : ENEMY;
+    draw();
+  });
 
   void (async () => {
     try {
@@ -610,21 +775,29 @@ export function openBattleReplay(
       if (closed) return;
       result = res;
       // 진행 바에 풀버스트 구간을 깔아 둔다 — 어디서 몰아치는지가 바에서 읽힌다.
-      progressMarks.replaceChildren(...(res.timeline?.fullBurst ?? []).map(([from, to]) => {
-        const mark = el('i');
-        mark.style.left = `${(from / duration) * 100}%`;
-        mark.style.width = `${(Math.max(0, to - from) / duration) * 100}%`;
-        return mark;
-      }));
+      // 족자·속성 저지 구간도 함께 — 보스가 언제 무엇을 하는지가 바에서 읽힌다.
+      const mark = (from: number, to: number, kind: string) => {
+        const node = el('i', `is-${kind}`);
+        node.style.left = `${(from / duration) * 100}%`;
+        node.style.width = `${(Math.max(0, to - from) / duration) * 100}%`;
+        return node;
+      };
+      progressMarks.replaceChildren(
+        ...(entry.request.immuneWindows ?? []).map((w) => mark(w.from, w.to, 'immune')),
+        ...(entry.request.elementWindows ?? []).map((w) => mark(w.from, w.to, 'element')),
+        ...(res.timeline?.fullBurst ?? []).map(([from, to]) => mark(from, to, 'burst')),
+      );
       const drift = Math.abs(res.squadTotal - entry.result.squadTotal) > 0.5;
       status.textContent = drift
         ? t('현재 엔진으로 다시 계산한 재생입니다. 저장된 결과와 총 대미지가 조금 다릅니다.')
-        : t('▶를 누르거나 스페이스로 재생합니다. SD 캐릭터를 누르면 그 순간 걸린 버프가 보입니다.');
+        : t('준비되는 대로 재생합니다. 스페이스로 멈추고, SD 캐릭터나 보스를 누르면 그 순간 걸린 버프가 보입니다.');
       stage.hidden = false;
       controls.hidden = false;
       sizeCanvas();
       draw();
       play.focus();
+      // 준비되면 바로 재생한다.
+      setPlaying(true);
     } catch (error) {
       if (!closed) status.textContent = `${t('재생을 준비하지 못했습니다')}: ${(error as Error).message}`;
     }

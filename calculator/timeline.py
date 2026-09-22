@@ -37,6 +37,7 @@ from .sim_result import (
     InstantEvent,
     ReloadLogEntry,
     AmmoLogEntry,
+    ChargeLogEntry,
     SimLog,
     SimResult,
 )
@@ -1107,6 +1108,15 @@ class CharState:
             buffs = dict(buffs)
             buffs["charge_dmg_pct"] += per_ammo_charge * self._full_ammo(bm, t)
         buffs["is_element_match"] = self.element_match(bm)
+        # 재생 화면의 차징 게이지 — 기록만 한다(아래 딜 계산에는 손대지 않는다).
+        if self._sim_log is not None and 0 <= self._charge_start_t <= t:
+            _fcm = float(self.weapon.get("full_charge_mult", 100.0))
+            _value = (_fcm * (1.0 + buffs.get("charge_dmg_mag_pct", 0.0) / 100.0)
+                      + buffs.get("charge_dmg_pct", 0.0))
+            self._sim_log.charge_log.append(ChargeLogEntry(
+                caster=self.name, start=self._charge_start_t,
+                full_at=self._charge_start_t + self._effective_charge_time(bm, t),
+                fire=t, full=bool(is_full), value=_value))
         if enemy.get("core_px", 0) > 0:
             P_core = _core_hit_prob(
                 self.accuracy_weapon or self.weapon_type,

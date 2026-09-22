@@ -174,6 +174,22 @@ class AmmoLogEntry:
     ammo: int   # 변화 후 남은 탄환 수
 
 
+@dataclass
+class ChargeLogEntry:
+    """차지 무기 한 발의 차지 구간 — 화면의 차징 게이지용. 딜 계산에는 쓰지 않는다.
+
+    인게임 차징 표시는 0~100%가 아니라 풀차지 배율까지 오른다:
+    `기본 풀차지 배율 × (1 + 차지 대미지 배율%) + 차지 대미지%` (damage.py `_factor4`).
+    `value`가 그 값(%)이고, 화면은 `start → full_at` 사이를 비례로 채운다.
+    """
+    caster: str
+    start: float    # 차지를 시작한 시각
+    full_at: float  # 풀차지에 닿는(닿았을) 시각 — 톡톡이면 발사보다 뒤다
+    fire: float     # 발사 시각
+    full: bool      # 풀차지로 나갔나
+    value: float    # 이 발 시점의 풀차지 배율(%)
+
+
 # ── SimLog ────────────────────────────────────────────────────────────────
 
 @dataclass
@@ -202,6 +218,8 @@ class SimLog:
     # 버스트 게이지 가산 내역 (두 모드 모두 기록)
     gauge_log: list[GaugeLogEntry] = field(default_factory=list)
     # 탄환 수 변화 이벤트 목록 (발사·재장전 완료·탄환 충전)
+    charge_log: list[ChargeLogEntry] = field(default_factory=list)
+    # 차지 무기의 발마다 차지 구간과 풀차지 배율(재생 화면의 차징 게이지)
 
     def gauge_summary(self, top: int = 0) -> str:
         """버스트 게이지 충전 내역을 사이클별로 묶어 출력한다.

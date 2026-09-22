@@ -1126,3 +1126,24 @@ class BurstGaugeBridgeTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ChargeTrackBridgeTest(unittest.TestCase):
+    """재생 화면의 차징 게이지 — 사격 트랙을 켜면 차지 무기의 발마다 [시작, 풀차지, 발사, 배율%, 풀차지] 기록."""
+
+    def test_charge_records_only_with_shot_track(self):
+        payload = {"squad": ["앨리스", "크라운"], "duration": 20, "enemyDef": 0, "enemyCode": "",
+                   "corePx": 0, "hasParts": False, "seed": 42, "rngMode": "expected"}
+        plain = json.loads(run_request(json.dumps(payload)))
+        self.assertNotIn("charges", plain)
+        tracked = json.loads(run_request(json.dumps({**payload, "shotTrack": True})))
+        self.assertEqual(plain["squadTotal"], tracked["squadTotal"])
+        rows = tracked["charges"]["앨리스"]
+        self.assertNotIn("크라운", tracked["charges"])  # MG는 차지 무기가 아니다
+        self.assertTrue(rows)
+        for start, full_at, fire, value, full in rows:
+            self.assertLessEqual(start, fire)
+            self.assertLessEqual(start, full_at)
+            self.assertIn(full, (0, 1))
+            # 풀차지 배율은 SR 기본 250%에 차지 대미지가 더해진 값이다.
+            self.assertGreaterEqual(value, 250)

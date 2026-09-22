@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  ammoAt, buffsOnAt, burstLogAt, burstStageAt, damageUntil, firingAt, fullBurstAt, gaugeAt,
-  openBattleReplay, poseAt, SD_SPRITES, spriteFor, DEFAULT_SD,
+  ammoAt, buffsOnAt, burstLogAt, burstStageAt, chargeAt, damageUntil, firingAt, fullBurstAt, gaugeAt,
+  openBattleReplay, patternsAt, poseAt, SD_SPRITES, spriteFor, DEFAULT_SD,
 } from './battle-replay';
-import type { BattleTimeline, BuffTrack, DeckResultEntry, ShotTrack, SimulationResult, StateTrack } from './types';
+import type { BattleTimeline, BuffTrack, ChargeRecord, DeckResultEntry, ShotTrack, SimulationRequest, SimulationResult, StateTrack } from './types';
 
 const states: StateTrack = {
   bucket: 0.1, buckets: 50,
@@ -35,6 +35,7 @@ const timeline: BattleTimeline = {
       spans: [[1.0, 2.5, 1]] },
     { name: '중첩 버프', caster: '라피', targets: ['라피', '크라운'], stat: 'crit_rate', value: 5, maxStack: 5,
       spans: [[0, 1.5, 2, [0]], [1.5, 4, 3, [0]]] },
+    { name: '주목', caster: '크라운', targets: ['__enemy__'], stat: 'taunt', value: null, maxStack: 1, spans: [[1.0, 3.0, 1]] },
   ] as BuffTrack[],
 };
 
@@ -91,7 +92,38 @@ describe('시각 → 상태', () => {
     expect(damageUntil(timeline, '라피', 10)).toBe(600);
   });
 
+  it('차징은 0에서 풀차지 배율(%)까지 오르고, 차지 중이 아니면 없다', () => {
+    const records: ChargeRecord[] = [[1.0, 2.0, 2.4, 285, 1], [3.0, 4.0, 3.2, 285, 0]];
+    expect(chargeAt(records, 0.5)).toBeNull();
+    expect(chargeAt(records, 1.5)!.value).toBeCloseTo(142.5);
+    expect(chargeAt(records, 2.2)).toEqual({ value: 285, full: true, max: 285 });
+    expect(chargeAt(records, 2.6)).toBeNull();
+    // 톡톡이 — 풀차지에 닿기 전에 쏜다.
+    expect(chargeAt(records, 3.2)!.value).toBeCloseTo(57);
+    expect(chargeAt(records, 3.2)!.full).toBe(false);
+  });
+
+  it('보스 패턴 — 족자·속성 저지·코어·방어력·적정거리·샷건 표적·파츠 파괴를 시각으로 읽는다', () => {
+    const request: SimulationRequest = {
+      squad: ['라피'], duration: 30, enemyDef: 0, enemyCode: '', corePx: 50, hasParts: false, seed: 1,
+      immuneWindows: [{ from: 5, to: 8 }], elementWindows: [{ from: 10, to: 15, code: '수냉' }],
+      coreWindows: [{ from: 0, to: 4 }], defenseRateWindows: [{ from: 20, to: 25, rate: 60 }],
+      optimalRangeWindows: [{ from: 0, to: 30, weapons: ['AR', 'SMG'] }],
+      shotgunSizeWindows: [{ from: 12, to: 13, diameter: 300 }], partBreakInterval: 10,
+    };
+    expect(patternsAt(request, 6)).toMatchObject({ immune: true, element: null, core: false, partBreakAge: null });
+    expect(patternsAt(request, 12.5)).toMatchObject({ immune: false, element: '수냉', shotgunDiameter: 300 });
+    expect(patternsAt(request, 12.5).partBreakAge).toBeCloseTo(2.5);
+    expect(patternsAt(request, 2)).toMatchObject({ core: true, optimal: ['AR', 'SMG'], defenseRate: null });
+    expect(patternsAt(request, 21).defenseRate).toBe(60);
+    // 코어가 없는 판이면 코어는 null, 구간 없이 코어가 있으면 늘 노출.
+    expect(patternsAt({ ...request, corePx: 0 }, 2).core).toBeNull();
+    expect(patternsAt({ ...request, coreWindows: [] }, 20).core).toBe(true);
+  });
+
   it('캐릭터별 SD가 있으면 그걸, 없으면 회색 자리표시자', () => {
+    expect(spriteFor('라피 : 레드 후드', 'shoot')).not.toBe(DEFAULT_SD.shoot);
+    expect(spriteFor('라피 : 레드 후드', 'reload')).not.toBe(DEFAULT_SD.reload);
     expect(spriteFor('라피', 'reload')).toBe(DEFAULT_SD.reload);
     SD_SPRITES['라피'] = { shoot: 'a.webp', reload: 'b.webp' };
     expect(spriteFor('라피', 'reload')).toBe('b.webp');
@@ -116,6 +148,8 @@ describe('재생 창', () => {
     expect(simulate).toHaveBeenCalledWith({ ...entry.request, shotTrack: true });
     expect(document.querySelector<HTMLElement>('[data-replay-stage]')!.hidden).toBe(false);
     expect(document.querySelectorAll('[data-replay-slot]')).toHaveLength(2);
+    // 준비되면 바로 재생한다.
+    expect(document.querySelector('[data-replay-play]')!.textContent).toBe('❚❚');
 
     // 1.6초로 옮긴다.
     const scrub = document.querySelector<HTMLInputElement>('[data-replay-scrub]')!;
@@ -124,6 +158,15 @@ describe('재생 창', () => {
     // 1.2초에 1버만 썼다 — 다음은 2버(II).
     expect(document.querySelector('[data-replay-gauge]')!.textContent).toContain('II');
     expect(document.querySelectorAll('[data-replay-log] li')).toHaveLength(1);
+
+    // 초상화 카드 아래 — 그때까지의 캐릭터 딜(1초 칸 안에서는 고르게).
+    expect(document.querySelector('[data-replay-dealt="라피"]')!.textContent).toBe('220');
+    // 적 위에 걸린 디버프 아이콘, 적을 누르면 디버프 창.
+    expect([...document.querySelectorAll<HTMLElement>('[data-replay-enemy-buff]')].map((n) => n.dataset.replayEnemyBuff)).toEqual(['주목']);
+    document.querySelector<HTMLButtonElement>('[data-replay-enemy]')!.click();
+    const enemyPanel = document.querySelector<HTMLElement>('[data-replay-buffs]')!;
+    expect(enemyPanel.classList.contains('is-enemy')).toBe(true);
+    expect([...enemyPanel.querySelectorAll<HTMLElement>('[data-replay-buff]')].map((li) => li.dataset.replayBuff)).toEqual(['주목']);
 
     const slot = document.querySelector<HTMLButtonElement>('[data-replay-slot="라피"]')!;
     slot.click();
@@ -168,7 +211,8 @@ describe('재생 창', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     const play = document.querySelector<HTMLButtonElement>('[data-replay-play]')!;
     const scrub = document.querySelector<HTMLInputElement>('[data-replay-scrub]')!;
-    play.click();
+    // 준비되자마자 재생이 걸려 있다 — 첫 프레임부터 흐른다.
+    expect(play.textContent).toBe('❚❚');
     now += 200;
     frames.shift()!(now);
     expect(Number(scrub.value)).toBeCloseTo(0.2);
