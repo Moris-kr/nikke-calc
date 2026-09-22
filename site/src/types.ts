@@ -380,6 +380,11 @@ export interface BattleTimeline {
   buffs?: BuffTrack[];
   /** 버스트 게이지(%) — 칸 끝 시점의 값. 두 방식 모두 실린다. 옛 결과에는 없다. */
   gauge?: number[];
+  /**
+   * 버스트 게이지 점열 [t초, %] — 엔진 최소 단위(프레임) 그대로. 만충(100)과 바로 다음
+   * 프레임의 소모(0)가 둘 다 실려 「언제 찼나」가 칸 크기에 묻히지 않는다. 옛 결과에는 없다.
+   */
+  gaugePoints?: Array<[number, number]>;
 }
 
 /**

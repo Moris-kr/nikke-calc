@@ -456,6 +456,79 @@ describe('버스트 게이지', () => {
     expect(buildSeries({ ...base, gauge: [10, 55] }, ['a'], 3)!.gauge).toBeNull();
   });
 
+  it('점열 [t, %]는 프레임 단위 그대로 싣고, 모양이 어긋나면 통째로 버린다', () => {
+    const points: Array<[number, number]> = [[0.017, 0.2], [1.5, 60], [2.433, 100], [2.45, 0]];
+    const series = buildSeries({ ...base, gaugePoints: points }, ['a'], 3)!;
+    expect(series.gaugePoints).toEqual(points);
+    // 칸 배열이 없어도 점열만으로 그린다.
+    expect(series.gauge).toBeNull();
+    expect(buildSeries(base, ['a'], 3)!.gaugePoints).toBeNull();
+    expect(buildSeries({ ...base, gaugePoints: [] }, ['a'], 3)!.gaugePoints).toBeNull();
+    expect(buildSeries({ ...base, gaugePoints: [[1, 2], [3]] as unknown as Array<[number, number]> }, ['a'], 3)!.gaugePoints).toBeNull();
+  });
+
+  it('점열을 켜면 만충(100) 자리에 점을 찍고, 바로 다음 점(소모 0)으로 뚝 떨어진다', () => {
+    // 기록용 캔버스 — 점선 구간의 lineTo와 채운 원(arc→fill)만 모은다.
+    const lines: Array<[number, number]> = [];
+    const dots: Array<[number, number, number]> = [];
+    let dashed = false;
+    let pendingArc: [number, number, number] | null = null;
+    const noop = () => undefined;
+    const context = new Proxy({} as Record<string, unknown>, {
+      get: (_target, key: string) => {
+        if (key === 'setLineDash') return (seg: number[]) => { dashed = seg.length > 0; };
+        if (key === 'lineTo') return (x: number, y: number) => { if (dashed) lines.push([x, y]); };
+        if (key === 'arc') return (x: number, y: number, r: number) => { pendingArc = [x, y, r]; };
+        if (key === 'fill') return () => { if (pendingArc) { dots.push(pendingArc); pendingArc = null; } };
+        if (key === 'beginPath') return () => { pendingArc = null; };
+        if (key === 'measureText') return () => ({ width: 10 });
+        return noop;
+      },
+      set: () => true,
+    }) as unknown as CanvasRenderingContext2D;
+    vi.useFakeTimers();
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context);
+    const rect = vi.spyOn(HTMLCanvasElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      x: 0, y: 0, left: 0, top: 0, right: 800, bottom: 380, width: 800, height: 380, toJSON: () => ({}),
+    });
+    try {
+      const points: Array<[number, number]> = [[0.5, 30], [1.2, 100], [1.217, 0], [3, 40]];
+      const withPoints = { ...entry, result: { ...entry.result, timeline: { ...entry.result.timeline!, gaugePoints: points } } } as DeckResultEntry;
+      const block = createTimelineBlock(withPoints)!;
+      vi.runAllTimers();
+      // 버스트 핀의 얼굴 원(반지름 6)은 게이지와 무관하다 — 만충 점은 반지름 2.6이다.
+      const fullDots = () => dots.filter(([, , r]) => Math.abs(r - 2.6) < 1e-6);
+      expect(fullDots()).toEqual([]);
+      block.querySelector<HTMLButtonElement>('[data-timeline-gauge]')!.click();
+      vi.runAllTimers();
+      // 만충 점 하나 — 1.2초 자리.
+      expect(fullDots().length).toBe(1);
+      const [dotX, dotY] = fullDots()[0]!;
+      // 점선은 네 점을 차례로 잇고, 만충(100) 바로 다음이 소모(0)라 x는 거의 같고 y만 바닥으로 간다.
+      const full = lines.findIndex(([x, y]) => Math.abs(x - dotX) < 1e-6 && Math.abs(y - dotY) < 1e-6);
+      expect(full).toBeGreaterThanOrEqual(0);
+      const [nextX, nextY] = lines[full + 1]!;
+      expect(nextX - dotX).toBeGreaterThan(0);
+      expect(nextX - dotX).toBeLessThan(5);
+      expect(nextY).toBeGreaterThan(dotY + 50);
+      // 100%의 y가 30%·40%보다 위(작은 값)에 있다.
+      for (const [, y] of lines) expect(y).toBeGreaterThanOrEqual(dotY - 1e-6);
+    } finally {
+      vi.useRealTimers();
+      getContext.mockRestore();
+      rect.mockRestore();
+    }
+  });
+
+  it('점열만 있어도 「버충 표시」 토글이 선다', () => {
+    const withPoints = { ...entry, result: { ...entry.result, timeline: { ...entry.result.timeline!, gaugePoints: [[0.5, 30], [1.2, 100], [1.22, 0]] } } } as DeckResultEntry;
+    const block = createTimelineBlock(withPoints)!;
+    const toggle = block.querySelector<HTMLButtonElement>('[data-timeline-gauge]')!;
+    expect(toggle).not.toBeNull();
+    toggle.click();
+    expect(toggle.getAttribute('aria-pressed')).toBe('true');
+  });
+
   it('게이지가 있으면 「버충 표시」 토글이 서고, 누르면 켜진다', () => {
     const withGauge = { ...entry, result: { ...entry.result, timeline: { ...entry.result.timeline!, gauge: entry.result.timeline!.damage[Object.keys(entry.result.timeline!.damage)[0]!]!.map((_, i) => Math.min(100, i * 10)) } } } as DeckResultEntry;
     const block = createTimelineBlock(withGauge)!;

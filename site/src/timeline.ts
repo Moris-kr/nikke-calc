@@ -55,8 +55,10 @@ export interface TimelineSeries {
   elementWindows: Array<{ from: number; to: number; code: string }>;
   /** 버프가 걸려 있던 구간. 「버프 표시」를 켰을 때만 그린다. */
   buffs: BuffTrack[];
-  /** 버스트 게이지(%) — 칸 끝 값. 「버충 표시」를 켰을 때만 그린다. 옛 결과에는 없어 null. */
+  /** 버스트 게이지(%) — 칸 끝 값. 점열이 없는 옛 결과의 대비책이다. 없으면 null. */
   gauge: number[] | null;
+  /** 버스트 게이지 점열 [t, %] — 프레임 단위. 있으면 이걸로 그린다. 옛 결과에는 없어 null. */
+  gaugePoints: Array<[number, number]> | null;
   peak: number;
   buckets: number;
   /**
@@ -168,6 +170,11 @@ export function buildSeries(
     buffs: (timeline.buffs ?? []).filter((track) => names.includes(track.caster)),
     // 칸 수가 안 맞으면(다른 버킷으로 저장된 옛 결과) 안 그린다 — 엉뚱한 자리에 선을 긋지 않는다.
     gauge: timeline.gauge && timeline.gauge.length === timeline.buckets ? timeline.gauge : null,
+    // 점열은 [t, %] 짝이 전부 갖춰졌을 때만 — 하나라도 모양이 다르면 통째로 버린다.
+    gaugePoints: Array.isArray(timeline.gaugePoints) && timeline.gaugePoints.length > 0
+      && timeline.gaugePoints.every((p) => Array.isArray(p) && p.length === 2
+        && Number.isFinite(p[0]) && Number.isFinite(p[1]))
+      ? timeline.gaugePoints : null,
     peak,
     buckets: timeline.buckets,
     // 옛 결과에는 이 값이 없을 수 있다 — 그때는 1초 버킷이었다.
@@ -427,12 +434,12 @@ class TimelineChart {
   }
 
   get hasGauge(): boolean {
-    return this.series.gauge !== null;
+    return this.series.gaugePoints !== null || this.series.gauge !== null;
   }
 
   /** 「버충 표시」 켜기·끄기. */
   setShowGauge(on: boolean): void {
-    this.showGauge = on && this.series.gauge !== null;
+    this.showGauge = on && this.hasGauge;
     this.draw();
   }
 
@@ -671,8 +678,7 @@ class TimelineChart {
 
     // 버스트 게이지 — 0~100%를 플롯 높이에 얹은 점선. 만충에서 뚝 떨어지는 자리가 1단계
     // 진입이고, 평평한 구간은 풀버스트(안 찬다)다. 대미지 축과 무관한 눈금이라 오른쪽 안에 %를 적는다.
-    if (this.showGauge && this.series.gauge) {
-      const row = this.series.gauge;
+    if (this.showGauge && this.hasGauge) {
       const gy = (pct: number) => top + height - (pct / 100) * height;
       ctx.save();
       ctx.beginPath();
@@ -683,13 +689,37 @@ class TimelineChart {
       ctx.setLineDash([4, 3]);
       ctx.beginPath();
       ctx.moveTo(this.xFor(0), gy(0));
-      for (let i = 0; i < row.length; i += 1) {
-        const t = (i + 1) * this.series.bucket;
-        if (t < this.view0 - step || t > this.view1 + step) continue;
-        ctx.lineTo(this.xFor(t), gy(row[i]!));
+      const fullAt: number[] = [];
+      if (this.series.gaugePoints) {
+        // 점열 — 프레임 단위 그대로 잇는다. 만충(100) 바로 다음 점이 소모(0)라 뚝 떨어지는
+        // 세로선이 생기고, 만충 자리에는 아래에서 점을 찍어 칸 크기와 무관하게 보이게 한다.
+        // 보이는 창 밖의 점은 건너뛰되, 창 양끝에 걸치는 선이 끊기지 않게 경계 점 하나씩은 잇는다.
+        let before: [number, number] | null = null;
+        for (const point of this.series.gaugePoints) {
+          const [t, pct] = point;
+          if (t < this.view0 - step) { before = point; continue; }
+          if (before) { ctx.lineTo(this.xFor(before[0]), gy(before[1])); before = null; }
+          ctx.lineTo(this.xFor(t), gy(pct));
+          if (pct >= 99.95) fullAt.push(t);
+          if (t > this.view1 + step) break;
+        }
+      } else if (this.series.gauge) {
+        const row = this.series.gauge;
+        for (let i = 0; i < row.length; i += 1) {
+          const t = (i + 1) * this.series.bucket;
+          if (t < this.view0 - step || t > this.view1 + step) continue;
+          ctx.lineTo(this.xFor(t), gy(row[i]!));
+        }
       }
       ctx.stroke();
       ctx.setLineDash([]);
+      // 만충 순간의 점. 프레임 하나짜리 100%라도 이 점이 남는다.
+      ctx.fillStyle = 'rgba(255,191,60,0.95)';
+      for (const t of fullAt) {
+        ctx.beginPath();
+        ctx.arc(this.xFor(t), gy(100), 2.6, 0, Math.PI * 2);
+        ctx.fill();
+      }
       ctx.fillStyle = 'rgba(255,191,60,0.85)';
       ctx.font = '700 9px ui-monospace, monospace';
       ctx.textAlign = 'right';
@@ -1107,7 +1137,7 @@ function createSeriesBlock(
     gaugeToggle.className = 'timeline-buff-toggle';
     gaugeToggle.dataset.timelineGauge = '';
     gaugeToggle.setAttribute('aria-pressed', 'false');
-    gaugeToggle.title = '버스트 게이지(%)를 점선으로 얹습니다. 만충에서 뚝 떨어지는 자리가 1단계 진입이고, 풀버스트 동안은 차지 않습니다';
+    gaugeToggle.title = '버스트 게이지(%)를 프레임 단위 점선으로 얹습니다. 만충(100%) 자리에 점이 찍히고 바로 뚝 떨어지는 곳이 1단계 진입이며, 풀버스트 동안은 차지 않습니다';
     const mark = textSpan('', 'tl-gauge-mark');
     mark.setAttribute('aria-hidden', 'true');
     gaugeToggle.append(mark, textSpan('버충 표시', ''));

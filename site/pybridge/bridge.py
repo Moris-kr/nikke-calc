@@ -233,6 +233,18 @@ def _build_timeline(result, names: list[str], bucket: float = TIMELINE_BUCKET) -
                 j += 1
             gauge[i] = round(cur, 1)
 
+    # 게이지 점열 — 로그의 **엔진 최소 단위(프레임)** 그대로 [t, %]. 1초 칸 끝 값만 보면 같은
+    # 칸에서 차고 비어 만충(100)이 아예 안 보이는데, 점열은 만충 순간과 바로 다음 프레임의
+    # 소모(0)를 둘 다 싣는다. 같은 (t, %)가 잇달아 오면 하나로 접는다. 180초 5인 편성도
+    # 1천 점 남짓이라 칸 배열보다 크게 무겁지 않다.
+    gauge_points: list[list[float]] | None = None
+    if result.log is not None and result.log.gauge_log:
+        gauge_points = []
+        for event in result.log.gauge_log:
+            point = [round(event.t, 3), round(event.gauge, 1)]
+            if not gauge_points or gauge_points[-1] != point:
+                gauge_points.append(point)
+
     return {
         "bucket": bucket,
         "buckets": buckets,
@@ -242,6 +254,7 @@ def _build_timeline(result, names: list[str], bucket: float = TIMELINE_BUCKET) -
         "fullBurstSummary": summary,
         "buffs": _build_buff_spans(result, names),
         **({"gauge": gauge} if gauge is not None else {}),
+        **({"gaugePoints": gauge_points} if gauge_points is not None else {}),
     }
 
 

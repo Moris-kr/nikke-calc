@@ -1111,6 +1111,15 @@ class BurstGaugeBridgeTest(unittest.TestCase):
         self.assertGreaterEqual(max(gauge), 80)
         self.assertTrue(any(gauge[i] < gauge[i - 1] - 50 for i in range(1, len(gauge))), gauge)
         self.assertLess(max(legacy["timeline"]["gauge"]), max(gauge))
+        # 점열은 프레임 단위라 만충(100)이 그대로 실리고, 바로 다음 점이 소모(0)다.
+        points = new["timeline"]["gaugePoints"]
+        self.assertTrue(all(len(p) == 2 and 0 <= p[1] <= 100 for p in points))
+        self.assertEqual([p[0] for p in points], sorted(p[0] for p in points))
+        full = [i for i, p in enumerate(points) if p[1] == 100]
+        self.assertTrue(full, points[:20])
+        self.assertEqual(points[full[0] + 1][1], 0)
+        self.assertLess(points[full[0] + 1][0] - points[full[0]][0], 0.1)
+        self.assertLessEqual(len(points), 20_000)
         with self.assertRaises(ValueError):
             run_request(json.dumps({**self.PAYLOAD, "burstGaugeMode": "old"}))
 
