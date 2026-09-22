@@ -1002,41 +1002,64 @@ export function renderCharacterSettings(
           lock.textContent = kind === 'module' ? '모듈' : kind === 'key' ? '락키' : '🔓';
           lock.title = kind ? '잠금을 바꾸거나 풉니다' : '이 줄을 모듈 또는 커스텀락키로 잠급니다';
           lock.disabled = !canLock(locks, index, line);
-          lock.setAttribute('aria-expanded', 'false');
-          const menu = document.createElement('div');
-          menu.className = 'ol-lock-menu';
-          menu.hidden = true;
-          const choose = (next: LockKind | null, label: string, className: string) => {
-            const item = document.createElement('button');
-            item.type = 'button';
-            item.className = className;
-            item.dataset.overloadLockAs = next ?? 'none';
-            item.textContent = label;
-            item.addEventListener('click', () => {
-              locks[index] = next;
-              commit(cloneOverrides(current));
-            });
-            menu.append(item);
+          lock.setAttribute('aria-haspopup', 'dialog');
+          // 잠금은 드롭다운이 아니라 **창**으로 고른다(유저 결정 2026-09-22) — 카드 안에서 펼치면
+          // 화면·설정 창 바닥에서 잘려 고를 수 없었다. 창은 body에 띄우고 닫으면 지운다.
+          const choose = (next: LockKind | null) => {
+            locks[index] = next;
+            commit(cloneOverrides(current));
           };
-          choose('module', '모듈로 잠금', 'is-module');
-          choose('key', '커스텀락키로 잠금', 'is-key');
-          if (kind) choose(null, '잠금 해제', '');
           lock.addEventListener('click', () => {
-            menu.hidden = !menu.hidden;
-            lock.setAttribute('aria-expanded', String(!menu.hidden));
-            if (menu.hidden) return;
-            // 아래로만 열리면 화면(또는 스크롤 상자) 바닥 근처에서는 잘려 고를 수 없다(피드백 2026-09-22).
-            // 자리가 모자라면 위로 연다.
-            const rect = lock.getBoundingClientRect();
-            const scroller = lock.closest<HTMLElement>('.char-panel-body, .modal-body, [data-char-panel-body]');
-            const floor = Math.min(window.innerHeight, scroller ? scroller.getBoundingClientRect().bottom : Infinity);
-            const need = Math.max(menu.offsetHeight, 96) + 8;
-            menu.classList.toggle('is-up', rect.bottom + need > floor && rect.top - need > 0);
+            document.querySelector('[data-overload-lock-modal]')?.remove();
+            const modal = document.createElement('div');
+            modal.className = 'custom-modal ol-lock-modal';
+            modal.dataset.overloadLockModal = `${part}:${index}`;
+            const card = document.createElement('div');
+            card.className = 'custom-card ol-lock-card';
+            card.setAttribute('role', 'dialog');
+            card.setAttribute('aria-modal', 'true');
+            const head = document.createElement('div');
+            head.className = 'custom-head';
+            const title = document.createElement('h2');
+            title.textContent = `${EQUIP_PART_LABELS[part]} ${index + 1}번째 줄 잠금`;
+            const close = document.createElement('button');
+            close.type = 'button';
+            close.className = 'custom-close';
+            close.setAttribute('aria-label', '닫기');
+            close.textContent = '✕';
+            head.append(title, close);
+            const what = document.createElement('p');
+            what.className = 'ol-lock-line';
+            const optionLabel = catalog.overloadFields[line.option]?.label ?? line.option;
+            what.textContent = `${optionLabel} Lv${line.level}` + (kind ? ` · 지금 ${kind === 'module' ? '모듈' : '커스텀락키'}로 잠김` : '');
+            const help = document.createElement('p');
+            help.className = 'field-note';
+            help.textContent = '모듈로 잠그면 변경마다 모듈이 1개 더 들고, 커스텀락키로 잠그면 잠긴 줄 수에 따라 락키 20·30·50이 듭니다. 락키 잠금은 풀리지 않고 굴릴 때마다 또 듭니다. 부위당 두 줄까지 잠글 수 있습니다.';
+            const choices = document.createElement('div');
+            choices.className = 'ol-lock-choices';
+            const dismiss = () => { modal.remove(); document.removeEventListener('keydown', onKey); };
+            const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') dismiss(); };
+            const option = (next: LockKind | null, label: string, className: string) => {
+              const item = document.createElement('button');
+              item.type = 'button';
+              item.className = className ? `ol-lock-choice ${className}` : 'ol-lock-choice';
+              item.dataset.overloadLockAs = next ?? 'none';
+              item.textContent = label;
+              item.addEventListener('click', () => { dismiss(); choose(next); });
+              choices.append(item);
+            };
+            option('module', '모듈로 잠금', 'is-module');
+            option('key', '커스텀락키로 잠금', 'is-key');
+            if (kind) option(null, '잠금 해제', '');
+            card.append(head, what, help, choices);
+            modal.append(card);
+            close.addEventListener('click', dismiss);
+            modal.addEventListener('click', (event) => { if (event.target === modal) dismiss(); });
+            document.addEventListener('keydown', onKey);
+            document.body.append(modal);
+            choices.querySelector<HTMLButtonElement>('button')?.focus();
           });
-          const wrap = document.createElement('span');
-          wrap.className = 'ol-lock-wrap';
-          wrap.append(lock, menu);
-          row.append(wrap);
+          row.append(lock);
         }
 
         const optionPick = document.createElement('select');

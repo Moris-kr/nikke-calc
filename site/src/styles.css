@@ -2542,17 +2542,18 @@ body.bm-open { overflow: hidden; }
 .ol-sim-reset:hover { background: rgba(167,139,250,.2); color: #fff; }
 .ol-sim-note { margin: -2px 0 0; font-size: 9.5px; }
 .overload-lines.is-sim .ol-line { grid-template-columns: auto 1fr 58px 52px; }
-.ol-lock-wrap { position: relative; }
 .ol-lock { min-width: 30px; min-height: 30px; padding: 0 5px; border: 1px dashed rgba(146,176,201,.4); border-radius: 7px; background: rgba(7,15,25,.6); color: var(--muted); font: 800 9.5px/1 ui-monospace, monospace; cursor: pointer; }
 .ol-lock:disabled { opacity: .35; cursor: not-allowed; }
 .ol-lock.is-module { border-style: solid; border-color: #60a5fa; background: rgba(96,165,250,.18); color: #bfdbfe; }
 .ol-lock.is-key { border-style: solid; border-color: #f87171; background: rgba(248,113,113,.18); color: #fecaca; }
-.ol-lock-menu { position: absolute; z-index: 5; top: calc(100% + 4px); left: 0; display: grid; gap: 3px; min-width: 128px; padding: 5px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-strong); box-shadow: 0 12px 30px rgba(0,0,0,.45); }
-.ol-lock-menu.is-up { top: auto; bottom: calc(100% + 4px); box-shadow: 0 -12px 30px rgba(0,0,0,.45); }
-.ol-lock-menu button { padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: rgba(7,15,25,.6); color: var(--ink); font: 700 10px/1.2 inherit; font-family: inherit; text-align: left; cursor: pointer; }
-.ol-lock-menu button.is-module { border-color: rgba(96,165,250,.6); color: #bfdbfe; }
-.ol-lock-menu button.is-key { border-color: rgba(248,113,113,.6); color: #fecaca; }
-.ol-lock-menu button:hover { background: rgba(146,176,201,.14); }
+.ol-lock-modal { z-index: 80; }
+.ol-lock-card { width: min(420px, 100%); }
+.ol-lock-line { margin: 4px 0 2px; font: 700 14px/1.5 inherit; color: var(--ink); }
+.ol-lock-choices { display: grid; gap: 8px; margin-top: 12px; }
+.ol-lock-choice { padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: rgba(7,15,25,.6); color: var(--ink); font: 700 13px/1.3 inherit; font-family: inherit; text-align: left; cursor: pointer; }
+.ol-lock-choice.is-module { border-color: rgba(96,165,250,.6); color: #bfdbfe; }
+.ol-lock-choice.is-key { border-color: rgba(248,113,113,.6); color: #fecaca; }
+.ol-lock-choice:hover, .ol-lock-choice:focus-visible { background: rgba(146,176,201,.14); outline: none; }
 .ol-sim-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 2px; }
 .ol-sim-change { min-height: 28px; padding: 0 6px; border: 1px solid rgba(196,181,253,.5); border-radius: 7px; background: rgba(167,139,250,.14); color: #ede9fe; font: 800 9.5px/1.2 inherit; font-family: inherit; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ol-sim-change:hover:not(:disabled) { background: rgba(167,139,250,.28); }

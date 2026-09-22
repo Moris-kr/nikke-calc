@@ -645,7 +645,7 @@ describe('character settings editor', () => {
     expect(root.textContent).toContain('1~9레벨 계수가 공개되지 않아');
   });
 
-  it('오버로드작 잠금 메뉴는 아래 자리가 없으면 위로 연다', () => {
+  it('오버로드작 잠금은 창으로 고른다 — 고르면 닫히고, Esc·바깥 누르기로도 닫힌다', () => {
     const steps = Array.from({ length: 15 }, (_, at) => (at + 1) * 1.5);
     const withSteps: SettingsCatalog = { ...settings, overloadSteps: { atk_pct: steps } };
     const host = document.createElement('div');
@@ -654,20 +654,25 @@ describe('character settings editor', () => {
       overloadLines: { 머리: [{ option: 'atk_pct', level: 15 }, { option: '', level: 1 }, { option: '', level: 1 }] },
     }, () => {});
     host.querySelector<HTMLButtonElement>('[data-overload-sim]')!.click();
-    const lock = host.querySelector<HTMLButtonElement>('[data-overload-lock="머리:0"]')!;
-    const menu = lock.nextElementSibling as HTMLElement;
-    // 화면 바닥 근처 — 위로.
-    lock.getBoundingClientRect = () => ({ top: window.innerHeight - 40, bottom: window.innerHeight - 10, left: 0, right: 30, width: 30, height: 30, x: 0, y: 0, toJSON: () => ({}) });
-    lock.click();
-    expect(menu.hidden).toBe(false);
-    expect(menu.classList.contains('is-up')).toBe(true);
-    lock.click();
-    expect(menu.hidden).toBe(true);
-    // 위쪽이면 평소대로 아래로.
-    lock.getBoundingClientRect = () => ({ top: 100, bottom: 130, left: 0, right: 30, width: 30, height: 30, x: 0, y: 0, toJSON: () => ({}) });
-    lock.click();
-    expect(menu.classList.contains('is-up')).toBe(false);
-    // 시뮬레이션 상태는 캐릭터별로 남는다 — 다음 시험이 깨끗하게 시작하도록 끈다.
+    const modal = () => document.querySelector<HTMLElement>('[data-overload-lock-modal]');
+    expect(modal()).toBeNull();
+    host.querySelector<HTMLButtonElement>('[data-overload-lock="머리:0"]')!.click();
+    expect(modal()!.textContent).toContain('머리 1번째 줄 잠금');
+    expect(modal()!.textContent).toContain('공격력 Lv15');
+    expect(modal()!.querySelectorAll('[data-overload-lock-as]').length).toBe(2);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(modal()).toBeNull();
+    host.querySelector<HTMLButtonElement>('[data-overload-lock="머리:0"]')!.click();
+    modal()!.click();   // 바깥(배경)
+    expect(modal()).toBeNull();
+    host.querySelector<HTMLButtonElement>('[data-overload-lock="머리:0"]')!.click();
+    modal()!.querySelector<HTMLButtonElement>('[data-overload-lock-as="module"]')!.click();
+    expect(modal()).toBeNull();
+    expect(host.querySelector('[data-overload-lock="머리:0"]')!.className).toContain('is-module');
+    // 잠긴 줄의 창에는 「잠금 해제」가 하나 더 있다.
+    host.querySelector<HTMLButtonElement>('[data-overload-lock="머리:0"]')!.click();
+    expect(modal()!.querySelectorAll('[data-overload-lock-as]').length).toBe(3);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     host.querySelector<HTMLButtonElement>('[data-overload-sim-end]')!.click();
     host.remove();
   });
@@ -703,10 +708,10 @@ describe('character settings editor', () => {
     expect(q<HTMLButtonElement>('[data-overload-lock="몸통:0"]').disabled).toBe(true);
     // 머리 1번 줄을 모듈로, 3번 줄을 락키로 잠근다.
     q<HTMLButtonElement>('[data-overload-lock="머리:0"]').click();
-    q<HTMLButtonElement>('[data-overload-lock="머리:0"] + .ol-lock-menu [data-overload-lock-as="module"]').click();
+    document.querySelector<HTMLButtonElement>('[data-overload-lock-modal] [data-overload-lock-as="module"]')!.click();
     expect(q('[data-overload-lock="머리:0"]').className).toContain('is-module');
     q<HTMLButtonElement>('[data-overload-lock="머리:2"]').click();
-    q<HTMLButtonElement>('[data-overload-lock="머리:2"] + .ol-lock-menu [data-overload-lock-as="key"]').click();
+    document.querySelector<HTMLButtonElement>('[data-overload-lock-modal] [data-overload-lock-as="key"]')!.click();
     expect(q('[data-overload-lock="머리:2"]').className).toContain('is-key');
     // 두 줄이 잠겼으니 세 번째는 못 잠근다.
     expect(q<HTMLButtonElement>('[data-overload-lock="머리:1"]').disabled).toBe(true);
