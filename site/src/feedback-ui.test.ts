@@ -19,6 +19,7 @@ import type {
 } from './types';
 
 vi.stubEnv('VITE_SHARE_API', 'https://share.test');
+vi.stubEnv('VITE_BLABLA_PROXY', 'https://blabla.test');
 
 const catalog: CharacterMeta[] = [{
   name: '리타', burstStage: '1', elementCode: '철갑', weaponType: 'SMG', className: '지원형',
@@ -89,6 +90,7 @@ function fakeServer() {
     const body = init?.body ? JSON.parse(String(init.body)) : {};
     sent.push({ url, body });
     if (url.endsWith('/admin/check')) return new Response(JSON.stringify({ ok: true }));
+    if (url.endsWith('/health')) return new Response(JSON.stringify({ upstream: { code: 0 }, renewedAt: '2026-09-20T05:00:00.000Z', validDays: 30, expiresAt: '2026-10-20T05:00:00.000Z', daysLeft: 27 }));
     if (url.endsWith('/feedback/reply')) {
       board[0] = { ...board[0]!, reply: String(body.reply), replyAt: '2026-09-04T02:00:00Z' };
       return new Response(JSON.stringify({ item: board[0] }));
@@ -123,6 +125,19 @@ describe('피드백 · 운영자 코멘트', () => {
     document.body.replaceChildren(root);
     localStorage.clear();
     sessionStorage.clear();
+  });
+
+  it('관리자로 확인하면 블라블라링크 프록시의 세션·남은 기간(30일 산정)이 뜬다', async () => {
+    const server = fakeServer();
+    await mount(server);
+    expect(root.querySelector<HTMLElement>('[data-feedback-admin-bar]')!.hidden).toBe(true);
+    await beAdmin();
+    await flush();
+    const status = root.querySelector<HTMLButtonElement>('[data-proxy-status]')!;
+    expect(server.sent.some((call) => call.url === 'https://blabla.test/health')).toBe(true);
+    expect(status.textContent).toContain('세션 살아 있음');
+    expect(status.textContent).toContain('갱신 2026-09-20 · 남은 27일 (30일 산정)');
+    expect(status.classList.contains('is-ok')).toBe(true);
   });
 
   it('관리자만 코멘트 칸을 본다', async () => {

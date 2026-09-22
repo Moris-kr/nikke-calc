@@ -6,6 +6,17 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+describe('BlablaLink Worker health', () => {
+  it('갱신일로부터 30일을 남은 기간으로 센다 — 갱신일이 없으면 null', async () => {
+    const { cookieAge } = await import('../../worker/src/index.js');
+    const now = Date.parse('2026-09-22T00:00:00Z');
+    expect(cookieAge('2026-09-20T05:00:00Z', now)).toMatchObject({ validDays: 30, daysLeft: 28, expiresAt: '2026-10-20T05:00:00.000Z' });
+    expect(cookieAge('2026-08-01T00:00:00Z', now).daysLeft).toBeLessThan(0);
+    expect(cookieAge(undefined, now)).toMatchObject({ renewedAt: null, daysLeft: null, expiresAt: null });
+    expect(cookieAge('not a date', now).daysLeft).toBeNull();
+  });
+});
+
 describe('BlablaLink Worker server selection', () => {
   it('수동 서버를 고르면 그 지역만 상류 API에 요청한다', async () => {
     const requestedAreas = [];

@@ -1386,6 +1386,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
                  판단이 아니라 손품이라 한 단추로 줄인다. -->
             <button type="button" class="notice-open" data-feedback-finish title="접수·진행중인 글을 모두 「완료」로 옮깁니다">남은 것 전부 완료로</button>
             <button type="button" class="notice-open" data-feedback-logout>관리자 해제</button>
+            <!-- 블라블라링크 프록시 쿠키의 남은 기간(30일 산정)과 지금 세션이 살아 있는지.
+                 만료되면 연동이 통째로 막히므로 관리자가 여기서 미리 본다. -->
+            <button type="button" class="proxy-status" data-proxy-status title="눌러서 다시 확인">프록시 확인 중…</button>
           </div>
           <div class="feedback-list" data-feedback-list></div>
         </div>
@@ -6428,8 +6431,41 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       feedbackMsg.classList.toggle('is-ok', ok);
     };
 
+    // 블라블라링크 프록시 세션 — 관리자 바가 보일 때 한 번 묻고, 단추를 누르면 다시 묻는다.
+    const proxyStatus = element<HTMLButtonElement>(root, '[data-proxy-status]');
+    let proxyChecked = false;
+    const checkProxy = async () => {
+      if (!BLABLA_PROXY) { proxyStatus.textContent = '블라블라링크 프록시 없음'; proxyStatus.classList.add('is-warn'); return; }
+      proxyStatus.textContent = '프록시 확인 중…';
+      proxyStatus.classList.remove('is-warn', 'is-ok');
+      try {
+        const response = await fetch(`${BLABLA_PROXY}/health`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+        });
+        const health = await response.json() as {
+          upstream?: { code?: number; error?: string }; renewedAt?: string | null; daysLeft?: number | null; validDays?: number;
+        };
+        const alive = health.upstream?.code === 0;
+        const when = health.renewedAt ? health.renewedAt.slice(0, 10) : null;
+        const left = typeof health.daysLeft === 'number' ? health.daysLeft : null;
+        const period = when === null
+          ? '갱신일 기록 없음'
+          : left === null ? `갱신 ${when}`
+            : left < 0 ? `갱신 ${when} · ${-left}일 지남`
+              : `갱신 ${when} · 남은 ${left}일 (${health.validDays ?? 30}일 산정)`;
+        proxyStatus.textContent = `블라블라링크 프록시 — ${alive ? '세션 살아 있음' : '세션 만료 · 쿠키 갱신 필요'} · ${period}`;
+        proxyStatus.classList.toggle('is-ok', alive && (left === null || left > 5));
+        proxyStatus.classList.toggle('is-warn', !alive || (left !== null && left <= 5));
+      } catch {
+        proxyStatus.textContent = '블라블라링크 프록시 — 점검 실패(응답 없음)';
+        proxyStatus.classList.add('is-warn');
+      }
+    };
+    proxyStatus.addEventListener('click', () => { void checkProxy(); });
+
     const renderFeedback = () => {
       feedbackAdminBar.hidden = adminPass === '';
+      if (adminPass !== '' && !proxyChecked) { proxyChecked = true; void checkProxy(); }
       feedbackList.replaceChildren();
       if (feedbackItems.length === 0) {
         feedbackList.append(createText('p', '아직 올라온 피드백이 없습니다.', 'field-note'));

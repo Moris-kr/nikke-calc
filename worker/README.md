@@ -64,13 +64,26 @@ curl -X POST https://<워커주소>/health   -H "Content-Type: application/json"
 `shape.hasGameOpenid`가 `false`면 3단계를 잘못 복사한 것이다.
 
 쿠키는 만료된다. 만료되면 사이트가 "프록시 세션이 만료됐습니다"를 띄우므로 2~4단계를
-다시 하면 된다. 이 계정 명의로 조회가 나가니 부계정을 쓰는 편이 낫다.
+다시 하면 된다. 이 계정 명의로 조회가 나가니 부계정을 쓰는 편이 낫다. 배포는 다시 할
+필요가 없다 — `wrangler secret put`은 돌고 있는 워커에 바로 반영된다.
+
+### 남은 기간
+
+`set-cookie.mjs`는 쿠키와 함께 넣은 날짜를 `BLABLA_COOKIE_AT`(ISO)에 적는다. 쿠키 자체에는
+만료가 적혀 있지 않아 **넣은 날로부터 30일**을 유효 기간으로 친다(`COOKIE_VALID_DAYS`).
+`/health`가 `renewedAt`·`expiresAt`·`daysLeft`를 내고, 사이트의 **관리자 화면(피드백 창에서
+관리자 확인 뒤)** 이 «블라블라링크 프록시 — 갱신 날짜 · 남은 n일»과 지금 세션이 살아 있는지를
+보여 준다. 손으로 쿠키를 넣었다면 날짜도 손으로 넣는다:
+
+```bash
+npx wrangler secret put BLABLA_COOKIE_AT    # 예: 2026-09-22T05:00:00Z
+```
 
 ## API
 
 ```
 POST /sync     {"profileUrl": "https://www.blablalink.com/user?openid=...", "area": 84}
-POST /health   {}      세션 점검 — 쿠키 값은 절대 돌려주지 않고 모양과 상류 응답만 낸다
+POST /health   {}      세션 점검 — 쿠키 값은 절대 돌려주지 않고 모양·상류 응답·갱신일(renewedAt)·만료 예정(expiresAt, 30일)·남은 일수(daysLeft)만 낸다
 ```
 
 `area`는 선택값이다. 생략하면 아래 공식 서버를 모두 조회해 사이트가 보유 니케가 가장

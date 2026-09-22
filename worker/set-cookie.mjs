@@ -110,3 +110,18 @@ if (result.status !== 0) {
   process.exit(result.status ?? 1);
 }
 console.log('[+] BLABLA_COOKIE 저장 완료');
+
+// 넣은 날을 같이 적어 둔다 — 워커 `/health`가 이 값으로 «남은 n일»(30일 산정)을 내고,
+// 사이트의 관리자 화면이 그것을 보여 준다. 쿠키 자체에는 만료가 적혀 있지 않다.
+const stamp = spawnSync('npx wrangler secret put BLABLA_COOKIE_AT', {
+  cwd: workerDir,
+  shell: true,
+  input: new Date().toISOString(),
+  stdio: ['pipe', 'inherit', 'inherit'],
+});
+if (stamp.status !== 0) {
+  console.error('[!] 갱신일(BLABLA_COOKIE_AT)을 넣지 못했습니다 — 쿠키는 들어갔습니다. '
+    + '`npx wrangler secret put BLABLA_COOKIE_AT`에 오늘 날짜(ISO)를 넣어 주세요.');
+  process.exit(stamp.status ?? 1);
+}
+console.log('[+] BLABLA_COOKIE_AT 저장 완료 — 관리자 화면에 남은 기간이 30일로 뜹니다');

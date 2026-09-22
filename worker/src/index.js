@@ -142,7 +142,22 @@ async function collectArea(openid, area, cookie) {
  * 세션 점검. 쿠키가 왜 거부되는지 알려면 값이 아니라 **모양**을 봐야 한다 —
  * 값은 절대 돌려주지 않고 길이와 키 유무만 센다.
  */
-async function health(cookie) {
+/** 쿠키를 넣은 날(`BLABLA_COOKIE_AT`, ISO)로부터 30일을 유효 기간으로 친다 — 관리자 화면이 «남은 n일»로 읽는다. */
+const COOKIE_VALID_DAYS = 30;
+
+export function cookieAge(renewedAt, now = Date.now()) {
+  const at = renewedAt ? Date.parse(String(renewedAt)) : NaN;
+  if (!Number.isFinite(at)) return { renewedAt: null, validDays: COOKIE_VALID_DAYS, expiresAt: null, daysLeft: null };
+  const expires = at + COOKIE_VALID_DAYS * 86400000;
+  return {
+    renewedAt: new Date(at).toISOString(),
+    validDays: COOKIE_VALID_DAYS,
+    expiresAt: new Date(expires).toISOString(),
+    daysLeft: Math.floor((expires - now) / 86400000),
+  };
+}
+
+async function health(cookie, renewedAt) {
   const pairs = cookie.split(';').map((part) => part.trim()).filter(Boolean);
   const names = pairs.map((part) => part.split('=')[0]);
   // 값은 절대 내보내지 않는다. 길이만 보면 잘려 들어왔는지는 알 수 있다.
@@ -178,7 +193,7 @@ async function health(cookie) {
   } catch (error) {
     upstream = { error: String(error).slice(0, 100) };
   }
-  return { shape, upstream };
+  return { shape, upstream, ...cookieAge(renewedAt) };
 }
 
 async function sync(profileUrl, cookie, requestedArea) {
@@ -254,7 +269,7 @@ export default {
       return json({ error: '프록시에 세션이 설정돼 있지 않습니다.', reason: 'session' }, 503);
     }
     if (url.pathname === '/health') {
-      return json(await health(env.BLABLA_COOKIE), 200);
+      return json(await health(env.BLABLA_COOKIE, env.BLABLA_COOKIE_AT), 200);
     }
 
     let body;

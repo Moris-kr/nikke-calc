@@ -1862,7 +1862,10 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
 .feedback-kind:focus-visible, .feedback-by:focus-visible, .feedback-text:focus-visible {
   outline: 2px solid var(--cyan); outline-offset: 1px; }
 .feedback-actions { display: flex; justify-content: space-between; gap: 8px; }
-.feedback-admin-bar { display: flex; gap: 8px; margin-top: 10px; }
+.feedback-admin-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.proxy-status { flex-basis: 100%; text-align: left; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--muted); font: 600 12px/1.4 inherit; font-family: inherit; cursor: pointer; }
+.proxy-status.is-ok { border-color: rgba(69,214,208,.45); color: #bfeeec; }
+.proxy-status.is-warn { border-color: rgba(255,119,135,.5); color: #ffd7de; }
 .feedback-counts { margin: 14px 0 8px; color: var(--muted); font-size: 11px; font-weight: 800; }
 .feedback-list { margin-top: 4px; max-height: 46vh; overflow-y: auto; }
 .feedback-item { padding: 10px 12px; margin-bottom: 8px; border: 1px solid var(--line);
