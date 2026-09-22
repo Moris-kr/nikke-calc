@@ -1978,7 +1978,7 @@ class CharState:
                 # `self.weapon`이 모드 무기로 바뀌어 있든 아니든 같은 값이 나오게 못 박는다
                 # — 부르는 자리마다 교체 여부가 달라 밑값이 흔들리면 안 된다.
                 base = int(wc_max)
-        buffs = bm.get_buffs(self.name, "__enemy__", t)
+        buffs = bm.max_ammo_buffs(self.name, "__enemy__", t)
         # 장탄 % 버프는 소스(장비 옵션 단계·큐브·소장품·스킬 버프)마다 따로 발수로
         # 반올림한 뒤 더한다 — 합산 후 한 번 반올림하면 조합에 따라 1발씩 어긋난다.
         ammo_gain = int(_quant_sum(base, buffs, "max_ammo_pct", 1.0))

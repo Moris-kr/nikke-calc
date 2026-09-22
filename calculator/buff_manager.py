@@ -612,6 +612,8 @@ class BuffManager:
         # get_buffs 캐시: (caster, t, _cache_version) → buffs dict
         self._buffs_cache: dict = {}
         self._cache_version: int = 0
+        # `max_ammo_buffs`용으로 계획을 추린 것. 계획과 수명이 같다(_invalidate_buffs_cache).
+        self._ammo_plan_cache: dict = {}
 
         # get_buffs 실행 계획 캐시: (caster, target, exclude_names) → (plan, hp_abs, cb_abs)
         # `_active`가 그대로인 동안(= 같은 _cache_version) 기여가 변하지 않는 버프를
@@ -1435,6 +1437,7 @@ class BuffManager:
                 else:
                     # 중첩 가능 해로운 효과 범용 감소: 완전 제거 불가, 최소 1스택 유지
                     ab.stack = max(1, min(ab.stack + delta, cap))
+                self._invalidate_values()
                 # 스택 변화를 buff_event_handler에 알려 UI 타임라인 갱신
                 if self._buff_event_handler and ab.effect.get("name"):
                     new_val = self._get_value(ab.effect, ab)
@@ -1498,6 +1501,7 @@ class BuffManager:
                 if caster not in (ab.target_chars or []):
                     continue
                 ab.stack = max(0, ab.stack - reduce)
+                self._invalidate_values()
                 if ab.stack <= 0:
                     to_remove.append(ab.uid)
             if to_remove:
@@ -2550,6 +2554,7 @@ class BuffManager:
 
                 if existing:
                     # 재발동: 타이머 갱신은 위에서 됐으므로 스택/만료만 갱신
+                    self._invalidate_values()
                     if max_stack == 1:
                         existing.expires_at = expires
                     elif scaling_ref and eff.get("scaling") == "stack_count":
@@ -2602,6 +2607,7 @@ class BuffManager:
                                    else last_t + duration)
                         ab.expires_at = expires
                         ab.stack = 0
+                        self._invalidate_values()
                         # 주기 틱은 램프가 끝난 뒤 +interval부터 잇는다.
                         self._dot_timers[id(eff)] = (caster, last_t + tick_interval, expires)
             elif self._damage_handler:
@@ -2683,6 +2689,7 @@ class BuffManager:
                     break
 
         if existing:
+            self._invalidate_values()
             if max_stack == 1:
                 existing.activated_at = t
                 existing.expires_at = expires
@@ -2904,6 +2911,7 @@ class BuffManager:
                 else:
                     # 갱신은 조용히 한다 — 조건이 참인 내내 activate 로그가 쌓이지 않도록.
                     ab.expires_at = max(ab.expires_at, self._expires_at(eff, caster, t))
+                    self._invalidate_values()
 
         # ── `same_target:[이름]` DoT 중첩 램프 ────────────────────────────
         #
@@ -2920,6 +2928,7 @@ class BuffManager:
                     if ab is None:
                         continue
                     ab.stack = stack
+                    self._invalidate_values()
                     self._damage_handler(eff, caster, t)
 
         # ── 주기 대미지(tick_interval) — 만료 정리보다 **먼저** 처리한다 ──────
@@ -3121,6 +3130,17 @@ class BuffManager:
 
     # ── 버프 집계 ─────────────────────────────────────────────────────────
 
+    def _invalidate_values(self):
+        """이미 활성인 버프의 **값만** 바뀌었다(중첩·지속시간·남은 발수·캐릭터별 중첩).
+
+        `_active`의 구성은 그대로라 계획 캐시는 유효하다 — 그런 버프는 전부 LIVE 스텝이다
+        (`_is_time_invariant`: 유한 만료·중첩·발수·캐릭터별 중첩은 계획에 접히지 않는다). 그래서
+        이 프레임에 이미 집계해 둔 결과(`_buffs_cache`)만 버린다. 버리지 않으면 같은 프레임에 먼저
+        조회한 쪽의 낡은 값(중첩 갱신 전)을 뒤에 조회한 쪽이 그대로 받는다 — 어느 쪽이 먼저
+        조회했느냐에 따라 딜이 달라진다(실측 2026-09-23, 아스카 : WILLE `안티 AT 필드` 18→19).
+        """
+        self._buffs_cache.clear()
+
     def _invalidate_buffs_cache(self):
         self._cache_version += 1
         self._buffs_cache.clear()
@@ -3128,6 +3148,7 @@ class BuffManager:
         # 아래 셋은 전부 "`_active`가 그대로인 동안" 유효한 파생물이다. `_active`의
         # 추가·제거는 반드시 이 함수를 거치므로 여기서 한꺼번에 비우면 수명이 맞는다.
         self._plan_cache.clear()
+        self._ammo_plan_cache.clear()
         self._stat_index.clear()
         self._name_index_cache.clear()
 
@@ -3300,6 +3321,93 @@ class BuffManager:
                 plan.append(step)
         self._plan_cache[(caster, target, exclude_names)] = plan
         return plan
+
+    def max_ammo_buffs(self, caster: str, target: str, t: float) -> dict:
+        """`get_buffs`에서 **최대 장탄 두 키만** 뽑은 것 — `max_ammo_pct`(그룹 목록 포함)·`max_ammo_flat`.
+
+        장탄 상한은 매 프레임 캐릭터마다 다시 본다(버프가 끝나면 초과 잔탄을 자르므로). 그 한 값을
+        위해 전체 버프를 집계하면 시뮬 시간의 절반 가까이가 여기서 나갔다(실측 2026-09-23).
+
+        **같은 값을 내는 조건**: 같은 계획(`_build_plan`)을 같은 순서로 훑고, 두 키에 기여하는
+        스텝만 같은 식으로 더한다 — 부동소수점 합산 순서가 그대로다. 두 키가 아닌 LIVE 버프도
+        `get_buffs`가 그 자리에서 하던 **지연 대상 결정(`_resolve_lazy`)은 똑같이 한다** — 그것이
+        이 조회의 유일한 부작용이라, 빼면 대상이 정해지는 시점이 달라진다. 결과는 캐시에 넣지
+        않는다(전체 dict가 아니다). 같은 프레임의 전체 캐시가 이미 있으면 그걸 쓴다.
+        """
+        cached = self._buffs_cache.get((caster, t, self._cache_version, frozenset()))
+        if cached is not None:
+            return cached
+        plan = self._ammo_plan_cache.get((caster, target))
+        if plan is None:
+            full = self._plan_cache.get((caster, target, frozenset()))
+            if full is None:
+                full = self._build_plan(caster, target, frozenset())
+            # 순서를 그대로 둔 채 쓸모없는 스텝만 뺀다. LIVE는 장탄 키이거나, 아직 대상이
+            # 안 정해진 것(지연 결정 부작용 때문에 get_buffs와 같은 자리에서 결정해 줘야 한다)만.
+            plan = []
+            for step in full:
+                kind, key, _pre = step
+                if kind == _PLAN_ADD:
+                    if key == "max_ammo_flat":
+                        plan.append(step)
+                elif kind == _PLAN_QUANT:
+                    if key[0] == "max_ammo_pct":
+                        plan.append(step)
+                elif kind == _PLAN_LIVE:
+                    bk = _STAT_TO_BUFF.get(key.effect.get("stat", ""))
+                    if bk in ("max_ammo_pct", "max_ammo_flat") or (bk and key.target_chars is None):
+                        plan.append(step)
+            self._ammo_plan_cache[(caster, target)] = plan
+        flat = 0.0
+        quant_parts: dict[tuple, float] = {}
+        for kind, key, pre in plan:
+            if kind == _PLAN_ADD:
+                if key == "max_ammo_flat":
+                    flat = flat + pre
+                continue
+            if kind == _PLAN_QUANT:
+                if key[0] == "max_ammo_pct":
+                    quant_parts[key] = quant_parts.get(key, 0.0) + pre
+                continue
+            if kind != _PLAN_LIVE:
+                continue
+            ab = key
+            if t >= ab.expires_at:
+                continue
+            eff = ab.effect
+            stat = eff.get("stat", "")
+            buff_key = _STAT_TO_BUFF.get(stat)
+            if not buff_key:
+                continue
+            target_chars = ab.target_chars if ab.target_chars is not None else self._resolve_lazy(ab)
+            if buff_key not in ("max_ammo_pct", "max_ammo_flat"):
+                continue
+            applies_to_caster = caster in target_chars
+            applies_to_target = target in target_chars
+            if not (applies_to_caster or applies_to_target):
+                continue
+            actual_recipient = caster if applies_to_caster else target
+            if ab.has_runtime_conditions:
+                conditions = eff["trigger"].get("condition", [])
+                if not self._runtime_condition_ok(
+                    conditions, ab.caster, caster, actual_recipient, t
+                ):
+                    continue
+            char_stack = ab.per_char_stacks.get(caster) if ab.per_char_stacks else None
+            val = self._get_value(eff, ab, actual_recipient, stack_override=char_stack)
+            if val is None:
+                continue
+            if buff_key == "max_ammo_pct":
+                gk = (buff_key, _quant_group_key(ab))
+                quant_parts[gk] = quant_parts.get(gk, 0.0) + val
+            else:
+                flat = flat + val
+        parts = list(quant_parts.values())
+        total = 0.0
+        for v in parts:
+            total = total + v
+        return {"max_ammo_pct": total, "max_ammo_flat": flat,
+                _QUANT_PARTS_KEY: {"max_ammo_pct": parts}}
 
     def get_buffs(
         self, caster: str, target: str, t: float,
@@ -4180,6 +4288,7 @@ class BuffManager:
         self._trigger_counts.clear()
         self._buffs_cache.clear()
         self._plan_cache.clear()
+        self._ammo_plan_cache.clear()
         self._stat_index.clear()
         self._name_index_cache.clear()
         self._cache_version = 0

@@ -57,6 +57,8 @@ class ReloadDelayScalesWithSpeedTest(unittest.TestCase):
         state = CharState(squad[0], 100000.0, '')
         bm = BuffManager(squad)
         bm.get_buffs = lambda *a, **k: {'reload_speed_pct': 75.0, 'max_ammo_pct': -100.0}
+        # 장탄 상한은 장탄 두 키만 뽑는 전용 조회를 쓴다 — 같은 가짜 값을 거기에도 준다.
+        bm.max_ammo_buffs = bm.get_buffs
         self.assertGreater(state.reload_start_delay, 0)
         self.assertGreater(state.post_reload_delay, 0)
         start = 10.0
