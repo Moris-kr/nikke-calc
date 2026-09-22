@@ -1,0 +1,125 @@
+/* 전투 결과 재생 — 16:9 무대. 안쪽 크기는 전부 무대 폭(cqw) 기준이라 통째로 커지고 줄어든다. */
+.custom-modal.replay-modal { z-index: 1200; }
+.replay-card { width: min(1280px, 97vw); max-height: 96vh; overflow: auto; }
+.replay-status { margin: 4px 0 10px; color: var(--muted, #9fb2c4); font-size: 12.5px; }
+.replay-note { margin: 10px 0 0; color: var(--muted, #9fb2c4); font-size: 11.5px; line-height: 1.6; }
+
+.br-stage { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 10px;
+  container-type: inline-size; background: #1a1f22; user-select: none; -webkit-user-select: none;
+  border: 1px solid rgba(146,176,201,.25); }
+.br-stage[hidden] { display: none; }
+.br-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.br-stage::after { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .25s ease;
+  background: radial-gradient(ellipse at center, transparent 45%, rgba(255,150,40,.28) 100%); }
+.br-stage.is-full-burst::after { opacity: 1; }
+
+/* 적과 피격 범위 — 피격 범위의 자리·크기는 코드의 HIT(y 0.37, 반지름 0.085 × 무대 폭)와 같다 */
+.br-enemy { position: absolute; left: 50%; top: 40%; width: 27%; transform: translate(-50%, -52%);
+  filter: drop-shadow(0 1.2cqw 1.2cqw rgba(0,0,0,.45)); animation: br-bob 3.2s ease-in-out infinite; pointer-events: none; }
+@keyframes br-bob { 50% { transform: translate(-50%, -55%); } }
+.br-hitbox { position: absolute; left: 50%; top: 37%; width: 17cqw; aspect-ratio: 1; transform: translate(-50%, -50%);
+  border: max(3px, .34cqw) dashed #ff4b4b; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,60,60,.06) 0 62%, rgba(255,60,60,.2) 100%);
+  box-shadow: 0 0 0 max(1.5px, .16cqw) rgba(20,0,0,.6), inset 0 0 0 max(1.5px, .16cqw) rgba(20,0,0,.45);
+  transition: box-shadow .08s, border-color .08s; pointer-events: none; }
+.br-hitbox.is-hit { border-color: #ffb08a; box-shadow: 0 0 0 max(1.5px, .16cqw) rgba(20,0,0,.6), 0 0 1.8cqw rgba(255,110,80,.75), inset 0 0 2.6cqw rgba(255,110,80,.35); }
+.br-fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+/* 위 — 누적 딜 · 진행 · 시계 */
+.br-top { position: absolute; top: 2%; left: 1.6%; right: 1.6%; display: flex; align-items: center; gap: 2cqw; pointer-events: none; }
+.br-total { display: flex; flex-direction: column; min-width: 16cqw; padding: .5cqw 1cqw; border-radius: .8cqw;
+  background: rgba(8,16,26,.62); color: #fff; line-height: 1.15; }
+.br-total b { font-size: max(12px, 1.9cqw); font-weight: 900; letter-spacing: -.01em; }
+.br-total span { font-size: max(9px, .9cqw); color: #b9c9d8; }
+.br-progress { position: relative; flex: 1; max-width: 38cqw; height: max(4px, .45cqw); margin: 0 auto; border-radius: 99px;
+  background: rgba(255,255,255,.22); pointer-events: auto; cursor: pointer; }
+.br-progress-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: inherit; background: #4fc8ff;
+  box-shadow: 0 0 .8cqw rgba(79,200,255,.7); }
+.br-progress-marks i { position: absolute; top: -.25cqw; bottom: -.25cqw; background: rgba(255,191,60,.45); border-radius: 2px; }
+.br-clock { padding: .5cqw 1.1cqw; border-radius: 99px; background: rgba(8,16,26,.62); color: #fff;
+  font: 800 max(10px, 1.3cqw) ui-monospace, monospace; white-space: nowrap; }
+
+/* 오른쪽 가운데 — 버스트 게이지 */
+.br-gauge { position: absolute; right: 1.2%; top: 40%; width: 18cqw; display: grid; grid-template-columns: auto 1fr; align-items: center;
+  gap: .3cqw .7cqw; }
+.br-gauge-stage { grid-row: span 2; display: grid; place-items: center; width: 2.9cqw; height: 3.2cqw; min-width: 22px; min-height: 24px;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); background: #2fd26a; color: #04210f;
+  font: 900 max(10px, 1.3cqw) ui-monospace, monospace; }
+.br-gauge-bar { height: max(5px, .6cqw); border-radius: 99px; background: rgba(0,0,0,.45); overflow: hidden; box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
+.br-gauge-fill { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #1fb95a, #6bff9e); }
+.br-gauge-text { color: #d9ffe6; font: 800 max(9px, 1cqw) ui-monospace, monospace; text-shadow: 0 1px 2px #000; }
+.br-gauge.is-ready .br-gauge-fill { background: linear-gradient(90deg, #7dffb0, #eafff1); box-shadow: 0 0 1cqw #7dffb0; }
+.br-gauge.is-full .br-gauge-stage { background: #ffbf3c; color: #2a1800; font-size: max(8px, .95cqw); }
+.br-gauge.is-full .br-gauge-fill { background: linear-gradient(90deg, #ff9d2e, #ffe08a); }
+.br-gauge.is-full .br-gauge-text { color: #ffe1a8; }
+
+/* 왼쪽 — 버스트 사용 내역. 새 것이 아래로 들어오고 위로 밀려 흐려진다 */
+.br-log { position: absolute; left: 1.2%; top: 14%; height: 44%; width: 25cqw; margin: 0; padding: 0; list-style: none;
+  display: flex; flex-direction: column; justify-content: flex-end; gap: .45cqw; pointer-events: none; }
+.br-log-row { display: flex; align-items: center; gap: .6cqw; padding: .3cqw 1cqw .3cqw .3cqw; border-radius: 99px;
+  background: linear-gradient(90deg, rgba(8,16,26,.82), rgba(8,16,26,.35)); color: #fff; transition: transform .15s; }
+.br-log-row.is-new { background: linear-gradient(90deg, rgba(120,70,0,.85), rgba(60,30,0,.35)); box-shadow: 0 0 1cqw rgba(255,180,60,.35); }
+.br-face { display: grid; place-items: center; flex: none; width: 2.4cqw; height: 2.4cqw; min-width: 18px; min-height: 18px;
+  border-radius: 50%; background: #34424f center 18% / cover no-repeat; color: #fff; font-size: 10px; font-weight: 800;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.3); }
+.br-log-stage { padding: .05cqw .55cqw; border-radius: 99px; background: rgba(255,191,60,.3); color: #ffd98a;
+  font: 900 max(9px, .95cqw) ui-monospace, monospace; }
+.br-log-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: max(10px, 1.05cqw); font-weight: 800; color: #ffe8c2; }
+
+.br-banner { position: absolute; left: 50%; top: 21%; transform: translateX(-50%); padding: .4cqw 2.4cqw;
+  font: italic 900 max(16px, 3.4cqw) system-ui, sans-serif; letter-spacing: .06em; color: #fff4d6;
+  text-shadow: 0 0 1.4cqw rgba(255,160,40,.9), 0 .2cqw 0 #6b3a00; pointer-events: none; animation: br-banner .5s ease-out; }
+.br-banner[hidden] { display: none; }
+@keyframes br-banner { from { transform: translateX(-50%) scale(1.35); opacity: 0; } }
+
+/* 아래 — SD 다섯. 자리 i의 가운데 = 14% + 18% × i (코드의 사선 시작점과 같다) */
+.br-squad { position: absolute; left: 0; right: 0; bottom: 1%; height: 45%; pointer-events: none; }
+.br-slot { position: absolute; bottom: 0; left: calc(14% + var(--slot) * 18%); width: 15%; height: 100%; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: .3cqw;
+  padding: 0; border: 0; background: none; cursor: pointer; pointer-events: auto; color: #fff; }
+.br-slot:focus-visible { outline: 2px solid #65d8e2; outline-offset: 2px; border-radius: 1cqw; }
+.br-sprite { width: 100%; height: 76%; object-fit: contain; object-position: bottom center; transform-origin: 50% 100%;
+  filter: drop-shadow(0 .5cqw .6cqw rgba(0,0,0,.5)); transition: filter .15s; }
+.br-slot.is-firing .br-sprite { animation: br-recoil .14s linear infinite; }
+@keyframes br-recoil { 50% { transform: translateY(.25cqw) scale(.992); } }
+.br-slot.is-bursting .br-sprite { filter: drop-shadow(0 0 1.1cqw rgba(255,200,80,.95)) drop-shadow(0 .5cqw .6cqw rgba(0,0,0,.5)); }
+.br-slot.is-open .br-sprite { filter: drop-shadow(0 0 .9cqw rgba(101,216,226,.95)); }
+.br-mark { min-height: 1.4cqw; font: 900 max(8px, .95cqw) ui-monospace, monospace; letter-spacing: .06em; }
+.br-slot.is-reload .br-mark { padding: .1cqw .6cqw; border-radius: .3cqw; background: #b3141e; color: #fff; box-shadow: 0 0 .8cqw rgba(255,40,40,.5); }
+.br-card { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; align-items: center; gap: .15cqw .5cqw;
+  width: 100%; padding: .35cqw .5cqw; border-radius: .7cqw; background: rgba(8,16,26,.72); box-shadow: inset 0 0 0 1px rgba(255,255,255,.1); }
+.br-card-face { grid-row: span 2; display: grid; place-items: center; width: 3cqw; height: 3cqw; min-width: 22px; min-height: 22px;
+  border-radius: .5cqw; background: #34424f center 18% / cover no-repeat; font-size: 10px; font-weight: 800; }
+.br-ammo { font: 800 max(9px, 1.05cqw) ui-monospace, monospace; text-align: left; }
+.br-slot.is-empty .br-ammo { color: #ff6b6b; }
+.br-ammo-bar { height: max(3px, .35cqw); border-radius: 99px; background: rgba(255,255,255,.14); overflow: hidden; }
+.br-ammo-fill { display: block; height: 100%; width: 100%; background: #4fc8ff; }
+.br-slot.is-reload .br-ammo-fill { background: #ff5a5a; }
+
+/* SD를 누르면 뜨는 버프 창 */
+.br-buffs { position: absolute; bottom: 47%; left: clamp(1%, calc(14% + var(--slot) * 18% - 15%), 69%); width: 30%; max-height: 44%;
+  overflow: auto; padding: .8cqw; border-radius: .9cqw; background: rgba(8,16,26,.9); color: #e6f0f8;
+  box-shadow: 0 1cqw 3cqw rgba(0,0,0,.55), inset 0 0 0 1px rgba(101,216,226,.35); backdrop-filter: blur(4px); }
+.br-buffs[hidden] { display: none; }
+.br-buffs-head { display: flex; align-items: center; gap: .6cqw; margin-bottom: .5cqw; font-size: max(11px, 1.1cqw); }
+.br-buffs-head span { color: #9fb2c4; font: 700 max(9px, .9cqw) ui-monospace, monospace; }
+.br-buffs-close { margin-left: auto; padding: 0 .4cqw; border: 0; background: none; color: #9fb2c4; font-size: max(12px, 1.2cqw); cursor: pointer; }
+.br-buffs-empty { margin: .3cqw 0; color: #9fb2c4; font-size: max(10px, 1cqw); }
+.br-buffs-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: .35cqw; }
+.br-buffs-list li { display: flex; align-items: center; gap: .55cqw; padding: .3cqw .4cqw; border-radius: .5cqw; background: rgba(255,255,255,.05); }
+.br-buff-caster { display: grid; place-items: center; flex: none; width: 1.9cqw; height: 1.9cqw; min-width: 16px; min-height: 16px;
+  border-radius: 50%; background: #34424f center 18% / cover no-repeat; font-size: 9px; }
+.br-buff-body { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.25; }
+.br-buff-body b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: max(10px, 1cqw); }
+.br-buff-body small { color: #9fd8ff; font-size: max(9px, .85cqw); }
+.br-buff-stack { color: #ffd98a; font: 800 max(9px, .9cqw) ui-monospace, monospace; font-style: normal; }
+.br-buff-left { color: #b9c9d8; font: 700 max(9px, .9cqw) ui-monospace, monospace; white-space: nowrap; }
+
+/* 재생 조작 */
+.br-controls { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.br-controls[hidden] { display: none; }
+.br-play, .br-speed { min-width: 44px; min-height: 36px; border: 1px solid rgba(101,216,226,.4); border-radius: 8px;
+  background: rgba(101,216,226,.12); color: #d9f4f2; font: 800 13px ui-monospace, monospace; cursor: pointer; }
+.br-play:hover, .br-speed:hover { background: rgba(101,216,226,.24); }
+.br-scrub { flex: 1; min-width: 0; accent-color: #4fc8ff; }
+.br-time { min-width: 92px; text-align: right; color: #b9c9d8; font: 700 12px ui-monospace, monospace; }

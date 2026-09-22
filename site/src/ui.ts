@@ -55,6 +55,7 @@ import {
 } from './report';
 import { csvBlob, csvFileName, csvText, damageBatchRows, type DamageCsvDeck } from './export-csv';
 import { openShotgunHeatmap } from './shotgun-heatmap';
+import { openBattleReplay } from './battle-replay';
 import { renderMcpGuide } from './mcp-guide';
 import { renderPickupHistory } from './pickup-history';
 import { BrowserMcpConnection } from './mcp-browser';
@@ -4763,6 +4764,20 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         createText('small', dps(entry.result.squadTotal / entry.result.duration)),
       );
       section.append(deckHeader);
+      // 전투 결과 재생 — 이 덱의 저장된 요청을 사격·상태 기록과 함께 한 번 더 돌려 흘려 본다.
+      const replayButton = document.createElement('button');
+      replayButton.type = 'button';
+      replayButton.className = 'report-open replay-open';
+      replayButton.dataset.battleReplay = String(entry.deckId);
+      replayButton.textContent = t('▶ 전투 결과 재생');
+      replayButton.title = t('계산 결과를 전투 화면처럼 재생합니다. 버스트 게이지·버스트 사용 내역·장탄·버프를 시간에 따라 봅니다');
+      replayButton.addEventListener('click', () => openBattleReplay(entry, deckNameOf(entry.deckId), request => client.simulate(request), {
+        imageOf: (name) => {
+          const image = catalogByName.get(name)?.image;
+          return image ? `${import.meta.env.BASE_URL}${image}` : undefined;
+        },
+      }));
+      section.append(replayButton);
       if (entry.request.squad.some(name => catalogByName.get(name)?.weaponType === 'SG') || Object.keys(entry.result.shotgunStats ?? {}).length) {
         const heatmapButton = document.createElement('button');
         heatmapButton.type = 'button';
