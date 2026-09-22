@@ -1,6 +1,10 @@
 import { cubeDisplayName } from './cube-names';
 import { t, tLabel, tName } from './i18n';
 import { rollLines } from './overload-roll';
+import {
+  canLock, changeCost, emptyLocks, overloadSimRng, rollEffectChange, rollValueChange,
+  type LockKind, type SimState,
+} from './overload-sim';
 import type {
   BuffTargetRow,
   CharacterControl,
@@ -309,6 +313,12 @@ const lastPanels = new WeakMap<HTMLElement, HTMLElement[]>();
  * 동안 계속 펴 둔다 — 값을 하나 고칠 때마다 다시 접히면 두 번은 못 고른다.
  */
 const collectionAllRequested = new Set<string>();
+
+/**
+ * 오버로드작 시뮬레이션이 켜진 캐릭터의 상태. 카드는 값이 바뀔 때마다 다시 그려지므로
+ * 잠금·소모 합계·처음 줄은 카드 밖에서 산다. 끝내면 지운다.
+ */
+const overloadSims = new Map<string, SimState>();
 
 export function renderCharacterSettings(
   container: HTMLElement,
@@ -846,6 +856,27 @@ export function renderCharacterSettings(
     headingLabel.textContent = '오버로드 옵션';
     heading.append(headingLabel);
     const guide=document.createElement('button');guide.type='button';guide.className='ol-roll ol-guide';guide.textContent='옵작 가이드';guide.dataset.overloadGuide='';guide.onclick=async()=>{const {openOverloadGuide}=await import('./overload-guide');openOverloadGuide(name,catalog,cloneOverrides(current));};heading.append(guide);
+    // 오버로드작 시뮬레이션 — 이 카드의 실제 줄을 인게임 규칙대로 굴린다(overload-sim.ts).
+    const sim = overloadSims.get(name) ?? null;
+    const simButton = document.createElement('button');
+    simButton.type = 'button';
+    simButton.className = sim ? 'ol-roll ol-guide ol-sim is-on' : 'ol-roll ol-guide ol-sim';
+    simButton.dataset.overloadSim = '';
+    simButton.textContent = '시뮬레이션';
+    simButton.title = '옵션 변경을 인게임 규칙대로 굴려 봅니다 — 줄을 모듈이나 커스텀락키로 잠그고 효과·수치를 바꾸며 드는 재화를 셉니다';
+    simButton.setAttribute('aria-pressed', String(Boolean(sim)));
+    simButton.addEventListener('click', () => {
+      if (overloadSims.has(name)) overloadSims.delete(name);
+      else {
+        overloadSims.set(name, {
+          locks: { 머리: emptyLocks(), 몸통: emptyLocks(), 팔: emptyLocks(), 다리: emptyLocks() },
+          modules: 0, keys: 0,
+          origin: structuredClone(overloadLinesOf(current.overloadLines)),
+        });
+      }
+      commit(cloneOverrides(current));
+    });
+    heading.append(simButton);
     // 안 키운 서포터를 재 볼 때 열두 줄을 손으로 넣는 것이 가장 지겨운 일이다.
     // 정확한 스펙이 필요한 자리가 아니라 «대충 이런 장비» 하나가 필요한 자리다.
     const roll = document.createElement('button');
@@ -866,6 +897,44 @@ export function renderCharacterSettings(
     });
     heading.append(roll);
     editor.append(heading);
+    if (sim) {
+      editor.classList.add('is-sim');
+      const bar = document.createElement('div');
+      bar.className = 'ol-sim-bar';
+      bar.dataset.overloadSimBar = '';
+      const spent = document.createElement('span');
+      spent.className = 'ol-sim-spent';
+      spent.dataset.overloadSimSpent = '';
+      spent.textContent = t('시뮬레이션 중 · 모듈 {m} · 커스텀락키 {k}', { m: sim.modules, k: sim.keys });
+      const reset = document.createElement('button');
+      reset.type = 'button';
+      reset.className = 'ol-sim-reset';
+      reset.dataset.overloadSimReset = '';
+      reset.textContent = '처음으로';
+      reset.title = '시뮬레이션을 켤 때의 줄로 되돌리고 소모·잠금을 지웁니다';
+      reset.addEventListener('click', () => {
+        for (const part of EQUIP_PARTS) {
+          lines[part] = (sim.origin[part] ?? []).map((line) => ({ ...line }));
+          sim.locks[part] = emptyLocks();
+        }
+        sim.modules = 0;
+        sim.keys = 0;
+        commitLines();
+      });
+      const end = document.createElement('button');
+      end.type = 'button';
+      end.className = 'ol-sim-reset';
+      end.dataset.overloadSimEnd = '';
+      end.textContent = '끝내기';
+      end.title = '지금 줄은 그대로 두고 시뮬레이션만 끕니다';
+      end.addEventListener('click', () => { overloadSims.delete(name); commit(cloneOverrides(current)); });
+      bar.append(spent, reset, end);
+      editor.append(bar);
+      const note = document.createElement('p');
+      note.className = 'field-note ol-sim-note';
+      note.textContent = '줄 왼쪽 자물쇠로 모듈(파랑) 또는 커스텀락키(빨강) 잠금 · 변경 1회 = 모듈 1 + 모듈 잠금 줄 수, 락키는 잠긴 줄 수로 20·30·50 · 락키 잠금은 풀리지 않고 굴릴 때마다 또 듭니다';
+      editor.append(note);
+    }
 
     /** 줄 하나를 바꾸면 합계를 다시 세어 함께 저장한다. */
     const commitLines = () => {
@@ -923,6 +992,44 @@ export function renderCharacterSettings(
       lines[part].forEach((line, index) => {
         const row = document.createElement('div');
         row.className = 'ol-line';
+        if (sim) {
+          const locks = sim.locks[part];
+          const lock = document.createElement('button');
+          lock.type = 'button';
+          const kind = locks[index];
+          lock.className = kind === 'module' ? 'ol-lock is-module' : kind === 'key' ? 'ol-lock is-key' : 'ol-lock';
+          lock.dataset.overloadLock = `${part}:${index}`;
+          lock.textContent = kind === 'module' ? '모듈' : kind === 'key' ? '락키' : '🔓';
+          lock.title = kind ? '잠금을 바꾸거나 풉니다' : '이 줄을 모듈 또는 커스텀락키로 잠급니다';
+          lock.disabled = !canLock(locks, index, line);
+          lock.setAttribute('aria-expanded', 'false');
+          const menu = document.createElement('div');
+          menu.className = 'ol-lock-menu';
+          menu.hidden = true;
+          const choose = (next: LockKind | null, label: string, className: string) => {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = className;
+            item.dataset.overloadLockAs = next ?? 'none';
+            item.textContent = label;
+            item.addEventListener('click', () => {
+              locks[index] = next;
+              commit(cloneOverrides(current));
+            });
+            menu.append(item);
+          };
+          choose('module', '모듈로 잠금', 'is-module');
+          choose('key', '커스텀락키로 잠금', 'is-key');
+          if (kind) choose(null, '잠금 해제', '');
+          lock.addEventListener('click', () => {
+            menu.hidden = !menu.hidden;
+            lock.setAttribute('aria-expanded', String(!menu.hidden));
+          });
+          const wrap = document.createElement('span');
+          wrap.className = 'ol-lock-wrap';
+          wrap.append(lock, menu);
+          row.append(wrap);
+        }
 
         const optionPick = document.createElement('select');
         optionPick.dataset.overloadOption = `${part}:${index}`;
@@ -971,6 +1078,42 @@ export function renderCharacterSettings(
         card.append(row);
       });
       sum.textContent = partTotal > 0 ? `합 ${numberText(partTotal)}` : '빈 부위';
+      if (sim) {
+        // 변경 단추 — 누르는 순간 재화가 든다. 잠금 비용도 여기서(잠글 때가 아니라).
+        const locks = sim.locks[part];
+        const cost = changeCost(locks);
+        const actions = document.createElement('div');
+        actions.className = 'ol-sim-actions';
+        const costText = cost.keys > 0
+          ? t('모듈 {m} · 락키 {k}', { m: cost.modules, k: cost.keys })
+          : t('모듈 {m}', { m: cost.modules });
+        const spend = (next: OverloadLine[]) => {
+          sim.modules += cost.modules;
+          sim.keys += cost.keys;
+          lines[part] = next;
+          commitLines();
+        };
+        const effect = document.createElement('button');
+        effect.type = 'button';
+        effect.className = 'ol-sim-change';
+        effect.dataset.overloadSimEffect = part;
+        effect.textContent = `${t('효과 변경')} · ${costText}`;
+        effect.title = '잠기지 않은 줄의 효과와 수치를 새로 굴립니다';
+        effect.addEventListener('click', () => {
+          const pool = Object.keys(catalog.overloadFields).filter((key) => steps[key]);
+          spend(rollEffectChange(lines[part], locks, pool, overloadSimRng()));
+        });
+        const value = document.createElement('button');
+        value.type = 'button';
+        value.className = 'ol-sim-change';
+        value.dataset.overloadSimValue = part;
+        value.textContent = `${t('수치 변경')} · ${costText}`;
+        value.title = '효과는 두고 잠기지 않은 줄의 수치만 새로 굴립니다';
+        value.disabled = !lines[part].some((line, index) => line.option && !locks[index]);
+        value.addEventListener('click', () => spend(rollValueChange(lines[part], locks, overloadSimRng())));
+        actions.append(effect, value);
+        card.append(actions);
+      }
       editor.append(card);
     }
     body.append(editor);

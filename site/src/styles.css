@@ -2531,6 +2531,29 @@ body.bm-open { overflow: hidden; }
 .ol-roll.ol-guide { background: #c4b5fd; color: #241344; border-color: #ddd6fe; font-weight: 800; box-shadow: 0 0 12px rgba(167,139,250,.25); }
 .ol-roll.ol-guide:hover { background: #ddd6fe; color: #1d1035; border-color: #ede9fe; }
 .ol-roll.ol-guide:focus-visible { outline: 2px solid #ede9fe; outline-offset: 3px; }
+/* 오버로드작 시뮬레이션 — 옵작 가이드와 같은 색, 켜지면 테두리로 안다. */
+.ol-roll.ol-sim { margin-left: 4px; }
+.ol-roll.ol-sim.is-on { box-shadow: 0 0 0 2px #ede9fe, 0 0 14px rgba(167,139,250,.45); }
+.ol-sim-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 8px; border: 1px solid rgba(196,181,253,.45); border-radius: 8px; background: rgba(167,139,250,.1); }
+.ol-sim-spent { flex: 1 1 auto; color: #ddd6fe; font: 800 10.5px/1.3 ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.ol-sim-reset { padding: 3px 8px; border: 1px solid rgba(196,181,253,.5); border-radius: 999px; background: transparent; color: #ddd6fe; font: 700 10px/1.2 inherit; font-family: inherit; cursor: pointer; }
+.ol-sim-reset:hover { background: rgba(167,139,250,.2); color: #fff; }
+.ol-sim-note { margin: -2px 0 0; font-size: 9.5px; }
+.overload-lines.is-sim .ol-line { grid-template-columns: auto 1fr 58px 52px; }
+.ol-lock-wrap { position: relative; }
+.ol-lock { min-width: 30px; min-height: 30px; padding: 0 5px; border: 1px dashed rgba(146,176,201,.4); border-radius: 7px; background: rgba(7,15,25,.6); color: var(--muted); font: 800 9.5px/1 ui-monospace, monospace; cursor: pointer; }
+.ol-lock:disabled { opacity: .35; cursor: not-allowed; }
+.ol-lock.is-module { border-style: solid; border-color: #60a5fa; background: rgba(96,165,250,.18); color: #bfdbfe; }
+.ol-lock.is-key { border-style: solid; border-color: #f87171; background: rgba(248,113,113,.18); color: #fecaca; }
+.ol-lock-menu { position: absolute; z-index: 5; top: calc(100% + 4px); left: 0; display: grid; gap: 3px; min-width: 128px; padding: 5px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-strong); box-shadow: 0 12px 30px rgba(0,0,0,.45); }
+.ol-lock-menu button { padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: rgba(7,15,25,.6); color: var(--ink); font: 700 10px/1.2 inherit; font-family: inherit; text-align: left; cursor: pointer; }
+.ol-lock-menu button.is-module { border-color: rgba(96,165,250,.6); color: #bfdbfe; }
+.ol-lock-menu button.is-key { border-color: rgba(248,113,113,.6); color: #fecaca; }
+.ol-lock-menu button:hover { background: rgba(146,176,201,.14); }
+.ol-sim-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 2px; }
+.ol-sim-change { min-height: 28px; padding: 0 6px; border: 1px solid rgba(196,181,253,.5); border-radius: 7px; background: rgba(167,139,250,.14); color: #ede9fe; font: 800 9.5px/1.2 inherit; font-family: inherit; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ol-sim-change:hover:not(:disabled) { background: rgba(167,139,250,.28); }
+.ol-sim-change:disabled { opacity: .4; cursor: not-allowed; }
 /* 초상화 위의 육성 딱지 — 인게임 목록처럼 돌파와 소장품을 겹쳐 적는다(기본 꺼짐). */
 .growth-badge { position: absolute; left: 4px; right: 4px; bottom: 4px;
   display: flex; align-items: center; justify-content: space-between; gap: 4px;

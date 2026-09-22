@@ -645,6 +645,72 @@ describe('character settings editor', () => {
     expect(root.textContent).toContain('1~9레벨 계수가 공개되지 않아');
   });
 
+  it('오버로드작 시뮬레이션 — 잠근 줄은 그대로, 변경마다 재화가 쌓이고, 처음으로가 되돌린다', async () => {
+    const { setOverloadSimRng } = await import('./overload-sim');
+    let seed = 9;
+    setOverloadSimRng(() => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; });
+    // 부위 3줄 입력은 레벨별 값표(`overloadSteps`)가 있어야 그려진다.
+    const steps = Array.from({ length: 15 }, (_, at) => (at + 1) * 1.5);
+    const withSteps: SettingsCatalog = {
+      ...settings,
+      overloadFields: {
+        atk_pct: { label: '공격력', unit: '%', min: 0, max: 1000 },
+        crit_dmg: { label: '크리 대미지', unit: '%', min: 0, max: 1000 },
+        def_pct: { label: '방어력', unit: '%', min: 0, max: 1000 },
+      },
+      overloadSteps: { atk_pct: steps, crit_dmg: steps, def_pct: steps },
+    };
+    const host = document.createElement('div');
+    document.body.append(host);
+    let last: CharacterOverrides | null = null;
+    renderCharacterSettings(host, '리타', withSteps, {
+      overloadLines: { 머리: [{ option: 'atk_pct', level: 15 }, { option: 'crit_dmg', level: 9 }, { option: 'def_pct', level: 3 }] },
+    }, (next) => { last = next ?? null; });
+    const q = <T extends Element>(selector: string) => host.querySelector<T>(selector)!;
+    expect(host.querySelector('[data-overload-sim-bar]')).toBeNull();
+
+    q<HTMLButtonElement>('[data-overload-sim]').click();
+    expect(host.querySelector('[data-overload-sim-bar]')).not.toBeNull();
+    expect(q('[data-overload-sim-spent]').textContent).toContain('모듈 0');
+    // 자물쇠는 옵션이 있는 줄에만 산다 — 몸통은 비어 있어 잠글 수 없다.
+    expect(q<HTMLButtonElement>('[data-overload-lock="몸통:0"]').disabled).toBe(true);
+    // 머리 1번 줄을 모듈로, 3번 줄을 락키로 잠근다.
+    q<HTMLButtonElement>('[data-overload-lock="머리:0"]').click();
+    q<HTMLButtonElement>('[data-overload-lock="머리:0"] + .ol-lock-menu [data-overload-lock-as="module"]').click();
+    expect(q('[data-overload-lock="머리:0"]').className).toContain('is-module');
+    q<HTMLButtonElement>('[data-overload-lock="머리:2"]').click();
+    q<HTMLButtonElement>('[data-overload-lock="머리:2"] + .ol-lock-menu [data-overload-lock-as="key"]').click();
+    expect(q('[data-overload-lock="머리:2"]').className).toContain('is-key');
+    // 두 줄이 잠겼으니 세 번째는 못 잠근다.
+    expect(q<HTMLButtonElement>('[data-overload-lock="머리:1"]').disabled).toBe(true);
+    // 비용: 모듈 1 + 모듈 잠금 1 = 2, 락키는 두 번째 잠금이라 30.
+    expect(q('[data-overload-sim-effect="머리"]').textContent).toContain('모듈 2 · 락키 30');
+
+    q<HTMLButtonElement>('[data-overload-sim-effect="머리"]').click();
+    expect(last!.overloadLines!.머리![0]).toEqual({ option: 'atk_pct', level: 15 });
+    expect(last!.overloadLines!.머리![2]).toEqual({ option: 'def_pct', level: 3 });
+    const middle = last!.overloadLines!.머리![1]!;
+    if (middle.option) expect(['atk_pct', 'def_pct']).not.toContain(middle.option);
+    expect(q('[data-overload-sim-spent]').textContent).toContain('모듈 2 · 커스텀락키 30');
+    // 락키 잠금은 유지되고 또 든다.
+    q<HTMLButtonElement>('[data-overload-sim-value="머리"]').click();
+    expect(q('[data-overload-lock="머리:2"]').className).toContain('is-key');
+    expect(q('[data-overload-sim-spent]').textContent).toContain('모듈 4 · 커스텀락키 60');
+    // 처음으로 — 줄·잠금·소모가 시뮬레이션을 켤 때로 돌아간다.
+    q<HTMLButtonElement>('[data-overload-sim-reset]').click();
+    expect(last!.overloadLines!.머리).toEqual([
+      { option: 'atk_pct', level: 15 }, { option: 'crit_dmg', level: 9 }, { option: 'def_pct', level: 3 },
+    ]);
+    expect(q('[data-overload-sim-spent]').textContent).toContain('모듈 0 · 커스텀락키 0');
+    expect(q('[data-overload-lock="머리:0"]').className).not.toContain('is-module');
+    // 끝내기 — 자물쇠와 막대가 사라지고 줄은 남는다.
+    q<HTMLButtonElement>('[data-overload-sim-end]').click();
+    expect(host.querySelector('[data-overload-sim-bar]')).toBeNull();
+    expect(host.querySelector('[data-overload-lock]')).toBeNull();
+    expect(last!.overloadLines!.머리![0]).toEqual({ option: 'atk_pct', level: 15 });
+    host.remove();
+  });
+
   it('updates cube type and renders its selected-level stats and effects', () => {
     setToggle('[data-custom-toggle]', true);
     const cube = root.querySelector<HTMLSelectElement>('[data-cube-name]')!;
