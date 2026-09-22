@@ -1450,6 +1450,24 @@ export function renderCharacterSettings(
       updateControl('tap_fire', tapPolicy.value === 'burst_charge' ? { ...rest, policy: 'burst_charge' } : rest);
     });
     tapLabel.append(tapPolicy);
+    // 버충 구간만일 때: 재장전 뒤 첫 발을 풀차지로 쏘고 톡톡이한다(기본 켬). 톡톡이는 논차지라
+    // 「풀 차지 공격 시」 버프(프리카)가 풀버스트 끝과 함께 끊기는데, 실제 조작은 한 발 풀차지로
+    // 되살린 뒤 톡톡이한다(피드백 2026-09-22). 끄면 재장전하자마자 톡톡이다.
+    const tapFullAfter = document.createElement('label');
+    tapFullAfter.className = 'inline-check tap-full-after-reload';
+    tapFullAfter.title = '풀버스트가 끝나 재장전한 뒤 첫 발을 풀차지로 쏘고 톡톡이로 넘어갑니다. 「풀 차지 공격 시」 버프를 되살리는 실제 조작입니다. 끄면 재장전하자마자 톡톡이합니다';
+    const tapFullBox = document.createElement('input');
+    tapFullBox.type = 'checkbox';
+    tapFullBox.dataset.tapFullAfterReload = '';
+    tapFullBox.checked = displayedControl.tap_fire?.full_charge_after_reload !== false;
+    tapFullBox.disabled = isAutomatic || displayedControl.tap_fire?.policy !== 'burst_charge';
+    tapFullBox.addEventListener('change', () => {
+      const base = current.control?.tap_fire ?? displayedControl.tap_fire ?? { rate: TAP_FIRE_DEFAULT, release: 0.03 };
+      const { full_charge_after_reload: _drop, ...rest } = base;
+      updateControl('tap_fire', tapFullBox.checked ? rest : { ...rest, full_charge_after_reload: false });
+    });
+    tapFullAfter.append(tapFullBox, document.createTextNode('재장전 후 풀차지 1발'));
+    tapLabel.append(tapFullAfter);
     if (name !== '길티 : 마이티 바니' && name !== '신 : 스위프트 바니') {
     const holdLabel = addControlToggle('hold', '홀드 컨트롤', {
       policy: 'own_full_burst', lead: 0.5,

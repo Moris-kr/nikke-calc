@@ -1661,6 +1661,8 @@ export const EN: Record<string, string> = {
   '덱 {n}개의 편성과 큐브를 가져왔습니다 — 나머지 스펙은 내 블라블라링크 값으로 돕니다.': 'Took the lineup and cubes of {n} deck(s) — the rest of the stats run on my Blablalink values.',
   '항상 톡톡이': 'Tap-fire always',
   '버충 구간만 (풀버스트 끝 → 재장전 → 톡톡이)': 'Burst-charge window only (Full Burst ends → reload → tap-fire)',
+  '재장전 후 풀차지 1발': 'Full-charge once after reload',
+  '재장전 후 바로 톡톡이': 'Tap-fire right after reload',
   '시뮬레이션 중 · 모듈 {m} · 커스텀락키 {k}': 'Simulating · modules {m} · lock keys {k}',
   '처음으로': 'Reset',
   '끝내기': 'Stop',

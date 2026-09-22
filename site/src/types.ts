@@ -35,6 +35,8 @@ export interface CharacterControl {
     policy?: 'always' | 'burst_charge';
     /** 버충 톡톡이에서 풀버스트가 끝나는 순간 재장전을 걸지. 기본 true. */
     reload_at_end?: boolean;
+    /** 버충 톡톡이에서 재장전 뒤 첫 발을 풀차지로 쏠지(`풀 차지 공격 시` 버프 되살리기). 기본 true. */
+    full_charge_after_reload?: boolean;
   };
   reload?: {
     policy: 'before_fb_end' | 'into_fb';

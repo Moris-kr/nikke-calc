@@ -166,9 +166,11 @@ def _normalize_control(raw: Any) -> dict[str, Any]:
     tap = raw.get("tap_fire")
     if tap is not None:
         if not isinstance(tap, dict) or set(tap) - {
-            "rate", "release", "full_charge_interval", "policy", "reload_at_end"
+            "rate", "release", "full_charge_interval", "policy", "reload_at_end",
+            "full_charge_after_reload",
         } or "rate" not in tap:
-            raise ValueError("톡톡이는 rate와 선택 release/full_charge_interval/policy/reload_at_end만 지원합니다")
+            raise ValueError("톡톡이는 rate와 선택 release/full_charge_interval/policy/reload_at_end/"
+                             "full_charge_after_reload만 지원합니다")
         normalized_tap = {
             "rate": _control_number(tap["rate"], "tap_fire.rate", 0.1, 20.0),
         }
@@ -182,6 +184,10 @@ def _normalize_control(raw: Any) -> dict[str, Any]:
             if not isinstance(tap["reload_at_end"], bool):
                 raise ValueError("tap_fire.reload_at_end는 true/false여야 합니다")
             normalized_tap["reload_at_end"] = tap["reload_at_end"]
+        if "full_charge_after_reload" in tap:
+            if not isinstance(tap["full_charge_after_reload"], bool):
+                raise ValueError("tap_fire.full_charge_after_reload는 true/false여야 합니다")
+            normalized_tap["full_charge_after_reload"] = tap["full_charge_after_reload"]
         if "release" in tap:
             normalized_tap["release"] = _control_number(
                 tap["release"], "tap_fire.release", 0.0, 1.0

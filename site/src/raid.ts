@@ -176,7 +176,9 @@ export function controlLine(ctl: RaidControl | undefined): string {
   if (c) {
     if (c.tap_fire) {
       parts.push(t('톡톡이 {rate}발/s', { rate: c.tap_fire.rate })
-        + (c.tap_fire.policy === 'burst_charge' ? ` · ${t('버충 구간만')}` : ''));
+        + (c.tap_fire.policy === 'burst_charge' ? ` · ${t('버충 구간만')}` : '')
+        + (c.tap_fire.policy === 'burst_charge' && c.tap_fire.full_charge_after_reload === false
+          ? ` · ${t('재장전 후 바로 톡톡이')}` : ''));
     }
     if (c.reload) {
       parts.push(c.reload.policy === 'into_fb'

@@ -440,6 +440,12 @@ class CharState:
         # 풀차지»가 한 세트다(피드백 2026-09-22). 재장전은 아래 `_apply_tap_reload`가 건다.
         self.tap_policy: str = str((tap or {}).get("policy", "always"))
         self.tap_reload_at_end: bool = bool((tap or {}).get("reload_at_end", True))
+        # 재장전 뒤 **첫 발은 풀차지**로 쏘고 톡톡이로 넘어간다(피드백 2026-09-22, 프리카).
+        # 톡톡이는 논차지라 `풀 차지 공격 시` 버프가 풀버스트 끝과 함께 끊기는데, 실제 조작은
+        # 재장전하고 한 발 풀차지로 버프를 되살린 뒤 톡톡이한다. 기본 켬.
+        self.tap_full_charge_after_reload: bool = bool(
+            (tap or {}).get("full_charge_after_reload", True))
+        self._tap_full_pending: bool = False
         self._tap_reload_anchor: float = -1.0
         self._last_full_charge_t: float = -1e9
         self._force_full_charge: bool = False
@@ -953,7 +959,7 @@ class CharState:
             self._force_full_charge = (
                 self.tap_full_charge_interval > 0
                 and t - self._last_full_charge_t >= self.tap_full_charge_interval
-            )
+            ) or self._tap_full_pending
             # 의도한 차지가 시작된 순간에만 홀드를 건다. 미리 걸어 두면 그 전에 우연히
             # 완성된 풀차지를 붙잡아 판정이 면역 구간 안에서 헛돌아 버린다.
             #
@@ -1091,6 +1097,7 @@ class CharState:
         if is_full:
             self._last_full_charge_t = t
             self._force_full_charge = False
+            self._tap_full_pending = False
             bm.notify("full_charge", t, self.name)
         buffs = bm.get_buffs(self.name, "__enemy__", t)
         # 에밀리아 `미정령의 축복`: 최종 최대 장탄 수 1발마다 차지 대미지 증가.
@@ -1697,7 +1704,8 @@ class CharState:
         엄폐로 유도되는 결과라(§장전컨) 여기서도 엄폐 구간을 열 뿐이다. 사이클당 1회 —
         `full_burst_end_t`는 진입 때 확정되고 끝난 뒤에도 남아 있어 그것을 닻으로 쓴다.
         """
-        if not (self.tap_fire and self.tap_policy == "burst_charge" and self.tap_reload_at_end):
+        if not (self.tap_fire and self.tap_policy == "burst_charge"
+                and (self.tap_reload_at_end or self.tap_full_charge_after_reload)):
             return False
         if self.fire_mode != "charge" or bm.state.get("full_burst", False):
             return False
@@ -1705,7 +1713,13 @@ class CharState:
         if anchor <= 0 or t < anchor or anchor == self._tap_reload_anchor:
             return False
         self._tap_reload_anchor = anchor
-        # 이미 재장전 중이거나 탄이 꽉 찼으면 엄폐할 일이 없다 — 곧바로 톡톡이다.
+        # 재장전 뒤 첫 발은 풀차지 — 다음 차지 시작이 이 표시를 읽어 풀차지로 들고,
+        # 풀차지가 나가면 지운다(`_charge_fire`). 재장전을 안 걸어도(탄이 꽉 참) 같다.
+        if self.tap_full_charge_after_reload:
+            self._tap_full_pending = True
+        if not self.tap_reload_at_end:
+            return False
+        # 이미 재장전 중이거나 탄이 꽉 찼으면 엄폐할 일이 없다 — 곧바로 풀차지·톡톡이다.
         if self.reloading_until > 0 or self.ammo >= self._full_ammo(bm, t):
             return False
         self._enter_cover(t, bm, None, "엄폐 시작(버충 톡톡이 재장전)")

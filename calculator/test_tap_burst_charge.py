@@ -78,6 +78,43 @@ class TapBurstChargeTest(unittest.TestCase):
                 self.assertEqual(before_first_fb(burst), before_first_fb(always))
                 self.assertGreater(before_first_fb(burst), before_first_fb(plain))
 
+    def test_first_shot_after_reload_is_full_charge(self):
+        """풀버스트 끝 → 재장전 → **풀차지 한 발** → 톡톡이 (피드백 2026-09-22, 프리카).
+
+        톡톡이는 논차지라 `풀 차지 공격 시` 버프가 풀버스트와 함께 끊긴다. 실제 조작은 재장전한
+        뒤 한 발을 풀차지로 쏴 버프를 되살리고 톡톡이한다. 기본 켬이고 끌 수 있다.
+        """
+        def first_shots_after_reload(result):
+            reload_done = [e.t for e in result.log.reload_log
+                           if e.caster == "아인" and "완료" in e.event]
+            shots = _basic_shots(result)
+            tags = []
+            for _start, end in _fb_windows(result):
+                if end == float("inf"):
+                    continue
+                done = next((t for t in reload_done if t >= end), None)
+                if done is None:
+                    continue
+                first = next((h for h in shots if h.t >= done), None)
+                if first is not None:
+                    tags.append(first.hit_tag)
+            return tags
+
+        on = first_shots_after_reload(_run(dict(TAP_BURST)))
+        self.assertTrue(on)
+        self.assertTrue(all("full_charge_hit" in tag for tag in on), on)
+        off = first_shots_after_reload(
+            _run({"tap_fire": {**TAP_BURST["tap_fire"], "full_charge_after_reload": False}}))
+        self.assertTrue(off)
+        self.assertTrue(all("full_charge_hit" not in tag for tag in off), off)
+
+    def test_full_charge_after_reload_must_be_bool(self):
+        from calculator.customization import _normalize_control
+        good = _normalize_control({"tap_fire": {**TAP_BURST["tap_fire"], "full_charge_after_reload": False}})
+        self.assertIs(good["tap_fire"]["full_charge_after_reload"], False)
+        with self.assertRaises(ValueError):
+            _normalize_control({"tap_fire": {**TAP_BURST["tap_fire"], "full_charge_after_reload": "yes"}})
+
     def test_differs_from_no_control_too(self):
         plain = _run({})
         burst = _run(dict(TAP_BURST))

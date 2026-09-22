@@ -596,6 +596,32 @@ describe('character settings editor', () => {
     expect(value?.control?.tap_fire).toEqual({ rate: 3.8, release: 0.03 });
   });
 
+  it('버충 구간만이면 «재장전 후 풀차지 1발»이 기본 켬이고, 끄면 false가 실린다', () => {
+    characterName = '라피';
+    render();
+    setToggle('[data-custom-toggle]', true);
+    setToggle('[data-control-mode="manual"]', true);
+    setToggle('[data-control="tap_fire"]', true);
+    // 항상 톡톡이에서는 뜻이 없어 잠근다.
+    expect(root.querySelector<HTMLInputElement>('[data-tap-full-after-reload]')!.disabled).toBe(true);
+    const policy = root.querySelector<HTMLSelectElement>('[data-control-policy="tap_fire"]')!;
+    policy.value = 'burst_charge';
+    policy.dispatchEvent(new Event('change'));
+    const box = root.querySelector<HTMLInputElement>('[data-tap-full-after-reload]')!;
+    expect(box.disabled).toBe(false);
+    expect(box.checked).toBe(true);
+    // 기본(켬)은 값을 안 싣는다 — 엔진 기본과 같다.
+    expect(value?.control?.tap_fire).toEqual({ rate: 4.4, release: 0.03, policy: 'burst_charge' });
+    box.checked = false;
+    box.dispatchEvent(new Event('change'));
+    expect(value?.control?.tap_fire).toEqual({ rate: 4.4, release: 0.03, policy: 'burst_charge', full_charge_after_reload: false });
+    const again = root.querySelector<HTMLInputElement>('[data-tap-full-after-reload]')!;
+    expect(again.checked).toBe(false);
+    again.checked = true;
+    again.dispatchEvent(new Event('change'));
+    expect(value?.control?.tap_fire).toEqual({ rate: 4.4, release: 0.03, policy: 'burst_charge' });
+  });
+
   it('lets the tap-fire rate be typed in and shows the 톡톡이 equivalent', () => {
     characterName = '라피';
     render();
