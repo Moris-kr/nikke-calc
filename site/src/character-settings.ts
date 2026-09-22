@@ -1,4 +1,5 @@
 import { cubeDisplayName } from './cube-names';
+import { prependItemIcon, MODULE_ITEM } from './item-icons';
 import { t, tLabel, tName } from './i18n';
 import { rollLines } from './overload-roll';
 import {
@@ -906,6 +907,7 @@ export function renderCharacterSettings(
       spent.className = 'ol-sim-spent';
       spent.dataset.overloadSimSpent = '';
       spent.textContent = t('시뮬레이션 중 · 모듈 {m} · 커스텀락키 {k}', { m: sim.modules, k: sim.keys });
+      prependItemIcon(spent, MODULE_ITEM);
       const reset = document.createElement('button');
       reset.type = 'button';
       reset.className = 'ol-sim-reset';

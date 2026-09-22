@@ -2,6 +2,7 @@ import type { CharacterMeta, CharacterOverrides } from './types';
 import type { StorageLike } from './cache';
 import { t, tName } from './i18n';
 import { calculatePlan, characterCosts, MANUALS, MATERIAL_NAMES, PLANNER_KEY, readPlannerState } from './skill-planner';
+import { prependItemIcon } from './item-icons';
 
 interface PlannerOptions {
   catalog: () => CharacterMeta[];
@@ -161,7 +162,9 @@ export function createSkillPlanner(options: PlannerOptions) {
       const body = el('tbody');
       for (const id of MANUALS) {
         const row = el('tr'); row.dataset.materialResult = id;
-        row.append(el('th', MATERIAL_NAMES[id]));
+        const name = el('th', MATERIAL_NAMES[id]);
+        prependItemIcon(name, id);
+        row.append(name);
         [total.required[id] ?? 0, state.inventory[id] ?? 0, total.shortage[id] ?? 0, total.remaining[id] ?? 0].forEach((n, i) => {
           row.append(el('td', n.toLocaleString(), i === 2 && n > 0 ? 'manual-shortage' : undefined));
         }); body.append(row);
@@ -170,8 +173,13 @@ export function createSkillPlanner(options: PlannerOptions) {
       const codes = Object.entries(total.required).filter(([id]) => !(MANUALS as readonly string[]).includes(id));
       if (codes.length) {
         result.append(el('p', '추가로 필요한 코드 매뉴얼 (보유량 차감 전)', 'skill-planner-note'));
-        const list = el('ul');
-        for (const [id, amount] of codes) list.append(el('li', `${t(MATERIAL_NAMES[id] ?? id)}: ${amount.toLocaleString()}`));
+        const list = el('ul', undefined, 'code-manual-list');
+        for (const [id, amount] of codes) {
+          const item = el('li', `${t(MATERIAL_NAMES[id] ?? id)}: ${amount.toLocaleString()}`);
+          item.dataset.codeManual = id;
+          prependItemIcon(item, id);
+          list.append(item);
+        }
         result.append(list);
       }
     }

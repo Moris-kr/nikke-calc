@@ -1,4 +1,5 @@
 import {inlineCodeIcon,bossElementHint} from './element-inline';
+import {prependItemIcon,MODULE_ITEM} from './item-icons';
 import {growthSkillPlan,skillMaterialLines,skillTotalLines,rankModuleResults,growthReportHtml} from './growth-report';
 import growthReportCss from './growth-efficiency.css?inline';
 import {registerGrowthMcp} from './growth-mcp';
@@ -418,7 +419,8 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
             const goalCount=[...counts.values()].reduce((sum,n)=>sum+n,0);
 
             const breakdown=node('ul');for(const text of [`목표 옵션 ${goalCount}줄 찾기 ${effect.toFixed(1)}개`,`목표 레벨 수치작 ${value.toFixed(1)}개`,`잠금 모듈 ${lock.toFixed(1)}개`])breakdown.append(node('li',text));if(currencySelect.value==='keys')breakdown.append(node('li',`커스텀 락 키 별도 ${keys.toFixed(1)}개 (모듈 합계에 미포함)`));
-            article.append(node('strong',`모듈 합계 평균 ${total.toFixed(1)}개 · 추정 오차 ±${error.toFixed(1)}`),breakdown,node('p',`오버로드만 육성: 덱 ${percent(pair.before.result.squadTotal,isolated.squadTotal)} · ${gain>=0?'+':''}${formatDamage(gain)} / ${total>0?`모듈 1개당 기대 딜 증가 ${Math.round(efficiency).toLocaleString('ko-KR')}`:'이미 목표 달성 · 추가 비용 없음'}`));
+            const moduleTotal=node('strong',`모듈 합계 평균 ${total.toFixed(1)}개 · 추정 오차 ±${error.toFixed(1)}`);prependItemIcon(moduleTotal,MODULE_ITEM);
+            article.append(moduleTotal,breakdown,node('p',`오버로드만 육성: 덱 ${percent(pair.before.result.squadTotal,isolated.squadTotal)} · ${gain>=0?'+':''}${formatDamage(gain)} / ${total>0?`모듈 1개당 기대 딜 증가 ${Math.round(efficiency).toLocaleString('ko-KR')}`:'이미 목표 달성 · 추가 비용 없음'}`));
             pair.moduleReport.push([
               `${name} · 모듈 1개당 기대 딜 증가 ${total>0?Math.round(efficiency).toLocaleString('ko-KR'):'추가 비용 없음'}`,
               `모듈 평균 ${total.toFixed(1)}개 (추정 오차 ±${error.toFixed(1)}) · 락 키 별도 ${keys.toFixed(1)}개`,
@@ -455,7 +457,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
         if(costHistory.size>1){
           const history=node('details');history.append(node('summary','목표 비교 기록 (최근 50건)'));
           history.append(node('p','이 기준 전투 결과에서 직접 계산한 목표를 보관합니다. 목표를 바꾸어 계산하면 비용과 딜을 나란히 비교할 수 있습니다.','growth-note'));
-          const table=node('table');const head=node('tr');for(const text of ['대상 · 목표','모듈 기대값','덱 딜 증가','모듈당 딜'])head.append(node('th',text));table.append(head);
+          const table=node('table');const head=node('tr');for(const text of ['대상 · 목표','모듈 기대값','덱 딜 증가','모듈당 딜']){const th=node('th',text);if(text==='모듈 기대값')prependItemIcon(th,MODULE_ITEM);head.append(th);}table.append(head);
           for(const record of costHistory.values()){const row=node('tr');for(const text of [`${record.name} · ${record.goal}`,record.total.toFixed(1),formatDamage(record.gain),record.total>0?Math.round(record.efficiency).toLocaleString('ko-KR'):'이미 달성'])row.append(node('td',text));table.append(row);}
           history.append(table);costSection.append(history);
         }

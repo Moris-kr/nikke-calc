@@ -172,6 +172,13 @@ h2 { margin: 0; font-size: 24px; letter-spacing: -.035em; }
 .manual-inventory { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
 .manual-card { display: grid; justify-items: center; gap: 8px; padding: 16px 10px; border: 1px solid var(--line); border-radius: 10px; background: rgba(3,9,16,.5); text-align: center; }
 .manual-card img { object-fit: contain; }
+/* 게임 아이템 아이콘(item-icons.ts) — 글자 옆에 줄 높이만큼. 그림은 장식이고 이름은 글자가 말한다. */
+.item-icon { display: inline-block; width: 1.45em; height: 1.45em; margin: -.25em .35em -.25em 0; vertical-align: middle;
+  object-fit: contain; filter: drop-shadow(0 1px 1px rgba(0,0,0,.5)); }
+[data-material-result] th { white-space: nowrap; }
+.code-manual-list { display: flex; flex-wrap: wrap; gap: 6px 10px; margin: 8px 0 0; padding: 0; list-style: none; }
+.code-manual-list li { display: inline-flex; align-items: center; padding: 4px 10px 4px 6px; border: 1px solid var(--line);
+  border-radius: 999px; background: rgba(3,9,16,.5); font-size: 12.5px; font-weight: 700; }
 .manual-card span { font-size: 13px; font-weight: 700; }
 .manual-card small { color: var(--muted); }
 .manual-card input { width: 100%; min-width: 0; text-align: center; }

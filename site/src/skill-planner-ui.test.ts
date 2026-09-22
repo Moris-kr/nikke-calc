@@ -67,3 +67,17 @@ it('reapplies only known profile levels, retaining manually entered unlinked cha
   expect(root.querySelector<HTMLSelectElement>('select[aria-label="신 : 스위프트 바니 스킬 1 현재"]')!.value).toBe('4');
   expect(root.querySelector<HTMLSelectElement>('select[aria-label="길티 : 마이티 바니 스킬 1 현재"]')!.value).toBe('4');
 });
+
+it('결과표의 재료와 코드 매뉴얼 목록에 아이템 아이콘을 붙인다', () => {
+  mount().render(root); click('캐릭터 추가');
+  const row = root.querySelector('[data-material-result="7091001"] th')!;
+  expect(row.querySelector<HTMLImageElement>('img[data-item-icon="7091001"]')!.getAttribute('src')).toContain('manuals/7091001.png');
+  // 이름은 글자가 말한다 — 아이콘은 장식이라 alt가 비어 있다.
+  expect(row.querySelector('img')!.alt).toBe('');
+  expect(row.textContent).toContain('스킬 매뉴얼 I');
+  const codes = [...root.querySelectorAll<HTMLElement>('[data-code-manual]')];
+  expect(codes.length).toBeGreaterThan(0);
+  for (const item of codes) {
+    expect(item.querySelector('img')!.getAttribute('src')).toContain(`items/${item.dataset.codeManual}.webp`);
+  }
+});

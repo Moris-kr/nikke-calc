@@ -1,4 +1,5 @@
 import './overload-guide.css';
+import {prependItemIcon,MODULE_ITEM} from './item-icons';
 import {GUIDE_PARTS,type GuideGoal,type GuideResult,type GuideMethod} from './overload-guide-model';
 import type {CharacterOverrides,SettingsCatalog,OverloadLine} from './types';
 const el=<K extends keyof HTMLElementTagNameMap>(tag:K,text='',cls='')=>{const node=document.createElement(tag);node.textContent=text;node.className=cls;return node;};
@@ -37,7 +38,7 @@ export function openOverloadGuide(name:string,catalog:SettingsCatalog,current:Ch
  const show=(result:GuideResult)=>{
   output.replaceChildren();output.append(el('p',`장비 목표 ${result.profileCount}종의 배분을 비교했습니다. 결과는 제한된 절차·고정 전환 순서 안의 최소 추정값이며 전역 최적해는 아닙니다. 후보당 64개 예비 표본으로 선택하고 최종 경로를 독립 4,000개 표본으로 평가했습니다. ±는 평균 추정 오차이며 실제 소모량 범위가 아닙니다. 후보 선택·모델 오차는 포함하지 않습니다.`,'og-note'));
   const names:Record<GuideMethod,string>={modules:'① 모듈 잠금만 · 모듈 최소',keys:'② 락 키 잠금만 · 키 최소',mixed:'③ 혼합 · 설정 가중치 최소'};
-  for(const method of ['modules','keys','mixed'] as const){const answer=result.methods[method];const card=el('article');card.append(el('h3',names[method]),el('strong',`모듈 ${answer.modules.toFixed(1)}개 ±${answer.error95.toFixed(1)} · 락 키 ${answer.keys.toFixed(1)}개 ±${answer.keyError95.toFixed(1)}`));
+  for(const method of ['modules','keys','mixed'] as const){const answer=result.methods[method];const card=el('article');const sum=el('strong',`모듈 ${answer.modules.toFixed(1)}개 ±${answer.error95.toFixed(1)} · 락 키 ${answer.keys.toFixed(1)}개 ±${answer.keyError95.toFixed(1)}`);prependItemIcon(sum,MODULE_ITEM);card.append(el('h3',names[method]),sum);
    if(method==='mixed')card.append(el('p',`비교 점수 ${(answer.modules+answer.keys/result.keyValue).toFixed(1)} (모듈 1 : 키 ${result.keyValue}). 전환이 이득이 없으면 한 가지 잠금 방식만 추천할 수 있습니다.`));
    const breakdown=answer.parts.reduce((sum,part)=>({effect:sum.effect+part.plan.effect,value:sum.value+part.plan.value,lock:sum.lock+part.plan.lock}),{effect:0,value:0,lock:0});card.append(el('p',`효과 찾기 ${breakdown.effect.toFixed(1)} · 수치작 ${breakdown.value.toFixed(1)} · 잠금 모듈 ${breakdown.lock.toFixed(1)}`));
    answer.parts.forEach((offer,p)=>{const {plan,profile}=offer;const details=el('details');details.append(el('summary',`${GUIDE_PARTS[p]} · 모듈 ${plan.modules.toFixed(1)} / 키 ${plan.keys.toFixed(1)}`));
