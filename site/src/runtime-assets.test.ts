@@ -60,7 +60,9 @@ describe('generated browser runtime', () => {
     ) as RuntimeManifest;
 
     expect(manifest.version).toMatch(/^[a-f0-9]{16}$/);
-    expect(manifest.files).toHaveLength(30);
+    expect(manifest.files).toHaveLength(31);
+    // 버스트 게이지 예외표 — 엔진이 모듈 로드 시점에 읽는다. 빠지면 브라우저 계산이 통째로 죽는다(2026-09-22).
+    expect(manifest.files).toContain('data/burst_gauge.json');
     expect(manifest.files).toContain('calculator/shotgun_heatmap.py');
     expect(manifest.files).toContain('calculator/pellet_accuracy.py');
     expect(manifest.files).toContain('recommendation.py');
