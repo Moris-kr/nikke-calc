@@ -4,6 +4,7 @@ import {
   ammoAt, buffsOnAt, burstLogAt, burstStageAt, chargeAt, damageUntil, firingAt, fullBurstAt, gaugeAt,
   openBattleReplay, patternsAt, poseAt, SD_SPRITES, spriteFor, DEFAULT_SD,
 } from './battle-replay';
+import { SD_IDS } from './sd-ids';
 import type { BattleTimeline, BuffTrack, ChargeRecord, DeckResultEntry, ShotTrack, SimulationRequest, SimulationResult, StateTrack } from './types';
 
 const states: StateTrack = {
@@ -119,6 +120,15 @@ describe('시각 → 상태', () => {
     // 코어가 없는 판이면 코어는 null, 구간 없이 코어가 있으면 늘 노출.
     expect(patternsAt({ ...request, corePx: 0 }, 2).core).toBeNull();
     expect(patternsAt({ ...request, coreWindows: [] }, 20).core).toBe(true);
+  });
+
+  it('이름표에 올린 니케는 전부 사격·재장전 그림 두 장을 갖는다', () => {
+    for (const name of Object.keys(SD_IDS)) {
+      expect(SD_SPRITES[name], name).toBeDefined();
+      expect(spriteFor(name, 'shoot')).not.toBe(DEFAULT_SD.shoot);
+      expect(spriteFor(name, 'reload')).not.toBe(DEFAULT_SD.reload);
+    }
+    expect(Object.keys(SD_IDS)).toEqual(expect.arrayContaining(['라피 : 레드 후드', '홍련 : 흑영', '렘', '아인']));
   });
 
   it('캐릭터별 SD가 있으면 그걸, 없으면 회색 자리표시자', () => {

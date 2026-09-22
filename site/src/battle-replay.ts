@@ -17,8 +17,7 @@ import sdShootUrl from './assets/replay/sd-shoot.webp';
 import sdReloadUrl from './assets/replay/sd-reload.webp';
 import enemyUrl from './assets/replay/enemy.webp';
 import battleBgUrl from './assets/replay/battle-bg.webp';
-import rrhShootUrl from './assets/replay/sd/rapi-red-hood-shoot.webp';
-import rrhReloadUrl from './assets/replay/sd/rapi-red-hood-reload.webp';
+import { SD_IDS } from './sd-ids';
 import { inlineCodeIcon } from './element-inline';
 import './battle-replay.css';
 import { formatDamage } from './model';
@@ -34,11 +33,20 @@ export type ReplayPose = 'shoot' | 'reload';
 
 /**
  * 캐릭터별 SD. 없으면 회색 자리표시자를 쓴다. 사격은 뒷모습, 재장전은 **이쪽(화면)을 보는** 앞모습이다.
- * 그림은 `assets/replay/sd/<이름>-shoot|reload.webp`에 두고 여기에 이름으로 건다.
+ *
+ * 그림은 `assets/replay/sd/<게임 ID>-shoot.webp`·`-reload.webp` 두 장이고(ID는 스크랩 데이터의 `id`),
+ * `sd-ids.ts`가 정식 명칭 → ID를 적는다. 두 장이 다 있어야 쓴다.
  */
-export const SD_SPRITES: Record<string, { shoot: string; reload: string }> = {
-  '라피 : 레드 후드': { shoot: rrhShootUrl, reload: rrhReloadUrl },
-};
+const SD_FILES = import.meta.glob('./assets/replay/sd/*.webp', { eager: true, import: 'default' }) as Record<string, string>;
+const sdFile = (id: number, pose: ReplayPose): string | undefined => SD_FILES[`./assets/replay/sd/${id}-${pose}.webp`];
+
+export const SD_SPRITES: Record<string, { shoot: string; reload: string }> = Object.fromEntries(
+  Object.entries(SD_IDS).flatMap(([name, id]) => {
+    const shoot = sdFile(id, 'shoot');
+    const reload = sdFile(id, 'reload');
+    return shoot && reload ? [[name, { shoot, reload }]] : [];
+  }),
+);
 export const DEFAULT_SD = { shoot: sdShootUrl, reload: sdReloadUrl };
 
 export function spriteFor(name: string, pose: ReplayPose): string {
