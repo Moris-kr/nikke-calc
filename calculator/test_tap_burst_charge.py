@@ -55,6 +55,29 @@ class TapBurstChargeTest(unittest.TestCase):
         self.assertGreater(_shots(burst, inside_fb=False), 0)
         self.assertNotEqual(burst.char_total["아인"], always.char_total["아인"])
 
+    def test_taps_before_first_full_burst(self):
+        """첫 풀버스트 **전**도 버충 구간이다 — 전투 시작부터 톡톡이한다(확인 2026-09-22).
+
+        고정 게이지(fixed)와 실누적(accumulate) 어느 쪽이든 첫 풀버스트 전 발수가
+        «항상 톡톡이»와 같고, 컨트롤 없음보다 많아야 한다.
+        """
+        for mode in ("fixed", "accumulate"):
+            with self.subTest(mode=mode):
+                def run(control):
+                    squad = build_squad(SQUAD, chars={"아인": {"control": control}}, no_layer={"아인"})
+                    cfg = build_config(squad, {"duration": 45, "rng_mode": "expected",
+                                               "burst_gauge_mode": mode})
+                    return simulate(squad, config=cfg, enemy={"code": "", "core_px": 0}, verbose=True)
+
+                def before_first_fb(result):
+                    windows = _fb_windows(result)
+                    first = windows[0][0] if windows else float("inf")
+                    return sum(1 for h in _basic_shots(result) if h.t < first)
+
+                plain, always, burst = run({}), run(dict(TAP_ALWAYS)), run(dict(TAP_BURST))
+                self.assertEqual(before_first_fb(burst), before_first_fb(always))
+                self.assertGreater(before_first_fb(burst), before_first_fb(plain))
+
     def test_differs_from_no_control_too(self):
         plain = _run({})
         burst = _run(dict(TAP_BURST))
