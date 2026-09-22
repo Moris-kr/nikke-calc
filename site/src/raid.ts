@@ -165,7 +165,10 @@ export function raidControlsOf(
   return out;
 }
 
-/** 컨트롤 한 줄 — 「컨트롤 보기」가 니케마다 적는 요약. */
+/**
+ * 컨트롤 한 줄 — 「컨트롤 보기」가 니케마다 적는 요약. 정책은 코드가 아니라 **컨트롤 편집기와
+ * 같은 말**로 적는다 — «장전컨 into_fb»는 만든 사람만 읽는다(피드백 2026-09-22).
+ */
 export function controlLine(ctl: RaidControl | undefined): string {
   if (!ctl) return t('컨트롤 없음(자동)');
   const parts: string[] = [];
@@ -175,16 +178,19 @@ export function controlLine(ctl: RaidControl | undefined): string {
       parts.push(t('톡톡이 {rate}발/s', { rate: c.tap_fire.rate })
         + (c.tap_fire.policy === 'burst_charge' ? ` · ${t('버충 구간만')}` : ''));
     }
-    if (c.reload) parts.push(t('장전컨 {policy}', { policy: c.reload.policy }));
-    if (c.hold) parts.push(t('홀드 {policy}', { policy: c.hold.policy }));
+    if (c.reload) {
+      parts.push(c.reload.policy === 'into_fb'
+        ? t('장전컨 · 풀버스트 진입 재장전') : t('장전컨 · 풀버스트 끝 직전 재장전'));
+    }
+    if (c.hold) parts.push(c.hold.policy === 'own_full_burst' ? t('본인 풀버스트 홀드') : t('풀버스트 후 홀드'));
     if (c.cover) parts.push(t('엄폐컨'));
-    if (c.bunny_mode) parts.push(t('바니 모드 {mode}', { mode: c.bunny_mode }));
+    if (c.bunny_mode) parts.push(c.bunny_mode === 'stance' ? t('바니 모드 · 스탠스') : t('바니 모드 · 인게이지'));
     if (parts.length === 0) parts.push(t('직접 설정 (컨트롤 없음)'));
   }
   if (ctl.burst) {
-    const mode = ctl.burst.mode === 'priority' ? `every:${ctl.burst.every}`
-      : ctl.burst.mode === 'endgame' ? `last:${ctl.burst.seconds}s` : 'skip';
-    parts.push(t('버스트 운용 {mode}', { mode }));
+    parts.push(ctl.burst.mode === 'priority' ? t('버스트 {n}의 배수 우선 사용', { n: ctl.burst.every })
+      : ctl.burst.mode === 'endgame' ? t('버스트 막바지 {n}초 최우선', { n: ctl.burst.seconds })
+        : t('버스트 안 씀'));
   }
   if (ctl.weaponModeSwapAt !== undefined) parts.push(t('무기 모드 전환 {t}초', { t: ctl.weaponModeSwapAt }));
   return parts.length > 0 ? parts.join(' · ') : t('컨트롤 없음(자동)');
@@ -949,6 +955,9 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
       line.append(el('span', 'raid-order', deck.order || t('버스트 순서 자동')));
       line.append(el('span', 'raid-dmg', raidDamageText(deck.dmg)));
       decks.append(line);
+      // 「큐브 보기」·「컨트롤 보기」는 한 칸에 모아 둔다 — 단추가 둘이 되면서 줄의 마지막
+      // 칸을 뚫고 나왔다(피드백 2026-09-22). 좁으면 칸 안에서 줄을 바꾼다.
+      const openers = el('span', 'raid-openers');
       // 큐브 보기 — 니케마다 무슨 큐브 몇 레벨인지. 옛 기록에는 없어 단추도 안 낸다.
       if (deck.cubes && Object.keys(deck.cubes).length > 0) {
         const cubes = deck.cubes;
@@ -966,7 +975,7 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
           list.hidden = !list.hidden;
           open.textContent = list.hidden ? t('큐브 보기') : t('큐브 접기');
         });
-        line.append(open);
+        openers.append(open);
         decks.append(list);
       }
       // 컨트롤 보기 — 니케마다 톡톡이·장전컨·홀드·버스트 운용. 이 패치 전 기록에는 없다.
@@ -986,9 +995,10 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
           list.hidden = !list.hidden;
           open.textContent = list.hidden ? t('컨트롤 보기') : t('컨트롤 접기');
         });
-        line.append(open);
+        openers.append(open);
         decks.append(list);
       }
+      if (openers.childElementCount > 0) line.append(openers);
     }
     box.append(decks);
     const actions = el('div', 'raid-actions');
@@ -1378,6 +1388,23 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
     reload.disabled = loading;
     reload.addEventListener('click', () => { void refresh(); });
     head.append(reload);
+    // 내 순위로 — 참가자가 수십 명이면 내 줄을 찾아 내려가야 한다. 눌러서 그 줄로 가고 잠깐 밝힌다.
+    const mineNow = myRecord();
+    if (mineNow) {
+      const rank = (board?.entries ?? []).findIndex((entry) => entry.eid === mineNow.eid) + 1;
+      const toMine = el('button', 'raid-ghost raid-to-mine', t('내 순위({rank}위)로', { rank }));
+      toMine.type = 'button';
+      toMine.dataset.raidToMine = '';
+      toMine.addEventListener('click', () => {
+        const row = host.querySelector<HTMLElement>(`[data-raid-row="${mineNow.eid}"]`);
+        if (!row) return;
+        row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        row.classList.remove('is-flash');
+        void row.offsetWidth;
+        row.classList.add('is-flash');
+      });
+      head.append(toMine);
+    }
     head.append(el('span', '', t('참가 {n}명 · 다른 참가자는 익명입니다 · 줄을 누르면 덱이 펼쳐집니다', { n: board?.entries.length ?? 0 })));
     boardSection.append(head, renderBoard());
     host.append(boardSection);

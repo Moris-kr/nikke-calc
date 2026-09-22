@@ -1701,4 +1701,11 @@ export const EN: Record<string, string> = {
   "계산을 취소했습니다 — 결과는 남기지 않았습니다.": "Calculation cancelled — nothing was recorded.",
   "모의전 — 수치 설정·컨트롤을 자유롭게 바꿔 계산합니다(톡톡이만 3.6발/s 고정). 결과는 랭킹에 올라가지 않고 «이대로라면 몇 등»만 알려 줍니다.": "Mock run — change stats and controls freely (tap-fire stays fixed at 3.6/s). The result is not ranked; you only see \"where you would place\".",
   "끌어다 놓아 순서를 바꿉니다": "Drag to reorder",
+  "장전컨 · 풀버스트 진입 재장전": "Reload cancel · reload into full burst",
+  "장전컨 · 풀버스트 끝 직전 재장전": "Reload cancel · reload just before full burst ends",
+  "바니 모드 · 스탠스": "Bunny mode · stance",
+  "바니 모드 · 인게이지": "Bunny mode · engage",
+  "버스트 {n}의 배수 우선 사용": "Burst priority every {n} cycles",
+  "버스트 막바지 {n}초 최우선": "Burst first in the last {n}s",
+  "내 순위({rank}위)로": "To my rank (#{rank})",
 };

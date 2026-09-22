@@ -710,6 +710,14 @@ describe('계산기 레이드 (BETA)', () => {
     expect(decks[0]!.controls?.리타?.control?.tap_fire?.rate).toBe(3.6);
     expect(decks[0]!.controls?.리타?.burst).toEqual({ mode: 'priority', every: 2 });
     expect(decks[1]!.controls).toBeUndefined();
+    // 내 줄이 생겼으니 「내 순위로」가 서고, 누르면 그 줄이 밝혀진다.
+    const toMine = pane.querySelector<HTMLButtonElement>('[data-raid-to-mine]')!;
+    expect(toMine.textContent).toContain('내 순위(2위)로');
+    const scrolled: string[] = [];
+    Element.prototype.scrollIntoView = function () { scrolled.push((this as HTMLElement).dataset.raidRow ?? ''); };
+    toMine.click();
+    expect(scrolled).toEqual(['e1']);
+    expect(pane.querySelector('[data-raid-row="e1"]')!.classList.contains('is-flash')).toBe(true);
   });
 
   it('기록에 컨트롤이 실려 있으면 「컨트롤 보기」와 「편성·큐브·컨트롤 가져오기」가 선다', async () => {
@@ -725,7 +733,10 @@ describe('계산기 레이드 (BETA)', () => {
     const list = open.closest('.raid-decks')!.querySelectorAll<HTMLElement>('.raid-cubes')[1]!;
     open.click();
     expect(list.hidden).toBe(false);
-    expect(list.textContent).toContain('버스트 운용 skip');
+    expect(list.textContent).toContain('버스트 안 씀');
+    // 「큐브 보기」와 「컨트롤 보기」는 한 칸에 모여 있다 — 줄을 뚫고 나오지 않는다.
+    expect(open.parentElement!.className).toBe('raid-openers');
+    expect(open.parentElement!.querySelectorAll('button').length).toBe(2);
     pane.querySelector<HTMLButtonElement>('[data-raid-take-controls="e0"]')!.click();
     await flush();
     const saved = JSON.parse(localStorage.getItem('nikke-state-v1')!) as { decks: Array<{ squad: string[]; characters: Record<string, { burst?: { mode: string }; cube?: { name: string } }> }> };
