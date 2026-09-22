@@ -1251,10 +1251,31 @@ export function renderCharacterSettings(
       paintHint(rate);
       if (!Number.isFinite(rate) || rate <= 0) return;
       const next = cloneOverrides(current);
-      next.control = { ...(next.control ?? {}), tap_fire: { rate, release: 0.03 } };
+      next.control = { ...(next.control ?? {}), tap_fire: { ...(next.control?.tap_fire ?? {}), rate, release: 0.03 } };
       emitNumericChange(next);
     });
     tapLabel.append(makeInputUnit(tapRate, '발/초'), tapHint);
+    // 언제 톡톡이할지 — 언제나, 또는 버충 구간만(풀버스트가 끝나면 재장전하고 다음
+    // 풀버스트까지 톡톡이, 풀버스트 동안은 풀차지). 실제로 그렇게 조작한다(피드백 2026-09-22).
+    const tapPolicy = document.createElement('select');
+    tapPolicy.dataset.controlPolicy = 'tap_fire';
+    for (const [policy, text] of [
+      ['always', '항상 톡톡이'],
+      ['burst_charge', '버충 구간만 (풀버스트 끝 → 재장전 → 톡톡이)'],
+    ] as const) {
+      const option = document.createElement('option');
+      option.value = policy;
+      option.textContent = text;
+      tapPolicy.append(option);
+    }
+    tapPolicy.value = displayedControl.tap_fire?.policy ?? 'always';
+    tapPolicy.disabled = isAutomatic || displayedControl.tap_fire === undefined;
+    tapPolicy.addEventListener('change', () => {
+      const base = current.control?.tap_fire ?? displayedControl.tap_fire ?? { rate: TAP_FIRE_DEFAULT, release: 0.03 };
+      const { policy: _drop, ...rest } = base;
+      updateControl('tap_fire', tapPolicy.value === 'burst_charge' ? { ...rest, policy: 'burst_charge' } : rest);
+    });
+    tapLabel.append(tapPolicy);
     if (name !== '길티 : 마이티 바니' && name !== '신 : 스위프트 바니') {
     const holdLabel = addControlToggle('hold', '홀드 컨트롤', {
       policy: 'own_full_burst', lead: 0.5,

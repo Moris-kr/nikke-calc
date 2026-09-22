@@ -85,7 +85,7 @@ def main() -> None:
              "예: --mode-swap \"신데렐라 : 크리스탈 웨이브\" → 저격 모드 진입 후 유지",
     )
     ap.add_argument(
-        "--tap", action="append", metavar="이름[:rate[:release[:풀차지간격]]]",
+        "--tap", action="append", metavar="이름[:rate[:release[:풀차지간격[:정책]]]]",
         help="톡톡이를 시킬 차지형(SR/RL) 캐릭터. rate 기본 3.6발/s, release 기본 0.03초. "
              "풀차지간격(초)을 주면 그 간격마다 한 발은 풀차지로 쏜다 — `풀 차지 공격 시` "
              "버프 유지용(밀크 관통 특화 6초 → 5.5). "
@@ -202,6 +202,9 @@ def main() -> None:
             tap["release"] = float(parts[2])
         if len(parts) > 3:
             tap["full_charge_interval"] = float(parts[3])
+        # 다섯째 칸: 정책. `burst_charge`면 풀버스트 밖에서만 톡톡이한다(버충 톡톡이).
+        if len(parts) > 4 and parts[4]:
+            tap["policy"] = parts[4]
         controls.setdefault(parts[0], {})["tap_fire"] = tap
 
     for spec in (args.reload_ctrl or []):

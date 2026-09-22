@@ -572,6 +572,30 @@ describe('character settings editor', () => {
     expect(value).not.toHaveProperty('control');
   });
 
+  it('톡톡이에 «버충 구간만» 정책이 있다 — 고르면 policy가 실리고, 발수를 고쳐도 남는다', () => {
+    characterName = '라피';
+    render();
+    setToggle('[data-custom-toggle]', true);
+    setToggle('[data-control-mode="manual"]', true);
+    setToggle('[data-control="tap_fire"]', true);
+    const policy = root.querySelector<HTMLSelectElement>('[data-control-policy="tap_fire"]')!;
+    expect([...policy.options].map((option) => option.value)).toEqual(['always', 'burst_charge']);
+    expect(policy.value).toBe('always');
+    policy.value = 'burst_charge';
+    policy.dispatchEvent(new Event('change'));
+    expect(value?.control?.tap_fire).toEqual({ rate: 4.4, release: 0.03, policy: 'burst_charge' });
+    // 발수를 고쳐도 정책은 남는다.
+    const rate = root.querySelector<HTMLInputElement>('[data-tap-rate]')!;
+    rate.value = '3.8';
+    rate.dispatchEvent(new Event('input'));
+    expect(value?.control?.tap_fire).toEqual({ rate: 3.8, release: 0.03, policy: 'burst_charge' });
+    // 다시 «항상»으로 돌리면 policy 키가 사라진다.
+    const again = root.querySelector<HTMLSelectElement>('[data-control-policy="tap_fire"]')!;
+    again.value = 'always';
+    again.dispatchEvent(new Event('change'));
+    expect(value?.control?.tap_fire).toEqual({ rate: 3.8, release: 0.03 });
+  });
+
   it('lets the tap-fire rate be typed in and shows the 톡톡이 equivalent', () => {
     characterName = '라피';
     render();

@@ -166,12 +166,22 @@ def _normalize_control(raw: Any) -> dict[str, Any]:
     tap = raw.get("tap_fire")
     if tap is not None:
         if not isinstance(tap, dict) or set(tap) - {
-            "rate", "release", "full_charge_interval"
+            "rate", "release", "full_charge_interval", "policy", "reload_at_end"
         } or "rate" not in tap:
-            raise ValueError("톡톡이는 rate와 선택 release/full_charge_interval만 지원합니다")
+            raise ValueError("톡톡이는 rate와 선택 release/full_charge_interval/policy/reload_at_end만 지원합니다")
         normalized_tap = {
             "rate": _control_number(tap["rate"], "tap_fire.rate", 0.1, 20.0),
         }
+        # 버충 톡톡이 — 풀버스트 밖에서만 톡톡이. 기본(always)은 값 자체를 안 싣는다.
+        if "policy" in tap:
+            if tap["policy"] not in ("always", "burst_charge"):
+                raise ValueError("톡톡이 정책은 always 또는 burst_charge여야 합니다")
+            if tap["policy"] == "burst_charge":
+                normalized_tap["policy"] = "burst_charge"
+        if "reload_at_end" in tap:
+            if not isinstance(tap["reload_at_end"], bool):
+                raise ValueError("tap_fire.reload_at_end는 true/false여야 합니다")
+            normalized_tap["reload_at_end"] = tap["reload_at_end"]
         if "release" in tap:
             normalized_tap["release"] = _control_number(
                 tap["release"], "tap_fire.release", 0.0, 1.0

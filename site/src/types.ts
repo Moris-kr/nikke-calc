@@ -20,7 +20,15 @@ export interface SkillLevels {
 
 export interface CharacterControl {
   bunny_mode?: 'stance' | 'engage';
-  tap_fire?: { rate: number; release?: number; full_charge_interval?: number };
+  tap_fire?: {
+    rate: number;
+    release?: number;
+    full_charge_interval?: number;
+    /** `burst_charge` = 풀버스트 밖(버충 구간)에서만 톡톡이. 없으면 언제나. */
+    policy?: 'always' | 'burst_charge';
+    /** 버충 톡톡이에서 풀버스트가 끝나는 순간 재장전을 걸지. 기본 true. */
+    reload_at_end?: boolean;
+  };
   reload?: {
     policy: 'before_fb_end' | 'into_fb';
     lead?: number;

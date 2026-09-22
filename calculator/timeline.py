@@ -419,6 +419,12 @@ class CharState:
         # 하는 조작이다. 논차지 샷은 `full_charge_hit`를 발동시키지 않으므로, 톡톡이만
         # 켜면 그 버프가 통째로 죽는다 (밀크 : 블루밍 바니 `관통 특화` 6초).
         self.tap_full_charge_interval: float = float((tap or {}).get("full_charge_interval", 0.0))
+        # 버충 톡톡이: 풀버스트 **밖에서만** 톡톡이하고, 풀버스트 동안은 평소처럼 풀차지를 든다.
+        # 실제 조작은 «풀버스트가 끝나면 재장전 → 다음 풀버스트까지 톡톡이 → 풀버스트에는
+        # 풀차지»가 한 세트다(피드백 2026-09-22). 재장전은 아래 `_apply_tap_reload`가 건다.
+        self.tap_policy: str = str((tap or {}).get("policy", "always"))
+        self.tap_reload_at_end: bool = bool((tap or {}).get("reload_at_end", True))
+        self._tap_reload_anchor: float = -1.0
         self._last_full_charge_t: float = -1e9
         self._force_full_charge: bool = False
         self._wc_skill_damage: bool = False
@@ -850,6 +856,14 @@ class CharState:
         return max(0.0, max(0.0, self.charge_time_base - cut)
                    + buffs.get("charge_time_flat", 0.0))
 
+    def _tap_active(self, bm: BuffManager) -> bool:
+        """지금 톡톡이로 쏘는가. `burst_charge` 정책은 풀버스트 밖(버충 구간)에서만 톡톡이다."""
+        if not self.tap_fire:
+            return False
+        if self.tap_policy == "burst_charge":
+            return not bm.state.get("full_burst", False)
+        return True
+
     def _tick_charge(self, t: float, bm: BuffManager, enemy: dict, cfg: dict) -> list[HitEvent]:
         events = []
 
@@ -898,7 +912,7 @@ class CharState:
             bunny_switch = (bm.weapon_change_name(self.name) != "마이티 스톰프"
                             and self.name in bm.state.get("bunny_modes", {})
                             and bm.state["bunny_modes"][self.name] != self.bunny_mode)
-            if self.tap_fire and not self._force_full_charge and self._hold_release_t < 0 and not bunny_switch:
+            if self._tap_active(bm) and not self._force_full_charge and self._hold_release_t < 0 and not bunny_switch:
                 # 톡톡이: 누르는 시간이 고정이고, 그중 사격 전 딜레이를 뺀 만큼만 차지된다.
                 # 차지속도 버프로 유효 차지 시간이 그 아래로 내려가면 풀차지 샷이 된다.
                 self._charge_end_t = self._charge_start_t + self._tap_hold
@@ -1142,7 +1156,7 @@ class CharState:
         # 톡톡이는 **사격 후 딜레이를 줄이는 컨트롤이다** — 풀차지로 나갔든 아니든
         # 떼기 + 덜 지운 사격 후 딜레이만 기다린다. 그래서 차지속도 버프로 차지가 짧아진
         # 구간에서는 풀차지 샷을 초당 3~4발 낼 수 있다.
-        if self.tap_fire:
+        if self._tap_active(bm):
             self._post_delay_end_t = t + self._tap_release + self._tap_post
         else:
             self._post_delay_end_t = t + self.post_fire_delay
@@ -1585,7 +1599,29 @@ class CharState:
         # 모드 탄창 로직을 흔들지 않도록 weapon_change 중에는 걸지 않는다
         if self._in_weapon_change or bm.get_weapon_change(self.name) is not None:
             return False
-        return self._apply_burst_cover(t, bm) or self._apply_reload_cover(t, bm)
+        return (self._apply_burst_cover(t, bm) or self._apply_reload_cover(t, bm)
+                or self._apply_tap_reload(t, bm))
+
+    def _apply_tap_reload(self, t: float, bm: BuffManager) -> bool:
+        """버충 톡톡이의 재장전 — 풀버스트가 끝나는 순간 엄폐해 탄창을 채우고 곧바로 톡톡이로.
+
+        톡톡이는 탄을 3~5배 빨리 비우므로 버충 구간을 꽉 찬 탄창으로 시작해야 한다. 재장전은
+        엄폐로 유도되는 결과라(§장전컨) 여기서도 엄폐 구간을 열 뿐이다. 사이클당 1회 —
+        `full_burst_end_t`는 진입 때 확정되고 끝난 뒤에도 남아 있어 그것을 닻으로 쓴다.
+        """
+        if not (self.tap_fire and self.tap_policy == "burst_charge" and self.tap_reload_at_end):
+            return False
+        if self.fire_mode != "charge" or bm.state.get("full_burst", False):
+            return False
+        anchor = bm.state.get("full_burst_end_t", -1.0)
+        if anchor <= 0 or t < anchor or anchor == self._tap_reload_anchor:
+            return False
+        self._tap_reload_anchor = anchor
+        # 이미 재장전 중이거나 탄이 꽉 찼으면 엄폐할 일이 없다 — 곧바로 톡톡이다.
+        if self.reloading_until > 0 or self.ammo >= self._full_ammo(bm, t):
+            return False
+        self._enter_cover(t, bm, None, "엄폐 시작(버충 톡톡이 재장전)")
+        return True
 
     def _apply_hold_policy(self, t: float, bm: BuffManager) -> None:
         """홀드컨 — 본인 버스트 사이클의 풀버스트 동안 풀차지를 들고 있는다.

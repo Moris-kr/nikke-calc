@@ -1659,4 +1659,6 @@ export const EN: Record<string, string> = {
   '11위부터': 'Rank 11 and below',
   '덱 {n}개 가져오기 (큐브도)': 'Take {n} deck(s) (with cubes)',
   '덱 {n}개의 편성과 큐브를 가져왔습니다 — 나머지 스펙은 내 블라블라링크 값으로 돕니다.': 'Took the lineup and cubes of {n} deck(s) — the rest of the stats run on my Blablalink values.',
+  '항상 톡톡이': 'Tap-fire always',
+  '버충 구간만 (풀버스트 끝 → 재장전 → 톡톡이)': 'Burst-charge window only (Full Burst ends → reload → tap-fire)',
 };
