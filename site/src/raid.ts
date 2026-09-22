@@ -22,6 +22,7 @@ import { cubeLine } from './cube-names';
 import { cycleLine, sequenceForDeck } from './burst-order';
 import { t } from './i18n';
 import { DEFAULT_SYNCHRO_LEVEL, requestForDeck } from './model';
+import { isCancelled } from './worker-client';
 import type {
   RaidBoard, RaidControl, RaidDeck, RaidEntry, RaidEntryInput, RaidMigrateEntry, RaidRecalcEntry, RaidSummary, ShareServer,
 } from './share-server';
@@ -107,6 +108,34 @@ export function lockCardForRaid(...hosts: HTMLElement[]): void {
       node.dataset.raidLocked = '';
     }
   }
+}
+
+/**
+ * 모의전 카드는 풀려 있지만 톡톡이 발사 속도만은 레이드 규칙(3.6)이다 — 실전과 모의전이
+ * 발사 속도 차이로 갈리면 «이대로라면 몇 등»이 거짓이 된다(피드백 2026-09-22).
+ */
+export function lockTapRateForRaid(...hosts: HTMLElement[]): void {
+  for (const host of hosts) {
+    for (const node of host.querySelectorAll<HTMLInputElement>('[data-tap-rate]')) {
+      node.value = String(RAID_TAP_RATE);
+      node.title = t('계산기 레이드에서는 톡톡이 3.6발/s로 고정됩니다.');
+      node.disabled = true;
+      node.dataset.raidLocked = '';
+    }
+  }
+}
+
+/** 요청에 실린 모든 톡톡이 발사 속도를 3.6으로 — 모의전 요청도 이 규칙을 지난다. */
+export function enforceRaidTapRate(request: SimulationRequest): SimulationRequest {
+  const characters = request.characters;
+  if (!characters) return request;
+  const next: Record<string, CharacterOverrides> = {};
+  for (const [name, over] of Object.entries(characters)) {
+    next[name] = over.control?.tap_fire
+      ? { ...over, control: { ...over.control, tap_fire: { ...over.control.tap_fire, rate: RAID_TAP_RATE } } }
+      : over;
+  }
+  return { ...request, characters: next };
 }
 
 /** 레이드 규칙에 맞춘 컨트롤 묶음 — 톡톡이 발사 속도는 3.6으로 못 박는다. 아무것도 없으면 undefined. */
@@ -354,6 +383,8 @@ export interface RaidDeps {
   mockRequest?: (deck: DeckState, battle: BattleSettings) => SimulationRequest;
   /** 모의전 토글이 바뀌면 알린다 — 편성 카드의 잠금을 풀거나 다시 건다. */
   onMock?: (on: boolean) => void;
+  /** 돌고 있는 계산을 끊는다. 없으면 취소 단추를 안 낸다. */
+  cancel?: () => void;
   imageOf: (name: string) => string | undefined;
   /** 열린 레이드 수가 바뀌면 알린다(머리의 안내 띠·탭의 점). */
   onRaids?: (raids: RaidSummary[]) => void;
@@ -452,6 +483,8 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
     render();
   }
 
+  let cancelRequested = false;
+
   /** 다섯 덱을 어드민 조건으로 돌린다. 하나라도 막히면 한 판도 안 돌린다. */
   async function run(): Promise<void> {
     const raid = selected();
@@ -468,6 +501,7 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
     // 그 기록은 그 계정의 것이 아니다. 모의전은 기록을 안 올리니 화면 값으로 돌려도 된다.
     if (!mocking && account && !account.console) { say(RAID_CONSOLE_MISSING); return; }
     running = true;
+    cancelRequested = false;
     computed = null;
     say(t('덱 {n}/5 계산 중…', { n: 1 }));
     try {
@@ -487,8 +521,10 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
           controls: raidControlsOf(deck.squad, deck.characters),
           burstSequence: deck.burstSequence,
         };
-        const request = mocking ? deps.mockRequest!(deck, battle) : raidRequest(input, roster, battle);
+        // 모의전도 톡톡이만은 3.6이다 — 실전과 같은 규칙으로 재야 «몇 등»이 맞는다.
+        const request = mocking ? enforceRaidTapRate(deps.mockRequest!(deck, battle)) : raidRequest(input, roster, battle);
         const result = await deps.simulate(request);
+        if (cancelRequested) throw new Error(t('계산을 취소했습니다 — 결과는 남기지 않았습니다.'));
         // 실제로 계산에 들어간 큐브 — 요청에 실린 것이 없으면 카탈로그 기본값이다.
         const worn = Object.fromEntries(deck.squad.filter(Boolean).map((name) =>
           [name, request.characters?.[name]?.cube ?? deps.defaultCube?.(name)]));
@@ -519,10 +555,15 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
       message = t('내 기록({m})보다 낮아 올리지 않았습니다 — 더 높은 결과만 자동으로 올라갑니다.', { m: raidDamageText(best.total) });
       messageOk = false;
     } catch (error) {
-      message = error instanceof Error ? error.message : String(error);
+      // 사람이 끊은 것은 실패가 아니다 — 여기까지 나온 덱 결과는 결과 판에 남고 랭킹에는 안 올린다.
+      message = cancelRequested || isCancelled(error)
+        ? t('계산을 취소했습니다 — 결과는 남기지 않았습니다.')
+        : error instanceof Error ? error.message : String(error);
       messageOk = false;
+      computed = null;
     } finally {
       running = false;
+      cancelRequested = false;
       render();
     }
   }
@@ -1195,12 +1236,25 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
     // 모의전이면 계정이 없어도 돌린다 — 올리지 않으니까. 콘솔을 못 받은 계정도 진짜 계산은 못 돌린다.
     go.disabled = running || raid.status !== 'open' || (!mocking && (!account || consoleMissing));
     bar.append(nameInput, go);
+    // 계산 취소 — 도는 동안만. 끊으면 작업 스레드를 새로 세우므로 다음 계산은 준비부터다(본 계산기와 같다).
+    if (running && deps.cancel) {
+      const cancel = el('button', 'calc-cancel raid-cancel', t('계산 취소'));
+      cancel.type = 'button';
+      cancel.dataset.raidCancel = '';
+      cancel.addEventListener('click', () => {
+        if (cancelRequested) return;
+        cancelRequested = true;
+        cancel.disabled = true;
+        deps.cancel?.();
+      });
+      bar.append(cancel);
+    }
     const best = myRecord();
     const note = el('span', 'raid-run-note');
     note.dataset.raidRunNote = '';
     if (!mocking && consoleMissing) note.classList.add('is-warn');
     note.textContent = mocking
-      ? t('모의전 — 수치 설정·컨트롤을 자유롭게 바꿔 계산합니다. 결과는 랭킹에 올라가지 않고 «이대로라면 몇 등»만 알려 줍니다.')
+      ? t('모의전 — 수치 설정·컨트롤을 자유롭게 바꿔 계산합니다(톡톡이만 3.6발/s 고정). 결과는 랭킹에 올라가지 않고 «이대로라면 몇 등»만 알려 줍니다.')
       : !account
         ? t('블라블라링크로 계정을 이어야 돌릴 수 있습니다. 보는 것은 누구나 됩니다.')
         : consoleMissing

@@ -645,6 +645,33 @@ describe('character settings editor', () => {
     expect(root.textContent).toContain('1~9레벨 계수가 공개되지 않아');
   });
 
+  it('오버로드작 잠금 메뉴는 아래 자리가 없으면 위로 연다', () => {
+    const steps = Array.from({ length: 15 }, (_, at) => (at + 1) * 1.5);
+    const withSteps: SettingsCatalog = { ...settings, overloadSteps: { atk_pct: steps } };
+    const host = document.createElement('div');
+    document.body.append(host);
+    renderCharacterSettings(host, '리타', withSteps, {
+      overloadLines: { 머리: [{ option: 'atk_pct', level: 15 }, { option: '', level: 1 }, { option: '', level: 1 }] },
+    }, () => {});
+    host.querySelector<HTMLButtonElement>('[data-overload-sim]')!.click();
+    const lock = host.querySelector<HTMLButtonElement>('[data-overload-lock="머리:0"]')!;
+    const menu = lock.nextElementSibling as HTMLElement;
+    // 화면 바닥 근처 — 위로.
+    lock.getBoundingClientRect = () => ({ top: window.innerHeight - 40, bottom: window.innerHeight - 10, left: 0, right: 30, width: 30, height: 30, x: 0, y: 0, toJSON: () => ({}) });
+    lock.click();
+    expect(menu.hidden).toBe(false);
+    expect(menu.classList.contains('is-up')).toBe(true);
+    lock.click();
+    expect(menu.hidden).toBe(true);
+    // 위쪽이면 평소대로 아래로.
+    lock.getBoundingClientRect = () => ({ top: 100, bottom: 130, left: 0, right: 30, width: 30, height: 30, x: 0, y: 0, toJSON: () => ({}) });
+    lock.click();
+    expect(menu.classList.contains('is-up')).toBe(false);
+    // 시뮬레이션 상태는 캐릭터별로 남는다 — 다음 시험이 깨끗하게 시작하도록 끈다.
+    host.querySelector<HTMLButtonElement>('[data-overload-sim-end]')!.click();
+    host.remove();
+  });
+
   it('오버로드작 시뮬레이션 — 잠근 줄은 그대로, 변경마다 재화가 쌓이고, 처음으로가 되돌린다', async () => {
     const { setOverloadSimRng } = await import('./overload-sim');
     let seed = 9;

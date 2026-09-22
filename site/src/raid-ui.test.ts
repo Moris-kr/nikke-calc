@@ -64,9 +64,15 @@ const settings: SettingsCatalog = {
 
 class FakeClient implements CalculatorClientLike {
   requests: SimulationRequest[] = [];
+  /** 켜면 계산이 멈춰 선다 — 취소 시험용. `cancel()`이 멈춘 것을 풀어 준다. */
+  hold = false;
+  private waiting: Array<() => void> = [];
+  cancelled = 0;
   async prepare(): Promise<void> {}
+  cancel(): void { this.cancelled += 1; this.hold = false; for (const wake of this.waiting.splice(0)) wake(); }
   async simulate(request: SimulationRequest): Promise<SimulationResult> {
     this.requests.push(request);
+    if (this.hold) await new Promise<void>((resolve) => { this.waiting.push(resolve); });
     return {
       squadTotal: 123_000_000, duration: 180, hitCount: 1, charTotals: { 리타: 1 },
       previewNote: '', deviations: '',
@@ -455,6 +461,55 @@ describe('계산기 레이드 (BETA)', () => {
     pane.querySelector<HTMLInputElement>('[data-raid-mock]')!.dispatchEvent(new Event('change'));
     await flush();
     expect(card().querySelector<HTMLButtonElement>('[data-char-panel-open="settings"]')!.disabled).toBe(true);
+  });
+
+  it('모의전도 톡톡이는 3.6이다 — 덱에 4.4로 잡아 두어도 요청은 3.6으로 간다', async () => {
+    localStorage.setItem('nikke-state-v1', JSON.stringify({
+      decks: [
+        { id: 1, squad: ['리타', '', '', '', ''], characters: { 리타: { control: { tap_fire: { rate: 4.4, release: 0.03 } } } } },
+        { id: 2, squad: ['크라운', '', '', '', ''], characters: {} },
+      ],
+      fiveDeckMode: true, activeDeckId: 1, carryOverSettings: false,
+    }));
+    linkAccount();
+    await mount(fakeServer());
+    await openRaidTab();
+    const pane = root.querySelector<HTMLElement>('[data-raid-pane]')!;
+    const mockBox = pane.querySelector<HTMLInputElement>('[data-raid-mock]')!;
+    mockBox.checked = true;
+    mockBox.dispatchEvent(new Event('change'));
+    await flush();
+    expect(pane.querySelector('[data-raid-run-note]')!.textContent).toContain('톡톡이만 3.6발/s 고정');
+    expect(root.querySelector('[data-raid-lock]')!.textContent).toContain('톡톡이만 3.6발/s 고정');
+    pane.querySelector<HTMLButtonElement>('[data-raid-run]')!.click();
+    await flush();
+    expect(client.requests[0]!.characters?.리타?.control?.tap_fire?.rate).toBe(3.6);
+    // 모의전의 다른 수치는 덱 것 그대로다(release도 살아 있다).
+    expect(client.requests[0]!.characters?.리타?.control?.tap_fire?.release).toBe(0.03);
+  });
+
+  it('레이드 계산도 취소할 수 있다 — 도는 동안만 단추가 서고, 끊으면 올리지 않는다', async () => {
+    seedDecks();
+    linkAccount();
+    const server = fakeServer();
+    await mount(server);
+    await openRaidTab();
+    const pane = root.querySelector<HTMLElement>('[data-raid-pane]')!;
+    expect(pane.querySelector('[data-raid-cancel]')).toBeNull();
+    client.hold = true;
+    pane.querySelector<HTMLButtonElement>('[data-raid-run]')!.click();
+    await flush();
+    const cancel = pane.querySelector<HTMLButtonElement>('[data-raid-cancel]')!;
+    expect(cancel).not.toBeNull();
+    expect(pane.querySelector<HTMLButtonElement>('[data-raid-run]')!.disabled).toBe(true);
+    cancel.click();
+    await flush();
+    expect(client.cancelled).toBe(1);
+    expect(pane.querySelector('[data-raid-message]')!.textContent).toContain('계산을 취소했습니다');
+    expect(server.sent.some((call) => call.url.endsWith('/raid/entry'))).toBe(false);
+    expect(pane.querySelector('[data-raid-cancel]')).toBeNull();
+    expect(pane.querySelector<HTMLButtonElement>('[data-raid-run]')!.disabled).toBe(false);
+    expect(pane.querySelector('[data-raid-result]')).toBeNull();
   });
 
   it('콘솔(전초기지)을 못 받은 계정은 진짜 계산을 못 돌리고, 공개로 바꾸라는 안내가 뜬다 — 모의전은 된다', async () => {

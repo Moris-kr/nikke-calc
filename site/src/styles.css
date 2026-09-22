@@ -2548,6 +2548,7 @@ body.bm-open { overflow: hidden; }
 .ol-lock.is-module { border-style: solid; border-color: #60a5fa; background: rgba(96,165,250,.18); color: #bfdbfe; }
 .ol-lock.is-key { border-style: solid; border-color: #f87171; background: rgba(248,113,113,.18); color: #fecaca; }
 .ol-lock-menu { position: absolute; z-index: 5; top: calc(100% + 4px); left: 0; display: grid; gap: 3px; min-width: 128px; padding: 5px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-strong); box-shadow: 0 12px 30px rgba(0,0,0,.45); }
+.ol-lock-menu.is-up { top: auto; bottom: calc(100% + 4px); box-shadow: 0 -12px 30px rgba(0,0,0,.45); }
 .ol-lock-menu button { padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: rgba(7,15,25,.6); color: var(--ink); font: 700 10px/1.2 inherit; font-family: inherit; text-align: left; cursor: pointer; }
 .ol-lock-menu button.is-module { border-color: rgba(96,165,250,.6); color: #bfdbfe; }
 .ol-lock-menu button.is-key { border-color: rgba(248,113,113,.6); color: #fecaca; }

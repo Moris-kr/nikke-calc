@@ -1024,6 +1024,14 @@ export function renderCharacterSettings(
           lock.addEventListener('click', () => {
             menu.hidden = !menu.hidden;
             lock.setAttribute('aria-expanded', String(!menu.hidden));
+            if (menu.hidden) return;
+            // 아래로만 열리면 화면(또는 스크롤 상자) 바닥 근처에서는 잘려 고를 수 없다(피드백 2026-09-22).
+            // 자리가 모자라면 위로 연다.
+            const rect = lock.getBoundingClientRect();
+            const scroller = lock.closest<HTMLElement>('.char-panel-body, .modal-body, [data-char-panel-body]');
+            const floor = Math.min(window.innerHeight, scroller ? scroller.getBoundingClientRect().bottom : Infinity);
+            const need = Math.max(menu.offsetHeight, 96) + 8;
+            menu.classList.toggle('is-up', rect.bottom + need > floor && rect.top - need > 0);
           });
           const wrap = document.createElement('span');
           wrap.className = 'ol-lock-wrap';

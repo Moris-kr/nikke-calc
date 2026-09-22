@@ -76,7 +76,7 @@ import { startPresence } from './presence';
 import { mountUnionRaid, type UnionHandle } from './union-raid';
 import { mountBossMaker, type BossMakerHandle } from './boss-maker-view';
 import { mountOverloadLab } from './overload-lab';
-import { lockCardForRaid, mountRaid, openidFromProfileUrl, RAID_LOCK_NOTE, type RaidHandle } from './raid';
+import { lockCardForRaid, lockTapRateForRaid, mountRaid, openidFromProfileUrl, RAID_LOCK_NOTE, type RaidHandle } from './raid';
 import { openGrowthEfficiency } from './growth-efficiency-ui';
 import { EXTERNAL_LINKS, hostOf } from './external-links';
 import {
@@ -3044,6 +3044,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             queueMicrotask(syncOpenPanel);
             // 설정 판은 스스로 다시 그리므로 잠금도 그 뒤에 다시 건다.
             if (raidLocked()) queueMicrotask(() => lockCardForRaid(editor, stepper));
+            else if (raidMode && raidMock) queueMicrotask(() => lockTapRateForRaid(editor));
           }, buffTargetRowsFor(deck.id, cname), (row) => showBuffOrder(cname, row),
           (kind, panel, label) => {
             openCharPanel = { name: cname, kind };
@@ -3158,6 +3159,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           // 전부 수치를 옮기는 문이라 아예 안 낸다. 큐브만 산다.
           lockCardForRaid(editor, stepper);
         } else {
+          // 모의전은 카드가 풀리지만 톡톡이 발사 속도만은 실전과 같은 3.6이다.
+          if (raidMode && raidMock) lockTapRateForRaid(editor);
           card.append(copyFromControl(cname), spreadControl(cname));
           const restore = restoreControl(cname);
           if (restore) card.append(restore);
@@ -7506,7 +7509,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const raidDot = element<HTMLElement>(root, '[data-raid-dot]');
   const paintRaidLockNote = () => {
     raidLockNote.textContent = raidMock
-      ? '🧪 모의전 — 수치 설정·컨트롤을 자유롭게 바꿔 보세요. 결과는 랭킹에 올라가지 않습니다.'
+      ? '🧪 모의전 — 수치 설정·컨트롤을 자유롭게 바꿔 보세요(톡톡이만 3.6발/s 고정). 결과는 랭킹에 올라가지 않습니다.'
       : RAID_LOCK_NOTE;
     root.classList.toggle('is-raid', raidLocked());
   };
@@ -7614,6 +7617,11 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         const custom = customPayload();
         return requestForDeck(deck, battle, Object.keys(custom).length > 0 ? custom : undefined);
       },
+      // 레이드 계산 취소 — 본 계산기의 취소와 같다: 스레드를 끊고 곧바로 다시 데운다.
+      ...(client.cancel ? { cancel: () => {
+        client.cancel!();
+        prepared = client.prepare().catch(() => undefined);
+      } } : {}),
       onMock: (on) => {
         raidMock = on;
         paintRaidLockNote();
