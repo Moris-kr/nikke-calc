@@ -43,9 +43,10 @@ class AccumulateModeTest(unittest.TestCase):
         self.assertGreaterEqual(len(fills), 2)
         after = next(e for e in log if e.t > fills[0].t + 10.0)   # 풀버스트 10초가 끝난 뒤
         self.assertLess(after.gauge, 50.0)
-        # 카메라 초점 로그 — 버충 담당이 없고 컨트롤도 없으니 3번 자리(치사토).
+        # 카메라 초점 로그 — 버충 담당·컨트롤이 없으면 자리가 아니라 풀차지 한 발 게이지가 가장 큰
+        # 차지 무기 니케(여기서는 유일한 차지 무기인 루주)를 본다(2026-09-23, 자리와 무관한 결과).
         cam = next(e for e in res.log.burst_log if e.event.startswith("카메라 초점"))
-        self.assertIn("치사토", cam.event)
+        self.assertIn("루주", cam.event)
 
     def test_not_charging_between_stage1_and_full_burst_end(self):
         res = _run(["크라운", "루주", "치사토"])

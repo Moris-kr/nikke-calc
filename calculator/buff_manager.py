@@ -534,6 +534,9 @@ class BuffManager:
         self.squad = squad
         self.squad_names = [c["name"] for c in squad]
         self.state = state or {}
+        # 실제 편성 자리 순서. `simulate`는 처리 순서를 이름순으로 고정하므로(`squad_names`),
+        # 자리를 보는 판정(후열 조건·양옆 아군)만 이것을 쓴다. 없으면 받은 순서가 곧 자리다.
+        self.slot_names = list(self.state.get("slot_order") or self.squad_names)
 
         # 켜 둔 핵. `simulate`가 config에서 읽어 꽂아 준다 — 기본은 아무것도 안 켠 것.
         self.cheats: Cheats = NO_CHEATS
@@ -2059,7 +2062,7 @@ class BuffManager:
                 if min((hp_map.get(x, 100.0) for x in self.squad_names), default=100.0) > n:
                     return False
             elif cond == "back_row":
-                idx = self.squad_names.index(caster)
+                idx = self.slot_names.index(caster)
                 if idx not in (1, 3):  # 후열 = 포지션 2(idx 1) 또는 4(idx 3)
                     return False
             elif cond == "squad_ally_exists":
@@ -3997,12 +4000,12 @@ class BuffManager:
             return random.sample(pool, min(n, len(pool)))
         if target.startswith("allies_adjacent:"):
             n = int(target.split(":")[1])
-            idx = self.squad_names.index(caster)
+            idx = self.slot_names.index(caster)
             adj = []
             if idx > 0:
-                adj.append(self.squad_names[idx - 1])
-            if idx < len(self.squad_names) - 1:
-                adj.append(self.squad_names[idx + 1])
+                adj.append(self.slot_names[idx - 1])
+            if idx < len(self.slot_names) - 1:
+                adj.append(self.slot_names[idx + 1])
             return [caster] + adj[:n]
         # "최종 공격력이 가장 높은 [무기] 소지 아군 N기" — 무기 필터 ∩ 공격력 top N.
         # 시전자 포함(원문에 자신 제외 표기 없음). 매칭 아군이 N보다 적으면 있는 만큼.

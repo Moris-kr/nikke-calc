@@ -67,7 +67,8 @@ jobs:
       - name: 고속 엔진 대조 (파이썬 엔진과 결과 일치)
         run: |
           python site/scripts/parity/ref.py > /dev/null
-          cd site && PARITY=1 npx vitest run src/engine/parity.test.ts --silent=false
+          python site/scripts/parity/extra_ref.py > /dev/null
+          cd site && PARITY=1 npx vitest run src/engine/parity.test.ts scripts/parity/extra.parity.test.ts --silent=false
 
       - name: 딜 계산 회귀 (golden snapshot 29개)
         run: python -m context.snapshot

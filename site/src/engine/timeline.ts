@@ -2242,6 +2242,7 @@ export class BurstController {
   char_states: Record<string, CharState>;
   enemy_def: any;
   squad_names: string[];
+  slot_names: string[];
   _default_burst_stage: Record<string, any>;
   _max_burst_count: number | null;
   _burst_sequence: Dict[] | null;
@@ -2288,6 +2289,8 @@ export class BurstController {
     this.char_states = char_states;
     this.enemy_def = get(enemy, 'def', 31784);
     this.squad_names = squad.map((c) => item(c, 'name'));
+    // 같은 단계 버스트 우선순위만 실제 자리 순서(앞자리 먼저). py: timeline.py slot_names
+    this.slot_names = [...(or(get(config, '_slot_order'), this.squad_names) as string[])];
 
     // 캐릭터별 기본(고정) 버스트 단계 — 변하지 않음
     this._default_burst_stage = {};
@@ -2799,7 +2802,7 @@ export class BurstController {
   _rebuild_burst_order(bm_active_stages: Record<string, string>): void {
     // burst_order를 현재 유효 버스트 단계 기준으로 재구성한다.
     const order: Record<string, string[]> = { '1': [], '2': [], '3': [] };
-    for (const name of this.squad_names) {
+    for (const name of this.slot_names) {
       if (this._burst_sequence == null && (
         name === this._no_burst_char || this._no_burst_names.has(name)
       )) {
@@ -3165,10 +3168,27 @@ export function _resolve_cameras(squad: Dict[], cfg: Dict): Set<string> {
   if (controlled.length === 1 && _is_charge_nikke(controlled[0]!)) {
     return new Set(controlled);
   }
-  if (squad.length >= 3) {
-    return new Set([item(squad[2]!, 'name')]);
+  // 기본 카메라: 자리가 아니라 풀차지 한 발 게이지가 가장 큰 차지 무기 니케(동률이면 이름순).
+  let best: string | null = null;
+  let best_gain = 0;
+  for (const c of squad) {
+    const name = item(c, 'name') as string;
+    if (!_is_charge_nikke(name)) {
+      continue;
+    }
+    const exc = get(item(_DELAYS(), '_exceptions'), name);
+    const nk = or(get(_NIKKE(), name), {}) as Dict;
+    const mech = get(item(_MECHANICS(), 'weapon_type_defaults'), get(nk, 'weapon_type'), {});
+    const gain = (float(_pick('burst_energy', [exc, nk, mech], 0.0))
+      * float(_pick('muzzles', [exc, nk, mech], 1))
+      * float(_pick('full_charge_mult', [exc, nk])));
+    // key = (-gain, name) — 게이지가 크면 앞, 같으면 이름이 작은 쪽
+    if (best === null || -gain < -best_gain || (-gain === -best_gain && name < best)) {
+      best = name;
+      best_gain = gain;
+    }
   }
-  return truthy(squad) ? new Set([item(squad[0]!, 'name')]) : new Set();
+  return best !== null ? new Set([best]) : new Set();
 }
 
 // py: calculator/timeline.py:2926
@@ -3227,12 +3247,17 @@ export function simulate(
 
   squad = squad.map((c) => ({ ...DEFAULT_CHAR, ...c }));
   _check_names(squad.map((c) => item(c, 'name')), truthy(item(cfg, 'allow_unparsed')));
+  // 편성 자리와 무관한 결과(2026-09-23). 처리 순서는 이름순, 실제 자리는 자리를 보는 스킬만 쓴다.
+  // py: calculator/timeline.py — slot_order / sorted(squad, key=name)
+  const slot_order: string[] = squad.map((c) => item(c, 'name') as string);
+  squad = sorted(squad, (c: Dict) => item(c, 'name') as string);
 
   if (!(cfg['burst_gauge_mode'] === 'fixed' || cfg['burst_gauge_mode'] === 'accumulate')) {
     throw ValueError(
       `burst_gauge_mode는 "fixed" 또는 "accumulate"여야 한다: ${_repr(cfg['burst_gauge_mode'])}`);
   }
   cfg['_camera'] = _resolve_cameras(squad, cfg);
+  cfg['_slot_order'] = slot_order;
 
   const base_stats: Record<string, Dict> = {};
   for (const c of squad) base_stats[item(c, 'name')] = calc_base_stats(c);
@@ -3272,6 +3297,8 @@ export function simulate(
         : []),
     // 카메라가 보고 있는 니케 집합(`_resolve_cameras()`).
     camera: cfg['_camera'],
+    // 실제 편성 자리(1번부터). 후열 조건·양옆 아군 대상만 본다.
+    slot_order: slot_order,
   };
 
   const enemy_code = get(enm, 'code', '');

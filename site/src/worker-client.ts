@@ -27,9 +27,9 @@ type ProgressListener = (message: string) => void;
  * 사람이 끊은 계산. **실패와 갈라야 한다** — 화면이 「계산에 실패했습니다」라고 적으면
  * 자기가 누른 것이 오류로 보인다.
  *
- * 파이썬 시뮬은 워커 안에서 **한 덩어리로** 돈다. 중간에 «그만»을 물어보는 자리가 없어
+ * 시뮬은 워커 안에서 **한 덩어리로** 돈다. 중간에 «그만»을 물어보는 자리가 없어
  * 협조적으로 멈출 수 없고, 유일하게 확실한 길이 워커를 통째로 끊는 것이다. 그래서
- * 취소하면 그 워커는 죽고 새 워커가 대신 선다(파이오다이드를 다시 올려야 한다).
+ * 취소하면 그 워커는 죽고 새 워커가 대신 선다(엔진 데이터를 다시 받는다).
  */
 export class CalculationCancelled extends Error {
   constructor(message = '계산을 취소했습니다.') {
@@ -51,8 +51,8 @@ export const MAX_POOL = 6;
 /**
  * 이 기기에 알맞은 기본 워커 수.
  *
- * 코어 하나는 화면·입력에 남겨 두고, 셋을 넘기지 않는다 — 워커마다 파이오다이드가
- * 하나씩 떠서 메모리를 50~80MB씩 먹기 때문이다. 모바일이나 메모리가 적다고 알려 주는
+ * 코어 하나는 화면·입력에 남겨 두고, 셋을 넘기지 않는다 — 워커마다 엔진 데이터를
+ * 따로 올려 메모리를 먹기 때문이다. 모바일이나 메모리가 적다고 알려 주는
  * 기기는 하나로 둔다(탭이 죽는 쪽이 느린 것보다 나쁘다).
  */
 export function defaultPoolSize(nav: Navigator = navigator): number {
@@ -63,8 +63,10 @@ export function defaultPoolSize(nav: Navigator = navigator): number {
   return Math.max(1, Math.min(3, cores - 1));
 }
 
+// 계산 엔진 작업 스레드(TypeScript, `src/engine/engine.worker.ts`). 2026-09-23부터 사이트는 이 엔진만 쓴다 —
+// 파이썬(Pyodide) 워커는 걷어냈다.
 const defaultWorkerFactory = (): WorkerLike =>
-  new Worker(`${import.meta.env.BASE_URL}calculator.worker.js?v=${__BUILD_ID__}`);
+  new Worker(new URL('./engine/engine.worker.ts', import.meta.url), { type: 'module' }) as unknown as WorkerLike;
 
 export class CalculatorWorkerClient {
   private readonly worker: WorkerLike;
@@ -177,7 +179,7 @@ export class CalculatorWorkerClient {
  * 여러 워커에 계산을 나눠 돌리는 풀.
  *
  * 계산은 방문자 기기에서 돈다 — 서버 비용이 아니라 **그 기기의 코어와 메모리**를 쓴다.
- * 워커 하나에 파이오다이드 런타임이 하나씩 뜨므로(개당 50~80MB), 개수는 사람이 정할 수
+ * 워커 하나에 엔진 데이터가 하나씩 뜨므로, 개수는 사람이 정할 수
  * 있어야 하고 기본값은 기기 사정을 보고 조심스럽게 잡는다.
  *
  * 판 하나하나는 서로 독립이고 결정론적이라, 몇 개로 나눠 돌리든 **결과는 같다**.
@@ -245,9 +247,9 @@ export class CalculatorPool {
 
   /**
    * 돌고 있는 계산을 사람이 끊는다. 워커를 전부 죽이고 **하나를 새로 세운다** —
-   * 파이썬 시뮬에는 «그만»을 물어보는 자리가 없어 이 길밖에 없다.
+   * 시뮬에는 «그만»을 물어보는 자리가 없어 이 길밖에 없다.
    *
-   * 새 워커는 파이오다이드를 다시 올려야 하므로, 부르는 쪽이 곧바로 `prepare()`를
+   * 새 워커는 엔진 데이터를 다시 받아야 하므로, 부르는 쪽이 곧바로 `prepare()`를
    * 걸어 두면 다음 계산이 기다리지 않는다.
    */
   cancel(): void {

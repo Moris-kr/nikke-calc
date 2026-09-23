@@ -1,13 +1,26 @@
 import { defineConfig } from 'vitest/config';
+import { createHash } from 'node:crypto';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 // 빌드마다 바뀌는 ID. calculator.worker.js는 해시가 없는 public 자산이라
 // 이 값을 쿼리로 붙여 새 배포 때 옛 워커가 캐시에서 재사용되지 않게 한다.
 const buildId = JSON.stringify(Date.now().toString(36));
 
+// 계산 엔진(src/engine/) 소스의 해시. 저장해 둔 계산 결과의 키에 들어간다 — 엔진이 바뀌면
+// 예전 결과를 다시 쓰지 않게(빌드 ID는 배포마다 바뀌어 캐시를 매번 버리므로 쓰지 않는다).
+const engineDir = join(__dirname, 'src', 'engine');
+const engineHash = createHash('sha256');
+for (const file of readdirSync(engineDir).filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts')).sort()) {
+  engineHash.update(file).update(readFileSync(join(engineDir, file)));
+}
+const engineId = JSON.stringify(engineHash.digest('hex').slice(0, 12));
+
 export default defineConfig({
   base: '/nikke-calc/',
   define: {
     __BUILD_ID__: buildId,
+    __ENGINE_ID__: engineId,
   },
   test: {
     environment: 'node',

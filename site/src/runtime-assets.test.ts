@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import type { CharacterMeta, RuntimeManifest } from './types';
+import { ENGINE_DATA_FILES } from './engine/data';
 
 const publicDir = join(import.meta.dirname, '..', 'public');
 
@@ -60,18 +61,12 @@ describe('generated browser runtime', () => {
     ) as RuntimeManifest;
 
     expect(manifest.version).toMatch(/^[a-f0-9]{16}$/);
-    expect(manifest.files).toHaveLength(31);
-    // 버스트 게이지 예외표 — 엔진이 모듈 로드 시점에 읽는다. 빠지면 브라우저 계산이 통째로 죽는다(2026-09-22).
+    // 사이트는 TS 계산 엔진만 쓴다(2026-09-23~) — 런타임은 엔진이 받는 데이터 파일 그대로이고 .py는 없다.
+    // 엔진이 받는 목록과 어긋나면 워커 준비가 통째로 실패한다.
+    expect([...manifest.files].sort()).toEqual(Object.keys(ENGINE_DATA_FILES).sort());
+    expect(manifest.files.some((file) => file.endsWith('.py'))).toBe(false);
+    // 버스트 게이지 예외표 — 엔진이 읽는다. 빠지면 브라우저 계산이 통째로 죽는다(2026-09-22).
     expect(manifest.files).toContain('data/burst_gauge.json');
-    expect(manifest.files).toContain('calculator/shotgun_heatmap.py');
-    expect(manifest.files).toContain('calculator/pellet_accuracy.py');
-    expect(manifest.files).toContain('recommendation.py');
-    expect(manifest.files).toContain('squad_policy.py');
-    expect(manifest.files).toContain('growth_comparison.py');
-    expect(manifest.files).toContain('context/growth.py');
-    // 브리지가 import하는 모듈이 목록에서 빠지면 엔진 초기화가 통째로 실패한다.
-    expect(manifest.files).toContain('calculator/combat_power.py');
-    expect(manifest.files).toContain('calculator/cheats.py');
 
     // 스탯표를 새로 넣고 매니페스트에 안 실으면 **엔진 임포트부터** 죽는다
     // (`level_beyond.json`을 그렇게 빠뜨려 계산이 전부 실패했다, 2026-08-27).

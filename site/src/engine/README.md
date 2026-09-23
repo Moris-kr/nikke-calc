@@ -6,12 +6,14 @@
 **진행 방식** (사용자 결정 2026-09-23)
 1. **충실한 이식** — 파이썬과 구조·이름·연산 순서를 그대로 옮기고, `parity/` 대조 도구로 결과를 맞춘다.
 2. **재설계** — 대조 도구를 켠 채로 핫 패스(버프 집계·대미지·틱·알림)를 숫자 배열 구조로 바꿔 수십 배를 노린다.
-3. 사이트에서 엔진을 고를 수 있게 하고(`src/engine-router.ts`, 실행 단추 아래 「계산 엔진」), 고속 엔진이 실패하면
-   그 덱을 파이썬 엔진으로 다시 계산한다. **2026-09-23부터 고속 엔진이 기본**이다(전투 계산만 — 전투력·추천·육성 비교는 파이썬).
-   몇 번 두 엔진을 함께 운영해 문제가 없으면 파이썬 엔진을 걷어낸다.
+3. 한동안 엔진 선택 + 파이썬 자동 전환으로 함께 운영했고(2026-09-23 배포), **같은 날 사용자 결정으로 사이트에서
+   파이썬 엔진을 걷어냈다.** 사이트의 모든 계산(전투·전투력·추천·육성 비교·AI 연결)은 이 엔진이 하고 Pyodide는 받지 않는다.
 
-**함께 운영하는 동안:** 파이썬 엔진을 고치면 여기도 고친다. 대조는 CI(`.github/workflows/ci.yml` 「고속 엔진 대조」)와 로컬
-`python site/scripts/parity/ref.py` → `PARITY=1 npx vitest run src/engine/parity.test.ts`로 한다(기준 답은 파이썬 3.12 이상).
+**파이썬 엔진은 저장소에 남아 있다** — MCP 서버(`nikke_mcp/`)·CLI(`context/sim.py`)·골든 회귀(`context/snapshot.py`)가 쓴다.
+그래서 두 엔진은 계속 같아야 한다. 엔진을 고치면 양쪽을 같이 고치고 대조한다: CI(`.github/workflows/ci.yml`
+「고속 엔진 대조」, PR에서 돈다)와 로컬 `python site/scripts/parity/ref.py` → `PARITY=1 npx vitest run src/engine/parity.test.ts`,
+전투력·추천·육성 비교는 `python site/scripts/parity/extra_ref.py` → `PARITY=1 npx vitest run scripts/parity/extra.parity.test.ts`
+(기준 답은 파이썬 3.12 이상).
 
 **2단계에서 바꾼 것(결과는 같다):** `[고속 엔진]` 주석이 붙은 곳 — 끝나는 시각이 있어도 값이 변하지 않는 버프를 계획에 접어 두고
 만료만 보기, 효과 사전의 고정 칸·기본값·튜플 키 캐시, 최대 장탄 집계의 프레임 간 재사용, `round(x, n)`의 빠른 길.
@@ -31,7 +33,11 @@
 | `calculator/timeline.py` | `timeline.ts` |
 | `context/growth.py` | `growth.ts` |
 | `context/spec.py` | `spec.ts` |
-| `site/pybridge/bridge.py` (`run_request` 경로만) | `bridge.ts` |
+| `calculator/combat_power.py` | `combat_power.ts` |
+| `site/pybridge/bridge.py` (`run_request` · `run_combat_power`) | `bridge.ts` |
+| `site/pybridge/growth_comparison.py` | `growth_comparison.ts` |
+| `nikke_mcp/squad_policy.py` (= `site/public/runtime/squad_policy.py`) | `squad_policy.ts` |
+| `site/pybridge/recommendation.py` | `recommendation.ts` |
 
 같은 이름을 export한다. 모듈끼리는 `./<모듈>`로 import한다(파이썬 import와 1:1).
 
@@ -83,3 +89,5 @@
 - 타입: `cd site && npx tsc --noEmit` — 자기 파일의 오류가 0이어야 한다(다른 사람 파일이 아직 없어 생기는
   import 오류는 무시).
 - 결과 대조: `parity/`(1단계 뒤 추가) — 파이썬 3.12 엔진과 같은 요청을 돌려 응답·히트를 비교한다.
+- 전투력·육성 비교·추천·편성 정책: `uv run --python 3.12 --no-project python site/scripts/parity/extra_ref.py` →
+  `PARITY=1 npx vitest run scripts/parity/extra.parity.test.ts`. 평소 테스트는 `extra-features.test.ts`(기대값 = 파이썬 3.12 출력).

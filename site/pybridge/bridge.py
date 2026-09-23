@@ -550,6 +550,13 @@ def run_combat_power(raw: str) -> str:
     return json.dumps(out, ensure_ascii=False, separators=(",", ":"))
 
 
+def _in_slot_order(totals: dict, names: list[str]) -> dict:
+    """캐릭터별 값을 편성 자리 순서로. 편성에 없는 키(있다면)는 뒤에 원래 순서대로."""
+    out = {n: totals[n] for n in names if n in totals}
+    out.update({k: v for k, v in totals.items() if k not in out})
+    return out
+
+
 def run_request(raw: str, include_effective: bool = False) -> str:
     payload = json.loads(raw)
     _inject_custom_characters(payload.get("customCharacters") or {})
@@ -724,7 +731,8 @@ def run_request(raw: str, include_effective: bool = False) -> str:
         "squadTotal": result.squad_total,
         "duration": result.duration,
         "hitCount": len(result.hits),
-        "charTotals": result.char_total,
+        # 엔진은 이름순으로 돈다(자리와 무관한 결과). 응답은 편성 자리 순서로 돌려준다.
+        "charTotals": _in_slot_order(result.char_total, names),
         **({"shotgunStats": result.shotgun_stats} if result.shotgun_stats else {}),
         **({"shotgunReport": result.shotgun_report} if result.shotgun_report else {}),
         "charBreakdown": _build_breakdown(result, names),

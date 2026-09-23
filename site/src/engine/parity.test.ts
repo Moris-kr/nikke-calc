@@ -68,6 +68,7 @@ describe.runIf(enabled)('고속 엔진 대조', () => {
     let pass = 0; let total = 0; let pyMs = 0; let tsMs = 0;
     for (const file of refs) {
       const ref = JSON.parse(readFileSync(join(PARITY_DIR, 'ref', file), 'utf-8'));
+      if (!ref || Array.isArray(ref) || typeof ref.id !== 'string') continue;  // 다른 도구의 비교 파일
       if (only.length && !only.some((p) => ref.id.startsWith(p))) continue;
       const req = byId.get(ref.id)?.request;
       total += 1;

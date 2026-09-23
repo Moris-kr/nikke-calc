@@ -2090,6 +2090,9 @@ class BurstController:
         self.char_states = char_states
         self.enemy_def: int = enemy.get("def", 31784)
         self.squad_names = [c["name"] for c in squad]
+        # 같은 단계 버스트 우선순위만은 **실제 자리 순서**(앞자리 먼저)를 따른다 — 사용자가 자리로
+        # 정하는 운용이고 결과(버스트 기록)에 드러난다. 그 밖의 처리는 이름순 `squad_names`.
+        self.slot_names = list(config.get("_slot_order") or self.squad_names)
 
         # 캐릭터별 기본(고정) 버스트 단계 — 변하지 않음
         # 스쿼드 config에 "burst_stage" 필드가 있으면 parsed_nikke 값보다 우선 적용 ("A" 캐릭터 슬롯 지정용)
@@ -2601,7 +2604,7 @@ class BurstController:
         burst_order를 현재 유효 버스트 단계 기준으로 재구성한다.
         """
         order: dict[str, list[str]] = {"1": [], "2": [], "3": []}
-        for name in self.squad_names:
+        for name in self.slot_names:
             if self._burst_sequence is None and (
                 name == self._no_burst_char or name in self._no_burst_names
             ):
@@ -2918,9 +2921,25 @@ def _resolve_cameras(squad: list[dict], cfg: dict) -> frozenset[str]:
         return frozenset(controlled)
     if len(controlled) == 1 and _is_charge_nikke(controlled[0]):
         return frozenset(controlled)
-    if len(squad) >= 3:
-        return frozenset({squad[2]["name"]})
-    return frozenset({squad[0]["name"]}) if squad else frozenset()
+    # 기본 카메라는 자리로 정하지 않는다(예전: 3번 자리 = 전투 시작 카메라 위치). 자리를 바꾸면
+    # 딜이 달라진다는 제보(2026-09-23) — 풀차지 한 발 게이지가 가장 큰 차지 무기 니케를 본다고
+    # 둔다(동률이면 이름순). 차지 무기가 없으면 아무도 안 봐도 결과가 같다(배율은 풀차지에만 붙는다).
+    best = None
+    best_key = None
+    for c in squad:
+        name = c["name"]
+        if not _is_charge_nikke(name):
+            continue
+        exc = _DELAYS["_exceptions"].get(name)
+        nk = _NIKKE.get(name) or {}
+        mech = _MECHANICS["weapon_type_defaults"].get(nk.get("weapon_type"), {})
+        gain = (float(_pick("burst_energy", exc, nk, mech, default=0.0))
+                * float(_pick("muzzles", exc, nk, mech, default=1))
+                * float(_pick("full_charge_mult", exc, nk)))
+        key = (-gain, name)
+        if best_key is None or key < best_key:
+            best, best_key = name, key
+    return frozenset({best}) if best is not None else frozenset()
 
 
 def simulate(
@@ -2984,11 +3003,17 @@ def simulate(
 
     squad = [{**DEFAULT_CHAR, **c} for c in squad]
     _check_names([c["name"] for c in squad], bool(cfg["allow_unparsed"]))
+    # 편성 자리와 무관한 결과(2026-09-23 사용자 요청: 「자리 바뀐다고 해서 차이 안 나도록」).
+    # 처리 순서(한 프레임 안의 니케 순서·같은 단계 버스트 우선순위·동률 정리)는 이름순으로 고정한다.
+    # 실제 자리는 **게임에서도 자리를 보는 스킬**(후열 조건·양옆 아군)만 쓴다 — state["slot_order"].
+    slot_order = [c["name"] for c in squad]
+    squad = sorted(squad, key=lambda c: c["name"])
 
     if cfg["burst_gauge_mode"] not in ("fixed", "accumulate"):
         raise ValueError(
             f'burst_gauge_mode는 "fixed" 또는 "accumulate"여야 한다: {cfg["burst_gauge_mode"]!r}')
     cfg["_camera"] = _resolve_cameras(squad, cfg)
+    cfg["_slot_order"] = slot_order
 
     base_stats: dict[str, dict] = {c["name"]: calc_base_stats(c) for c in squad}
 
@@ -3024,6 +3049,8 @@ def simulate(
             if cfg.get("immune_blocks_burst") else []),
         # 카메라가 보고 있는 니케 집합(`_resolve_cameras()`). 풀차지 게이지 배율이 여기에만 붙는다.
         "camera":       cfg["_camera"],
+        # 실제 편성 자리(1번부터). 후열 조건·양옆 아군 대상만 본다 — 나머지는 이름순 `squad`.
+        "slot_order":   slot_order,
     }
 
     enemy_code = enm.get("code", "")

@@ -5,10 +5,13 @@
  * 파이썬 런타임(Pyodide)은 받지 않는다. 사이트 런타임 목록(`runtime/manifest.json`)에서 엔진 데이터
  * JSON 14개만 받아 `setEngineData`로 넣는다 — 파이썬 워커와 같은 파일·같은 버전 쿼리다.
  *
- * 전투 계산(`simulate`)만 맡는다. 나머지 요청(전투력·추천·육성 비교·AI 연결)은 라우터가 파이썬으로 보낸다.
+ * 파이썬 워커가 받는 요청을 모두 받는다 — `prepare` · `simulate` · `simulateMcp`(AI 연결) · `combatPower` ·
+ * `compareGrowth` · `recommend`. 응답 모양도 같다.
  */
 import { ENGINE_DATA_FILES, setEngineData } from './data';
-import { run_request } from './bridge';
+import { run_combat_power, run_request } from './bridge';
+import { run_growth_comparison } from './growth_comparison';
+import { run_recommendation } from './recommendation';
 import type { WorkerRequest } from '../types';
 
 const siteBase = new URL(import.meta.env.BASE_URL, self.location.href);
@@ -44,8 +47,28 @@ async function handle(message: WorkerRequest): Promise<void> {
   try {
     const version = await ensureReady();
     if (type === 'prepare') { post(id, 'ready', version); return; }
-    if (type !== 'simulate' || !payload) throw new Error('고속 엔진이 지원하지 않는 계산 요청입니다.');
-    post(id, 'result', JSON.parse(run_request(JSON.stringify(payload))));
+    // 전투력은 목록 정렬용이라 타임라인 계산과 별개로 돈다 — 훨씬 가볍다.
+    if (type === 'recommend') {
+      post(id, 'progress', '입력 후보와 전투 조건을 비교하고 중복 없는 편성을 선택하고 있습니다…');
+      const raw = run_recommendation(JSON.stringify(payload ?? {}));
+      post(id, 'result', { ...JSON.parse(raw), engineVersion: version });
+      return;
+    }
+    if (type === 'compareGrowth') {
+      const raw = run_growth_comparison(JSON.stringify(payload ?? {}));
+      post(id, 'result', { ...JSON.parse(raw), engineVersion: version });
+      return;
+    }
+    if (type === 'combatPower') {
+      post(id, 'result', JSON.parse(run_combat_power(JSON.stringify(payload ?? {}))));
+      return;
+    }
+    if (!(type === 'simulate' || type === 'simulateMcp') || !payload) {
+      throw new Error('고속 엔진이 지원하지 않는 계산 요청입니다.');
+    }
+    const result = JSON.parse(run_request(JSON.stringify(payload), type === 'simulateMcp'));
+    if (type === 'simulateMcp') result.engineVersion = version;
+    post(id, 'result', result);
   } catch (error) {
     post(id, 'error', error instanceof Error ? `${error.name === 'Error' ? '' : `${error.name}: `}${error.message}` : String(error));
   }

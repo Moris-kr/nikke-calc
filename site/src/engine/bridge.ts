@@ -1,8 +1,7 @@
 /**
- * site/pybridge/bridge.py — 브라우저 요청을 계산기 API로 옮긴다. **`run_request` 경로만** 옮겼다.
+ * site/pybridge/bridge.py — 브라우저 요청을 계산기 API로 옮긴다. `run_request`와 `run_combat_power`.
  *
- * 옮기지 않은 것: `run_combat_power`(전투력 — 라우터가 파이썬으로 보낸다), growth_comparison ·
- * recommendation 모듈.
+ * growth_comparison · recommendation 모듈은 `growth_comparison.ts` · `recommendation.ts`에 있다.
  */
 
 import { data } from './data';
@@ -35,6 +34,7 @@ import { _is_normal } from './sim_result';
 import type { SimResult } from './sim_result';
 import { simulate } from './timeline';
 import * as char_spec from './spec';
+import { combat_power } from './combat_power';
 
 // 타임라인 버킷 크기(초).
 export const TIMELINE_BUCKET = 1;
@@ -554,7 +554,53 @@ export function _build_buff_targets(result: SimResult, names: string[]): Record<
   return out;
 }
 
-// (run_combat_power — py: site/pybridge/bridge.py:514 — 는 옮기지 않았다.)
+// py: site/pybridge/bridge.py:514
+/**
+ * 캐릭터별 인게임 전투력. 목록 정렬에만 쓰고 딜 계산과는 무관하다.
+ *
+ * `{"characters": {이름: 오버라이드}}` 를 받아 `{이름: 전투력}` 을 준다.
+ * 오버라이드가 없는 캐릭터는 기본 스펙으로 잰다.
+ */
+export function run_combat_power(raw: string | Record<string, any>): string {
+  const payload = _loads(raw);
+  _inject_custom_characters(or(get(payload, 'customCharacters'), {}));
+  const raw_characters = or(get(payload, 'characters'), {} as Record<string, any>) as Record<string, any>;
+  // `payload.get("names") or raw_characters` — 사전을 순회하면 키.
+  const name_src = or(get(payload, 'names'), raw_characters) as any;
+  const names: string[] = (Array.isArray(name_src) ? name_src : Object.keys(name_src)).map((n: any) => _py_str(n));
+
+  // 파이썬 dict — 조회만 한다.
+  const overrides: Record<string, any> = {};
+  for (const name of names) {
+    if (has(raw_characters, name)) {
+      overrides[name] = normalize_character_overrides(get(raw_characters, name), { character_name: name });
+    }
+  }
+  // 싱크로와 콘솔은 계정 육성 상태다 — 딜 계산과 **같은 값**을 받아야 화면의 두 숫자가 어긋나지 않는다.
+  const console_ = normalize_console(get(payload, 'console'));
+  const synchro = normalize_synchro_level(get(payload, 'synchroLevel'));
+  for (const name of names) {
+    if (truthy(console_)) {
+      const over = setdefault(overrides, name, {} as Record<string, any>);
+      over['console'] = { ...char_spec.DEFAULT_CHAR['console'], ...console_ };
+    }
+    if (synchro != null) {
+      setdefault(overrides, name, {} as Record<string, any>)['level'] = synchro;
+    }
+  }
+  // 파이썬 dict 삽입 순서 — 응답 키 순서(정수 모양 이름 대비 Map).
+  const out = new Map<string, number>();
+  for (const name of names) {
+    try {
+      const char = char_spec.build_squad([name], overrides)[0]!;
+      out.set(name, round(combat_power(char), 2));
+    } catch {
+      // 한 명이 걸려도 목록 전체가 죽으면 안 된다 — 그 캐릭터만 뺀다.
+      continue;
+    }
+  }
+  return '{' + [...out].map(([k, v]) => `${JSON.stringify(k)}:${JSON.stringify(v)}`).join(',') + '}';
+}
 
 /** 파이썬 `json.loads`처럼 매번 새 객체를 쓴다(이미 파싱된 객체를 받으면 사본을 뜬다). */
 function _loads(raw: string | Record<string, any>): Record<string, any> {
@@ -574,6 +620,15 @@ export function __lastHits(): unknown[] | undefined {
 }
 
 // py: site/pybridge/bridge.py:553
+// py: site/pybridge/bridge.py _in_slot_order
+/** 캐릭터별 값을 편성 자리 순서로. 편성에 없는 키(있다면)는 뒤에 원래 순서대로. */
+export function _in_slot_order(totals: Record<string, number>, names: string[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const n of names) if (Object.prototype.hasOwnProperty.call(totals, n)) out[n] = totals[n]!;
+  for (const [k, v] of Object.entries(totals)) if (!Object.prototype.hasOwnProperty.call(out, k)) out[k] = v;
+  return out;
+}
+
 export function run_request(raw: string | Record<string, any>, include_effective: boolean = false): string {
   _LAST_RESULT = null;
   const payload = _loads(raw);
@@ -790,7 +845,8 @@ export function run_request(raw: string | Record<string, any>, include_effective
     squadTotal: result.squad_total,
     duration: result.duration,
     hitCount: result.hits.length,
-    charTotals: result.char_total,
+    // 엔진은 이름순으로 돈다(자리와 무관한 결과). 응답은 편성 자리 순서로 돌려준다.
+    charTotals: _in_slot_order(result.char_total, names),
     ...(truthy(result.shotgun_stats) ? { shotgunStats: result.shotgun_stats } : {}),
     ...(truthy(result.shotgun_report) ? { shotgunReport: result.shotgun_report } : {}),
     charBreakdown: _build_breakdown(result, names),

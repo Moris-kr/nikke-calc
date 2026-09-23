@@ -27,8 +27,8 @@ for (const char of catalog) {
 if (Object.keys(settings.characters ?? {}).length !== catalog.length) {
   problems.push('settings character count must match catalog');
 }
-if (!manifest.files.includes('context/growth.py')) {
-  problems.push('runtime must include canonical character growth rules');
+if (manifest.files.some((file) => file.endsWith('.py'))) {
+  problems.push('runtime must not ship Python files — the site runs the TypeScript engine only');
 }
 for (const char of catalog) {
   const growth = settings.characters?.[char.name];

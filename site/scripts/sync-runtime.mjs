@@ -18,20 +18,9 @@ const publicDir = join(siteDir, 'public');
 const runtimeDir = join(publicDir, 'runtime');
 const characterDir = join(publicDir, 'characters');
 
+// 브라우저 계산 엔진(TypeScript, src/engine/)이 받는 데이터 파일. 2026-09-23부터 사이트는 파이썬(Pyodide)
+// 엔진을 쓰지 않으므로 .py 파일은 싣지 않는다 — 파이썬 엔진은 MCP 서버·CLI·회귀 검사용으로 저장소에 남아 있다.
 const runtimeFiles = [
-  'calculator/__init__.py',
-  'calculator/base_stat.py',
-  'calculator/buff_manager.py',
-  'calculator/cheats.py',
-  'calculator/combat_power.py',
-  'calculator/customization.py',
-  'calculator/damage.py',
-  'calculator/sim_result.py',
-  'calculator/timeline.py',
-  'calculator/pellet_accuracy.py',
-  'calculator/shotgun_heatmap.py',
-  'context/spec.py',
-  'context/growth.py',
   'data/parsed_nikke.json',
   'data/parsed_skills.json',
   'data/char_defaults.json',
@@ -48,8 +37,6 @@ const runtimeFiles = [
   'data/base_stat_tables/level_stats.json',
 ];
 
-const bridgeTarget = 'bridge.py';
-const growthTarget = 'growth_comparison.py';
 
 const readJson = (path) => JSON.parse(readFileSync(path, 'utf8'));
 const normalizeImageName = (value) => value
@@ -73,26 +60,6 @@ for (const relativePath of runtimeFiles) {
   mkdirSync(dirname(target), { recursive: true });
   copyFileSync(source, target);
   hash.update(relativePath);
-  hash.update(content);
-}
-
-const bridgeSource = join(siteDir, 'pybridge', 'bridge.py');
-const bridgeContent = readFileSync(bridgeSource);
-copyFileSync(bridgeSource, join(runtimeDir, bridgeTarget));
-hash.update(bridgeTarget);
-hash.update(bridgeContent);
-const growthContent = readFileSync(join(siteDir, 'pybridge', growthTarget));
-writeFileSync(join(runtimeDir, growthTarget), growthContent);
-hash.update(growthTarget);
-hash.update(growthContent);
-const recommendationFiles = [
-  ['recommendation.py', join(siteDir, 'pybridge', 'recommendation.py')],
-  ['squad_policy.py', join(repoRoot, 'nikke_mcp', 'squad_policy.py')],
-];
-for (const [target, source] of recommendationFiles) {
-  const content = readFileSync(source);
-  writeFileSync(join(runtimeDir, target), content);
-  hash.update(target);
   hash.update(content);
 }
 
@@ -227,7 +194,7 @@ hash.update('settings.json');
 hash.update(settings);
 const manifest = {
   version: hash.digest('hex').slice(0, 16),
-  files: [...runtimeFiles, bridgeTarget, growthTarget, ...recommendationFiles.map(([target]) => target)],
+  files: [...runtimeFiles],
 };
 
 writeFileSync(join(runtimeDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);

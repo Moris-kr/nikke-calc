@@ -1529,10 +1529,6 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
 .parallel-pick select { margin-left: 6px; padding: 1px 3px; border: 1px solid var(--line);
   background: rgba(3,9,16,.6); color: var(--muted); font: 700 10px ui-monospace, monospace; }
 .parallel-pick select:disabled { opacity: .4; }
-.engine-pick { display: inline-flex; align-items: center; gap: 6px; margin-left: 14px; color: var(--muted);
-  font-size: 12px; white-space: nowrap; }
-.engine-pick select { padding: 1px 3px; border: 1px solid var(--line); background: rgba(3,9,16,.6);
-  color: var(--muted); font: 700 10px ui-monospace, monospace; }
 
 /* 유니온 / 개인용 — 「누구의 스펙으로 도는가」라 화면 맨 위에서 고른다. */
 .union-modes { display: inline-flex; margin-bottom: 12px; border: 1px solid var(--line); }

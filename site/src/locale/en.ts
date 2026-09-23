@@ -752,7 +752,7 @@ export const EN: Record<string, string> = {
   '스펙이 다른 사람의 기록이므로 배율은 «얼마나 다른가»를 보는 눈금입니다.': 'These records come from a different spec, so the ratio is a gauge of “how different”, not a score.',
   '같은 편성은 저장된 결과를 다시 쓰므로 뒤로 갈수록 빨라집니다.': 'Identical squads reuse saved results, so it speeds up as it goes.',
   '저장해 둔 결과입니다. 새로 받으려면 «다시 받기»를 누르세요.': 'These are cached. Press “Fetch again” for fresh data.',
-  '하나마다 계산 런타임이 떠서 메모리를 50~80MB씩 씁니다.': 'Each one spins up a runtime and uses 50–80MB of memory.',
+  '하나마다 계산 엔진과 데이터를 따로 올려 메모리를 더 씁니다.': 'Each one loads its own copy of the engine and data, using more memory.',
   '내 설정': 'My setup',
   '오버옵 시각화': 'Overload map',
   '불러온 프로필의 오버로드 옵션을 초상화 크기로 봅니다': 'Shows the imported profile\'s Overload options as portrait-sized blobs',

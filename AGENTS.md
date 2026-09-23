@@ -12,10 +12,10 @@
 - `profiles/`는 **개인 계정 육성 데이터**다. 통째로 gitignore이며 `scraper/.session_cookie`(계정
   접근권)와 함께 어떤 경우에도 커밋 대상에 올리지 않는다. 만드는 건 `profile-sync` skill뿐이다.
 - `context/baseline/`의 golden snapshot은 손으로 편집하지 않는다.
-- 사이트의 기본 전투 계산 엔진은 파이썬 엔진을 TS로 옮긴 **고속 엔진**(`site/src/engine/`, 2026-09-23~)이다.
-  파이썬 엔진이 여전히 정본이며, 두 엔진을 함께 운영하는 동안 `calculator/`·`context/spec.py`·`context/growth.py`·
-  `site/pybridge/bridge.py`의 `run_request` 경로를 고치면 **TS 쪽도 같이 고친다**. 결과는 한 자리까지 같아야 하고
-  CI의 「고속 엔진 대조」가 검사한다(`site/src/engine/README.md`). 고속 엔진이 실패하면 사이트가 그 덱을 파이썬으로 다시 계산한다.
+- 사이트는 파이썬 엔진을 TS로 옮긴 **계산 엔진**(`site/src/engine/`)만 쓴다(2026-09-23~, Pyodide 없음).
+  파이썬 엔진은 MCP 서버·CLI·골든 회귀용으로 남아 있으므로, `calculator/`·`context/spec.py`·`context/growth.py`·
+  `site/pybridge/`·`nikke_mcp/squad_policy.py`·`calculator/combat_power.py`를 고치면 **TS 쪽도 같이 고친다**.
+  결과는 한 자리까지 같아야 하고 CI의 「고속 엔진 대조」가 검사한다(`site/src/engine/README.md`).
 - 공용 skill의 정본은 `.agent/skills/`다. `.claude/skills/`는 호환 진입점일 뿐이다.
 
 ## Context routing

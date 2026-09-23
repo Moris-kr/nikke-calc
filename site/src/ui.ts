@@ -7,7 +7,6 @@ import {
 import { ResultCache, type StorageLike, type StorageSource } from './cache';
 import { applyBackup, backupFileName, buildBackup, readBackup } from './backup';
 import { isCancelled } from './worker-client';
-import { ENGINE_KEY } from './engine-router';
 import { renderCharacterSettings, withParticle, NO_CUBE, type CharPanelKind } from './character-settings';
 import {
   BLABLA_SERVERS,
@@ -148,10 +147,6 @@ export interface CalculatorClientLike {
   setPoolSize?(size: number): void;
   defaultPoolSize?(): number;
   maxPoolSize?: number;
-  /** 계산 엔진 고르기(engine-router.ts). 없는 구현은 파이썬 엔진 하나뿐이다. */
-  engine?: 'python' | 'fast';
-  setEngine?(engine: 'python' | 'fast'): void;
-  onFallback?(listener: (event: { error: Error }) => void): () => void;
   dispose(): void;
 }
 
@@ -460,9 +455,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   /** 카드가 잠겨야 하나 — 레이드 탭이고 모의전이 아닐 때. */
   const raidLocked = (): boolean => raidMode && !raidMock;
   const cache = new ResultCache(storage, version, 30);
-  // 엔진마다 결과를 따로 담는다 — 고속 엔진이 의심스러워 파이썬으로 바꿨는데 고속 엔진이 낸
-  // 결과가 캐시에서 나오면 안 된다. 파이썬 엔진은 예전 키 그대로(저장된 결과를 살린다).
-  const engineTag = () => (client.engine === 'fast' ? `${version}~fast` : version);
+
   const catalogByName = new Map(catalog.map((char) => [char.name, char]));
   const decks = Array.from({ length: 2 }, (_, index) => emptyDeck(index + 1));
   /**
@@ -1108,13 +1101,6 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <label class="toggle-field mode-toggle parallel-pick" title="계산을 여러 작업 스레드에 나눠 돌립니다. 이 기기의 코어를 더 쓰는 대신 5덱 계산이 몇 배 빨라집니다 — 계산은 이 기기에서 도는 것이라 서버 비용과는 무관합니다">
               <input type="checkbox" data-parallel-toggle checked /><span class="toggle"></span><span>병렬 계산</span>
               <select data-parallel-size></select>
-            </label>
-            <label class="engine-pick" data-engine-pick hidden title="계산 엔진. 고속 엔진은 파이썬 엔진을 TypeScript로 옮긴 것으로 수십 배 빠릅니다. 고속 엔진이 실패하면 그 판은 파이썬 엔진으로 다시 계산합니다">
-              <span>계산 엔진</span>
-              <select data-engine-select>
-                <option value="fast">고속</option>
-                <option value="python">파이썬</option>
-              </select>
             </label>
           </div>
           <p class="status" data-status aria-live="polite">계산 엔진 준비 중…</p>
@@ -2115,7 +2101,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         // 계산만 몰래 한 번 도는 일이 생긴다.
         if (validateRequest(request).length > 0) return;
         if (validateCharacterValues(deck).length > 0) return;
-        const key = cacheKey(request, engineTag());
+        const key = cacheKey(request, version);
         let result = cache.get(key);
         if (!result) {
           result = await client.simulate(request);
@@ -7383,7 +7369,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           if (roster[name]) deck.characters[name] = cloneOverride(roster[name]!);
         }
         const request = requestForDeck(deck, battle, Object.keys(custom).length > 0 ? custom : undefined);
-        const key = cacheKey(request, engineTag());
+        const key = cacheKey(request, version);
         let result = cache.get(key);
         if (!result) {
           result = await client.simulate(request);
@@ -7491,7 +7477,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   }
   // 권장값은 칸을 넓히지 않게 설명 쪽에만 적는다 — 토글 줄이 길어지면 줄이 접힌다.
   parallelSize.title = `띄울 작업 스레드 수. 이 기기 권장 ${poolDefault}개. `
-    + '하나마다 계산 런타임이 떠서 메모리를 50~80MB씩 씁니다.';
+    + '하나마다 계산 엔진과 데이터를 따로 올려 메모리를 더 씁니다.';
   const applyParallel = (save: boolean) => {
     parallelToggle.checked = parallelOn;
     parallelSize.value = String(parallelCount);
@@ -7511,26 +7497,6 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     applyParallel(true);
   });
   applyParallel(false);
-
-  // ── 계산 엔진 ───────────────────────────────────────────────────────────
-  // 고속 엔진(TS)과 파이썬 엔진을 한동안 같이 둔다. 고른 값은 main.ts가 시작할 때 읽어
-  // 라우터에 넣고, 여기서는 바꾼 것만 저장한다. 고속 엔진이 실패하면 라우터가 그 판을
-  // 파이썬으로 다시 계산하고 여기로 알린다.
-  const enginePick = element<HTMLElement>(root, '[data-engine-pick]');
-  const engineSelect = element<HTMLSelectElement>(root, '[data-engine-select]');
-  if (client.engine && client.setEngine) {
-    enginePick.hidden = false;
-    engineSelect.value = client.engine;
-    engineSelect.addEventListener('change', () => {
-      const next = engineSelect.value === 'python' ? 'python' : 'fast';
-      client.setEngine!(next);
-      try { resolveStorage()?.setItem(ENGINE_KEY, next); } catch { /* 이번 판만 못 기억할 뿐이다 */ }
-      prepared = client.prepare().catch(() => undefined);
-    });
-  }
-  const offFallback = client.onFallback?.(({ error }) => {
-    status.textContent = `고속 엔진 오류로 이 덱은 파이썬 엔진으로 계산했습니다 · ${error.message.slice(0, 120)}`;
-  });
 
   // ── 보스 메이커 ─────────────────────────────────────────────────────────
   // 적을 숫자 몇 개가 아니라 **그림**으로 두고, 그 위에서 덱의 사격을 읽는 화면.
@@ -7637,7 +7603,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       battleFallback: readBattle,
       simulate: async (request) => {
         await prepared;
-        const key = cacheKey(request, engineTag());
+        const key = cacheKey(request, version);
         const kept = cache.get(key);
         if (kept) return kept;
         const result = await client.simulate(request);
@@ -7773,7 +7739,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     run: async (squad, characters) => {
       await prepared;
       const request = requestForDeck({ id: 1, squad, characters }, readBattle(), customPayload());
-      const key = cacheKey(request, engineTag());
+      const key = cacheKey(request, version);
       const kept = cache.get(key);
       if (kept) return kept;
       const result = await client.simulate(request);
@@ -8497,7 +8463,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       let done = 0;
       const runOne = async (index: number) => {
         const { deck, request } = requests[index]!;
-        const key = cacheKey(request, engineTag());
+        const key = cacheKey(request, version);
         let result = cache.get(key);
         if (result) {
           cachedCount += 1;
@@ -8565,5 +8531,5 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     }
   });
 
-  return () => { offFallback?.(); window.removeEventListener('popstate', restoreViewUrl); window.removeEventListener('hashchange', restoreViewUrl); stopCountdown(); stopLocalize(); client.dispose(); browserMcp.disconnect(); window.removeEventListener('pagehide', disconnectMcp); };
+  return () => { window.removeEventListener('popstate', restoreViewUrl); window.removeEventListener('hashchange', restoreViewUrl); stopCountdown(); stopLocalize(); client.dispose(); browserMcp.disconnect(); window.removeEventListener('pagehide', disconnectMcp); };
 }

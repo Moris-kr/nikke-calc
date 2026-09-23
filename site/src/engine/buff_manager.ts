@@ -844,6 +844,7 @@ type Handler = (...args: any[]) => any;
 export class BuffManager {
   squad: Dict[];
   squad_names: string[];
+  slot_names: string[];
   state: Dict;
   cheats: Cheats;
   _char: Record<string, Dict>;
@@ -898,6 +899,8 @@ export class BuffManager {
     this.squad = squad;
     this.squad_names = squad.map((c) => item(c, 'name') as string);
     this.state = or(state, {}) as Dict;
+    // 실제 편성 자리 순서(후열 조건·양옆 아군만 본다). py: buff_manager.py slot_names
+    this.slot_names = [...(or(get(this.state, 'slot_order'), this.squad_names) as string[])];
 
     // 켜 둔 핵. `simulate`가 config에서 읽어 꽂아 준다 — 기본은 아무것도 안 켠 것.
     this.cheats = NO_CHEATS;
@@ -2609,7 +2612,7 @@ export class BuffManager {
           return false;
         }
       } else if (cond === 'back_row') {
-        const idx = listIndex(this.squad_names, caster);
+        const idx = listIndex(this.slot_names, caster);
         if (!(idx === 1 || idx === 3)) {  // 후열 = 포지션 2(idx 1) 또는 4(idx 3)
           return false;
         }
@@ -4865,13 +4868,13 @@ export class BuffManager {
     }
     if (ts.startsWith('allies_adjacent:')) {
       const n = int(ts.split(':')[1]!);
-      const idx = listIndex(this.squad_names, caster);
+      const idx = listIndex(this.slot_names, caster);
       const adj: string[] = [];
       if (idx > 0) {
-        adj.push(this.squad_names[idx - 1]!);
+        adj.push(this.slot_names[idx - 1]!);
       }
-      if (idx < this.squad_names.length - 1) {
-        adj.push(this.squad_names[idx + 1]!);
+      if (idx < this.slot_names.length - 1) {
+        adj.push(this.slot_names[idx + 1]!);
       }
       return [caster, ...pyslice(adj, n)];
     }
