@@ -128,7 +128,7 @@ describe('시각 → 상태', () => {
       expect(spriteFor(name, 'shoot')).not.toBe(DEFAULT_SD.shoot);
       expect(spriteFor(name, 'reload')).not.toBe(DEFAULT_SD.reload);
     }
-    expect(Object.keys(SD_IDS)).toEqual(expect.arrayContaining(['라피 : 레드 후드', '홍련 : 흑영', '렘', '아인', '스노우 화이트 : 헤비암즈']));
+    expect(Object.keys(SD_IDS)).toEqual(expect.arrayContaining(['라피 : 레드 후드', '홍련 : 흑영', '렘', '아인', '스노우 화이트 : 헤비암즈', '크라운', '나유타']));
   });
 
   it('캐릭터별 SD가 있으면 그걸, 없으면 회색 자리표시자', () => {
