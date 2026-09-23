@@ -484,7 +484,7 @@ input:where([type="checkbox"], [type="radio"]) {
 /* 슬롯 번호 + 속성 아이콘 한 줄 — 초상화 좌상단 */
 .slot-tags { position: absolute; z-index: 2; top: 8px; left: 8px; display: flex; align-items: center; gap: 4px; }
 .slot-number { min-width: 27px; padding: 4px 5px; background: var(--amber); color: #1b1200; font: 900 11px ui-monospace, monospace; }
-.slot-camera { padding: 3px 5px; border: 1px solid rgba(255,191,60,.55); background: rgba(5,13,22,.82); color: var(--amber); font: 800 10px/1 inherit; cursor: help; }
+.slot-main { padding: 3px 5px; border: 1px solid rgba(255,191,60,.55); background: rgba(5,13,22,.82); color: var(--amber); font: 800 10px/1 inherit; cursor: help; }
 /* 자리 이동 — 슬롯 번호 맞은편 */
 .slot-moves { position: absolute; z-index: 2; top: 8px; right: 8px; display: flex; gap: 4px; }
 .slot-move { width: 24px; height: 24px; padding: 0; display: grid; place-items: center; border: 1px solid rgba(146,176,201,.28); background: rgba(3,10,17,.72); color: #cfeceb; font: 700 14px/1 ui-monospace, monospace; border-radius: 5px; cursor: pointer; }
