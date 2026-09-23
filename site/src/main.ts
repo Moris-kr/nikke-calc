@@ -2,7 +2,7 @@ import './styles.css';
 
 declare const __BUILD_ID__: string;
 
-import { CalculatorPool } from './worker-client';
+import { DEFAULT_ENGINE, ENGINE_KEY, EngineRouter, isEngineKind } from './engine-router';
 import { detectLang, LANG_KEY, setLang, setLocaleNames, t, lang, type LocaleNames } from './i18n';
 import { mountCalculator } from './ui';
 import { installTemporaryCharacters } from './temporary-characters';
@@ -48,7 +48,10 @@ async function start(): Promise<void> {
   const manifest = await manifestResponse.json() as RuntimeManifest;
   const settings = await settingsResponse.json() as SettingsCatalog;
   const bundledCharacters = installTemporaryCharacters(catalog, settings);
-  const client = new CalculatorPool();
+  // 계산 엔진: 고속(TS) / 파이썬. 고른 값은 저장해 두고, 고속 엔진이 실패하면 그 판은 파이썬으로 다시 돈다.
+  let savedEngine: string | null = null;
+  try { savedEngine = window.localStorage.getItem(ENGINE_KEY); } catch { /* 저장소가 막혔으면 기본값 */ }
+  const client = new EngineRouter(isEngineKind(savedEngine) ? savedEngine : DEFAULT_ENGINE);
   const cleanup = mountCalculator(root, {
     catalog,
     settings,

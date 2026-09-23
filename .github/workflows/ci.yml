@@ -62,6 +62,13 @@ jobs:
         working-directory: site
         run: npm test -- --run
 
+      # 사이트 기본 엔진은 TS로 옮긴 고속 엔진(site/src/engine/)이다. 파이썬 엔진(calculator/·context/spec.py·
+      # site/pybridge/bridge.py)을 고치면 TS 쪽도 같이 고쳐야 한다 — 여기서 93개 요청의 응답·히트가 한 자리까지 같은지 본다.
+      - name: 고속 엔진 대조 (파이썬 엔진과 결과 일치)
+        run: |
+          python site/scripts/parity/ref.py > /dev/null
+          cd site && PARITY=1 npx vitest run src/engine/parity.test.ts --silent=false
+
       - name: 딜 계산 회귀 (golden snapshot 29개)
         run: python -m context.snapshot
 
