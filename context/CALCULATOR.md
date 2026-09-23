@@ -1,4 +1,4 @@
-# calculator/ 데이터 흐름
+# site/src/engine/ 데이터 흐름
 
 `simulate(squad, config, enemy)` 호출 → `SimResult` 반환까지 전체 흐름.
 
@@ -7,17 +7,17 @@
 ## 1. 진입점
 
 ```
-context/sim.py                     (CLI 단발 시뮬)
-context/snapshot.py                (회귀 하네스)
+site/scripts/sim.ts                     (CLI 단발 시뮬)
+site/scripts/snapshot.ts                (회귀 하네스)
 .agent/skills/report-squad/scripts/report.py   (딜량 보고서)
-  └─ context/spec.py   기본 육성 스펙 + 캐릭터별 레이어 → 캐릭터 dict
-       └─ simulate(squad, config, enemy, seed)   ← timeline.py
+  └─ site/src/engine/spec.ts   기본 육성 스펙 + 캐릭터별 레이어 → 캐릭터 dict
+       └─ simulate(squad, config, enemy, seed)   ← timeline.ts
 ```
 
 `squad`은 캐릭터 인스턴스 dict 목록. 각 캐릭터는 `name`, `level`, `breakthrough`,
 `core_enhancement`, `affinity`, `equipment`, `equip_skills`, `cube`, `console`,
 `collection_stage`, `control` 등을 포함한다. 이 dict를 만드는 건 러너 쪽
-`context/spec.py`이고(정본: `HARNESS.md §기본 스펙`), `timeline.DEFAULT_CHAR`는 호출자가
+`site/src/engine/spec.ts`이고(정본: `HARNESS.md §기본 스펙`), `timeline.DEFAULT_CHAR`는 호출자가
 키를 빠뜨렸을 때의 **최소 폴백**일 뿐이다 — 장비 옵션·컨트롤 기본값은 거기 없다.
 
 `equip_skills`의 값은 **스칼라(합산 퍼센트) 또는 줄별 퍼센트 리스트**다. 최대 장탄·차지 속도는
@@ -31,20 +31,20 @@ context/snapshot.py                (회귀 하네스)
 
 ```
 simulate()
-  ├─ calc_base_stats(char)            ← base_stat.py  →  base_atk, base_def, base_hp
-  ├─ BuffManager(squad, state)        ← buff_manager.py
+  ├─ calc_base_stats(char)            ← base_stat.ts  →  base_atk, base_def, base_hp
+  ├─ BuffManager(squad, state)        ← buff_manager.ts
   │     ├─ parsed_skills.json  (스킬 효과 목록)
   │     ├─ equipment_skills.json (장비 스킬)
   │     ├─ cube.json / collection.json (큐브·소장품 버프)
   │     └─ 모든 효과를 내부 effect 포맷으로 정규화해 _effects 에 보관 (_register_all)
   │        _effects는 여기서 확정되고 이후 불변이다 — every:Ns 목록·id 역참조 맵을
   │        이 시점에 한 번만 만든다
-  ├─ CharState(char, base_atk, ...)   ← timeline.py 내부 클래스
+  ├─ CharState(char, base_atk, ...)   ← timeline.ts 내부 클래스
   │     └─ 캐릭터 1명당 1개. 발사 타이머·장탄·차지 상태 관리
   └─ bm.battle_start()               → timing=="battle_start" / "passive" 효과 발동
 ```
 
-### base_stat.py 흐름
+### base_stat.ts 흐름
 
 레벨 스탯표는 **등급까지 갈린다.** 빠뜨리면 SR·R 캐릭터가 SSR 곡선을 써서 딜이
 부푼다 — 같은 클래스·무기의 SR은 SSR의 약 90%다(네온 Lv400 공격력 90,318 → 81,288).
@@ -61,7 +61,7 @@ collection.json   ──┘
 
 공식: `(레벨스탯 + 돌파보정 + 친밀도스탯 + 콘솔스탯) × (1 + 0.02×코강수) + 장비스탯 + 큐브스탯 + 소장품스탯`
 
-기본 돌파·코강·친밀도는 `context/growth.py`가 레어도와 필그림·오버스펙 분류로 결정한다.
+기본 돌파·코강·친밀도는 `site/src/engine/growth.ts`가 레어도와 필그림·오버스펙 분류로 결정한다.
 브라우저의 단일 `growthStage`도 같은 정본을 통해 이 세 엔진 필드로 변환된다. 직접 Python
 오버라이드를 준 연구 케이스는 자동 변환보다 우선한다.
 
@@ -137,11 +137,11 @@ cs.tick(t)
   `_tap_hold = 0.22 + _tap_charge`이고 **사격 전 0.22초는 차지에 안 들어간다** — 그래서
   완벽한 0.22 간격 톡톡이는 `_tap_charge = 0`이라 배율이 언제나 100%다.
   네 값은 `__init__`에서 `rate` 하나로부터 역산한다 — 자세한 분해는 `CONTROL.md`.
-- 캐릭터별 기본 컨트롤(`data/char_defaults.json`)은 **`calculator/`가 읽지 않는다.**
-  레이어를 얹는 건 러너 쪽(`context/spec.py`)이고, `simulate()`는 넘겨받은
+- 캐릭터별 기본 컨트롤(`data/char_defaults.json`)은 **`site/src/engine/`가 읽지 않는다.**
+  레이어를 얹는 건 러너 쪽(`site/src/engine/spec.ts`)이고, `simulate()`는 넘겨받은
   `char["control"]`만 보므로 기본값이 시뮬 결과를 소리 없이 바꾸지 않는다.
 - 브라우저 요청이 `control`을 명시하면 검증기가 내부 `_control_override`로 변환하고,
-  `context/spec.py`가 레이어 적용 뒤 그 객체로 완전히 교체한다. 키 미지정은 추천 자동, 빈
+  `site/src/engine/spec.ts`가 레이어 적용 뒤 그 객체로 완전히 교체한다. 키 미지정은 추천 자동, 빈
   객체는 컨트롤 없음이다. Python 연구용 `control`과 다른 캐릭터 설정은 기존처럼 재귀 병합한다.
 - 장전컨은 `BurstController`가 `state`에 공개하는 `full_burst_end_t`(진입 시 확정)와
   `next_fb_start_pred`(직전 사이클 주기로 예측)를 앵커로 쓴다. 앵커 값을 기억해 사이클당 1회만 건다.
@@ -203,7 +203,7 @@ _fire()
 
 ---
 
-## 5. buff_manager.py — 버프 생명주기
+## 5. buff_manager.ts — 버프 생명주기
 
 ### notify(event, t, caster)
 이벤트 발생 시 호출. `_notify_index`(사전 구축된 이벤트→효과 인덱스)로 후보 효과만 조회 후 `_activate()`로 버프 등록.
@@ -294,7 +294,7 @@ get_buffs(caster, target, t)
 
 ---
 
-## 6. damage.py — DealForm 공식
+## 6. damage.ts — DealForm 공식
 
 `calc_damage(base_atk, enemy_def, buffs, weapon, hit_type)` → `{"damage": int, "is_crit": bool, "crit_frac": float}`
 
@@ -328,7 +328,7 @@ damage = ① × ② × ③ × ④ × ⑤ × ⑥ × ⑦
 슈가, 홍련. 이 처리가 없으면 그 셋만 기대값 모드에서 시드에 의존한다.
 
 `simulate(config={"rng_mode": "expected"})`로 켠다. 시드·반복 평균 없이 1회 실행으로
-기대딜이 나온다(CLI: `python -m context.sim "..." --expected`).
+기대딜이 나온다(CLI: `cd site && npx tsx scripts/sim.ts "..." --expected`).
 
 트레이드오프 — 히트마다 크리·코어가 확률로 섞이므로 **개별 히트의 크리/코어 구분이 없다.**
 `is_crit`은 늘 False고 `hit_tag`에 `core:`가 붙지 않는다(코어히트율이 정확히 100%인
@@ -339,7 +339,7 @@ damage = ① × ② × ③ × ④ × ⑤ × ⑥ × ⑦
 
 ---
 
-## 7. sim_result.py — 결과 수집
+## 7. sim_result.ts — 결과 수집
 
 `simulate()`가 반환하는 `SimResult`에 모든 `HitEvent` 누적.
 
@@ -355,7 +355,7 @@ SimResult
 모듈 함수 (SimResult의 메서드가 아니다)
   analyze_damage(result, name)      → DamageBreakdown (유형별·버스트구간별)
   analyze_team(result)              → 전원 DamageBreakdown
-  print_team_analysis(result)       → 표 출력 (context/sim.py --view analysis)
+  print_team_analysis(result)       → 표 출력 (site/scripts/sim.ts --view analysis)
 ```
 
 ---
@@ -363,22 +363,22 @@ SimResult
 ## 8. 모듈 간 의존 관계
 
 ```
-timeline.py
-  ├── base_stat.py      (초기화 시 1회)
-  ├── buff_manager.py   (매 프레임 notify / get_buffs / tick)
-  ├── damage.py         (매 발사마다 calc_damage)
-  └── sim_result.py     (HitEvent 생성 및 SimResult 반환)
+timeline.ts
+  ├── base_stat.ts      (초기화 시 1회)
+  ├── buff_manager.ts   (매 프레임 notify / get_buffs / tick)
+  ├── damage.ts         (매 발사마다 calc_damage)
+  └── sim_result.ts     (HitEvent 생성 및 SimResult 반환)
 
-buff_manager.py
+buff_manager.ts
   └── data/             (parsed_skills, equipment_skills, cube, collection)
 
-base_stat.py
+base_stat.ts
   └── data/base_stat_tables/
 
-damage.py              (외부 의존 없음 — 순수 계산)
-sim_result.py          (외부 의존 없음 — 자료구조만)
+damage.ts              (외부 의존 없음 — 순수 계산)
+sim_result.ts          (외부 의존 없음 — 자료구조만)
 ```
 
-버그 재현은 `python -m context.sim`(파일 수정 없는 단발 시뮬), 수정 후 회귀는
-`python -m context.snapshot`. 사이클 간격 판정 기준은 `context/HARNESS.md §편성 후 사이클 검증`.
+버그 재현은 `cd site && npx tsx scripts/sim.ts`(파일 수정 없는 단발 시뮬), 수정 후 회귀는
+`cd site && npx tsx scripts/snapshot.ts`. 사이클 간격 판정 기준은 `context/HARNESS.md §편성 후 사이클 검증`.
 캐릭터별 검증 체크리스트가 있으면 `context/scenarios/<이름>.md`.

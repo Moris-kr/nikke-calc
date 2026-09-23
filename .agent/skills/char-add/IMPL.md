@@ -35,7 +35,7 @@
 
 ### 시뮬 실행
 
-`python -m context.sim "<검증 스쿼드>" --seed 1` (`--view summary|burst|buff|hits`). 셀 단위 디버그가 필요하면 `context/test.py`.
+`cd site && npx tsx scripts/sim.ts "<검증 스쿼드>" --seed 1` (`--view summary|burst|buff|hits`). 셀 단위 디버그가 필요하면 `site/src/engine/`를 직접 불러 쓰는 임시 스크립트를 `npx tsx`로 돌린다(저장소에 남기지 않는다).
 
 사이클 간격은 **"12.5초에 가까운가"로 판정하지 않는다** — 그 스쿼드의 버쿨감 구성에 맞는 패턴인지를 본다 (`context/HARNESS.md §편성 후 사이클 검증`의 프로필 표). 프로필에 없는 패턴이면 중단. 시나리오 스쿼드인데 사이클이 깨졌다면 시나리오·구현 둘 중 하나에 문제 있음. 유저 보고 후 응답 대기.
 

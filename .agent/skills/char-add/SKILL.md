@@ -18,7 +18,7 @@ description: 신규 캐릭터를 계산기에 처음부터 끝까지 등록하�
 | 1 | 시나리오 초안 | `SCENARIO.md` | `context/scenarios/<이름>.md` (모드: 초안) |
 | 2 | 스킬 파싱 | `PARSE.md` | `parsed_skills.json` 항목과 구현 필요 목록 |
 | 3 | 시나리오 보강 | `SCENARIO.md` | 같은 시나리오 파일 (모드: 보강) |
-| 4 | 구현·검증 | `IMPL.md` | calculator 코드, 체크리스트와 회귀 통과 |
+| 4 | 구현·검증 | `IMPL.md` | 계산 엔진(`site/src/engine/`) 코드, 체크리스트와 회귀 통과 |
 | R | 출시 후 정식 등록 | `PREVIEW.md` | 원문 diff, 프리뷰 항목 제거 또는 단계 2 재진입 |
 
 절차 문서는 해당 단계에 진입할 때만 읽는다. 단계 1과 3 사이의 파싱을 생략하거나

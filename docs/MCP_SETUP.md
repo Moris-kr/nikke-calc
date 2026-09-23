@@ -1,6 +1,6 @@
 # AI에서 니케 계산기 사용하기
 
-ChatGPT·Claude에서 계산을 요청하면 **열어 둔 계산기 브라우저가 Python 엔진을 실행**합니다.
+ChatGPT·Claude에서 계산을 요청하면 **열어 둔 계산기 브라우저가 계산 엔진을 실행**합니다.
 공개 Render 서버는 요청과 결과를 중계합니다. 브라우저가 끊기면 서버가 대신 계산하지 않습니다.
 AI 모델이나 OpenAI API 키를 계산기에 입력할 필요는 없습니다. AI 서비스의 이용 조건은 별도입니다.
 
@@ -15,15 +15,15 @@ GitHub Pages 사이트 주소는 MCP 주소가 아닙니다. Render 절전 후 �
 | 사용 환경 | 연결 방식 | 계산 위치 |
 |---|---|---|
 | ChatGPT·Claude 웹의 원격 커넥터 | 공개 HTTPS MCP + 브라우저 연결 코드 | 열어 둔 계산기 탭 |
-| Claude Desktop의 로컬 MCP·로컬 에이전트 | stdio | 이 PC의 Python |
+| Claude Desktop의 로컬 MCP·로컬 에이전트 | stdio | 이 PC의 Node.js |
 | 개발 중 HTTP 점검 | `http://127.0.0.1:8000/mcp` | 연결한 개발용 계산기 브라우저 |
 
-공개 주소를 사용하면 서버나 Python을 설치하지 않아도 됩니다. 로컬 stdio를 사용하려면 2~3절을 따르세요.
+공개 주소를 사용하면 서버나 Node.js를 설치하지 않아도 됩니다. 로컬 stdio를 사용하려면 2~3절을 따르세요.
 원격 커넥터는 AI 서비스의 서버에서 접속하므로 `localhost`만 입력해서 PC에 연결할 수는 없습니다.
 
 ## 2. Windows 설치
 
-Python 3.10 이상과 Git이 필요합니다. PowerShell에서 실행합니다.
+Node.js 22 이상과 Git이 필요합니다. PowerShell에서 실행합니다.
 이미 저장소가 있으면 clone을 반복하지 말고 기존 저장소 폴더로 이동하세요.
 
 ```powershell
@@ -33,15 +33,16 @@ powershell -ExecutionPolicy Bypass -File .\nikke_mcp\setup.ps1
 ```
 
 `Bypass`는 위 설치 프로세스에만 적용되며 시스템 실행 정책은 바꾸지 않습니다.
-`python` 명령이 없다면 설치된 Python의 경로를 지정할 수 있습니다.
+`node` 명령이 없다면 설치된 Node.js의 경로를 지정할 수 있습니다.
 
 ```powershell
-.\nikke_mcp\setup.ps1 -Python 'C:\Python312\python.exe'
+.\nikke_mcp\setup.ps1 -Node 'C:\Program Files\nodejs\node.exe'
 ```
 
-설치기는 저장소 안에 `.venv-mcp` 가상환경을 만들고, 필요한 라이브러리와
-**이 PC의 경로가 들어간 Claude 설정 예제**를 생성합니다. 기존 앱 설정은 수정하지 않습니다.
-마지막에 `"status": "OK"`와 아래 도구 이름이 나오면 실제 연결·계산 검증까지 성공한 것입니다.
+설치기는 `nikke_mcp/node_modules`에 필요한 라이브러리를 설치하고
+**이 PC의 경로가 들어간 Claude 설정 예제**(`nikke_mcp/claude-desktop-config.json`)를 생성합니다.
+기존 앱 설정은 수정하지 않습니다.
+마지막에 `"status":"OK"`와 아래 도구 이름이 나오면 실제 연결·계산 검증까지 성공한 것입니다.
 
 ```text
 list_characters · get_character · get_settings · simulate_squad · compare_setups
@@ -51,15 +52,14 @@ inspect_shared_state · simulate_shared_state
 직접 다시 확인하려면:
 
 ```powershell
-.\.venv-mcp\Scripts\python.exe .\nikke_mcp\smoke.py
+node .\nikke_mcp\smoke.mjs
 ```
 
 macOS/Linux에서는 같은 저장소에서 다음 명령을 사용합니다.
 
 ```bash
-python3 -m venv .venv-mcp
-.venv-mcp/bin/python -m pip install -r nikke_mcp/requirements.txt
-.venv-mcp/bin/python nikke_mcp/smoke.py
+(cd nikke_mcp && npm ci --omit=dev)
+node nikke_mcp/smoke.mjs
 ```
 
 ## 3. Claude Desktop / 로컬 에이전트 연결
@@ -68,7 +68,7 @@ Claude Desktop의 설정에서 개발자(Developer) → 설정 편집(Edit Confi
 메뉴 이름은 앱 버전에 따라 다를 수 있습니다. 로컬 MCP 설정 파일은
 Windows의 `%APPDATA%\Claude\claude_desktop_config.json`입니다.
 
-설치기가 만든 `.venv-mcp/claude-desktop-config.json` 내용을 확인한 뒤,
+설치기가 만든 `nikke_mcp/claude-desktop-config.json` 내용을 확인한 뒤,
 기존 파일의 `mcpServers` 안에 **`nikke-calc` 항목만 병합**합니다. 다른 서버 설정을 덮어쓰지 마세요.
 아래 경로는 예시이며 실제 설치 위치로 바꿔야 합니다.
 
@@ -76,15 +76,15 @@ Windows의 `%APPDATA%\Claude\claude_desktop_config.json`입니다.
 {
   "mcpServers": {
     "nikke-calc": {
-      "command": "C:/nikke-calc/repo/.venv-mcp/Scripts/python.exe",
-      "args": ["C:/nikke-calc/repo/nikke_mcp/launch.py"]
+      "command": "C:/Program Files/nodejs/node.exe",
+      "args": ["C:/nikke-calc/repo/nikke_mcp/launch.mjs"]
     }
   }
 }
 ```
 
-macOS/Linux는 `command`에 `/설치경로/.venv-mcp/bin/python`,
-`args`에는 `/설치경로/nikke_mcp/launch.py`의 절대 경로를 넣습니다.
+macOS/Linux는 `command`에 `node`의 절대 경로(`which node`),
+`args`에는 `/설치경로/nikke_mcp/launch.mjs`의 절대 경로를 넣습니다.
 다른 로컬 MCP 지원 에이전트도 이 **실행 파일 + 인자**를 해당 제품의 서버 설정에 등록하면 됩니다.
 
 Claude Desktop을 완전히 종료하고 다시 실행한 뒤, 새 대화에서 도구가 표시되는지 확인하세요.
@@ -103,14 +103,14 @@ PC가 꺼지면 사용할 수 없습니다.
 PowerShell 창 하나에서 서버를 켭니다.
 
 ```powershell
-.\.venv-mcp\Scripts\python.exe -m nikke_mcp --transport streamable-http
+node .\nikke_mcp\launch.mjs --transport streamable-http
 ```
 
 다른 창에서 확인합니다.
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:8000/health
-.\.venv-mcp\Scripts\python.exe .\nikke_mcp\smoke.py --url http://127.0.0.1:8000/mcp
+node .\nikke_mcp\smoke.mjs --url http://127.0.0.1:8000/mcp
 ```
 
 `/health`는 상태 확인, **`/mcp`가 AI 연결 주소**입니다.
@@ -234,7 +234,7 @@ AI 서비스에 보낸 내용에는 해당 서비스의 보관 정책이 적용�
 사용 예: “수냉 약점 솔로레이드 5덱을 내 육성으로 추천해 줘. 추천 검색 지침부터 읽고 ENIKK 출처와
 자료 날짜·표본을 제시한 뒤 후보를 계산해 줘.”
 
-검색 지침의 정본은 `nikke_mcp/enikk_guide.py`입니다. 탐색 구조 확인일은 2026-09-18이며,
+검색 지침의 정본은 `nikke_mcp/src/enikk_guide.ts`입니다. 탐색 구조 확인일은 2026-09-18이며,
 추천 순위·시즌 번호·통계 수치는 고정해 두지 않습니다. 캐릭터 이름은 `list_characters.resourceId`와
 ENIKK의 캐릭터 식별 번호를 대조할 수 있습니다. 육성은 연결된 브라우저에서 읽고, 외부 기록의 육성을
 사용자의 실제 육성으로 대신 쓰지 않습니다.
@@ -308,13 +308,16 @@ MCP 연결이 기존 엔진의 실게임 정확도를 새로 보증하지는 않
 | 결과를 찾을 수 없음 | 완료 후 5분 경과·연결 만료·Render 재시작 여부 확인 후 다시 계산 |
 | 웹과 다른 수치 | 같은 런타임·육성·편성 순서·전투 조건인지, 덱과 로스터 중 무엇을 썼는지 확인 |
 | 미지원 설정 오류 | `get_settings` 형식 확인. 일반 백업 전체를 전달하지 않음 |
-| 로컬 `No module named mcp` | `.venv-mcp`의 Python 사용 여부 확인 |
+| 로컬 `Cannot find package` | `nikke_mcp`에서 `npm ci --omit=dev`(또는 `setup.ps1`)를 실행했는지 확인 |
 | 원격 커넥터에서 localhost 실패 | 공개 HTTPS MCP 주소 사용 |
 
 개발 검증:
 
 ```powershell
-.\.venv-mcp\Scripts\python.exe -m unittest discover -s nikke_mcp -p 'test_*.py' -v
+cd nikke_mcp
+npm ci
+npm run typecheck
+npm test
 ```
 
 작성 기준: 2026-09-18. 예제에 실제 사용자 연결 코드·프로필·인증 정보는 포함하지 않습니다.

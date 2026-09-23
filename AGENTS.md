@@ -8,14 +8,13 @@
 - 출시 전 카드 이미지에서 옮겨 적은 스킬 원문은 `scraper/preview_skills.json`에만 둔다.
   스키마는 `nikke_scraped.json` 항목과 동일하되 `values`는 레벨 10만 갖는다.
   출시되면 스크랩 원문과 대조해 정식 등록하고 이 파일에서 제거한다 — `doclint.py`가 강제한다.
-- 시뮬레이션용 character dict는 `context/spec.py`에서만 만든다. `calculator/`는 이를 import하지 않는다.
+- 시뮬레이션용 character dict는 `site/src/engine/spec.ts`에서만 만든다. 엔진의 다른 모듈(timeline 등)은 이를 import하지 않는다.
 - `profiles/`는 **개인 계정 육성 데이터**다. 통째로 gitignore이며 `scraper/.session_cookie`(계정
   접근권)와 함께 어떤 경우에도 커밋 대상에 올리지 않는다. 만드는 건 `profile-sync` skill뿐이다.
 - `context/baseline/`의 golden snapshot은 손으로 편집하지 않는다.
-- 사이트는 파이썬 엔진을 TS로 옮긴 **계산 엔진**(`site/src/engine/`)만 쓴다(2026-09-23~, Pyodide 없음).
-  파이썬 엔진은 MCP 서버·CLI·골든 회귀용으로 남아 있으므로, `calculator/`·`context/spec.py`·`context/growth.py`·
-  `site/pybridge/`·`nikke_mcp/squad_policy.py`·`calculator/combat_power.py`를 고치면 **TS 쪽도 같이 고친다**.
-  결과는 한 자리까지 같아야 하고 CI의 「고속 엔진 대조」가 검사한다(`site/src/engine/README.md`).
+- 계산 엔진은 TypeScript 하나다(`site/src/engine/`, 2026-09-23 파이썬 엔진 삭제). 사이트·MCP 서버(`nikke_mcp/`, Node)·
+  CLI(`site/scripts/sim.ts`)·골든 회귀(`site/scripts/snapshot.ts`)·보고서 스킬이 모두 이 엔진을 쓴다.
+  엔진 단위 테스트는 `site/src/engine/tests/`(vitest, `npm test`)에 있다.
 - 공용 skill의 정본은 `.agent/skills/`다. `.claude/skills/`는 호환 진입점일 뿐이다.
 
 ## Context routing
@@ -45,14 +44,14 @@
 
 ## Simulation invariants
 
-- 공통 기본 스펙과 캐릭터별 상시 차이는 `context/spec.py`·`data/char_defaults.json`에 두고, 특정 스쿼드만의 차이는 호출부에 둔다.
+- 공통 기본 스펙과 캐릭터별 상시 차이는 `site/src/engine/spec.ts`·`data/char_defaults.json`에 두고, 특정 스쿼드만의 차이는 호출부에 둔다.
 - 기본 layer에서 벗어난 설정으로 실행했다면 결과와 함께 이탈 목록을 그대로 보고한다.
 - `preview_skills.json`에 있는 캐릭터가 낀 시뮬·리포트 결과는 `[프리뷰 · 미검증]`을 함께 보고한다.
   스킬 레벨 10 외의 설정으로는 실행할 수 없다(값이 없어 조용히 0이 되는 대신 즉시 실패한다).
-- 계산기 코드를 수정하면 `python -m context.snapshot`과 `python -m context.doclint`를 실행한다.
+- 계산기 코드를 수정하면 `cd site && npm test -- --run src/engine`, `npx tsx scripts/snapshot.ts`, `python -m context.doclint`를 실행한다.
 - 전투 조건은 일반 계산기와 보스 메이커에서 동일한 편집기를 사용한다. 새 항목을 별도 화면에 복제하지 말고 공통 편집기에 추가한다.
 - 보스 메이커의 계산 요청은 `model.requestForDeck` 경로를 재사용한다. 도형 기준으로 선택한 코어·파츠·적정거리만 명시적으로 덮어쓰며, 전투 조건 추가 시 두 화면의 입력·저장·계산 전달 테스트를 함께 확인한다.
-- 보스 공유 코드(NK5)나 MCP 보스 생성 규격을 바꾸면 Python 생성 코드의 TypeScript 해석 호환 테스트를 갱신한다. 공유 코드에는 계정 육성·콘솔·핵 설정을 넣지 않는다.
+- 보스 공유 코드(NK5)나 MCP 보스 생성 규격을 바꾸면 MCP 서버(`nikke_mcp/src/`)의 생성 코드와 사이트 해석의 호환 테스트를 갱신한다. 공유 코드에는 계정 육성·콘솔·핵 설정을 넣지 않는다.
 
 ## Skills
 
@@ -64,7 +63,7 @@
 | 조합·운용 비교, enikk 대조, 중복 없는 솔로레이드 N덱 최적화·지정 편성 계산 | `report-squad` |
 | 한 캐릭터의 육성 효율 (덱 고정, 변수 한 축씩) | `report-growth` |
 | **내 계정의 실제 육성 데이터를 받아오기** | `profile-sync` — 로그인 세션 필요, 산출물은 로컬 전용 |
-| **내 실제 스펙으로 계산** | skill이 아니라 러너 옵션이다: `sim.py --profile <이름>` · 보고서 스펙의 `"profile"` 키 |
+| **내 실제 스펙으로 계산** | skill이 아니라 러너 옵션이다: `site/scripts/sim.ts --profile <이름>` · 보고서 스펙의 `"profile"` 키 |
 | 변경사항 커밋 | `commit` |
 
 각 skill의 세부 절차와 gate는 해당 `SKILL.md`에서만 관리한다.

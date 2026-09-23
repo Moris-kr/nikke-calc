@@ -70,9 +70,9 @@ description: blablalink 로그인 세션으로 내 계정의 실제 육성 상�
 프로필로 돌린다. 프로필이 오래됐으면 `_meta.fetched_at`을 근거로 갱신을 제안만 한다.
 
 ```bash
-python -m context.sim "<스쿼드>" --profile me                     # 단발 (레벨 400 고정)
-python -m context.sim "<스쿼드>" --profile me --profile-level sync # 동기화 소대 레벨로
-python -m context.sim "<스쿼드>" --profile me --allow-unowned      # 프로필에 없는 이름을 기본 스펙으로
+cd site && npx tsx scripts/sim.ts "<스쿼드>" --profile me                     # 단발 (레벨 400 고정)
+cd site && npx tsx scripts/sim.ts "<스쿼드>" --profile me --profile-level sync # 동기화 소대 레벨로
+cd site && npx tsx scripts/sim.ts "<스쿼드>" --profile me --allow-unowned      # 프로필에 없는 이름을 기본 스펙으로
 ```
 
 보고서는 스펙 JSON에 `"profile": "me"`(필요하면 `"profile_level": "sync"` ·
@@ -94,7 +94,7 @@ python -m context.sim "<스쿼드>" --profile me --allow-unowned      # 프로�
   똑같이 정책 레벨로 계산된다.
 - 프로필로 낸 결과는 **고정 스펙 결과와 총딜을 직접 비교하지 않는다.** 러너가 그 경고를
   강제로 싣는다 — 유저에게 답할 때 그 줄을 그대로 옮긴다.
-- 회귀 하네스(`context/snapshot.py`)는 프로필을 받지 않는다. golden baseline은 고정 스펙 전용이다.
+- 회귀 하네스(`site/scripts/snapshot.ts`)는 프로필을 받지 않는다. golden baseline은 고정 스펙 전용이다.
 
 레이어 구조와 이탈 보고 규칙은 `context/HARNESS.md §2.5층`이 정본이다.
 

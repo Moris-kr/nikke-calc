@@ -50,10 +50,10 @@
 | ❌ 미구현 | 단계 4 필요 |
 | 🚫 보류 | 스킵 |
 
-핵심 메카닉(발동 조건, 모드 전환 등)이 기존 구현으로 표현 가능한지 판단. **시나리오 초안의 메카닉을 기준으로 점검** — 시나리오가 명시한 동작이 `timeline.py`·`buff_manager.py` 기존 경로로 표현 가능한지 grep으로 확인. 모호하면 유저 질문.
+핵심 메카닉(발동 조건, 모드 전환 등)이 기존 구현으로 표현 가능한지 판단. **시나리오 초안의 메카닉을 기준으로 점검** — 시나리오가 명시한 동작이 `site/src/engine/`의 `timeline.ts`·`buff_manager.ts` 기존 경로로 표현 가능한지 grep으로 확인. 모호하면 유저 질문.
 
 주의 stat:
-- **타임라인 전용** (`attack_speed_pct`, `pellet_count` 등): `buff_manager.py` 등록만으로 부족
+- **타임라인 전용** (`attack_speed_pct`, `pellet_count` 등): `buff_manager.ts` 등록만으로 부족
 - **boolean 플래그** (`pierce_enabled` 등): `get_buffs()` 내 boolean 분기에 추가 필요
 - **새 timing**: `_timing_match()`에 분기 없으면 트리거 발동 안 함
 

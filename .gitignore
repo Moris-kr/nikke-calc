@@ -27,3 +27,5 @@ site/public/overload-solver.mjs
 site/public/external-engine-*.zip
 
 site/src/generated/overload-version.json
+nikke_mcp/node_modules/
+nikke_mcp/claude-desktop-config.json

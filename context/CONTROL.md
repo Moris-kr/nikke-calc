@@ -115,7 +115,7 @@
 `_control_rules` 조합 조건부 컨트롤을 그대로 사용한다.
 
 **직접 설정**을 선택하면 브라우저가 `control` 객체를 명시하고, 검증기가 이를 내부
-`_control_override`로 바꾼다. `context/spec.py`는 이 표식이 있을 때만 캐릭터 레이어와 재귀
+`_control_override`로 바꾼다. `site/src/engine/spec.ts`는 이 표식이 있을 때만 캐릭터 레이어와 재귀
 병합하지 않고 컨트롤 전체를 교체한다. 따라서 브라우저의 `{}`는 컨트롤 없음이고, 키 미지정은
 추천 자동이다. Python 연구용 `control` 오버라이드는 기존처럼 레이어와 재귀 병합한다.
 톡톡이·홀드는 SR/RL에만 표시하며 재장전·버스트 엄폐는 모든 무기에 표시한다. UI는 정책의
@@ -158,10 +158,10 @@
 - 판정은 `spec.char_layer(name, members)`가 스쿼드를 조립할 때 한다 — `members`를 모르면
   (`build_char`를 이름만으로 부르면) 조건부 레이어는 붙지 않는다.
 
-**`timeline.py`는 이 파일을 읽지 않는다.** `simulate()`는 넘겨받은 `char["control"]`만 본다 —
+**`timeline.ts`는 이 파일을 읽지 않는다.** `simulate()`는 넘겨받은 `char["control"]`만 본다 —
 기본값이 시뮬 결과를 소리 없이 바꾸면 안 되기 때문이다. 레이어를 얹는 건 러너 쪽이며
-(`context/spec.py`), 회귀 하네스·단발 CLI·보고서가 전부 그걸 거친다. 즉 **위 셋은 어디서
-돌리든 컨트롤이 켜진 채로 계산된다.** 컨트롤 없는 대조군은 `context/sim.py --auto`.
+(`site/src/engine/spec.ts`), 회귀 하네스·단발 CLI·보고서가 전부 그걸 거친다. 즉 **위 셋은 어디서
+돌리든 컨트롤이 켜진 채로 계산된다.** 컨트롤 없는 대조군은 `site/scripts/sim.ts --auto`.
 
 ---
 
@@ -290,11 +290,15 @@ hold   = 0.22 + charge                    # 누르고 있는 시간
 
 1. 버충 톡톡이(`tap_fire.policy = "burst_charge"`) 담당이 있으면 **그 사람** — 두 명이면 오류.
 2. `config["camera"]`가 명시되면 그것(빈 문자열 = 아무도 안 봄).
-3. 컨트롤을 켠 캐릭터가 정확히 한 명이고 차지 무기(SR·RL)면 그 사람.
-4. 그 외에는 **3번 자리**(전투 시작 카메라 위치). `camera_mode = "shared"`면 컨트롤 켠 전원(비현실적 상한).
+3. 톡톡이(`tap_fire`, 정책 무관)를 켠 차지 무기 니케가 있으면 **그 사람**(여럿이면 앞자리) — 톡톡이는 직접
+   조작이라 그 니케가 곧 메인이다. 예전에는 컨트롤을 켠 니케가 둘 이상이면 4번으로 넘어가 3번 자리 차지 무기가
+   보너스를 따로 받았다(톡톡이 니케와 이중 조작, 제보 2026-09-23).
+4. 컨트롤을 켠 캐릭터가 정확히 한 명이고 차지 무기(SR·RL)면 그 사람.
+5. 그 외에는 **실제 편성 3번 자리**(전투 시작 카메라 위치). 사이트는 이 자리를 「메인」으로 표시한다.
+   `camera_mode = "shared"`면 컨트롤 켠 전원(비현실적 상한).
 
 효과는 `_charge_fire()`의 게이지 배율 한 줄뿐이다 — 대미지·컨트롤 경로는 이 값을 보지 않고,
-`fixed` 모드에서는 결과가 안 바뀐다. CLI: `python -m context.sim ... --gauge-mode accumulate --camera 루주 --view gauge`.
+`fixed` 모드에서는 결과가 안 바뀐다. CLI: `cd site && npx tsx scripts/sim.ts ... --gauge-mode accumulate --camera 루주 --view gauge`.
 정본: 원본 저장소 docs/mechanics/버스트 게이지.md · `data/burst_gauge.json`(스킬별 예외).
 
 ### 손익

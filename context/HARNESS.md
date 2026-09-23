@@ -3,11 +3,11 @@
 계산기를 고친 뒤 **기존 캐릭터가 조용히 틀어졌는지** 잡는 도구.
 
 ```bash
-python -m context.snapshot                  # 전체 비교
-python -m context.snapshot --squad 스쿼드1   # 일부만
-python -m context.snapshot --list           # 스쿼드 목록
-python -m context.snapshot --update         # baseline 갱신 (유저 확인 후에만)
-python -m context.snapshot --jobs 1         # 순차 실행 (디버깅용)
+cd site && npx tsx scripts/snapshot.ts                  # 전체 비교
+cd site && npx tsx scripts/snapshot.ts --squad 스쿼드1   # 일부만
+cd site && npx tsx scripts/snapshot.ts --list           # 스쿼드 목록
+cd site && npx tsx scripts/snapshot.ts --update         # baseline 갱신 (유저 확인 후에만)
+cd site && npx tsx scripts/snapshot.ts --jobs 1         # 순차 실행 (디버깅용)
 ```
 
 전체 25스쿼드 약 50초 (스쿼드 단위 병렬, 기본 = CPU 수·최대 8).
@@ -15,10 +15,10 @@ python -m context.snapshot --jobs 1         # 순차 실행 (디버깅용)
 
 ---
 
-## 기본 스펙 — `context/spec.py`
+## 기본 스펙 — `site/src/engine/spec.ts`
 
 총딜 수치를 해석하려면 어떤 스펙으로 돌린 것인지 알아야 한다. 스쿼드 dict는 이름만 주고
-나머지는 `context/spec.py`가 채운다. **하네스 전용이 아니다** — `context/sim.py`와
+나머지는 `site/src/engine/spec.ts`가 채운다. **하네스 전용이 아니다** — `site/scripts/sim.ts`와
 `/report-squad`(`.agent/skills/report-squad/scripts/report.py`)가 같은 것을 쓴다. 세 도구의 총딜을 서로
 견줄 수 있는 건 기본 스펙이 하나이기 때문이다.
 
@@ -44,7 +44,7 @@ spec.DEFAULT_CHAR → data/char_defaults.json[이름] → 육성 프로필(선�
 | 애장품 단계 | 3단계 — 애장품이 있는 캐릭터에만 의미가 있다. 스탯이 아니라 **스킬 판본**을 바꾼다(`buff_manager.char_effects()`) |
 | 컨트롤 | 없음 — **자동 사격이 디폴트** |
 
-돌파·호감도는 `context/growth.py`가 캐릭터 메타데이터로 결정한다. 현재 지원 명단은 SSR이라
+돌파·호감도는 `site/src/engine/growth.ts`가 캐릭터 메타데이터로 결정한다. 현재 지원 명단은 SSR이라
 기본 3돌이며, 일반 SSR은 호감도 30, 필그림과 오버스펙은 호감도 40이다. SR은 2돌·호감도 30,
 R은 명함·호감도 보정 없음이 기본이다. 호출자가 `breakthrough`·`core_enhancement`·`affinity`
 중 하나라도 직접 지정하면 연구용 입력으로 보고 자동 결정을 건너뛴다.
@@ -90,7 +90,7 @@ R은 명함·호감도 보정 없음이 기본이다. 호출자가 `breakthrough
 같은 캐릭터를 쓰는 다른 보고서에도 따라간다. **스펙에 `max_burst_count`를 적으면 그 값이
 이긴다** (일부러 낮춰 자르는 것도 유효한 비교다).
 
-**`timeline.py`는 이 파일을 읽지 않는다.** `simulate()`는 넘겨받은 캐릭터 dict만 본다 —
+**`timeline.ts`는 이 파일을 읽지 않는다.** `simulate()`는 넘겨받은 캐릭터 dict만 본다 —
 기본값이 시뮬 결과를 소리 없이 바꾸면 안 되기 때문이다. 레이어를 얹는 건 언제나 러너 쪽이다.
 
 #### 손으로 정한 버스트 순서 — `burst_sequence`
@@ -190,7 +190,7 @@ R은 명함·호감도 보정 없음이 기본이다. 호출자가 `breakthrough
 만들고(`scraper/profile_fetch.py`), `profiles/`는 통째로 gitignore인 개인 데이터다.
 
 ```bash
-python -m context.sim "<스쿼드>" --profile me      # 보고서는 스펙 JSON의 "profile": "me"
+cd site && npx tsx scripts/sim.ts "<스쿼드>" --profile me      # 보고서는 스펙 JSON의 "profile": "me"
 ```
 
 **2층 뒤에 오는 이유**: 2층의 장비 옵션 값은 고정 스펙을 전제로 잡힌 것이라(미하라의 23.22%는
@@ -223,7 +223,7 @@ python -m context.sim "<스쿼드>" --profile me      # 보고서는 스펙 JSON
 | `fixed` **(기본)** | `DEFAULT_CHAR["level"]` = 400 | 솔로레이드 기준. 고정 스펙 결과와 **레벨이 같아** 육성 차이만 남는 비교가 된다 |
 | `sync` | `_account.synchro_level` | 동기화 소대 레벨로 볼 때. 소대 밖 캐릭터도 같은 값으로 계산한다 |
 
-`python -m context.sim … --profile me --profile-level sync` / 보고서 스펙의 `"profile_level"`.
+`cd site && npx tsx scripts/sim.ts … --profile me --profile-level sync` / 보고서 스펙의 `"profile_level"`.
 
 그 결과 **동기화 소대 밖 캐릭터도 정상적으로 계산된다.** `lv <= 1`은 미보유 판정이 아니다 —
 실측(2026-08-15)에서 소대 밖 20종은 전부 보유 중이었고 장비까지 낀 캐릭터가 섞여 있었다.
@@ -234,7 +234,7 @@ python -m context.sim "<스쿼드>" --profile me      # 보고서는 스펙 JSON
 프로필에 아예 없는 이름(수집 후 나온 신캐 등)은 **에러가 기본**이다 — 조용히 고정 스펙으로
 떨어지면 "내 계정 기준"이라는 결과가 거짓말이 된다. `--allow-unowned`로만 허용한다.
 
-**회귀 하네스는 프로필을 받지 않는다.** `snapshot.py`는 `build_char`에 프로필을 넘기지 않으며,
+**회귀 하네스는 프로필을 받지 않는다.** `site/scripts/snapshot.ts`는 `build_char`에 프로필을 넘기지 않으며,
 golden baseline은 고정 스펙 전용이다.
 
 ### 3층 — 호출자 오버라이드
@@ -242,7 +242,7 @@ golden baseline은 고정 스펙 전용이다.
 `SQUADS[*]["chars"]`는 **그 스쿼드에서만** 다른 것을 적는 자리다 (예: `레이드_작열짬`의
 앨리스 장전컨, `컨트롤_미란다미하라`의 미하라 공격력 30%). 어디서든 그렇게 굴리는 설정이면
 `chars`가 아니라 2층에 적는다 — 같은 값을 스쿼드마다 반복하면 갈라진다.
-컨트롤을 통째로 끈 대조군이 필요하면 `context/sim.py --auto`를 쓴다.
+컨트롤을 통째로 끈 대조군이 필요하면 `site/scripts/sim.ts --auto`를 쓴다.
 
 ### 이탈 보고 — 1층이 아니면 언제나 알린다
 
@@ -251,9 +251,9 @@ golden baseline은 고정 스펙 전용이다.
 
 | 도구 | 어떻게 |
 |---|---|
-| `context/sim.py` | 스쿼드 줄 바로 아래 이탈 목록 (이탈 없으면 "1층 그대로" 한 줄) |
+| `site/scripts/sim.ts` | 스쿼드 줄 바로 아래 이탈 목록 (이탈 없으면 "1층 그대로" 한 줄) |
 | `/report-squad` | 탭 상단 **접히지 않는** 경고 배너 |
-| `context/snapshot.py` | `meta.spec_deviations`로 baseline에 박힌다 → **딜이 안 움직여도 레이어가 바뀌면 FAIL**. `--list`도 함께 출력 |
+| `site/scripts/snapshot.ts` | `meta.spec_deviations`로 baseline에 박힌다 → **딜이 안 움직여도 레이어가 바뀌면 FAIL**. `--list`도 함께 출력 |
 
 **Claude는 이 줄을 유저 답변에도 그대로 옮긴다.** 시뮬 결과를 보고할 때 1층이 아니었으면
 어떤 레이어·오버라이드가 붙었는지 먼저 적는다. 구현은 `spec.format_deviations()` /
@@ -294,13 +294,13 @@ golden baseline은 고정 스펙 전용이다.
 그래서 **오차 범위가 없다. 완전 일치해야 PASS다.**
 
 > 참고 — `simulate()`의 `seed` 기본값은 `None`(시드 미고정)이다. 기대딜은 여러 회 평균이
-> 맞으므로 시드를 안 주고 돌리면 매번 다른 값이 나온다(`context/sim.py`의 기본 동작).
-> 시드는 하네스·`context/sim.py --seed`·보고서(고정 시드셋 `[1..runs]`)가 명시적으로 넘긴다.
+> 맞으므로 시드를 안 주고 돌리면 매번 다른 값이 나온다(`site/scripts/sim.ts`의 기본 동작).
+> 시드는 하네스·`site/scripts/sim.ts --seed`·보고서(고정 시드셋 `[1..runs]`)가 명시적으로 넘긴다.
 
 시드가 프로세스마다 독립이라 **스쿼드를 병렬로 돌려도 결과가 같다.** `--jobs`가 그것을 쓴다.
 
 > 시드 대신 난수를 없애는 길도 있다 — `config={"rng_mode": "expected"}`
-> (CLI: `python -m context.sim "..." --expected`). 크리·코어히트를 확률 판정 대신
+> (CLI: `cd site && npx tsx scripts/sim.ts "..." --expected`). 크리·코어히트를 확률 판정 대신
 > 기대값으로 태워 **1회 실행으로 기대딜**이 나온다. 반복 평균이 필요 없어 조합 비교가
 > `runs`배 빨라진다. 대신 히트별 크리/코어 구분이 사라지므로(`is_crit` 항상 False,
 > `hit_tag`에 `core:` 없음) 히트 로그로 크리·코어를 확인하는 검증에는 쓰지 않는다.
@@ -316,7 +316,7 @@ golden baseline은 고정 스펙 전용이다.
 새 효과가 그 전제를 깨면 낡은 값이 조용히 계속 쓰인다. 그래서 감사 모드를 둔다:
 
 ```bash
-NIKKE_BUFF_AUDIT=1 python -m context.snapshot --squad <스쿼드>
+NIKKE_BUFF_AUDIT=1 cd site && npx tsx scripts/snapshot.ts --squad <스쿼드>
 ```
 
 매 조회마다 계획을 다시 만들어 캐시와 대조하고 다르면 즉시 `AssertionError`로 끊는다.
@@ -391,7 +391,7 @@ FAIL이 났을 때:
 2. 유저가 "그 변화는 의도한 것"이라고 확인해준 뒤에만 `--update`.
 3. 의도치 않은 변화면 회귀다 — 원인을 찾을 때까지 갱신하지 않는다.
 
-스쿼드를 추가하려면 `context/snapshot.py`의 `SQUADS`에 항목을 넣고
+스쿼드를 추가하려면 `site/scripts/snapshot.ts`의 `SQUADS`에 항목을 넣고
 `--update --squad <이름>`으로 baseline을 만든다.
 
 > **baseline 세대 경계 — 2026-08-07 기본 스펙 전환.** 그날 25스쿼드 baseline을 전부
@@ -408,7 +408,7 @@ FAIL이 났을 때:
 ## 스쿼드 커버리지
 
 **총 26스쿼드**다 (baseline 7.2MB). 커버 인원과 미커버 명단은
-`python -m context.snapshot --list`가 **정본**이다 — 목록 끝에 함께 출력한다
+`cd site && npx tsx scripts/snapshot.ts --list`가 **정본**이다 — 목록 끝에 함께 출력한다
 (`snapshot.coverage()`). 캐릭터가 추가될 때마다 낡으므로 여기 옮겨 적지 않는다.
 
 | 스쿼드 | 성격 |
@@ -456,7 +456,7 @@ FAIL이 났을 때:
 | `레이드_작열짬` | `tap_fire`(레이어) + `reload.policy: into_fb`(장전컨 B) — 한 캐릭터에 둘 |
 
 설정값의 의미·손익 판단 기준은 `CONTROL.md`가 정본이다. `reload.margin`처럼 조합마다
-다시 재야 하는 값은 `snapshot.py`의 해당 스쿼드 주석에 근거를 적어 둔다.
+다시 재야 하는 값은 `site/scripts/snapshot.ts`의 해당 스쿼드 주석에 근거를 적어 둔다.
 
 `레이드_*`인데 컨트롤도 함께 덮는 스쿼드가 있다 — 실전 조합이 곧 컨트롤 조합이라 따로 지그를
 만들지 않았다. **컨트롤 4종(톡톡이·장전컨 A/B·엄폐·홀드)이 위 스쿼드로 전부 덮인다.**
@@ -499,7 +499,7 @@ FAIL이 났을 때:
 
 ### 편성 후 사이클 검증
 
-L4 `cycle_gaps`(또는 `python -m context.sim "..." --view burst`)로 확인한다.
+L4 `cycle_gaps`(또는 `cd site && npx tsx scripts/sim.ts "..." --view burst`)로 확인한다.
 
 > 아래 표는 **사본**이다. 정본은 `GAMEPLAY.md §버스트 쿨타임 감소 §사이클 간격 패턴`.
 > 값을 고칠 일이 생기면 **정본을 먼저 고치고 여기에 반영**한다.

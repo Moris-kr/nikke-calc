@@ -217,11 +217,11 @@ roledata(영문 enum) → 기존 `nikke_scraped.json` 한국어 스키마:
 같은 이름이 `nikke_scraped.json`에도 있으면 **스크랩 쪽이 이긴다**(출시 후 자동으로 정본으로 넘어감).
 프리뷰 항목의 수명 관리는 `context/doclint.py` 검사 G가 강제한다.
 
-`data/weapon_delays.json`에서 관리. `calculator/timeline.py`가 직접 읽고,
+`data/weapon_delays.json`에서 관리. 계산 엔진(`site/src/engine/timeline.ts`)이 직접 읽고,
 **스크래퍼는 이 파일을 절대 건드리지 않는다** — 여기 적은 값은 수집을 아무리 자주 돌려도
 덮어써지지 않는다.
 
-발사 메카닉 값의 해석 순서(3계층, `timeline.py` `_pick`):
+발사 메카닉 값의 해석 순서(3계층, `timeline.ts` `_pick`):
 
 | 계층 | 파일 | 성격 |
 |---|---|---|

@@ -1,0 +1,25 @@
+{
+  "name": "nikke-calc-mcp",
+  "private": true,
+  "version": "1.0.0",
+  "description": "NIKKE calculator MCP server (stdio + streamable HTTP) on the TypeScript engine in ../site/src/engine",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node launch.mjs",
+    "test": "node --import tsx --test --test-concurrency=1 \"src/*.test.ts\"",
+    "typecheck": "tsc --noEmit -p .",
+    "smoke": "node smoke.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/client": "2.0.0",
+    "@modelcontextprotocol/server": "2.0.0",
+    "tsx": "4.23.15"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.2",
+    "typescript": "7.0.2"
+  }
+}

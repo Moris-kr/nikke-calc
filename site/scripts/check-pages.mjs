@@ -33,22 +33,15 @@ const buildSteps = Array.isArray(build.steps) ? build.steps : [];
 const commands = buildSteps.map((step) => step.run).filter(Boolean);
 assert.ok(commands.includes('npm ci'), 'build job must install locked dependencies');
 assert.ok(commands.includes('npm test -- --run'), 'build job must run the test suite');
-assert.ok(commands.includes('python3 scripts/test-bridge.py'), 'build job must run the Python bridge smoke test');
+assert.ok(commands.includes('npx tsx scripts/snapshot.ts'), 'build job must run the golden damage regressions');
 assert.ok(commands.includes('npm run build'), 'build job must create the production bundle');
 
-const engineStep = buildSteps.find((step) => step.name === 'Run Python engine regressions');
-assert.ok(engineStep, 'Python engine regression step is required');
-assert.equal(engineStep['working-directory'], '.', 'engine regressions must run from the repository root');
-// 개별 테스트 모듈이 아니라 discover를 요구한다 — 모듈을 하나씩 적으면 새 테스트
-// 파일이 CI에서 조용히 빠진다(실제로 로스터 배치 12개가 그럴 뻔했다).
-for (const command of [
-  "python3 -m unittest discover -s calculator -p 'test_*.py' -v",
-  'python3 calculator/damage.py',
-  'python3 -m context.doclint',
-  'python3 -m context.snapshot',
-]) {
-  assert.ok(engineStep.run?.includes(command), `engine regressions must include: ${command}`);
-}
+// 엔진 단위 테스트는 `npm test`(vitest)가 site/src/engine/tests/를 통째로 돈다 — 모듈을 하나씩 적지
+// 않으므로 새 테스트 파일이 CI에서 조용히 빠지지 않는다.
+const docStep = buildSteps.find((step) => step.name === 'Check docs against data and engine');
+assert.ok(docStep, 'doclint step is required');
+assert.equal(docStep['working-directory'], '.', 'doclint must run from the repository root');
+assert.ok(docStep.run?.includes('python3 -m context.doclint'), 'doclint step must run context.doclint');
 
 const uses = buildSteps.map((step) => step.uses).filter(Boolean);
 assert.ok(uses.some((value) => value.startsWith('actions/configure-pages@')), 'configure-pages action is required');

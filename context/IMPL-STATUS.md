@@ -22,7 +22,7 @@
 
 그다음, 한국어 스킬 텍스트 → 이 stat 키 선택이 헷갈릴 만하면 `PARSING.md` §6에 **매핑 단서만** 추가(선택). 텍스트→키 매핑의 정본은 PARSING §4~6, 구현상태의 정본은 이 문서 — 역할이 다르므로 양쪽 동시 편집이 아니다.
 
-### Step 2 — `calculator/buff_manager.py` 두 곳 수정
+### Step 2 — `site/src/engine/buff_manager.ts` 두 곳 수정
 
 **2-A. `_BUFFS_ZERO` 키 추가**
 
@@ -81,7 +81,7 @@ if eff.get("stat") == "새_stat_caster_based_pct":
 - 환산 후 반환값 단위가 기존 stat 키와 동일한지 확인.
 - 해당 무기/스탯이 없어 의미 없는 경우라도 수치는 반환. 실제 효과 미적용은 timeline/damage 쪽에 맡김.
 
-### Step 3 — `calculator/damage.py` 수정
+### Step 3 — `site/src/engine/damage.ts` 수정
 
 새 stat이 DealForm ①~⑦에 직접 영향을 주는 경우에만 수정.
 
@@ -95,7 +95,7 @@ if eff.get("stat") == "새_stat_caster_based_pct":
 | ⑥ 적 받는 대미지 | `_factor6()`, `hit_type` 플래그 추가 |
 | ⑦ 우월 코드 | `_factor7()` |
 
-타임라인 전용(`charge_speed_pct`, `max_ammo_pct` 등)은 `damage.py` 수정 불필요.
+타임라인 전용(`charge_speed_pct`, `max_ammo_pct` 등)은 `damage.ts` 수정 불필요.
 
 `hit_type`에 새 플래그 필요 시 `default_hit_type()`에도 추가.
 
@@ -146,7 +146,7 @@ if eff.get("stat") == "새_stat_caster_based_pct":
 
 ### Step 4 — 새 timing / condition 추가 시
 
-새 timing/condition 사용 캐릭터 → `buff_manager.py` 수정.
+새 timing/condition 사용 캐릭터 → `buff_manager.ts` 수정.
 
 **새 timing 추가**
 
@@ -174,7 +174,7 @@ if timing.startswith("new_event:") and event == "new_event":
 
 ### Step 5 — 새 target 유형 추가 시
 
-새 target 패턴 사용 캐릭터 → `buff_manager.py` 수정.
+새 target 패턴 사용 캐릭터 → `buff_manager.ts` 수정.
 
 **5-A. `_resolve_target()` 분기 추가**
 
@@ -208,10 +208,10 @@ _LAZY_RESOLVE_PREFIXES = (
 
 ### Step 6 — 검산
 
-`damage.py` 하단 `__main__` 블록에 새 stat 검증 케이스 추가 후 실행:
+`site/src/engine/tests/damage_selfcheck.test.ts`에 새 stat 검증 케이스 추가 후 실행:
 
 ```bash
-python calculator/damage.py
+cd site && npx vitest run src/engine/tests/damage_selfcheck.test.ts
 ```
 
 새 timing/target 추가 시 `simulate()` 실행 후 로그나 `SimResult.hits`로 발동 여부 직접 확인.
@@ -248,7 +248,7 @@ python calculator/damage.py
 | `crit_dmg` | `crit_dmg` | ③ | ✅ | |
 | `normal_atk_crit_dmg` | `crit_dmg` | ③ | ✅ | `crit_dmg`로 합산. `is_normal_atk=False` 시 분리 미지원 (근사) |
 | `core_dmg_pct` | `core_dmg_pct` | ③ | ✅ | `core_dmg_pct`로 합산 |
-| `part_dmg_pct` | `part_dmg_pct` | ⑤ | ✅ | `is_part=True` 히트에만 가산. **`is_part`는 원문이 파츠를 명시한 damage 효과(`hits_parts: true`)에만 붙고, `enemy["has_parts"]=True`일 때만 성립**한다 — 기본공격에는 붙지 않는다(유저 결정). `has_parts`는 `DEFAULT_ENEMY`(기본 `False`)·`context/sim.py --has-parts`·보고서 스펙 `enemy`로 노출. `squad_part_hit`/`squad_body_hit` 이벤트 라우팅도 같은 키를 쓴다. 영향: 신데렐라 : 크리스탈 웨이브 `디스트로이`→`모드 스왑 2`. 레이븐 `급소 공략`·스노우 화이트 : 헤비암즈 `어나더 화이트 파츠대미지`는 짝이 되는 `hits_parts` 효과가 없어 아직 무효 |
+| `part_dmg_pct` | `part_dmg_pct` | ⑤ | ✅ | `is_part=True` 히트에만 가산. **`is_part`는 원문이 파츠를 명시한 damage 효과(`hits_parts: true`)에만 붙고, `enemy["has_parts"]=True`일 때만 성립**한다 — 기본공격에는 붙지 않는다(유저 결정). `has_parts`는 `DEFAULT_ENEMY`(기본 `False`)·`site/scripts/sim.ts --has-parts`·보고서 스펙 `enemy`로 노출. `squad_part_hit`/`squad_body_hit` 이벤트 라우팅도 같은 키를 쓴다. 영향: 신데렐라 : 크리스탈 웨이브 `디스트로이`→`모드 스왑 2`. 레이븐 `급소 공략`·스노우 화이트 : 헤비암즈 `어나더 화이트 파츠대미지`는 짝이 되는 `hits_parts` 효과가 없어 아직 무효 |
 | `intercept_dmg_pct` | — | — | 🚫 | 저지 부위 공격 대미지. **구현하지 않는다 — 발동 조건을 언제나 미달성으로 둔다**(유저 결정, 2026-08-11). 계산기 적 모델에 저지 부위가 없어 딜 기여가 영구히 0이다. 파싱은 정상 등록하고 시나리오에는 네거티브 항목으로 둔다. 보유: 누아르 `피날레 3`·`피날레 5` |
 | `atk_dmg_pct` | `atk_dmg_pct` | ⑤ | ✅ | |
 | `burst_dmg_pct` | `burst_dmg_pct` | ⑤ | ✅ | `is_burst_damage=True` 히트에만 가산 |
@@ -276,7 +276,7 @@ python calculator/damage.py
 | `reload_speed_pct` | `reload_speed_pct` | — | ✅ | 타임라인 처리. 재장전 시간에 반영 |
 | `attack_speed_pct` | `attack_speed_pct` | — | ✅ | 타임라인 처리. `_current_fire_rate()`에서 발사 속도에 반영 |
 | `mg_warmup_speed_pct` | `mg_warmup_speed_pct` | — | ✅ | MG 예열 진행 속도 % (음수 = 감소). `_fire()`의 `warmup_shots` 증가량에 `(1 + val/100)` 배율 적용. -100이면 증가 0(예열 정지). 식음 속도는 영향 안 받음. **양수도 성립** — +100이면 예열 진행 2배(레이 (가칭) `정비 및 보급`). 같은 대상에 +100과 −100이 동시 활성이면 **단순 합산해 0(예열 정지)** 이 맞다(유저 확정) — 레이의 13초 예열 버프와 아스카 `긴급 수복 2`의 3초 감소가 겹치는 구간. 아스카 : WILLE, 레이 (가칭) |
-| `accuracy_pct` | `accuracy_pct` | — | ⚠️ | DealForm 어느 항에도 안 들어간다. 단 `timeline.py`의 `_core_hit_prob()`가 탄착군 직경(`base_diameter - acc_slope × accuracy_pct`) 산출에 쓰므로 **코어 보유 적(`core_px > 0`)에서는 코어히트율을 통해 딜에 반영된다**. 기본 보스는 `core_px = 0`이라 무발동. 메카닉 조사 기록은 `context/scenarios/명중률 탄착군.md` |
+| `accuracy_pct` | `accuracy_pct` | — | ⚠️ | DealForm 어느 항에도 안 들어간다. 단 `timeline.ts`의 `_core_hit_prob()`가 탄착군 직경(`base_diameter - acc_slope × accuracy_pct`) 산출에 쓰므로 **코어 보유 적(`core_px > 0`)에서는 코어히트율을 통해 딜에 반영된다**. 기본 보스는 `core_px = 0`이라 무발동. 메카닉 조사 기록은 `context/scenarios/명중률 탄착군.md` |
 | `burst_charge_speed_pct` | `burst_charge_speed_flat` | — | ✅ | **버스트 충전 속도** — 수령자와 무관하게 **시전자의 히트당 기준 게이지 × 값%** 를 매 히트에 가산한다(곱연산 아님). 기준값은 시전자가 일반 공격을 명중시키기 전에는 CDN `burst_energy_raw`(발당), 뒤에는 `burst_energy`(대상). `_route_burst_charge()`가 get_buffs 라이브 경로에서 환산하고 `CharState._burst_gain()`이 히트 수만큼 더한다. 게이지 자체는 두 모드 모두 계산·기록되며 사이클 판정은 `burst_gauge_mode = "accumulate"`에서만 쓴다(원본 저장소 이식 2026-09-22) |
 | `burst_charge_speed_flat` | `burst_charge_speed_flat` | — | ✅ | 내부 키. 위 환산 결과(히트당 %p). parsed_skills에는 안 나온다 |
 | `debuff_immune_count` | — | — | ✅ | 약화 효과 **N회 면역**(횟수 소모형). `_activate()` harmful 필터에서 `_consume_immune_charge()`가 대상별로 하나씩 쓴다. 같은 이름의 항목들은 최대값 하나를 공유하고 재부여 시 소모량이 0으로 돌아간다. 아직 쓰는 스킬 없음(원본 이식) |
@@ -354,11 +354,11 @@ python calculator/damage.py
 | `hp_copy` | — | — | ❌ | 체력 복제. 복잡 메카닉, `_unparseable` |
 | `received_dmg_split` | — | — | ❌ | 받는 대미지 차등 분배. `_unparseable` |
 | `heal_split` | — | — | ❌ | 회복 균등 분배. `_unparseable` |
-| `armor_break_enabled` | `armor_break_enabled` | ②⑤ | ✅ | 일반 공격을 방어력 무시 대미지로 치환(boolean 플래그). `timeline.py`가 `buffs.get("armor_break_enabled")` → `is_armor_break_damage`로 읽고, `damage.py`가 ② 적 방어력 0 처리 + ⑤ `armor_break_dmg_pct` 가산. 치사토 `방어 관통 사격` |
+| `armor_break_enabled` | `armor_break_enabled` | ②⑤ | ✅ | 일반 공격을 방어력 무시 대미지로 치환(boolean 플래그). `timeline.ts`가 `buffs.get("armor_break_enabled")` → `is_armor_break_damage`로 읽고, `damage.ts`가 ② 적 방어력 0 처리 + ⑤ `armor_break_dmg_pct` 가산. 치사토 `방어 관통 사격` |
 | `gauge_charge_enabled` | — | — | ✅ | buff로 등록. 게이지 충전 가능 상태 활성화. `gauge_id` 필수 |
 | `gauge_max_add` | — | — | ✅ | `_dispatch_instant()`의 `gauge_charge`에서 cap 합산 |
 | `taunt` | `taunt` | — | ⚠️ | buffs에 집계되나 타겟팅 모델 없음 |
-| `cover_disabled` | — | — | ❌ | `특이 사항 : 버스트 스킬 시전 중 엄폐 불가` — 무기 변경 모드 동안 엄폐가 막힌다(`values`/`fixed_value` 없음). 파싱만 하고 구현하지 않는다(유저 결정 2026-08-17) — 성립하려면 `timeline.py`의 엄폐 컨트롤(`cover-ctrl`)이 이 플래그를 읽어 엄폐 진입을 막아야 한다. 모드에 종속되므로 `passive` + `self_state:[모드명]` + `duration: -1`로 붙인다. 라플라스 `라플라스 버스터 5`(기본·애장품 2단계), 목단 `정정당당 승부다! 6`(기본만) |
+| `cover_disabled` | — | — | ❌ | `특이 사항 : 버스트 스킬 시전 중 엄폐 불가` — 무기 변경 모드 동안 엄폐가 막힌다(`values`/`fixed_value` 없음). 파싱만 하고 구현하지 않는다(유저 결정 2026-08-17) — 성립하려면 `timeline.ts`의 엄폐 컨트롤(`cover-ctrl`)이 이 플래그를 읽어 엄폐 진입을 막아야 한다. 모드에 종속되므로 `passive` + `self_state:[모드명]` + `duration: -1`로 붙인다. 라플라스 `라플라스 버스터 5`(기본·애장품 2단계), 목단 `정정당당 승부다! 6`(기본만) |
 | `lock_on` | `lock_on` | — | ❌ | **스노우 화이트 : 헤비암즈 전용**. 세븐스 드워프 공격 대상 지정 고유 메카닉. `values`/`fixed_value` 없음 |
 | `possessed` | — | — | ❌ | **일레그 : 붐 앤 쇼크 전용** 적 마커. `target_state:빙의` 조건 게이팅용. `_STAT_TO_BUFF` 매핑 없음 — `_active`에만 등록되어 name 기반 condition 매칭. `values`/`fixed_value` 없음 |
 | `effect_target_count_add` | — | — | ❌ | 특정 효과의 **타격 대상 수** N 증가 (`target_effect` 필수, `fixed_value`에 증가량). 텍스트: `[효과명] 적용 대상 N ▲`. **단일 보스 sim에서는 항상 no-op** — 대상이 이미 1기로 수렴해 있다(`GAMEPLAY.md §condition`). 다수 적 지원 전까지 구현하지 않는다. 레이 (가칭) `섬멸 지원 4` (→ 아스카 : WILLE `섬멸 태세 추가 효과`) |
@@ -501,13 +501,13 @@ python calculator/damage.py
 | `multi_hit:N` | ✅ | 자동사격 1회가 끝난 뒤 실제 `pellets × muzzles`를 `bm.notify("multi_hit:실제수", ...)`로 1회 통지하고, 실제수가 N 이상이면 매칭. 누적 히트가 아니라 샷 단위. 프리바티 : 언카인드 메이드 |
 | `part_hit_count:N` | ✅ | `notify_team_hit("squad_part_hit", t, attacker)` 스쿼드 브로드캐스트. `_team_hit_index` 경로. `enemy.has_parts=True`일 때 비코어 히트마다 발생. `_activate(eff, attacker, t)`로 target:"self"=발사 아군 |
 | `body_hit_count:N` | ✅ | `notify_team_hit("squad_body_hit", t, attacker)` 스쿼드 브로드캐스트. `_team_hit_index` 경로. `enemy.has_parts=False`(기본값)일 때 비코어 히트마다 발생 |
-| `charge_hold:N` | ✅ | `CharState._notify_charge_hold()`(`timeline.py`)가 `_charge_full_t`(풀차지 도달 래치)로 유지 시간을 재서 notify한다. 임계값은 `BuffManager.charge_hold_thresholds(caster)`가 그 캐릭터의 효과에서 뽑는다 — `_timing_match`가 문자열 완전 일치라 원문 표기(`0.5`)를 그대로 보낸다. **판정은 한 차지에 1회**(`_charge_hold_fired`, 차지 재시작 시 리셋) — 계속 들고 있어도 재판정하지 않는다. **홀드 조작이 없으면 풀차지 즉시 발사라 영구 무발동**이다: `control["sequence"]`의 `hold`, 정책 `own_full_burst`·`charge_hold_after_fb` 중 하나가 필요하다 — 정본: `context/CONTROL.md §홀드`. 밀크 : 블루밍 바니 `부끄러움` |
+| `charge_hold:N` | ✅ | `CharState._notify_charge_hold()`(`timeline.ts`)가 `_charge_full_t`(풀차지 도달 래치)로 유지 시간을 재서 notify한다. 임계값은 `BuffManager.charge_hold_thresholds(caster)`가 그 캐릭터의 효과에서 뽑는다 — `_timing_match`가 문자열 완전 일치라 원문 표기(`0.5`)를 그대로 보낸다. **판정은 한 차지에 1회**(`_charge_hold_fired`, 차지 재시작 시 리셋) — 계속 들고 있어도 재판정하지 않는다. **홀드 조작이 없으면 풀차지 즉시 발사라 영구 무발동**이다: `control["sequence"]`의 `hold`, 정책 `own_full_burst`·`charge_hold_after_fb` 중 하나가 필요하다 — 정본: `context/CONTROL.md §홀드`. 밀크 : 블루밍 바니 `부끄러움` |
 | `charge_hold_count:H:N` | ✅ | `charge_hold_thresholds()`가 H를 추출해 기존 홀드 판정을 재사용하고, `charge_hold:H` 캐스터별 누적 횟수가 N의 배수일 때 발동. 크러스트 `블렌칭` |
 | `non_full_charge_hit_count:N` | ✅ | 차지형 무기의 `is_full=False` 발사 뒤 `non_full_charge_hit`을 통지하고 캐스터별 N회마다 발동. 크러스트 `마이야르` |
 | `event:cover_healed` | ✅ | `cover_heal_pct` instant 핸들러가 회복 대상에게 같은 프레임에 통지. 엄폐 HP 수치는 모델 밖이어도 후속 효과는 발동. 티아 `파충류 애호가` |
 | `weapon_hit:[name]` | ✅ | `_timing_match`에 분기 있음. notify 호출처는 `_handle_damage_eff()` **한 곳뿐**으로, `[name]`은 **named damage 효과**(발사체 등)의 이름이다 — 그 효과가 명중할 때마다 발생한다(라피 : 레드 후드 `부착형 유탄 4`). **`weapon_change` 모드의 사격은 이 이벤트를 쏘지 않는다** (`_tick_weapon_change()`에 호출처 없음, 2026-08-13 확인) → 모드의 매 발마다 붙는 효과는 `hit_count:1` + `self_state:[모드명]`으로 센다 |
 | `feather_tick` | ✅ | **아인 전용**. 니어 페더 소환체의 공격 주기 틱. `tick()`이 `state["feathers"]`를 돌며 `notify("feather_tick", ...)`. `_timing_match`는 `timing == event` 일반 분기를 그대로 탄다(별도 분기 불필요). 주기가 고정이 아니라 생존 수 n에 대해 `base × (1 − reduction_pct/100 × (n−1))`이고, **다음 발사는 직전 예약 시각 기준**으로 잡는다(프레임 양자화 드리프트 방지). 만료로 수가 줄어도 예약된 시각은 바뀌지 않는다 — 재소환(`feather_refresh`)만 초기화한다. 정본: `context/scenarios/아인.md §니어 페더 메커니즘` |
-| `squad_ammo_consume:N` | ✅ | `_timing_match`에 분기 있음(`buff_manager.py`). `notify()`가 `__squad__` 누적 카운터로 집계해 스쿼드 전원의 효과를 순회(`_squad_notify_index`). 발생처는 `timeline.py` 자동사격·풀차지 발사 두 경로에서 **1발당 1회**, 그리고 `gauge_consume_as_ammo`(벨벳). 소비자: 리틀 머메이드 `거품 난사`(500발, `sequential_damage:10`)·`버블 오더 4`(400발), 일레그 : 붐 앤 쇼크 `고스트 버스터 2`(100발), 신데렐라 : 크리스탈 웨이브 `뷰티-풀 3`(200발) |
+| `squad_ammo_consume:N` | ✅ | `_timing_match`에 분기 있음(`buff_manager.ts`). `notify()`가 `__squad__` 누적 카운터로 집계해 스쿼드 전원의 효과를 순회(`_squad_notify_index`). 발생처는 `timeline.ts` 자동사격·풀차지 발사 두 경로에서 **1발당 1회**, 그리고 `gauge_consume_as_ammo`(벨벳). 소비자: 리틀 머메이드 `거품 난사`(500발, `sequential_damage:10`)·`버블 오더 4`(400발), 일레그 : 붐 앤 쇼크 `고스트 버스터 2`(100발), 신데렐라 : 크리스탈 웨이브 `뷰티-풀 3`(200발) |
 
 ### condition
 
@@ -648,7 +648,7 @@ lazy resolve: 버프 반영 스탯 기준 정렬 필요 target → `_activate()`
 
 ## 빠른 참조: stat 분류 (신규 추가 시 판단용)
 
-| 분류 | stat 예시 | buff_manager | damage.py |
+| 분류 | stat 예시 | buff_manager | damage.ts |
 |------|----------|-------------|-----------|
 | DealForm ①에 영향 | `normal_atk_dmg_pct` | ✅ 추가 | ✅ `_factor1` |
 | DealForm ②에 영향 | `atk_pct`, `atk_flat`, `def_ignore_pct`, `enemy_def_down_pct` | ✅ 추가 | ✅ `_factor2` |
@@ -678,7 +678,7 @@ lazy resolve: 버프 반영 스탯 기준 정렬 필요 target → `_activate()`
 
 ## 회귀 테스트
 
-계산기 로직을 고친 뒤에는 `python -m context.snapshot`으로 회귀를 확인한다.
+계산기 로직을 고친 뒤에는 `cd site && npx tsx scripts/snapshot.ts`으로 회귀를 확인한다.
 
 **운영 기준·스쿼드 스펙·diff 읽는 법은 전부 `context/HARNESS.md`에 있다.**
 이 문서에는 회귀 관련 규칙을 중복해서 적지 않는다.

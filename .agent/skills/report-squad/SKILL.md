@@ -9,11 +9,14 @@ description: 스쿼드 딜량 보고서를 만든다. 조합·버스트 운용 �
 
 | 요청 | 읽을 문서 | 실행 도구 |
 |---|---|---|
-| 조합·운용·조건 비교 | `references/format.md` | `scripts/report.py` |
-| enikk 실사용·실측 대조 | `references/enikk.md`와 `references/format.md` 관련 절 | `scripts/enikk_spec.py`, `scripts/report.py`, `scripts/report_ref.py` |
-| 캐릭터 중복 없는 솔로레이드 N덱, 또는 사용자가 지정한 N×5 편성 계산 | `references/optimize-solo-raid.md` | `scripts/optimize_solo_raid.py` |
+| 조합·운용·조건 비교 | `references/format.md` | `scripts/report.ts` |
+| enikk 실사용·실측 대조 | `references/enikk.md`와 `references/format.md` 관련 절 | `scripts/enikk_spec.ts`, `scripts/report.ts`, `scripts/report_ref.ts` |
+| 캐릭터 중복 없는 솔로레이드 N덱, 또는 사용자가 지정한 N×5 편성 계산 | `references/optimize-solo-raid.md` | `scripts/optimize_solo_raid.ts` |
 
 한 캐릭터의 스킬·옵션 투자 효율이면 이 스킬을 쓰지 말고 `report-growth`로 보낸다.
+
+스크립트는 TypeScript다. **저장소 뿌리에서 `cd site`한 뒤 `npx tsx`로 돌린다** — 경로는 `site/` 기준이라
+`../`를 붙인다. 계산은 `site/src/engine/`(TS 엔진)이 한다.
 
 ## 일반 비교
 
@@ -27,8 +30,8 @@ description: 스쿼드 딜량 보고서를 만든다. 조합·버스트 운용 �
 스펙은 `.report-work/<영문-슬러그>/spec.json`에 둔다.
 
 ```bash
-python .agent/skills/report-squad/scripts/report.py \
-  .report-work/<슬러그>/spec.json --jobs 8
+cd site && npx tsx ../.agent/skills/report-squad/scripts/report.ts \
+  ../.report-work/<슬러그>/spec.json --jobs 8
 ```
 
 같은 슬러그의 캐시가 있으면 기본 실행도 **신규·시뮬 입력이 바뀐 케이스만 계산**하고,
@@ -49,11 +52,11 @@ python .agent/skills/report-squad/scripts/report.py \
 ## 보고서 관리
 
 ```bash
-python .agent/skills/report-squad/scripts/reportctl.py list
-python .agent/skills/report-squad/scripts/reportctl.py reindex
-python .agent/skills/report-squad/scripts/reportctl.py remove <슬러그>       # 미리보기
-python .agent/skills/report-squad/scripts/reportctl.py remove <슬러그> --yes
-python .agent/skills/report-squad/scripts/reportctl.py prune               # 미리보기
+cd site && npx tsx ../.agent/skills/report-squad/scripts/reportctl.ts list
+cd site && npx tsx ../.agent/skills/report-squad/scripts/reportctl.ts reindex
+cd site && npx tsx ../.agent/skills/report-squad/scripts/reportctl.ts remove <슬러그>       # 미리보기
+cd site && npx tsx ../.agent/skills/report-squad/scripts/reportctl.ts remove <슬러그> --yes
+cd site && npx tsx ../.agent/skills/report-squad/scripts/reportctl.ts prune               # 미리보기
 ```
 
 삭제는 사용자가 명시적으로 요청했을 때만 `--yes`로 실행한다. 다른 최적화 보고서가 참조하는

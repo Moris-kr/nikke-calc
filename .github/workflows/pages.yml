@@ -32,19 +32,14 @@ jobs:
           cache-dependency-path: site/package-lock.json
       - name: Install dependencies
         run: npm ci
-      - name: Run Python bridge smoke test
-        run: |
-          python3 scripts/test-bridge.py
-          python3 scripts/test-mechanics-audit.py
-      - name: Run Python engine regressions
-        working-directory: .
-        run: |
-          python3 -m unittest discover -s calculator -p 'test_*.py' -v
-          python3 calculator/damage.py
-          python3 -m context.doclint
-          python3 -m context.snapshot
-      - name: Run browser-site tests
+      # 계산 엔진은 TypeScript 하나다(site/src/engine/). 엔진 단위 테스트는 사이트 테스트에 들어 있다.
+      - name: Run browser-site and engine tests
         run: npm test -- --run
+      - name: Run golden damage regressions
+        run: npx tsx scripts/snapshot.ts
+      - name: Check docs against data and engine
+        working-directory: .
+        run: python3 -m context.doclint
       - name: Build production site
         # 블라블라링크 프록시 주소는 `site/.env.production`에 있다(`worker/README.md`).
         # 리포지토리 변수로 덮고 싶으면 여기 env를 되살리면 되지만, 빈 변수가 파일을

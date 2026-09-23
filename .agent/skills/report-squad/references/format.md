@@ -11,23 +11,25 @@
 조합·육성·버스트 운용을 바꿔가며 돌린 결과를 **HTML 한 장**으로 비교하는 도구.
 
 ```bash
-python .agent/skills/report-squad/scripts/report.py .report-work/<이름>/spec.json
-python .agent/skills/report-squad/scripts/report.py <스펙> --jobs 8 --open
-python .agent/skills/report-squad/scripts/report.py <스펙> --sampled --runs 5
-python .agent/skills/report-squad/scripts/report.py <스펙> --sampled --random
-python .agent/skills/report-squad/scripts/report.py <스펙> --full
-python .agent/skills/report-squad/scripts/report.py <스펙> --from-cache
+cd site && npx tsx ../.agent/skills/report-squad/scripts/report.ts ../.report-work/<이름>/spec.json
+cd site && npx tsx ../.agent/skills/report-squad/scripts/report.ts <스펙> --jobs 8 --open
+cd site && npx tsx ../.agent/skills/report-squad/scripts/report.ts <스펙> --sampled --runs 5
+cd site && npx tsx ../.agent/skills/report-squad/scripts/report.ts <스펙> --sampled --random
+cd site && npx tsx ../.agent/skills/report-squad/scripts/report.ts <스펙> --full
+cd site && npx tsx ../.agent/skills/report-squad/scripts/report.ts <스펙> --from-cache
 ```
+
+경로는 `site/` 기준이다(`../`). 계산은 TS 엔진(`site/src/engine/`)이 하고, `--jobs`는 워커 스레드 수다.
 
 - 입력: `.report-work/<스펙명>/spec.json` (케이스 목록)
 - 출력: `reports/<스펙명>.html` — 이미지·CSS·JS 인라인, 더블클릭으로 열림
 - 캐시: `.report-work/<스펙명>/result.data.json` (`--from-cache` 입력)
 
-시간은 시뮬 1회당 15~40초. 기본(기대값 모드)은 **케이스당 1회**라 케이스 3개면 1분 안쪽,
-`--sampled`로 10회씩 돌리면 **케이스 3개 × 10회 ≈ 2~4분**(8병렬 기준)이다. 그래서
+시간은 시뮬 1회당 0.5초 안팎(TS 엔진, 180초 5인 기준)이다. 기본(기대값 모드)은 **케이스당 1회**라
+케이스 몇 개면 수 초, `--sampled`로 10회씩 돌려도 **케이스 3개 × 10회 ≈ 3초**(8병렬 기준)다. 그래도
 기본 실행은 같은 슬러그의 호환 캐시를 읽어 **신규·시뮬 입력이 바뀐 케이스만 계산**한다.
 케이스 이름·탭·설명처럼 계산에 영향 없는 표시 정보만 바뀌면 수치는 그대로 재사용한다.
-계산기 코드·`context/spec.py`·`data/**/*.json` 또는 난수 모드·시드·반복 조건이 바뀌면 자동으로
+계산 엔진 코드(`site/src/engine/**/*.ts`)·`data/**/*.json` 또는 난수 모드·시드·반복 조건이 바뀌면 자동으로
 전체 재계산한다. 유저가 처음부터 재계산을 요청했을 때는 `--full`, 표시 형식만 손보는
 반복은 `--from-cache`를 사용한다.
 
@@ -49,7 +51,7 @@ python .agent/skills/report-squad/scripts/report.py <스펙> --from-cache
 이때 표준편차는 **시드 간 편차**이며 CV는 보통 0.5~1.5% 범위다.
 
 기대값과 다회 평균의 차이는 총딜 기준 ±0.05% 안쪽이다(40시드 대조 기준).
-하네스 회귀(`context/snapshot.py`)는 이 정책과 무관하게 확률 판정 + 고정 시드를 쓴다.
+하네스 회귀(`site/scripts/snapshot.ts`)는 이 정책과 무관하게 확률 판정 + 고정 시드를 쓴다.
 
 ---
 
@@ -138,8 +140,8 @@ python .agent/skills/report-squad/scripts/report.py <스펙> --from-cache
 
 ### 육성 필드 (`defaults` / `chars`)
 
-기본값의 정본은 **`context/spec.py`의 `DEFAULT_CHAR`**다 (`REPORT_DEFAULT_CHAR`는 그 별칭).
-회귀 하네스(`context/snapshot.py`)·단발 CLI(`context/sim.py`)와 **같은 스펙**이라
+기본값의 정본은 **엔진 `site/src/engine/spec.ts`의 `DEFAULT_CHAR`**다.
+회귀 하네스(`site/scripts/snapshot.ts`)·단발 CLI(`site/scripts/sim.ts`)와 **같은 스펙**이라
 세 도구의 총딜을 그대로 견줄 수 있다. 항목별 근거는 `context/HARNESS.md §기본 스펙`.
 
 그 위에 **캐릭터별 기본 레이어**가 얹힌다 (`data/char_defaults.json`) — 앨리스·아인·밀크 :
@@ -244,7 +246,7 @@ python .agent/skills/report-squad/scripts/report.py <스펙> --from-cache
 보고서에서는 유저가 실제로 바꿔가며 보는 축으로만 말한다 — **컨트롤 · 버스트순서 · 옵션 · 육성**.
 
 **같은 설정을 두 자리에 쓰지 않는다.** 어디서나 그렇게 굴린 설정은 상단 블록에만,
-케이스마다 다른 설정은 그 케이스 카드에만 나온다 (`report_html._ops()`가 한 번에 갈라 준다).
+케이스마다 다른 설정은 그 케이스 카드에만 나온다 (`report_html.ts`의 `_ops()`가 한 번에 갈라 준다).
 
 상단 — 탭 맨 위, 접히지 않는다:
 
@@ -274,7 +276,7 @@ python .agent/skills/report-squad/scripts/report.py <스펙> --from-cache
 `[전투]`로 붙는다. `max_burst_count`는 **실제로 잘렸을 때만** 적는다 — 상한을 사실상
 푼 값은 계산에 아무 제약도 걸지 않았으므로 알릴 내용이 없다.
 
-- 기준 두 줄은 `context/spec.py`의 `DEFAULT_CHAR`에서 만든다 (하드코딩 아님).
+- 기준 두 줄은 엔진 `spec.ts`의 `DEFAULT_CHAR`에서 만든다 (하드코딩 아님).
 - **바뀐 값만 적는다.** `2초 → 4초`가 아니라 `4초` — 기준값은 바로 위 기준 줄에 있다.
 - **예외의 출처는 구분하지 않는다.** 캐릭터별 기본값(`data/char_defaults.json`)이든 스펙에
   적은 오버라이드든 같은 형식이다 — 읽는 쪽에 필요한 건 "이 결과가 무슨 설정으로 나왔나"뿐이다.
@@ -289,7 +291,7 @@ python .agent/skills/report-squad/scripts/report.py <스펙> --from-cache
   `note`는 **계산기에 들어가지 않는 것**(왜 이 조합을 보는지 등)만 적는 자리다.
 - 케이스 카드 줄은 캐시(`.data.json`)에 박힌 스펙으로 만든다. **스펙 JSON의 `note`를
   고쳤으면 `--from-cache`가 아니라 다시 돌려야 반영된다.**
-- 문구 변환표는 `report_html._dev_item()`. 새 컨트롤 정책·장비 옵션 키를 추가하면
+- 문구 변환표는 `report_html.ts`의 `_dev_item()`. 새 컨트롤 정책·장비 옵션 키를 추가하면
   여기 라벨도 같이 넣는다 — 없으면 원본 키가 그대로 노출된다.
 
 ---
@@ -307,8 +309,13 @@ python .agent/skills/report-squad/scripts/report.py <스펙> --from-cache
 
 ## 이미지
 
-캐릭터 이미지는 `image/` 폴더의 파일을 `report_html.char_image()`가 읽어 base64로 인라인한다
+캐릭터 이미지는 `image/` 폴더의 파일을 `images.ts`가 읽어 base64로 인라인한다
 (캐릭터명 → 파일명 규칙: ` : ` → `_`).
+
+썸네일(얼굴 쪽 정사각형 자르기 → 축소 → WebP)은 파이썬 Pillow 도우미 `scripts/thumbs.py`가 만든다 —
+계산 엔진과 무관한 표시 도우미다. 파이썬은 `python`(윈도우는 `py -3`·`python3`도)으로 찾고,
+`NIKKE_PYTHON` 환경 변수로 실행 파일을 지정할 수 있다. 파이썬·Pillow가 없으면 **원본 이미지를 그대로**
+넣고 CSS로 잘라 보여 준다 — 보고서가 커질 뿐 그대로 만들어진다(경고 한 줄이 나온다).
 
 **이미지 문제 발생 시 에이전트가 임의로 재다운로드·교체하지 않는다.** 이미지는 유저가 직접
 관리한다. 에이전트가 할 일은 ① 파일명 변환 규칙 확인 ② `image/`에 해당 파일이 있는지 확인

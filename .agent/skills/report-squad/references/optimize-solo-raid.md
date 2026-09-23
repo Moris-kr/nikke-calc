@@ -49,7 +49,7 @@
 ### `pinned_squads`
 
 - 항목은 이름 배열이거나 `{"name", "members", "config", "chars", "defaults", "no_layer"}` dict다.
-  뒤 네 키는 `report.py` 케이스와 같은 뜻이며, 하나라도 있으면 캐시를 쓰지 않고 새로 시뮬한다.
+  뒤 네 키는 `report.ts` 케이스와 같은 뜻이며, 하나라도 있으면 캐시를 쓰지 않고 새로 시뮬한다.
 - **배열 순서가 버스트 우선순위다.** 캐시에 같은 5명이 있어도 순서가 다르면 다시 시뮬한다.
 - 지정 편성 전체에 캐릭터가 겹치면 실행이 멈춘다.
 - 스쿼드 수는 지정한 만큼이다 (`squad_count`는 최적화에만 쓴다).
@@ -64,13 +64,13 @@
 ## 실행과 보고
 
 ```bash
-python .agent/skills/report-squad/scripts/optimize_solo_raid.py \
-  .report-work/<슬러그>/spec.json
-python .agent/skills/report-squad/scripts/optimize_solo_raid.py <스펙> --jobs 8
+cd site && npx tsx ../.agent/skills/report-squad/scripts/optimize_solo_raid.ts \
+  ../.report-work/<슬러그>/spec.json
+cd site && npx tsx ../.agent/skills/report-squad/scripts/optimize_solo_raid.ts <스펙> --jobs 8
 ```
 
-`--jobs`는 지정 편성의 신규 시뮬 병렬 수다 (0=자동). 시뮬 1회당 15~40초이므로 캐시에 없는
-스쿼드가 많으면 미리 알린다.
+`--jobs`는 지정 편성의 신규 시뮬 병렬 워커 수다 (0=자동). 시뮬 1회는 0.5초 안팎(TS 엔진)이라
+`--sampled` 후보로 스쿼드를 많이 새로 돌릴 때만 미리 알린다.
 
 결과는 `reports/<슬러그>.html`에 생긴다. 한 해는 초상화 5×N 블록 한 덩어리로 붙어 나오고,
 각 줄 오른쪽에 스쿼드 총딜만 둔다. 운용·CV·FB는 블록 아래 각주로 내려간다.

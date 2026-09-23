@@ -139,7 +139,7 @@ python -m scraper.preview_diff <이름>
 ### Step 4. 판정
 
 - **일치** — `preview_skills.json`에서 항목을 제거하고, `parsed_skills.json`의 해당 캐릭터
-  `values`에 레벨 1~9를 채운다. `python -m context.snapshot`으로 회귀.
+  `values`에 레벨 1~9를 채운다. `cd site && npx tsx scripts/snapshot.ts`로 회귀.
   **총딜이 변하면 레벨 10 값이 실제로 달랐다는 뜻이므로 멈추고 보고한다.**
 - **불일치** — diff를 **그대로** 유저에게 제시하고 단계 2(파싱)부터 재검토한다.
   사소해 보이는 문구 차이도 에이전트가 "영향 없음"으로 판정하지 않는다

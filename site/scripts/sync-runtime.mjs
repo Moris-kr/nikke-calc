@@ -184,12 +184,12 @@ const catalog = names.map((name) => {
   };
 });
 
-const pythonCommand = process.platform === 'win32' ? 'python' : 'python3';
-const settings = execFileSync(pythonCommand, [join(scriptDir, 'export-settings.py')], {
-  cwd: repoRoot,
-  encoding: 'utf8',
-  env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
-});
+// 설정 메타데이터는 계산 엔진(src/engine/)에서 뽑는다 — TypeScript라 tsx 로더로 돌린다.
+const settings = execFileSync(
+  process.execPath,
+  ['--import', import.meta.resolve('tsx'), join(scriptDir, 'export-settings.ts')],
+  { cwd: siteDir, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
+);
 hash.update('settings.json');
 hash.update(settings);
 const manifest = {

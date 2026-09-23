@@ -13,11 +13,11 @@
 자신의 딜이 각각 얼마나 오르는지 재는 도구.
 
 ```bash
-python .agent/skills/report-growth/scripts/growth.py .report-work/<이름>/spec.json
-python .agent/skills/report-growth/scripts/growth.py <스펙> --jobs 8 --open
-python .agent/skills/report-growth/scripts/growth.py <스펙> --sampled --runs 12
-python .agent/skills/report-growth/scripts/growth.py <스펙> --dry-run
-python .agent/skills/report-growth/scripts/growth.py <스펙> --from-cache
+cd site && npx tsx ../.agent/skills/report-growth/scripts/growth.ts ../.report-work/<이름>/spec.json
+cd site && npx tsx ../.agent/skills/report-growth/scripts/growth.ts <스펙> --jobs 8 --open
+cd site && npx tsx ../.agent/skills/report-growth/scripts/growth.ts <스펙> --sampled --runs 12
+cd site && npx tsx ../.agent/skills/report-growth/scripts/growth.ts <스펙> --dry-run
+cd site && npx tsx ../.agent/skills/report-growth/scripts/growth.ts <스펙> --from-cache
 ```
 
 - 입력: `.report-work/<스펙명>/spec.json` (덱 + 기준 육성 + 축 목록)
@@ -99,7 +99,7 @@ CV(0.5~1.5%)가 신호와 같은 크기라 케이스별 평균끼리 빼면 부�
 | 1스킬·2스킬 | 스킬 메뉴얼 | 90 | 105 | 120 | 315 |
 | 버스트(3스킬) | 버스트 메뉴얼 | 90 | 105 | 120 | 315 |
 
-이 표는 사본이다. 정본은 `growth.py`의 `MANUAL_COST`·`MANUAL_KIND`다.
+이 표는 사본이다. 정본은 `growth.ts`의 `MANUAL_COST`·`MANUAL_KIND`다.
 
 - **7레벨까지는 무료로 본다.** 사실상 수급 제한이 없어 순서를 정할 때 변수가 아니다.
   전부 만렙이면 스킬 메뉴얼 630장 + 버스트 메뉴얼 315장이다.
@@ -188,8 +188,8 @@ CV(0.5~1.5%)가 신호와 같은 크기라 케이스별 평균끼리 빼면 부�
 케이스 = `덱 × (비-기준 단계 수 + 조합 수 + 1)`. 기준 단계는 **덱당 한 번만** 돌려 전 축이
 공유하고, 육성 dict가 같아진 단계끼리도 한 케이스로 합쳐진다.
 
-`mode: "skill"` 10개(100회 ≈ 7분) · `mode: "option"` 17개(170회 ≈ 12분) · 차지형이면
-25개(250회 ≈ 18분)가 기준이다. 덱을 늘리면 그만큼 곱해진다.
+`mode: "skill"` 10개 · `mode: "option"` 17개 · 차지형이면 25개가 기준이다(`--sampled` 10회면
+각각 100·170·250회 — TS 엔진 8병렬로 10~30초 남짓). 덱을 늘리면 그만큼 곱해진다.
 **스펙을 짜면 먼저 `--dry-run`으로 횟수를 확인한다.**
 
 ---
@@ -215,7 +215,7 @@ CV(0.5~1.5%)가 신호와 같은 크기라 케이스별 평균끼리 빼면 부�
 - **덱 딜과 본인 딜은 한 막대에 섞지 않는다.** 두 열로 나란히 놓고 **열마다 배율을 따로**
   잡는다 (버퍼는 본인 딜 Δ가 두 자릿수인데 덱 딜 Δ는 1% 안팎이라, 한 배율로 묶으면
   정작 중요한 덱 딜 막대가 실처럼 얇아진다). 두 배율은 범례에 수치로 적는다.
-- 색 토큰은 딜량 보고서(`report_html._CSS`)를 그대로 쓴다. 라이트/다크 검증본이다.
+- 색 토큰은 딜량 보고서(`report_html.ts`의 `_CSS`)를 그대로 쓴다. 라이트/다크 검증본이다.
 
 ---
 

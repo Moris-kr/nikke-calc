@@ -70,7 +70,7 @@ EQUIP_KEYS = ["atk_pct", "element_bonus", "max_ammo_pct", "crit_rate", "crit_dmg
 PER_LINE_KEYS = {"max_ammo_pct", "charge_speed_pct"}
 PARTS = [("head", "머리"), ("torso", "몸통"), ("arm", "팔"), ("leg", "다리")]
 
-NO_ITEM = "없음"          # calculator.base_stat.NO_ITEM — 미장착
+NO_ITEM = "없음"          # 계산 엔진 base_stat.ts의 NO_ITEM — 미장착
 CORP_TIER = 10            # equip_tier 10 = 기업 장비(강화 0~5), 1~9 = 일반 T1~T9
 
 # 재활용 연구실(= 계산기의 "콘솔") tid → 소속. 1001 공통 하나 · 11xx 역할군 셋 · 12xx 기업 다섯.
@@ -285,7 +285,7 @@ def _collection(detail: dict, fav_map: dict, name: str, weapon: str | None,
 
     슬롯 하나를 소장품(R·SR)과 애장품(SSR)이 공유한다. 애장품은 SR15와 스탯이 같으므로
     `SR15`로 적고, **단계**만 따로 돌려준다 — 단계는 스탯이 아니라 스킬 판본을 바꾸며
-    계산기가 `favorite_stage`로 그대로 받는다(`calculator/buff_manager.char_effects()`).
+    계산기가 `favorite_stage`로 그대로 받는다(`site/src/engine/buff_manager.ts` `char_effects()`).
     소장품(R·SR)을 꼈거나 슬롯이 비었으면 애장품 0단계다.
     """
     tid = detail.get("favorite_item_tid", 0)

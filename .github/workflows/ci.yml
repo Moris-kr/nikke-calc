@@ -47,31 +47,15 @@ jobs:
       - name: 문서·데이터 정합 (doclint)
         run: python -m context.doclint
 
-      - name: 엔진 단위 테스트
-        run: |
-          python -m unittest discover -s calculator -p 'test_*.py'
-          python calculator/damage.py
-
-      - name: 브리지 스모크 테스트
-        working-directory: site
-        run: |
-          python scripts/test-bridge.py
-          python scripts/test-mechanics-audit.py
-
-      - name: 브라우저 사이트 테스트
+      # 계산 엔진은 TypeScript 하나다(site/src/engine/, 2026-09-23 파이썬 엔진 삭제).
+      # 엔진 단위 테스트(site/src/engine/tests/)도 사이트 테스트에 들어 있다.
+      - name: 사이트·엔진 테스트
         working-directory: site
         run: npm test -- --run
 
-      # 사이트 기본 엔진은 TS로 옮긴 고속 엔진(site/src/engine/)이다. 파이썬 엔진(calculator/·context/spec.py·
-      # site/pybridge/bridge.py)을 고치면 TS 쪽도 같이 고쳐야 한다 — 여기서 93개 요청의 응답·히트가 한 자리까지 같은지 본다.
-      - name: 고속 엔진 대조 (파이썬 엔진과 결과 일치)
-        run: |
-          python site/scripts/parity/ref.py > /dev/null
-          python site/scripts/parity/extra_ref.py > /dev/null
-          cd site && PARITY=1 npx vitest run src/engine/parity.test.ts scripts/parity/extra.parity.test.ts --silent=false
-
       - name: 딜 계산 회귀 (golden snapshot 29개)
-        run: python -m context.snapshot
+        working-directory: site
+        run: npx tsx scripts/snapshot.ts
 
       # 실패해도 붙인다 — 무엇이 움직였는지는 빨간불일 때 더 알고 싶다.
       - name: 스냅샷 변동 요약

@@ -77,7 +77,7 @@
 ## 3. 스펙 + 기준값 만들기
 
 ```bash
-python .agent/skills/report-squad/scripts/enikk_spec.py <덤프.txt> \
+cd site && npx tsx ../.agent/skills/report-squad/scripts/enikk_spec.ts <덤프.txt> \
     --slug sr35-enikk-teams --min-uses 3 \
     --title "솔로레이드 S35 Crystal Chamber — enikk 실사용 조합 딜량" \
     --note  "enikk.app 시즌 35(작열 약점) Teams 데이터에서 3회 이상 사용된 조합 중 스킬 파싱이 끝난 것. 스쿼드 순서는 enikk 표기 그대로." \
@@ -96,24 +96,24 @@ python .agent/skills/report-squad/scripts/enikk_spec.py <덤프.txt> \
 ## 4. 실행
 
 ```bash
-python .agent/skills/report-squad/scripts/report.py \
-    .report-work/<슬러그>/spec.json --jobs 8
+cd site && npx tsx ../.agent/skills/report-squad/scripts/report.ts \
+    ../.report-work/<슬러그>/spec.json --jobs 8
 ```
 
-덱이 수십 개라 오래 걸린다(46개 × 5회 ≈ 8분). **백그라운드로 돌린다.**
+덱이 수십 개여도 기대값 모드면 수십 초 안에 끝난다(TS 엔진, 시뮬 1회 0.5초 안팎). `--sampled`로 오래 돌릴 때만 백그라운드로 돌린다.
 
 ## 5. 대조판 렌더
 
 ```bash
-python .agent/skills/report-squad/scripts/report_ref.py \
-    .report-work/<슬러그>/result.data.json .report-work/<슬러그>/ref.json
+cd site && npx tsx ../.agent/skills/report-squad/scripts/report_ref.ts \
+    ../.report-work/<슬러그>/result.data.json ../.report-work/<슬러그>/ref.json
 ```
 
 최종 `reports/<슬러그>.html`을 덮어쓴다. 케이스 카드마다
 `enikk 평균 5.84B · 비율 0.96` 칩이 붙는다(0.9 미만 주황, 1.1 초과 파랑).
 시뮬을 다시 돌리지 않고 캐시만 읽으므로 즉시 나온다.
 
-**`report_html.py`는 고치지 않는다.** `report_ref.py`가 `_case_card`만 감싸 갈아끼운다.
+**`report_html.ts`는 고치지 않는다.** `report_ref.ts`가 `hooks.case_card`만 감싸 갈아끼운다.
 공용 보고서 형식이 바뀌면 안 되기 때문이다 — 원본 구조가 바뀌면 스크립트가 에러로 끊으니
 그때 앵커를 고친다.
 

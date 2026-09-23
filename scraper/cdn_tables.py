@@ -27,7 +27,7 @@ CDN은 게임 설명문만 준다. 우리 stat 키로 바꾸는 건 의미 판�
 추가됐다는 신호이므로 사람이 매핑을 정해야 한다.
 
 `unsupported`는 계산기가 아직 그 stat을 처리하지 못한다는 표시다.
-`calculator/buff_manager.py`의 `_STAT_TO_BUFF`를 직접 읽어 판정하므로,
+계산 엔진(`site/src/engine/buff_manager.ts`)의 `_STAT_TO_BUFF`를 직접 읽어 판정하므로,
 엔진이 구현하면 다음 수집 때 자동으로 풀린다.
 
 상시 버프가 아니라 트리거로 1회 발동하는 큐브(`CUBE_INSTANT`)는 이 판정에서 빠진다 —
@@ -51,8 +51,29 @@ from cdn_fetch import build_template, strip_tags
 ROOT = Path(__file__).resolve().parent.parent
 TABLE_DIR = ROOT / "data" / "base_stat_tables"
 
-sys.path.insert(0, str(ROOT))
-from calculator.buff_manager import _STAT_TO_BUFF  # noqa: E402  (엔진 지원 여부 판정용)
+ENGINE_BUFF_MANAGER = ROOT / "site" / "src" / "engine" / "buff_manager.ts"
+
+
+def _load_stat_to_buff() -> dict[str, str]:
+    """엔진 지원 여부 판정용 — 계산 엔진의 `_STAT_TO_BUFF` 표(stat → 버프 키)를 소스에서 그대로 읽는다.
+
+    엔진은 TypeScript라 import할 수 없다. 표는 `'stat': '버프키',` 한 줄씩인 객체 리터럴이므로
+    주석을 걷고 문자열 쌍만 뽑는다. 모양이 바뀌어 못 읽으면 조용히 전부 «미구현»으로 두지 않고 끊는다.
+    """
+    src = ENGINE_BUFF_MANAGER.read_text(encoding="utf-8")
+    m = re.search(r"export const _STAT_TO_BUFF\b[^=]*=\s*\{(.*?)\n\};", src, re.S)
+    if not m:
+        sys.exit(f"[cdn_tables] {ENGINE_BUFF_MANAGER}에서 `_STAT_TO_BUFF` 표를 찾지 못했다")
+    body = re.sub(r"//[^\n]*", "", m.group(1))
+    pairs = re.findall(
+        r"""(?:'([^']+)'|"([^"]+)"|([A-Za-z_$][\w$]*))\s*:\s*(?:'([^']*)'|"([^"]*)")""", body)
+    table = {(a or b or c): (d or e) for a, b, c, d, e in pairs}
+    if "atk_pct" not in table:
+        sys.exit(f"[cdn_tables] {ENGINE_BUFF_MANAGER}의 `_STAT_TO_BUFF`를 읽지 못했다 ({len(table)}개)")
+    return table
+
+
+_STAT_TO_BUFF = _load_stat_to_buff()
 
 LOCALE = "ko"
 CONCURRENCY = 16

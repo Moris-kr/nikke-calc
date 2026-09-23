@@ -36,11 +36,13 @@ description: 고정한 덱에서 한 캐릭터의 스킬 레벨·장비 옵션·
 스펙은 `.report-work/<영문-슬러그>/spec.json`에 둔다.
 
 ```bash
-python .agent/skills/report-growth/scripts/growth.py \
-  .report-work/<슬러그>/spec.json --dry-run
-python .agent/skills/report-growth/scripts/growth.py \
-  .report-work/<슬러그>/spec.json --jobs 8
+cd site && npx tsx ../.agent/skills/report-growth/scripts/growth.ts \
+  ../.report-work/<슬러그>/spec.json --dry-run
+cd site && npx tsx ../.agent/skills/report-growth/scripts/growth.ts \
+  ../.report-work/<슬러그>/spec.json --jobs 8
 ```
+
+스크립트는 TypeScript다 — `site/`에서 `npx tsx`로 돌리고 경로에 `../`를 붙인다. 계산은 `site/src/engine/`이 한다.
 
 200회를 넘으면 축이나 단계를 줄일지 먼저 묻는다. 표시만 고치면 `--from-cache`를 사용한다.
 결과는 `reports/<슬러그>.html`, 캐시는 `.report-work/<슬러그>/result.data.json`에 생긴다.
