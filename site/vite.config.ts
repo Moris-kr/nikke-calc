@@ -9,7 +9,7 @@ const buildId = JSON.stringify(Date.now().toString(36));
 
 // 계산 엔진(src/engine/) 소스의 해시. 저장해 둔 계산 결과의 키에 들어간다 — 엔진이 바뀌면
 // 예전 결과를 다시 쓰지 않게(빌드 ID는 배포마다 바뀌어 캐시를 매번 버리므로 쓰지 않는다).
-const engineDir = join(__dirname, 'src', 'engine');
+const engineDir = join(import.meta.dirname, 'src', 'engine');
 const engineHash = createHash('sha256');
 for (const file of readdirSync(engineDir).filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts')).sort()) {
   engineHash.update(file).update(readFileSync(join(engineDir, file)));

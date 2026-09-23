@@ -160,6 +160,13 @@ describe('재생 창', () => {
     expect(document.querySelectorAll('[data-replay-slot]')).toHaveLength(2);
     // 준비되면 바로 재생한다.
     expect(document.querySelector('[data-replay-play]')!.textContent).toBe('❚❚');
+    const stageEl = document.querySelector<HTMLElement>('[data-replay-stage]')!;
+    expect(stageEl.classList.contains('is-paused')).toBe(false);
+    // 멈추면 사격 반동 같은 반복 애니메이션도 멈춘다(is-paused), 다시 누르면 풀린다.
+    document.querySelector<HTMLButtonElement>('[data-replay-play]')!.click();
+    expect(stageEl.classList.contains('is-paused')).toBe(true);
+    document.querySelector<HTMLButtonElement>('[data-replay-play]')!.click();
+    expect(stageEl.classList.contains('is-paused')).toBe(false);
 
     // 1.6초로 옮긴다.
     const scrub = document.querySelector<HTMLInputElement>('[data-replay-scrub]')!;

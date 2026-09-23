@@ -2921,25 +2921,13 @@ def _resolve_cameras(squad: list[dict], cfg: dict) -> frozenset[str]:
         return frozenset(controlled)
     if len(controlled) == 1 and _is_charge_nikke(controlled[0]):
         return frozenset(controlled)
-    # 기본 카메라는 자리로 정하지 않는다(예전: 3번 자리 = 전투 시작 카메라 위치). 자리를 바꾸면
-    # 딜이 달라진다는 제보(2026-09-23) — 풀차지 한 발 게이지가 가장 큰 차지 무기 니케를 본다고
-    # 둔다(동률이면 이름순). 차지 무기가 없으면 아무도 안 봐도 결과가 같다(배율은 풀차지에만 붙는다).
-    best = None
-    best_key = None
-    for c in squad:
-        name = c["name"]
-        if not _is_charge_nikke(name):
-            continue
-        exc = _DELAYS["_exceptions"].get(name)
-        nk = _NIKKE.get(name) or {}
-        mech = _MECHANICS["weapon_type_defaults"].get(nk.get("weapon_type"), {})
-        gain = (float(_pick("burst_energy", exc, nk, mech, default=0.0))
-                * float(_pick("muzzles", exc, nk, mech, default=1))
-                * float(_pick("full_charge_mult", exc, nk)))
-        key = (-gain, name)
-        if best_key is None or key < best_key:
-            best, best_key = name, key
-    return frozenset({best}) if best is not None else frozenset()
+    # 기본 카메라는 **실제 편성 3번 자리**(전투 시작 카메라 위치)다 — 사이트가 3번 자리에 카메라를
+    # 표시한다(2026-09-23 사용자 결정). `simulate`는 처리 순서를 이름순으로 바꾸므로 자리는
+    # `config["_slot_order"]`에서 읽는다.
+    slots = list(cfg.get("_slot_order") or [c["name"] for c in squad])
+    if len(slots) >= 3:
+        return frozenset({slots[2]})
+    return frozenset({slots[0]}) if slots else frozenset()
 
 
 def simulate(
@@ -3012,8 +3000,8 @@ def simulate(
     if cfg["burst_gauge_mode"] not in ("fixed", "accumulate"):
         raise ValueError(
             f'burst_gauge_mode는 "fixed" 또는 "accumulate"여야 한다: {cfg["burst_gauge_mode"]!r}')
-    cfg["_camera"] = _resolve_cameras(squad, cfg)
     cfg["_slot_order"] = slot_order
+    cfg["_camera"] = _resolve_cameras(squad, cfg)
 
     base_stats: dict[str, dict] = {c["name"]: calc_base_stats(c) for c in squad}
 

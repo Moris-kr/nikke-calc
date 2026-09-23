@@ -2899,6 +2899,13 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       const tags = document.createElement('div');
       tags.className = 'slot-tags';
       tags.append(createText('span', `0${index + 1}`, 'slot-number'));
+      // 3번 자리 = 카메라(2026-09-23 사용자 결정). 차지 무기의 풀차지 버스트 게이지 보너스가 여기에 붙는다.
+      if (index === 2) {
+        const cam = createText('span', t('카메라'), 'slot-camera');
+        cam.title = t('3번 자리는 전투 시작 카메라 자리입니다. 여기 있는 차지 무기(SR·RL) 니케가 풀차지 공격의 버스트 게이지 보너스를 받습니다. 버충 톡톡이나 컨트롤을 켠 차지 무기 니케가 있으면 그 니케가 카메라를 받습니다.');
+        cam.dataset.slotCamera = '';
+        tags.append(cam);
+      }
       if (char) {
         const codeIcon = createElementIcon(char.elementCode, 'slot-code');
         if (codeIcon) tags.append(codeIcon);

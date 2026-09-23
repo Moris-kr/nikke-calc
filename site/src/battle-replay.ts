@@ -741,6 +741,8 @@ export function openBattleReplay(
   function setPlaying(on: boolean) {
     if (on && !result) return;
     playing = on;
+    // 멈춤이면 화면의 반복 애니메이션(사격 반동·흔들림·깜빡임)도 같이 멈춘다(제보 2026-09-23).
+    stage.classList.toggle('is-paused', !playing);
     play.textContent = playing ? '❚❚' : '▶';
     play.setAttribute('aria-label', playing ? t('멈춤') : t('재생'));
     if (!playing) { cancelAnimationFrame(raf); return; }

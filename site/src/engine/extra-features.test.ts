@@ -128,12 +128,12 @@ describe('추천', () => {
     expect(r.scope.scenarioBestTotals).toEqual([389718256.0, 385225216.0]);
     expect(r.solutions).toEqual([
       { candidateIds: [1], scenarioTotals: [389718256.0, 385225216.0], baseTotal: 389718256.0, maxRegret: 0 },
-      { candidateIds: [0], scenarioTotals: [360212399.0, 355377064.0], baseTotal: 360212399.0, maxRegret: 0.07748234217357153 },
+      { candidateIds: [0], scenarioTotals: [356706598.0, 351919254.0], baseTotal: 356706598.0, maxRegret: 0.08645841605550557 },
     ]);
     expect(r.selected.map((c: any) => c.label)).toEqual(['B']);
     expect(r.candidates[0].scenarios.map((s: any) => s.diagnostics)).toEqual([
-      { fullBurstCount: 2, gaps: [2.5299999999999994], uptime: 0.6875, completedSpansOnly: false },
-      { fullBurstCount: 2, gaps: [2.5299999999999994], uptime: 0.6875, completedSpansOnly: false },
+      { fullBurstCount: 2, gaps: [2.5299999999999994], uptime: 0.6625, completedSpansOnly: false },
+      { fullBurstCount: 2, gaps: [2.5299999999999994], uptime: 0.6625, completedSpansOnly: false },
     ]);
     expect(r.candidates[1].scenarios[0].diagnostics.uptime).toBe(0.7150000000000001);
   }, 60_000);

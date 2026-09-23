@@ -3168,27 +3168,12 @@ export function _resolve_cameras(squad: Dict[], cfg: Dict): Set<string> {
   if (controlled.length === 1 && _is_charge_nikke(controlled[0]!)) {
     return new Set(controlled);
   }
-  // 기본 카메라: 자리가 아니라 풀차지 한 발 게이지가 가장 큰 차지 무기 니케(동률이면 이름순).
-  let best: string | null = null;
-  let best_gain = 0;
-  for (const c of squad) {
-    const name = item(c, 'name') as string;
-    if (!_is_charge_nikke(name)) {
-      continue;
-    }
-    const exc = get(item(_DELAYS(), '_exceptions'), name);
-    const nk = or(get(_NIKKE(), name), {}) as Dict;
-    const mech = get(item(_MECHANICS(), 'weapon_type_defaults'), get(nk, 'weapon_type'), {});
-    const gain = (float(_pick('burst_energy', [exc, nk, mech], 0.0))
-      * float(_pick('muzzles', [exc, nk, mech], 1))
-      * float(_pick('full_charge_mult', [exc, nk])));
-    // key = (-gain, name) — 게이지가 크면 앞, 같으면 이름이 작은 쪽
-    if (best === null || -gain < -best_gain || (-gain === -best_gain && name < best)) {
-      best = name;
-      best_gain = gain;
-    }
+  // 기본 카메라는 실제 편성 3번 자리(전투 시작 카메라 위치) — 사이트가 3번 자리에 카메라를 표시한다.
+  const slots: string[] = [...(or(get(cfg, '_slot_order'), squad.map((c) => item(c, 'name'))) as string[])];
+  if (slots.length >= 3) {
+    return new Set([slots[2]!]);
   }
-  return best !== null ? new Set([best]) : new Set();
+  return slots.length > 0 ? new Set([slots[0]!]) : new Set();
 }
 
 // py: calculator/timeline.py:2926
@@ -3256,8 +3241,8 @@ export function simulate(
     throw ValueError(
       `burst_gauge_mode는 "fixed" 또는 "accumulate"여야 한다: ${_repr(cfg['burst_gauge_mode'])}`);
   }
-  cfg['_camera'] = _resolve_cameras(squad, cfg);
   cfg['_slot_order'] = slot_order;
+  cfg['_camera'] = _resolve_cameras(squad, cfg);
 
   const base_stats: Record<string, Dict> = {};
   for (const c of squad) base_stats[item(c, 'name')] = calc_base_stats(c);

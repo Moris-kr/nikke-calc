@@ -190,3 +190,6 @@
 .br-charge.is-full .br-charge-fill { background: linear-gradient(90deg, #ff7a1a, #fff1c2); box-shadow: 0 0 .8cqw #ffc15a; }
 .br-charge.is-full .br-charge-text { color: #fff; }
 .br-dealt { grid-column: 1 / -1; color: #ffe1a8; font: 800 max(9px, 1cqw) ui-monospace, monospace; text-align: center; letter-spacing: -.01em; }
+
+/* 멈춤 — 사격 반동·SD 흔들림·보스 깜빡임 등 반복 애니메이션을 모두 그 자리에 세운다. */
+.br-stage.is-paused, .br-stage.is-paused * { animation-play-state: paused !important; }
