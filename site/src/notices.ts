@@ -21,6 +21,7 @@ export interface Notice {
 
 /** 최신이 맨 앞. */
 export const NOTICES: Notice[] = [
+  {id:'2026-09-24-replay-sd-batch25',date:'2026-09-24',title:'전투 결과 재생 — SD 5명 추가',items:[{tag:'개선',text:'델타 : 닌자 시프, 시그널, 네온 : 비전 아이, 프림, 밀크 전용 SD를 추가했습니다.'}]},
   {id:'2026-09-24-replay-sd-batch24',date:'2026-09-24',title:'전투 결과 재생 — SD 5명 추가',items:[{tag:'개선',text:'미카 : 스노우 버디, D : 킬러 와이프, K, D, 키리 전용 SD를 추가했습니다.'}]},
   {id:'2026-09-24-replay-sd-batch23',date:'2026-09-24',title:'전투 결과 재생 — SD 5명 추가',items:[{tag:'개선',text:'베스티 : 택티컬 업, 엠마 : 택티컬 업, 디젤 : 윈터 스위츠, 브리드 : 사일런트 트랙, 브리드 전용 SD를 추가했습니다.'}]},
   {id:'2026-09-24-replay-sd-batch22',date:'2026-09-24',title:'전투 결과 재생 — SD 4명 추가',items:[{tag:'개선',text:'맥스웰 : 오디너리 미케닉, 드레이크 : 그레이트 빌런, 라플라스 : 얼티밋 히어로, 은화 : 택티컬 업 전용 SD를 추가했습니다.'}]},
