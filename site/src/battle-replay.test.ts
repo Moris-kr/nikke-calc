@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  ammoAt, buffsOnAt, burstLogAt, burstStageAt, chargeAt, damageUntil, firingAt, fullBurstAt, gaugeAt,
+  ammoAt, buffsOnAt, burstLogAt, burstStageAt, chargeAt, damageUntil, firingAt, fullBurstAt, gaugeAt, headBuffsAt,
   openBattleReplay, patternsAt, poseAt, SD_SPRITES, spriteFor, DEFAULT_SD,
 } from './battle-replay';
 import { SD_IDS } from './sd-ids';
@@ -92,6 +92,17 @@ describe('시각 → 상태', () => {
     // 중첩 버프는 구간 대상이 라피([0])뿐이다.
     expect(buffsOnAt(timeline.buffs, '크라운', 1.6).map((row) => row.name)).toEqual(['공격력 증가']);
     expect(buffsOnAt(timeline.buffs, '크라운', 2.6)).toEqual([]);
+  });
+
+  it('머리 위 칩 순서 — 시간 정해진 버프가 앞(기록 순서), 판 끝까지 가는 버프는 뒤', () => {
+    const tracks = [
+      { name: '영구', caster: '라피', targets: ['라피'], stat: null, value: null, maxStack: 1, spans: [[0, 10, 1]] },
+      { name: '긴', caster: '라피', targets: ['라피'], stat: null, value: null, maxStack: 1, spans: [[0, 8, 1]] },
+      { name: '짧은', caster: '크라운', targets: ['라피'], stat: null, value: null, maxStack: 3, spans: [[1, 3, 2]] },
+    ] as unknown as BuffTrack[];
+    expect(headBuffsAt(tracks, '라피', 2, 10).map((row) => row.name)).toEqual(['긴', '짧은', '영구']);
+    // 버프 창은 여전히 남은 시간 순이다.
+    expect(buffsOnAt(tracks, '라피', 2).map((row) => row.name)).toEqual(['짧은', '긴', '영구']);
   });
 
   it('누적 딜은 칸 안에서 고르게 들어간 것으로 본다', () => {
@@ -257,6 +268,70 @@ describe('재생 창', () => {
     frames.shift()!(now);
     expect(Number(scrub.value)).toBe(5);
     expect(play.textContent).toBe('▶');
+  });
+
+  it('버프 창 ✕는 다시 그려도 같은 단추라 누르면 닫힌다 — 캐릭터 창·보스 창 모두', async () => {
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1);
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined);
+    openBattleReplay({ ...entry, deckId: 4 }, '덱 4', vi.fn().mockResolvedValue(full), { imageOf: () => undefined });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const scrub = document.querySelector<HTMLInputElement>('[data-replay-scrub]')!;
+    const seekTo = (time: number) => { scrub.value = String(time); scrub.dispatchEvent(new Event('input')); };
+    seekTo(1.6);
+    const panel = document.querySelector<HTMLElement>('[data-replay-buffs]')!;
+    document.querySelector<HTMLButtonElement>('[data-replay-slot="라피"]')!.click();
+    expect(panel.hidden).toBe(false);
+    const x = panel.querySelector<HTMLButtonElement>('[data-replay-buffs-close]')!;
+    // 재생 중처럼 한 번 더 그린다 — ✕가 새 단추로 바뀌면 누르는 사이에 클릭이 사라진다(제보).
+    seekTo(1.7);
+    expect(panel.querySelector('[data-replay-buffs-close]')).toBe(x);
+    x.click();
+    expect(panel.hidden).toBe(true);
+    document.querySelector<HTMLButtonElement>('[data-replay-enemy]')!.click();
+    expect(panel.hidden).toBe(false);
+    seekTo(1.8);
+    panel.querySelector<HTMLButtonElement>('[data-replay-buffs-close]')!.click();
+    expect(panel.hidden).toBe(true);
+  });
+
+  it('머리 위 버프 칩(중첩 수) · 탄착 필터 · 적 피격 효과', async () => {
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1);
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined);
+    openBattleReplay({ ...entry, deckId: 5 }, '덱 5', vi.fn().mockResolvedValue(full), { imageOf: () => undefined });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const scrub = document.querySelector<HTMLInputElement>('[data-replay-scrub]')!;
+    const seekTo = (time: number) => { scrub.value = String(time); scrub.dispatchEvent(new Event('input')); };
+
+    // 1.6초 — 라피는 공격력 증가와 중첩 버프 ×3, 크라운은 공격력 증가만.
+    seekTo(1.6);
+    const chips = [...document.querySelectorAll<HTMLElement>('[data-replay-slot-buffs="라피"] [data-replay-slot-buff]')];
+    expect(chips.map((chip) => [chip.dataset.replaySlotBuff, chip.querySelector('b')?.textContent ?? null]))
+      .toEqual([['공격력 증가', null], ['중첩 버프', '3']]);
+    expect(document.querySelectorAll('[data-replay-slot-buffs="크라운"] [data-replay-slot-buff]')).toHaveLength(1);
+
+    // 0.35초 — 라피 평타가 맞는 칸. 피격 범위가 번쩍이고 적도 피격 상태다.
+    expect(document.querySelector<HTMLElement>('[data-replay-filter]')!.hidden).toBe(false);
+    seekTo(0.35);
+    const hitbox = document.querySelector('.br-hitbox')!;
+    const enemyImage = document.querySelector('.br-enemy')!;
+    expect(hitbox.classList.contains('is-hit')).toBe(true);
+    expect(enemyImage.classList.contains('is-hit')).toBe(true);
+    // 라피 탄착을 끄면 보이는 탄이 없다 — 번쩍이지 않는다.
+    const lapi = document.querySelector<HTMLButtonElement>('[data-replay-filter-char="라피"]')!;
+    const all = document.querySelector<HTMLButtonElement>('[data-replay-filter-all]')!;
+    lapi.click();
+    expect(lapi.getAttribute('aria-pressed')).toBe('false');
+    expect(all.getAttribute('aria-pressed')).toBe('false');
+    expect(hitbox.classList.contains('is-hit')).toBe(false);
+    expect(enemyImage.classList.contains('is-hit')).toBe(false);
+    // 전체로 다시 켠다. 평타 종류를 끄면 역시 없다(라피는 코어 아닌 평타만 쐈다), 코어만 꺼서는 그대로다.
+    all.click();
+    expect(all.getAttribute('aria-pressed')).toBe('true');
+    expect(hitbox.classList.contains('is-hit')).toBe(true);
+    document.querySelector<HTMLButtonElement>('[data-replay-filter-kind="core"]')!.click();
+    expect(hitbox.classList.contains('is-hit')).toBe(true);
+    document.querySelector<HTMLButtonElement>('[data-replay-filter-kind="normal"]')!.click();
+    expect(hitbox.classList.contains('is-hit')).toBe(false);
   });
 
   it('계산이 실패하면 무대 대신 사유를 적는다', async () => {

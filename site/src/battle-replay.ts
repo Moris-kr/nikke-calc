@@ -6,8 +6,10 @@
  * 이벤트로 쏘지 않으므로 멈춰도, 뒤로 끌어도, 배속을 바꿔도 같은 시각은 늘 같은 그림이다.
  *
  * 화면:
- * * 가운데 적 한 마리와 동그란 피격 범위. 사격 칸마다 그 안에 탄흔이 튄다(표시용 표본).
- * * 아래 SD 다섯 — 재장전 구간이면 재장전 자세, 아니면 사격 자세. 누르면 그때 걸린 버프 창.
+ * * 가운데 적 한 마리와 동그란 피격 범위. 사격 칸마다 그 안에 탄흔이 튀고(표시용 표본) 적이 살짝
+ *   번쩍인다. 무대 아래 탄착 필터로 니케별·종류별(평타·코어·스킬) 탄흔만 골라 본다.
+ * * 아래 SD 다섯 — 재장전 구간이면 재장전 자세, 아니면 사격 자세. 머리 위에 받는 버프 칩(시전자
+ *   얼굴·중첩), 누르면 그때 걸린 버프 창.
  * * 오른쪽 가운데 버스트 게이지, 왼쪽에는 버스트 사용 내역이 아래에서 위로 쌓인다.
  *
  * SD는 지금 모두 같은 회색 자리표시자다. 캐릭터별 SD는 `SD_SPRITES`에 이름으로 넣으면 된다.
@@ -59,6 +61,13 @@ const AMMO_INFINITE = 99_999;
 const SHOOT_WINDOW = 0.45;
 /** 탄흔이 남아 있는 시간(초). */
 const SPARK_SECONDS = 0.35;
+/** 머리 위 버프 칩 최대 개수. 넘치면 앞의 몇 개와 `+N`. */
+const HEAD_BUFFS = 8;
+
+/** 탄흔 종류 — 탄착 필터의 단위. 코어는 평타 가운데 코어에 맞은 것이다. */
+export type ImpactKind = 'normal' | 'core' | 'skill';
+const IMPACT_KINDS: ImpactKind[] = ['normal', 'core', 'skill'];
+const IMPACT_LABEL: Record<ImpactKind, string> = { normal: '평타', core: '코어', skill: '스킬' };
 
 // ── 순수 계산 (시각 → 그 순간의 상태) ─────────────────────────────────────
 
@@ -158,22 +167,41 @@ export interface ActiveBuffRow {
   value: number | null;
 }
 
-/** 그 시각에 `target`이 받고 있는 버프. 남은 시간이 짧은 것부터. */
-export function buffsOnAt(tracks: BuffTrack[] | undefined, target: string, time: number): ActiveBuffRow[] {
-  const rows: ActiveBuffRow[] = [];
+/** 그 시각에 `target`이 받고 있는 버프 — 기록 순서대로, 구간 끝(`to`)과 함께. */
+function activeBuffs(tracks: BuffTrack[] | undefined, target: string, time: number): Array<{ row: ActiveBuffRow; to: number }> {
+  const rows: Array<{ row: ActiveBuffRow; to: number }> = [];
   for (const track of tracks ?? []) {
     for (const span of track.spans) {
       const [from, to, stack] = span;
       if (time < from || time >= to) continue;
       if (!spanTargets(track, span).includes(target)) continue;
       rows.push({
-        name: track.name, caster: track.caster, stack, maxStack: track.maxStack,
-        remaining: to - time, stat: track.stat ?? null, value: track.value ?? null,
+        row: {
+          name: track.name, caster: track.caster, stack, maxStack: track.maxStack,
+          remaining: to - time, stat: track.stat ?? null, value: track.value ?? null,
+        },
+        to,
       });
       break;
     }
   }
-  return rows.sort((a, b) => a.remaining - b.remaining || a.name.localeCompare(b.name, 'ko'));
+  return rows;
+}
+
+/** 그 시각에 `target`이 받고 있는 버프. 남은 시간이 짧은 것부터. */
+export function buffsOnAt(tracks: BuffTrack[] | undefined, target: string, time: number): ActiveBuffRow[] {
+  return activeBuffs(tracks, target, time).map(({ row }) => row)
+    .sort((a, b) => a.remaining - b.remaining || a.name.localeCompare(b.name, 'ko'));
+}
+
+/**
+ * 머리 위 버프 칩의 순서 — 시간이 정해진 버프가 앞, 판 끝(`duration`)까지 가는 버프는 뒤.
+ * 같은 무리 안에서는 기록 순서라 버프가 갱신돼도 칩이 자리를 바꾸지 않는다.
+ */
+export function headBuffsAt(tracks: BuffTrack[] | undefined, target: string, time: number, duration: number): ActiveBuffRow[] {
+  const rows = activeBuffs(tracks, target, time);
+  const lasting = (to: number) => (to >= duration - 1e-6 ? 1 : 0);
+  return rows.sort((a, b) => lasting(a.to) - lasting(b.to)).map(({ row }) => row);
 }
 
 /** 그 시각까지 넣은 딜. 칸 안에서는 고르게 들어갔다고 본다. */
@@ -366,6 +394,7 @@ export function openBattleReplay(
   const slots: Array<{
     name: string; root: HTMLButtonElement; sprite: HTMLImageElement; ammo: HTMLElement; ammoFill: HTMLElement;
     mark: HTMLElement; charge: HTMLElement; chargeFill: HTMLElement; chargeText: HTMLElement; dealt: HTMLElement;
+    buffs: HTMLElement; buffKey: string;
   }> = [];
   squad.forEach((name, index) => {
     const root = el('button', 'br-slot');
@@ -379,6 +408,9 @@ export function openBattleReplay(
     sprite.alt = '';
     sprite.draggable = false;
     const mark = el('span', 'br-mark');
+    // 머리 위 버프 — 적 디버프 칩처럼 시전자 얼굴과 중첩 수. 누르는 건 자리 단추가 받는다.
+    const buffs = el('span', 'br-slot-buffs');
+    buffs.dataset.replaySlotBuffs = name;
     // 차징 — 머리 위 막대와 %. 풀차지 배율(예: 285%)까지 오른다.
     const charge = el('span', 'br-charge');
     charge.dataset.replayCharge = name;
@@ -396,15 +428,27 @@ export function openBattleReplay(
     const dealt = el('span', 'br-dealt');
     dealt.dataset.replayDealt = name;
     cardRow.append(faceNode(name, deps, 'br-card-face'), ammo, ammoBar, dealt);
-    root.append(charge, mark, sprite, cardRow);
+    // 버프 칩은 머리 바로 위 — RELOAD·차징은 그 위에 뜬다.
+    root.append(charge, mark, buffs, sprite, cardRow);
     squadRow.append(root);
-    slots.push({ name, root, sprite, ammo, ammoFill, mark, charge, chargeFill, chargeText, dealt });
+    slots.push({ name, root, sprite, ammo, ammoFill, mark, charge, chargeFill, chargeText, dealt, buffs, buffKey: '' });
   });
 
   const buffPanel = el('div', 'br-buffs');
   buffPanel.dataset.replayBuffs = '';
   buffPanel.hidden = true;
   buffPanel.setAttribute('role', 'dialog');
+  // 머리줄과 ✕는 한 번만 만든다. 재생 중에는 프레임마다 다시 그리는데, ✕까지 새로 만들면
+  // 누르는 사이(pointerdown → pointerup)에 단추가 바뀌어 클릭이 사라진다(제보 2026-09-23).
+  const buffHead = el('div', 'br-buffs-head');
+  const buffTime = el('span');
+  const buffClose = el('button', 'br-buffs-close', '✕');
+  buffClose.type = 'button';
+  buffClose.dataset.replayBuffsClose = '';
+  buffClose.setAttribute('aria-label', t('버프 창 닫기'));
+  const buffBody = el('div', 'br-buffs-body');
+  buffPanel.append(buffHead, buffBody);
+  let buffHeadFor: string | null = null;
 
   // 적 — 누르면 걸린 버프·디버프 창. 그림과 피격 범위 어디를 눌러도 된다.
   const enemyHit = el('button', 'br-enemy-hit');
@@ -444,8 +488,45 @@ export function openBattleReplay(
   const timeText = el('output', 'br-time');
   controls.append(play, speedButton, scrub, timeText);
 
+  // 탄착 필터 — 니케별·종류별로 탄흔을 켜고 끈다. 피격 번쩍임도 보이는 탄만 따른다.
+  const shownChars = new Set(squad);
+  const shownKinds = new Set<ImpactKind>(IMPACT_KINDS);
+  const filterBar = el('div', 'br-filter');
+  filterBar.dataset.replayFilter = '';
+  filterBar.hidden = true;
+  filterBar.setAttribute('role', 'group');
+  filterBar.setAttribute('aria-label', t('탄착 필터'));
+  const filterChip = (className: string, title: string): HTMLButtonElement => {
+    const chip = el('button', `br-filter-chip${className ? ` ${className}` : ''}`);
+    chip.type = 'button';
+    chip.title = title;
+    return chip;
+  };
+  const allChip = filterChip('is-all', t('모든 탄착 다시 보기'));
+  allChip.textContent = t('전체');
+  allChip.dataset.replayFilterAll = '';
+  const charChips = squad.map((name) => {
+    const chip = filterChip('', `${name} · ${t('눌러서 이 니케의 탄착 켜기·끄기')}`);
+    chip.dataset.replayFilterChar = name;
+    chip.append(faceNode(name, deps, 'br-filter-face'), el('span', '', name));
+    return chip;
+  });
+  const kindChips = IMPACT_KINDS.map((kind) => {
+    const chip = filterChip(`is-${kind}`, t('눌러서 이 종류의 탄착 켜기·끄기'));
+    chip.dataset.replayFilterKind = kind;
+    chip.append(el('i', 'br-filter-dot'), el('span', '', t(IMPACT_LABEL[kind])));
+    return chip;
+  });
+  filterBar.append(el('span', 'br-filter-label', t('탄착점')), allChip, ...charChips, el('span', 'br-filter-sep'), ...kindChips);
+  const syncFilter = () => {
+    charChips.forEach((chip, index) => chip.setAttribute('aria-pressed', String(shownChars.has(squad[index]!))));
+    kindChips.forEach((chip, index) => chip.setAttribute('aria-pressed', String(shownKinds.has(IMPACT_KINDS[index]!))));
+    allChip.setAttribute('aria-pressed', String(shownChars.size === squad.length && shownKinds.size === IMPACT_KINDS.length));
+  };
+  syncFilter();
+
   const note = el('p', 'replay-note', t('SD 캐릭터와 적은 모든 니케에 공통인 자리표시 그림입니다. 탄흔 위치는 표시용 표본이며 계산에는 쓰이지 않습니다. 가로 화면에서 크게 볼 수 있습니다.'));
-  card.append(head, status, stage, controls, note);
+  card.append(head, status, stage, controls, filterBar, note);
   overlay.append(card);
   document.body.append(overlay);
 
@@ -531,28 +612,31 @@ export function openBattleReplay(
     const firstIndex = Math.max(0, Math.floor((cursor - SPARK_SECONDS) / shots.bucket));
     squad.forEach((name, slot) => {
       const row = shots.chars[name];
-      if (!row) return;
+      if (!row || !shownChars.has(name)) return;
       // 총구 — 자리 가운데에서 조금 오른쪽 위(회색 SD가 총을 오른쪽으로 겨눈다).
       const muzzleX = (0.14 + slot * 0.18 + 0.035) * width;
       const muzzleY = 0.63 * height;
       for (let i = firstIndex; i <= lastIndex; i += 1) {
         const normal = row.normal[i] ?? 0;
         const skill = row.skill[i] ?? 0;
-        const core = row.core[i] ?? 0;
-        const count = Math.min(6, normal + skill);
-        if (count === 0) continue;
+        const core = Math.min(normal, row.core[i] ?? 0);
+        if (normal + skill === 0) continue;
         const age = cursor - i * shots.bucket;
         if (age < 0) continue;
         const alpha = Math.max(0, 1 - age / SPARK_SECONDS);
-        for (let k = 0; k < count; k += 1) {
+        // 족자 중 평타는 빗나간다 — 회색으로 흩어진다. 스킬은 그대로 맞는다.
+        const immune = patternsAt(entry.request, i * shots.bucket).immune;
+        // 칸마다 최대 6발. k는 필터 전 순서(코어 → 평타 → 스킬)라 필터를 바꿔도 탄흔 자리가 그대로다.
+        let drawn = 0;
+        for (let k = 0; k < normal + skill && drawn < 6; k += 1) {
+          const kind: ImpactKind = k >= normal ? 'skill' : k < core ? 'core' : 'normal';
+          if (!shownKinds.has(kind)) continue;
           const angle = hash(slot * 131 + k, i) * Math.PI * 2;
           const dist = Math.sqrt(hash(i, slot * 17 + k + 5)) * radius * 0.92;
           const x = cx + Math.cos(angle) * dist;
           const y = cy + Math.sin(angle) * dist;
-          const isSkill = k >= normal;
-          const isCore = !isSkill && k < core;
           // 사선 — 쏜 직후 아주 잠깐만.
-          if (age < 0.08 && k === 0) {
+          if (age < 0.08 && drawn === 0) {
             ctx.strokeStyle = `rgba(255,236,190,${(0.55 * (1 - age / 0.08)).toFixed(3)})`;
             ctx.lineWidth = Math.max(1, width / 900);
             ctx.beginPath();
@@ -560,18 +644,34 @@ export function openBattleReplay(
             ctx.lineTo(x, y);
             ctx.stroke();
           }
-          const size = (isSkill ? 7 : 4) * (width / 1280) * (0.6 + 0.4 * alpha);
-          // 족자 중 평타는 빗나간다 — 회색으로 흩어진다. 스킬은 그대로 맞는다.
-          const missed = !isSkill && patternsAt(entry.request, i * shots.bucket).immune;
-          ctx.fillStyle = isSkill ? `rgba(196,140,255,${alpha.toFixed(3)})`
-            : missed ? `rgba(170,178,186,${(alpha * 0.8).toFixed(3)})`
-            : isCore ? `rgba(255,208,97,${alpha.toFixed(3)})` : `rgba(255,120,90,${alpha.toFixed(3)})`;
+          drawn += 1;
+          const size = (kind === 'skill' ? 7 : 4) * (width / 1280) * (0.6 + 0.4 * alpha);
+          ctx.fillStyle = kind === 'skill' ? `rgba(196,140,255,${alpha.toFixed(3)})`
+            : immune ? `rgba(170,178,186,${(alpha * 0.8).toFixed(3)})`
+            : kind === 'core' ? `rgba(255,208,97,${alpha.toFixed(3)})` : `rgba(255,120,90,${alpha.toFixed(3)})`;
           ctx.beginPath();
           ctx.arc(x, y, size, 0, Math.PI * 2);
           ctx.fill();
         }
       }
     });
+  }
+
+  /** 칸 i에 필터를 통과해 **맞은** 탄 수. 족자 중(`immune`)에는 평타가 빗나가니 스킬만 센다. */
+  function shownHitsAt(shots: ShotTrack, i: number, immune: boolean): number {
+    let hits = 0;
+    for (const name of squad) {
+      const row = shots.chars[name];
+      if (!row || !shownChars.has(name)) continue;
+      if (!immune) {
+        const normal = row.normal[i] ?? 0;
+        const core = Math.min(normal, row.core[i] ?? 0);
+        if (shownKinds.has('core')) hits += core;
+        if (shownKinds.has('normal')) hits += normal - core;
+      }
+      if (shownKinds.has('skill')) hits += row.skill[i] ?? 0;
+    }
+    return hits;
   }
 
   function renderBuffPanel(res: SimulationResult) {
@@ -583,22 +683,20 @@ export function openBattleReplay(
     buffPanel.classList.toggle('is-enemy', isEnemy);
     buffPanel.style.setProperty('--slot', String(Math.max(0, index)));
     buffPanel.setAttribute('aria-label', isEnemy ? t('보스 버프·디버프') : `${name} ${t('버프')}`);
-    buffPanel.replaceChildren();
-    const headRow = el('div', 'br-buffs-head');
-    if (isEnemy) {
-      const face = el('i', 'br-face br-enemy-face');
-      face.style.backgroundImage = `url(${enemyUrl})`;
-      headRow.append(face, el('b', '', t('보스')), el('span', '', secondsText(cursor)));
-    } else headRow.append(faceNode(name, deps), el('b', '', name), el('span', '', secondsText(cursor)));
-    const x = el('button', 'br-buffs-close', '✕');
-    x.type = 'button';
-    x.setAttribute('aria-label', t('버프 창 닫기'));
-    x.addEventListener('click', (event) => { event.stopPropagation(); openBuffs = null; draw(); });
-    headRow.append(x);
-    buffPanel.append(headRow);
+    // 머리줄은 대상이 바뀔 때만 다시 짠다 — ✕는 늘 같은 단추다.
+    if (buffHeadFor !== name) {
+      buffHeadFor = name;
+      if (isEnemy) {
+        const face = el('i', 'br-face br-enemy-face');
+        face.style.backgroundImage = `url(${enemyUrl})`;
+        buffHead.replaceChildren(face, el('b', '', t('보스')), buffTime, buffClose);
+      } else buffHead.replaceChildren(faceNode(name, deps), el('b', '', name), buffTime, buffClose);
+    }
+    buffTime.textContent = secondsText(cursor);
+    buffBody.replaceChildren();
     const rows = buffsOnAt(res.timeline?.buffs, name, cursor);
     if (rows.length === 0) {
-      buffPanel.append(el('p', 'br-buffs-empty', !res.timeline?.buffs ? t('이 결과에는 버프 기록이 없습니다.')
+      buffBody.append(el('p', 'br-buffs-empty', !res.timeline?.buffs ? t('이 결과에는 버프 기록이 없습니다.')
         : isEnemy ? t('지금 보스에게 걸린 버프·디버프가 없습니다.') : t('지금 걸린 버프가 없습니다.')));
       return;
     }
@@ -615,7 +713,7 @@ export function openBattleReplay(
       item.append(el('span', 'br-buff-left', Number.isFinite(row.remaining) && row.remaining < duration ? secondsText(row.remaining) : '∞'));
       list.append(item);
     }
-    buffPanel.append(list);
+    buffBody.append(list);
   }
 
   function draw() {
@@ -722,15 +820,39 @@ export function openBattleReplay(
         slot.charge.classList.toggle('is-full', charging.full);
       }
       slot.dealt.textContent = formatDamage(damageUntil(timeline, slot.name, cursor));
+      // 머리 위 버프 칩 — 걸린 것이 바뀔 때만 다시 만든다.
+      const onMe = headBuffsAt(timeline?.buffs, slot.name, cursor, duration);
+      const buffKey = JSON.stringify(onMe.map((row) => [row.name, row.caster, row.stack]));
+      if (buffKey !== slot.buffKey) {
+        slot.buffKey = buffKey;
+        const shown = onMe.length > HEAD_BUFFS ? onMe.slice(0, HEAD_BUFFS - 1) : onMe;
+        slot.buffs.replaceChildren(...shown.map((row) => {
+          const chip = el('span', 'br-slot-buff');
+          chip.dataset.replaySlotBuff = row.name;
+          chip.append(faceNode(row.caster, deps, 'br-slot-buff-face'));
+          if (row.stack > 1) chip.append(el('b', '', String(row.stack)));
+          return chip;
+        }));
+        if (shown.length < onMe.length) slot.buffs.append(el('span', 'br-slot-buff is-more', `+${onMe.length - shown.length}`));
+      }
     }
 
-    // 피격 범위 — 이번 칸에 맞은 게 있으면 테두리가 한 번 번쩍인다.
-    const hitNow = res.shots ? squad.some((name) => {
-      const row = res.shots!.chars[name];
-      const i = indexAt(res.shots!, cursor);
-      return row ? (row.normal[i] ?? 0) + (row.skill[i] ?? 0) > 0 : false;
-    }) : false;
-    hitbox.classList.toggle('is-hit', hitNow);
+    // 피격 — 이번 칸에 (보이는 탄이) 맞았으면 피격 범위 테두리가 번쩍이고, 적이 살짝 밝아지며 떨린다.
+    // 세기는 맞은 수로 정하고 칸 안에서 사그라든다. 시각으로 정하니 멈추면 그 모습 그대로 선다.
+    let hitPower = 0;
+    let hitIndex = 0;
+    if (res.shots) {
+      hitIndex = indexAt(res.shots, cursor);
+      const hits = shownHitsAt(res.shots, hitIndex, pat.immune);
+      const phase = Math.min(1, Math.max(0, cursor / res.shots.bucket - hitIndex));
+      hitPower = hits > 0 ? Math.min(1, 0.45 + hits / 10) * (1 - 0.5 * phase) : 0;
+    }
+    hitbox.classList.toggle('is-hit', hitPower > 0);
+    enemy.classList.toggle('is-hit', hitPower > 0);
+    enemy.style.setProperty('--hit', hitPower.toFixed(3));
+    enemy.style.setProperty('translate', hitPower > 0
+      ? `${((hash(hitIndex, 7919) - 0.5) * 0.3 * hitPower).toFixed(3)}cqw ${((hash(7919, hitIndex) - 0.5) * 0.16 * hitPower).toFixed(3)}cqw`
+      : '');
 
     renderBuffPanel(res);
     drawEffects(res);
@@ -784,6 +906,29 @@ export function openBattleReplay(
     openBuffs = openBuffs === ENEMY ? null : ENEMY;
     draw();
   });
+  buffClose.addEventListener('click', (event) => {
+    event.stopPropagation();
+    openBuffs = null;
+    draw();
+  });
+  allChip.addEventListener('click', () => {
+    for (const name of squad) shownChars.add(name);
+    for (const kind of IMPACT_KINDS) shownKinds.add(kind);
+    syncFilter();
+    draw();
+  });
+  charChips.forEach((chip, index) => chip.addEventListener('click', () => {
+    const name = squad[index]!;
+    if (!shownChars.delete(name)) shownChars.add(name);
+    syncFilter();
+    draw();
+  }));
+  kindChips.forEach((chip, index) => chip.addEventListener('click', () => {
+    const kind = IMPACT_KINDS[index]!;
+    if (!shownKinds.delete(kind)) shownKinds.add(kind);
+    syncFilter();
+    draw();
+  }));
 
   void (async () => {
     try {
@@ -810,6 +955,7 @@ export function openBattleReplay(
         : t('준비되는 대로 재생합니다. 스페이스로 멈추고, SD 캐릭터나 보스를 누르면 그 순간 걸린 버프가 보입니다.');
       stage.hidden = false;
       controls.hidden = false;
+      filterBar.hidden = false;
       sizeCanvas();
       draw();
       play.focus();
