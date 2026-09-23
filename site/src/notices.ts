@@ -21,6 +21,7 @@ export interface Notice {
 
 /** 최신이 맨 앞. */
 export const NOTICES: Notice[] = [
+  {id:'2026-09-23-replay-sd-batch11',date:'2026-09-23',title:'전투 결과 재생 — SD 5명 추가',items:[{tag:'개선',text:'엠마, 베스티, 은화, 폴리, 길로틴 전용 SD를 추가했습니다.'}]},
   {id:'2026-09-23-replay-sd-batch10',date:'2026-09-23',title:'전투 결과 재생 — SD 5명 추가',items:[{tag:'개선',text:'라플라스, 크로우, 센티, 디젤, 솔린 전용 SD를 추가했습니다.'}]},
   {id:'2026-09-23-replay-sd-batch9',date:'2026-09-23',title:'전투 결과 재생 — SD 5명 추가',items:[{tag:'개선',text:'홍련, 스노우 화이트, 엑시아, 맥스웰, 드레이크 전용 SD를 추가했습니다.'}]},
   {id:'2026-09-23-replay-sd-batch8',date:'2026-09-23',title:'전투 결과 재생 — SD 5명 추가',items:[{tag:'개선',text:'신데렐라, 그레이브, 마키마, 비스킷, 도로시 전용 SD를 추가했습니다.'}]},
