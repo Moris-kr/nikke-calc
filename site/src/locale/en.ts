@@ -1735,7 +1735,7 @@ export const EN: Record<string, string> = {
   "사라짐": "VANISHED",
   "지금 보스에게 걸린 버프·디버프가 없습니다.": "No buffs or debuffs on the boss right now.",
   "족자 · 평타 빗나감": "Evade · normal attacks miss",
-  "속성 저지 · {code}만 통과": "Element block · only {code} passes",
+  "속성 저지 {code} · {pass}만 통과": "Element block {code} · only {pass} passes",
   "코어 노출": "Core exposed",
   "방어력 {rate}%": "Defense {rate}%",
   "적정거리 · {weapons}": "Optimal range · {weapons}",

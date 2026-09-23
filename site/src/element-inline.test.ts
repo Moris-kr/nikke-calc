@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import {describe,it,expect} from 'vitest';
-import {inlineCodeIcon,bossElementHint,elementText,refreshElementSelect} from './element-inline';
+import {inlineCodeIcon,bossElementHint,elementText,refreshElementSelect,superiorCode} from './element-inline';
 describe('inline element icons',()=>{
  it('shows the correct weakness without dropping readable text',()=>{
   const hint=bossElementHint('작열');expect(hint.textContent).toBe('작열 보스 · 수냉 우월');
@@ -21,4 +21,8 @@ it('refreshes restored values without duplicate controls',()=>{
  expect(select.hidden).toBe(true);expect(host.querySelectorAll('button img')).toHaveLength(2);
  select.value='수냉';refreshElementSelect(select,'보스 코드');
  expect(host.querySelector('button')!.textContent).toBe('수냉 (전격이 우월)');expect(host.querySelectorAll('button')).toHaveLength(1);
+});
+it('속성 저지는 저지 코드가 아니라 그 코드에 우월한 코드만 통과한다',()=>{
+ expect(superiorCode('작열')).toBe('수냉');expect(superiorCode('수냉')).toBe('전격');expect(superiorCode('전격')).toBe('철갑');
+ expect(superiorCode('철갑')).toBe('풍압');expect(superiorCode('풍압')).toBe('작열');expect(superiorCode('')).toBe('');
 });

@@ -6,6 +6,8 @@ import iron from './assets/icon-code-iron.png';
 import './element-inline.css';
 const icons:Record<string,string>={작열:fire,수냉:water,풍압:wind,전격:electronic,철갑:iron};
 const weaknesses:Record<string,string>={작열:'수냉',수냉:'전격',전격:'철갑',철갑:'풍압',풍압:'작열'};
+/** 이 코드(보스·속성 저지)에 우월한 코드 — 작열이면 수냉. 없으면 빈 문자열. */
+export function superiorCode(code:string):string{return weaknesses[code]??'';}
 export function inlineCodeIcon(code?:string):HTMLElement{
  const span=document.createElement('span');span.className='inline-code-icons';span.setAttribute('aria-hidden','true');
  for(const key of code ? [code] : Object.keys(icons)){

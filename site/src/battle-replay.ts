@@ -18,7 +18,7 @@ import sdReloadUrl from './assets/replay/sd-reload.webp';
 import enemyUrl from './assets/replay/enemy.webp';
 import battleBgUrl from './assets/replay/battle-bg.webp';
 import { SD_IDS } from './sd-ids';
-import { inlineCodeIcon } from './element-inline';
+import { inlineCodeIcon, superiorCode } from './element-inline';
 import './battle-replay.css';
 import { formatDamage } from './model';
 import { statText } from './stat-names';
@@ -212,7 +212,7 @@ export function chargeAt(
 export interface BossPatterns {
   /** 족자 — 평타가 빗나간다(보스가 사라진다). */
   immune: boolean;
-  /** 속성 저지 — 이 코드만 통과한다. */
+  /** 속성 저지 코드. 이 코드에 **우월한** 코드(작열이면 수냉)만 통과한다. */
   element: string | null;
   /** 코어가 드러나 있나. 코어가 없는 판이면 null. */
   core: boolean | null;
@@ -671,7 +671,11 @@ export function openBattleReplay(
       patterns.append(chip);
     };
     if (pat.immune) badge(t('족자 · 평타 빗나감'), 'immune');
-    if (pat.element) badge(t('속성 저지 · {code}만 통과', { code: pat.element }), 'element', inlineCodeIcon(pat.element));
+    if (pat.element) {
+      // 저지 코드가 아니라 **그 코드에 우월한** 코드가 통과한다 — 작열 저지면 수냉만.
+      const pass = superiorCode(pat.element) || pat.element;
+      badge(t('속성 저지 {code} · {pass}만 통과', { code: pat.element, pass }), 'element', inlineCodeIcon(pass));
+    }
     if (pat.core === true && !pat.immune && (entry.request.coreWindows?.length ?? 0) > 0) badge(t('코어 노출'), 'core');
     if (pat.defenseRate !== null) badge(t('방어력 {rate}%', { rate: pat.defenseRate }), 'defense');
     if (pat.optimal) badge(t('적정거리 · {weapons}', { weapons: pat.optimal.join('·') }), 'optimal');
