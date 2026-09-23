@@ -2999,6 +2999,25 @@ img[src*="/temporary-characters/"][src$="-card.png"] { object-fit: contain; obje
 .raid-ghost.is-danger:hover { border-color: var(--danger, #ff7787); color: #ffd7de; }
 .raid-verify-out { color: var(--cyan); font: 700 11px/1.4 ui-monospace, monospace; }
 .raid-fine { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: 11px; }
+/* 랭킹 — 모바일(640px 이하)은 표 대신 두 줄 카드로 쌓는다(제보 2026-09-23: 모바일에서 PC 표 그대로라
+   가로로 밀어야 했다). 윗줄 순위·참가자·합산, 아랫줄 덱 얼굴·펼치기. 펼친 상세와 «11위부터» 금은 한 칸 전체. */
+@media (max-width: 640px) {
+  .raid-scroll { overflow-x: visible; }
+  .raid-table { min-width: 0; }
+  .raid-table, .raid-table tbody { display: block; }
+  .raid-table thead { display: none; }
+  .raid-row { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto;
+    grid-template-areas: "rank who total" "rank deck chev"; align-items: center; border-bottom: 1px solid var(--line); }
+  .raid-row td { border-bottom: 0; padding: 7px 8px; }
+  .raid-row.is-podium td { padding-top: 8px; padding-bottom: 8px; }
+  .raid-row td.raid-rank { grid-area: rank; width: auto; align-self: stretch; display: grid; place-items: center; }
+  .raid-row td:nth-child(2) { grid-area: who; min-width: 0; }
+  .raid-row td.raid-deckcell { grid-area: deck; white-space: normal; padding-top: 0; }
+  .raid-row td.raid-total { grid-area: total; }
+  .raid-row td.raid-chev { grid-area: chev; padding-top: 0; justify-self: end; }
+  .raid-detail-row, .raid-cut, .raid-detail-row td, .raid-cut td { display: block; }
+  .raid-detail-row[hidden] { display: none; }
+}
 @media (max-width: 640px) {
   .raid-deck-line, .raid-result, .raid-detail { grid-template-columns: 1fr; }
   .raid-submit-row { grid-column: 1; grid-row: auto; }

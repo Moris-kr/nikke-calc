@@ -3,7 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
-  controlRuleNotes, hasOverloadLines, overloadLinesOf, overloadTotals, recommendedControlText,
+  buffTargetsVary, controlRuleNotes, hasOverloadLines, overloadLinesOf, overloadTotals, recommendedControlText,
   renderCharacterSettings, withParticle,
 } from './character-settings';
 import type { BuffTargetRow, CharacterOverrides, SettingsCatalog } from './types';
@@ -1227,5 +1227,23 @@ describe.each(['길티 : 마이티 바니', '신 : 스위프트 바니'])('%s �
     const host = document.createElement('div');
     renderCharacterSettings(host, '리타', settings, {}, () => {});
     expect(host.querySelector('[data-bunny-mode]')).toBeNull();
+  });
+});
+
+describe('버프 대상이 갈렸나', () => {
+  it('한 번에 둘이 받아도 발동마다 같은 묶음이면 갈리지 않았다 — 미란다 애장품 「파워 업!」', () => {
+    const row = { label: '파워 업! 대상', buff: '파워 업!', count: 4, targets: ['스노우 화이트 : 헤비암즈', '프리바티'],
+      sequence: [{ t: 2.87, target: '스노우 화이트 : 헤비암즈' }, { t: 2.87, target: '프리바티' },
+        { t: 15.4, target: '프리바티' }, { t: 15.4, target: '스노우 화이트 : 헤비암즈' }] };
+    expect(buffTargetsVary(row)).toBe(false);
+  });
+  it('발동마다 받은 사람이 바뀌면 갈렸다', () => {
+    const row = { label: 'x 대상', buff: 'x', count: 2, targets: ['A', 'B'],
+      sequence: [{ t: 1, target: 'A' }, { t: 2, target: 'B' }] };
+    expect(buffTargetsVary(row)).toBe(true);
+  });
+  it('발동 기록이 없는 예전 결과는 받은 사람이 둘 이상이면 갈린 것으로 본다', () => {
+    expect(buffTargetsVary({ label: 'x 대상', buff: 'x', count: 2, targets: ['A', 'B'] })).toBe(true);
+    expect(buffTargetsVary({ label: 'x 대상', buff: 'x', count: 2, targets: ['A'] })).toBe(false);
   });
 });

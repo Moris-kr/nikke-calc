@@ -3179,6 +3179,19 @@ export function _resolve_cameras(squad: Dict[], cfg: Dict): Set<string> {
   if (mode === 'shared' && truthy(controlled)) {
     return new Set(controlled);
   }
+  // 톡톡이는 **직접 조작**이다 — 톡톡이를 하는 차지 무기 니케가 곧 조작 중인(메인) 니케다.
+  // 예전에는 컨트롤을 켠 니케가 둘 이상이면(기본 재장전 컨트롤을 가진 홍련 : 흑영 등) 3번 자리로
+  // 돌아가, 톡톡이 니케와 3번 자리 차지 무기가 **둘 다** 조작되는 셈이 되어 3번 자리가 풀차지
+  // 게이지 보너스를 따로 받았다(제보 2026-09-23: «톡톡이와 메인 니케 버충 보너스 중복»). 톡톡이가
+  // 여럿이면 앞자리 것 하나.
+  const slot_order: string[] = [...(or(get(cfg, '_slot_order'), squad.map((c) => item(c, 'name'))) as string[])];
+  const tapping = new Set(squad
+    .filter((c) => truthy(get(or(get(c, 'control'), {}), 'tap_fire')) && _is_charge_nikke(item(c, 'name')))
+    .map((c) => item(c, 'name') as string));
+  const first_tapper = slot_order.find((n) => tapping.has(n));
+  if (first_tapper !== undefined) {
+    return new Set([first_tapper]);
+  }
   if (controlled.length === 1 && _is_charge_nikke(controlled[0]!)) {
     return new Set(controlled);
   }

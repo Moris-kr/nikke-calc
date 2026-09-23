@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { ENGINE_DATA_FILES, setEngineData } from './data';
 import { run_request } from './bridge';
+import { _resolve_cameras } from './timeline';
 
 const ROOT = resolve(__dirname, '..', '..', '..');
 
@@ -27,4 +28,16 @@ describe('편성 자리와 무관한 결과', () => {
       for (const name of orders[0]!) expect(r.charTotals[name]).toBe(results[0]!.charTotals[name]);
     }
   }, 60_000);
+
+  it('톡톡이를 하는 차지 무기 니케가 메인 — 다른 니케가 컨트롤을 켜도 3번 자리로 돌아가지 않는다(제보 2026-09-23)', () => {
+    const [A, S, H, C] = ['아인', '스노우 화이트 : 헤비암즈', '홍련 : 흑영', '크라운'];
+    const squad = [{ name: A, control: { tap_fire: { rate: 5 } } }, { name: S }, { name: H, control: { reload: { cancel_on_full: true } } }, { name: C }];
+    // 자리: 크라운, 홍련 : 흑영, 스노우 화이트(3번), …, 아인(5번 쯤)
+    expect([..._resolve_cameras(squad, { _slot_order: [C, H, S, 'x', A] })]).toEqual([A]);
+    // 톡톡이가 없으면 예전 규칙 — 컨트롤을 켠 차지 무기가 하나(홍련 : 흑영)면 그 니케, 아무도 없으면 3번 자리
+    const noTap = squad.map((c) => (c.name === A ? { name: A } : c));
+    expect([..._resolve_cameras(noTap, { _slot_order: [C, H, S, 'x', A] })]).toEqual([H]);
+    const noControl = squad.map((c) => ({ name: c.name }));
+    expect([..._resolve_cameras(noControl, { _slot_order: [C, H, S, 'x', A] })]).toEqual([S]);
+  });
 });

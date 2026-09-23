@@ -483,7 +483,8 @@ export function normalize_synchro_level(raw: any): number | null {
 // 「누가 이 버프를 받았나」를 카드에 띄울 버프들.
 export const BUFF_TARGET_WATCH: Record<string, ReadonlyArray<readonly [string, string]>> = {
   '리버렐리오': [['차분한 수심 4', '차분한 수심 대상']],
-  '미란다': [['웨이크업! 4', '크확 대상']],
+  // 「파워 업!」 — 자신 제외 최종 공격력 최고 아군(애장품 판본은 2명). 버스트 순간 공격력으로 갈린다(제보 2026-09-23).
+  '미란다': [['웨이크업! 4', '크확 대상'], ['파워 업!', '파워 업! 대상']],
 };
 
 // py: calculator/customization.py:440

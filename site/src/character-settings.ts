@@ -83,6 +83,21 @@ const cloneOverrides = (value: CharacterOverrides): CharacterOverrides => ({
   ...(value.weaponModeSwapAt !== undefined ? { weaponModeSwapAt: value.weaponModeSwapAt } : {}),
 });
 
+/**
+ * 버프 대상이 전투 중 갈렸나. 발동 시각마다 받은 사람 묶음을 모아, 묶음이 모두 같으면 갈리지 않았다.
+ * 발동 기록이 없는 예전 결과는 «받은 사람이 둘 이상»으로 본다.
+ */
+export function buffTargetsVary(row: BuffTargetRow): boolean {
+  if (!row.sequence?.length) return row.targets.length > 1;
+  const casts = new Map<number, Set<string>>();
+  for (const { t: at, target } of row.sequence) {
+    if (!casts.has(at)) casts.set(at, new Set());
+    casts.get(at)!.add(target);
+  }
+  const keys = [...casts.values()].map((set) => [...set].sort().join('\u0000'));
+  return keys.some((key) => key !== keys[0]);
+}
+
 export function defaultCharacterOverrides(
   name: string,
   catalog: SettingsCatalog,
@@ -475,8 +490,9 @@ export function renderCharacterSettings(
     box.append(label);
     const who = document.createElement('b');
     // 대상이 전투 중 갈리면 이름을 나열해도 읽히지 않는다 — 특이케이스로 접고
-    // 실제 순서는 「순서보기」로 넘긴다.
-    const special = row.targets.length > 1;
+    // 실제 순서는 「순서보기」로 넘긴다. **한 번에 여럿이 받는** 버프(미란다 애장품 「파워 업!」은
+    // 공격력 상위 2명)는 발동마다 같은 묶음이면 갈린 게 아니므로 이름을 그대로 보인다.
+    const special = buffTargetsVary(row);
     // 미리 계산은 배경에서 돈다. 빈 괄호만 보이면 기능이 꺼진 것처럼 보이므로
     // 도는 동안은 그렇다고 적는다.
     who.textContent = row.pending ? t('[계산중]')
