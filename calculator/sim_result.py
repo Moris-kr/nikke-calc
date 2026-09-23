@@ -215,6 +215,8 @@ class SimLog:
     # 전 캐릭터의 재장전 시작/완료 이벤트 시간순 목록
 
     ammo_log: list[AmmoLogEntry] = field(default_factory=list)
+    # 그때그때의 최대 장탄(바뀔 때만). 재생 화면 표시용 — `ammo`에 최대 장탄이 들어간다.
+    max_ammo_log: list[AmmoLogEntry] = field(default_factory=list)
     # 버스트 게이지 가산 내역 (두 모드 모두 기록)
     gauge_log: list[GaugeLogEntry] = field(default_factory=list)
     # 탄환 수 변화 이벤트 목록 (발사·재장전 완료·탄환 충전)

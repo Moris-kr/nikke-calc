@@ -129,8 +129,11 @@ export function firingAt(shots: ShotTrack | undefined, name: string, time: numbe
 export function ammoAt(states: StateTrack | undefined, name: string, time: number): { ammo: number | null; max: number } {
   const row = states?.chars[name];
   if (!row || !states) return { ammo: 0, max: 0 };
-  const ammo = row.ammo[indexAt(states, time)] ?? 0;
-  return { ammo: ammo >= AMMO_INFINITE ? null : ammo, max: row.maxAmmo >= AMMO_INFINITE ? 0 : row.maxAmmo };
+  const index = indexAt(states, time);
+  const ammo = row.ammo[index] ?? 0;
+  // 최대 장탄은 그 시각의 값(장탄 버프가 붙고 빠지는 대로). 예전 결과는 판 전체의 최댓값뿐이다.
+  const max = row.maxAmmoTrack?.[index] ?? row.maxAmmo;
+  return { ammo: ammo >= AMMO_INFINITE ? null : ammo, max: max >= AMMO_INFINITE ? 0 : max };
 }
 
 export interface BurstLogRow { name: string; cast: BurstCast; age: number }

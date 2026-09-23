@@ -396,6 +396,7 @@ export class CharState {
   _post_reload_end_t!: number;
   next_fire_time!: number;
   _sim_log!: SimLog | null;
+  _logged_max_ammo!: number | null;
   warmup_shots!: number;
   last_fire_t!: number;
   _last_inter!: number;
@@ -503,6 +504,8 @@ export class CharState {
     this._post_reload_end_t = -1.0;
     this.next_fire_time = 0.0;
     this._sim_log = null;
+    // 마지막으로 기록한 최대 장탄(`_note_max_ammo`). 표시용 — 계산에는 쓰지 않는다.
+    this._logged_max_ammo = null;
 
     // MG 예열 (식는 속도가 있어 미사격 시 점진 냉각 — int 아닌 float)
     this.warmup_shots = 0.0;
@@ -728,6 +731,7 @@ export class CharState {
     // 최대 장탄 증가 버프가 만료되면 초과 잔탄은 잘린다.
     if (this.reloading_until <= 0) {
       const _cap = this._full_ammo(bm, t);
+      this._note_max_ammo(t, _cap);
       if (this.ammo > _cap) {
         this.ammo = _cap;
         if (this._sim_log !== null) {
@@ -2168,9 +2172,19 @@ export class CharState {
   }
 
   // py: calculator/timeline.py:2000
+  // py: calculator/timeline.py _note_max_ammo
+  /** 재생 화면의 «그때 최대 장탄» 기록(바뀔 때만). 계산에는 쓰지 않는다. */
+  _note_max_ammo(t: number, cap: number): void {
+    if (this._sim_log !== null && cap !== this._logged_max_ammo) {
+      this._logged_max_ammo = cap;
+      this._sim_log.max_ammo_log.push(new AmmoLogEntry({ t, caster: this.name, ammo: cap }));
+    }
+  }
+
   _finish_reload(t: number, bm: BM): void {
     // 재장전 1회를 완료한다. 클립 무기는 탄창이 다 찼을 때만 '완료'다.
     const full = this._full_ammo(bm, t);
+    this._note_max_ammo(t, full);
     if (this._is_clip_reload(bm)) {
       this.ammo = _pymin(full, this.ammo + this._clip_gain(full));
       if (this.ammo < full) {
@@ -3669,6 +3683,7 @@ export function simulate(
     if (sim_log !== null) {
       sim_log.ammo_log.push(new AmmoLogEntry({ t: 0.0, caster: cs.name, ammo: cs.ammo }));
     }
+    cs._note_max_ammo(0.0, cs.ammo);
   }
 
   // 파츠 파괴 주기 (config["part_break_interval"], 초). 0/미지정이면 무발동.

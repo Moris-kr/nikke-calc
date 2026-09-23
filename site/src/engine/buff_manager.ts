@@ -2086,6 +2086,9 @@ export class BuffManager {
   /**
    * 타임라인이 이벤트 발생 시 호출. 파이썬 `**ctx` → 마지막 인자 객체(count, hit_crit, core_frac,
    * pellet_probability …). ctx는 `_notify_ctx`에 실어 `_condition_ok`가 읽고, 끝나면 반드시 되돌린다.
+   *
+   * event: "battle_start", "full_burst_start", "hit_count", "burst_cast",
+   *        "full_charge_hit", "enemy_death", ... (timing 값과 동일 형식)
    */
   notify(event: string, t: number, caster: string, ctx: Dict = {}): void {
     const prev_ctx = this._notify_ctx;

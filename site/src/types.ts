@@ -230,6 +230,8 @@ export interface StateTrack {
     /** `[시작, 끝]` 재장전 구간(초) */
     reload: Array<[number, number]>;
     maxAmmo: number;
+    /** 칸마다 그때의 최대 장탄(실시간 장탄 버프 반영). 예전 결과에는 없다 — 그때는 `maxAmmo`. */
+    maxAmmoTrack?: number[];
   }>;
 }
 

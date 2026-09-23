@@ -300,6 +300,8 @@ class CharState:
         self._post_reload_end_t: float = -1.0
         self.next_fire_time: float = 0.0
         self._sim_log: SimLog | None = None
+        # 마지막으로 기록한 최대 장탄(`_note_max_ammo`). 표시용 — 계산에는 쓰지 않는다.
+        self._logged_max_ammo: int | None = None
 
         # MG 예열 (식는 속도가 있어 미사격 시 점진 냉각 — int 아닌 float)
         self.warmup_shots: float = 0.0
@@ -571,6 +573,7 @@ class CharState:
         # 끝난 뒤에도 초과분을 계속 쏜다. 재장전 중에는 _finish_reload가 어차피 다시 채운다.
         if self.reloading_until <= 0:
             _cap = self._full_ammo(bm, t)
+            self._note_max_ammo(t, _cap)
             if self.ammo > _cap:
                 self.ammo = _cap
                 if self._sim_log is not None:
@@ -1997,6 +2000,12 @@ class CharState:
         # 하한이 없으면 0발이 되어 재장전만 무한 반복하며 한 발도 쏘지 못한다.
         return max(1, base + ammo_gain + ammo_flat)
 
+    def _note_max_ammo(self, t: float, cap: int) -> None:
+        """재생 화면의 «그때 최대 장탄» 기록(바뀔 때만). 계산에는 쓰지 않는다."""
+        if self._sim_log is not None and cap != self._logged_max_ammo:
+            self._logged_max_ammo = cap
+            self._sim_log.max_ammo_log.append(AmmoLogEntry(t=t, caster=self.name, ammo=cap))
+
     def _finish_reload(self, t: float, bm: BuffManager):
         """재장전 1회를 완료한다. 클립 무기는 탄창이 다 찼을 때만 '완료'다.
 
@@ -2008,6 +2017,7 @@ class CharState:
         아직 표현하지 않는다.
         """
         full = self._full_ammo(bm, t)
+        self._note_max_ammo(t, full)
         if self._is_clip_reload(bm):
             self.ammo = min(full, self.ammo + self._clip_gain(full))
             if self.ammo < full:
@@ -3395,6 +3405,7 @@ def simulate(
         cs.ammo = cs._full_ammo(bm, 0.0)
         if sim_log is not None:
             sim_log.ammo_log.append(AmmoLogEntry(t=0.0, caster=cs.name, ammo=cs.ammo))
+        cs._note_max_ammo(0.0, cs.ammo)
 
     # 파츠 파괴 주기 (config["part_break_interval"], 초). 0/미지정이면 무발동.
     # `event:part_destroy`는 원래 notify 호출처가 없어 영구 무발동이었다 — 보스 sim에서

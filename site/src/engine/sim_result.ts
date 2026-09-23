@@ -350,6 +350,7 @@ export interface SimLogInit {
   ammo_log?: AmmoLogEntry[];
   gauge_log?: GaugeLogEntry[];
   charge_log?: ChargeLogEntry[];
+  max_ammo_log?: AmmoLogEntry[];
 }
 
 // py: calculator/sim_result.py:196
@@ -368,6 +369,8 @@ export class SimLog {
   ammo_log: AmmoLogEntry[];
   gauge_log: GaugeLogEntry[];
   charge_log: ChargeLogEntry[];
+  // 그때그때의 최대 장탄(바뀔 때만). 재생 화면 표시용 — `ammo`에 최대 장탄이 들어간다.
+  max_ammo_log: AmmoLogEntry[];
   // 차지 무기의 발마다 차지 구간과 풀차지 배율(재생 화면의 차징 게이지)
 
   constructor(kw: SimLogInit = {}) {
@@ -379,6 +382,7 @@ export class SimLog {
     this.ammo_log = kw.ammo_log !== undefined ? kw.ammo_log : [];
     this.gauge_log = kw.gauge_log !== undefined ? kw.gauge_log : [];
     this.charge_log = kw.charge_log !== undefined ? kw.charge_log : [];
+    this.max_ammo_log = kw.max_ammo_log !== undefined ? kw.max_ammo_log : [];
   }
 
   // py: calculator/sim_result.py:224

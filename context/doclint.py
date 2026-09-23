@@ -11,7 +11,7 @@
   A. parsed_skills.json에 쓰인 모든 키(stat/timing/condition/target)가 IMPL-STATUS
      마스터 테이블에 존재하는가 (미등록 키 = 문서 누락)
   B. PARSING-CHARS.md '현황 목록 § 완료' ↔ parsed_skills.json 캐릭터 키 일치 (유령/누락 항목)
-  C. IMPL-STATUS 마스터의 구현 상태(✅⚠️❌🚫) ↔ calculator/*.py 실제 흔적
+  C. IMPL-STATUS 마스터의 구현 상태(✅⚠️❌🚫) ↔ 계산 엔진(site/src/engine/*.ts) 실제 흔적
      (✅인데 코드에 없음 / ❌인데 코드에 있음). 텍스트 휴리스틱이라 STATUS_EXEMPT 예외 있음
   D. '사본'이라고 선언된 표 ↔ 정본 표의 수치 일치 (MIRRORS 등록분)
   E. context/*.md · .agent/skills/*/*.md가 백틱으로 지목한 `파일.py/json` · `함수()`가 실재하는가
@@ -43,7 +43,8 @@ IMPL = ROOT / "context" / "IMPL-STATUS.md"
 CHARS = ROOT / "context" / "PARSING-CHARS.md"  # 현황 목록(완료/프리뷰/예정) 정본
 PREVIEW = ROOT / "scraper" / "preview_skills.json"  # 출시 전 카드 전사본
 SCRAPED = ROOT / "scraper" / "nikke_scraped.json"
-CALC = ROOT / "calculator"
+# 계산 엔진 — 2026-09-23부터 TypeScript 하나다(파이썬 엔진 calculator/는 삭제).
+ENGINE = ROOT / "site" / "src" / "engine"
 GAMEPLAY = ROOT / "context" / "GAMEPLAY.md"
 HARNESS = ROOT / "context" / "HARNESS.md"
 ALIASES = ROOT / "context" / "ALIASES.md"
@@ -110,7 +111,8 @@ REF_EXEMPT: dict[str, str] = {
 # context/가 아니라 그쪽에 두므로, 여기서 빼면 그만큼 검사 사각지대가 된다.
 REF_DOCS = sorted((ROOT / "context").glob("*.md")) + sorted((ROOT / ".agent" / "skills").glob("*/*.md"))
 # `archive/`(구 Streamlit UI)는 훑지 않는다 — 동결된 코드라 문서가 지목할 대상이 아니다.
-REF_SRC_GLOBS = ("calculator/*.py", "scraper/*.py", "context/*.py",
+REF_SRC_GLOBS = ("site/src/engine/*.ts", "site/scripts/*.ts", "site/scripts/*.mjs",
+                 "scraper/*.py", "context/*.py", ".agent/skills/*/scripts/*.ts",
                  ".agent/skills/*/*.py")
 
 
@@ -243,7 +245,8 @@ def _exempt_reason(key: str) -> str | None:
 
 def check_status(verbose: bool = False) -> bool:
     """반환: 불일치 있으면 True."""
-    code = "\n".join(p.read_text(encoding="utf-8") for p in sorted(CALC.glob("*.py")))
+    code = "\n".join(p.read_text(encoding="utf-8") for p in sorted(ENGINE.glob("*.ts"))
+                     if not p.name.endswith(".test.ts"))
 
     # 같은 키가 카테고리마다 다른 상태로 등록될 수 있다 (예: core_hit_count는
     # timing ✅ / condition ❌). 코드는 한 덩어리라 카테고리별 대조가 불가능하므로,
@@ -264,7 +267,7 @@ def check_status(verbose: bool = False) -> bool:
         elif not is_claimed and present:
             bad.append(f"  미구현 표기인데 코드에 흔적 있음  {key}  ({', '.join(where[key])})")
 
-    print("\n=== C. 구현 상태 정합 (IMPL-STATUS 마스터 ↔ calculator/*.py) ===")
+    print("\n=== C. 구현 상태 정합 (IMPL-STATUS 마스터 ↔ site/src/engine/*.ts) ===")
     if bad:
         print("\n".join(bad))
         print("  → 문서가 낡았거나, 코드 흔적이 실제 구현이 아니다. 후자면 "

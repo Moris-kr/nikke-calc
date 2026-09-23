@@ -106,15 +106,29 @@ def _burst_skill_name(name: str) -> str:
     return ""
 
 
+def _fill_at_bucket_start(out: list, log: list, bucket: float) -> None:
+    """(시각, 값) 기록 → 칸마다 «칸이 시작될 때의 값». 첫 칸은 첫 기록, 기록이 없으면 0."""
+    at = 0
+    current = log[0][1] if log else 0
+    for index in range(len(out)):
+        start = index * bucket
+        while at < len(log) and log[at][0] < start:
+            current = log[at][1]
+            at += 1
+        out[index] = current
+
+
 def _build_states(result, names: list[str], bucket: float = SHOT_BUCKET) -> dict:
     """캐릭터별 «그때 탄이 몇 발이었나»와 재장전 구간.
 
     탄환 로그는 **바뀔 때만** 찍히므로 칸마다 값을 앞에서 끌어와 채운다(마지막 값 유지).
     재장전은 시작·완료 짝을 구간으로 묶고, 끝나지 않은 것은 전투 끝에서 닫는다.
 
-    최대 장탄은 따로 실려 오지 않아 **본 값 중 가장 큰 것**으로 잡는다 — 재장전이 끝나면
-    가득 차므로 실전에서는 그 값이 곧 탄창 크기다(장탄 버프가 도중에 붙으면 그중 가장
-    큰 값이 남는다).
+    칸 값은 **그 칸이 시작될 때**의 탄이다 — 첫 칸은 전투 시작의 가득 찬 탄창이다
+    (0초 화면에 첫 발을 쏜 뒤의 탄이 보이지 않게).
+
+    `maxAmmoTrack`: 칸마다 **그때의 최대 장탄**(엔진의 `max_ammo_log`, 실시간 장탄 버프 반영).
+    `maxAmmo`는 예전 결과와 맞추려 남긴 «본 값 중 가장 큰 것»이다.
 
     다만 **무한 장탄 구간은 빼고 센다.** 엔진은 무한을 센티널(999999)로 두는데, 그것까지
     최대치로 잡으면 버스트가 끝난 뒤에도 탄창이 무한으로 남는다(나유타 「기억 연소」는
@@ -124,7 +138,8 @@ def _build_states(result, names: list[str], bucket: float = SHOT_BUCKET) -> dict
         return {}
     buckets = int(math.ceil(result.duration / bucket)) if result.duration > 0 else 0
     chars: dict = {
-        name: {"ammo": [0] * buckets, "reload": [], "maxAmmo": 0} for name in names
+        name: {"ammo": [0] * buckets, "reload": [], "maxAmmo": 0, "maxAmmoTrack": [0] * buckets}
+        for name in names
     }
 
     events: dict[str, list] = {name: [] for name in names}
@@ -137,14 +152,15 @@ def _build_states(result, names: list[str], bucket: float = SHOT_BUCKET) -> dict
         row["maxAmmo"] = max(
             (ammo for _, ammo in log if ammo < AMMO_SENTINEL), default=0,
         )
-        at = 0
-        current = log[0][1] if log else 0
-        for index in range(buckets):
-            edge = (index + 1) * bucket
-            while at < len(log) and log[at][0] < edge:
-                current = log[at][1]
-                at += 1
-            row["ammo"][index] = current
+        _fill_at_bucket_start(row["ammo"], log, bucket)
+
+    max_events: dict[str, list] = {name: [] for name in names}
+    for entry in result.log.max_ammo_log:
+        if entry.caster in max_events:
+            max_events[entry.caster].append((float(entry.t), int(entry.ammo)))
+    for name, log in max_events.items():
+        log.sort(key=lambda item: item[0])
+        _fill_at_bucket_start(chars[name]["maxAmmoTrack"], log, bucket)
 
     for entry in result.log.reload_log:
         row = chars.get(entry.caster)

@@ -103,6 +103,21 @@ export function _burst_skill_name(name: string): string {
 }
 
 // py: site/pybridge/bridge.py:109
+// py: site/pybridge/bridge.py _fill_at_bucket_start
+/** (시각, 값) 기록 → 칸마다 «칸이 시작될 때의 값». 첫 칸은 첫 기록, 기록이 없으면 0. */
+export function _fill_at_bucket_start(out: number[], log: Array<[number, number]>, bucket: number): void {
+  let at = 0;
+  let current = log.length ? log[0]![1] : 0;
+  for (let index = 0; index < out.length; index += 1) {
+    const start = index * bucket;
+    while (at < log.length && log[at]![0] < start) {
+      current = log[at]![1];
+      at += 1;
+    }
+    out[index] = current;
+  }
+}
+
 export function _build_states(result: SimResult, names: string[], bucket: number = SHOT_BUCKET): Record<string, any> {
   if (result.log == null) {
     return {};
@@ -110,7 +125,7 @@ export function _build_states(result: SimResult, names: string[], bucket: number
   const buckets = result.duration > 0 ? int(Math.ceil(result.duration / bucket)) : 0;
   const chars: Record<string, any> = {};
   for (const name of names) {
-    chars[name] = { ammo: new Array(buckets).fill(0), reload: [], maxAmmo: 0 };
+    chars[name] = { ammo: new Array(buckets).fill(0), reload: [], maxAmmo: 0, maxAmmoTrack: new Array(buckets).fill(0) };
   }
 
   // 이름이 정수 모양이면 JS 객체 순회 순서가 바뀐다 — 순서가 결과에 영향은 없지만 Map으로 둔다.
@@ -131,16 +146,20 @@ export function _build_states(result: SimResult, names: string[], bucket: number
       if (ammo < AMMO_SENTINEL && (!any || ammo > mx)) { mx = ammo; any = true; }
     }
     row['maxAmmo'] = any ? mx : 0;
-    let at = 0;
-    let current = log.length ? log[0]![1] : 0;
-    for (let index = 0; index < buckets; index += 1) {
-      const edge = (index + 1) * bucket;
-      while (at < log.length && log[at]![0] < edge) {
-        current = log[at]![1];
-        at += 1;
-      }
-      row['ammo'][index] = current;
+    _fill_at_bucket_start(row['ammo'], log, bucket);
+  }
+
+  // 칸마다 그때의 최대 장탄(엔진 `max_ammo_log`). py: bridge.py _build_states
+  const maxEvents = new Map<string, Array<[number, number]>>();
+  for (const name of names) maxEvents.set(name, []);
+  for (const entry of result.log.max_ammo_log) {
+    if (maxEvents.has(entry.caster)) {
+      maxEvents.get(entry.caster)!.push([_py_float(entry.t), int(entry.ammo)]);
     }
+  }
+  for (const [name, log0] of maxEvents) {
+    const log = sorted(log0, (it) => it[0]);
+    _fill_at_bucket_start(chars[name]['maxAmmoTrack'], log, bucket);
   }
 
   for (const entry of result.log.reload_log) {

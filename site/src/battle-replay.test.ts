@@ -72,6 +72,12 @@ describe('시각 → 상태', () => {
     expect(ammoAt(states, '크라운', 3)).toEqual({ ammo: 0, max: 0 });
   });
 
+  it('최대 장탄은 그 시각의 값 — 장탄 버프가 붙으면 분모도 커진다', () => {
+    const track = { bucket: 1, buckets: 3, chars: { 슈가: { ammo: [9, 7, 20], reload: [], maxAmmo: 23, maxAmmoTrack: [9, 9, 23] } } } as any;
+    expect(ammoAt(track, '슈가', 0)).toEqual({ ammo: 9, max: 9 });
+    expect(ammoAt(track, '슈가', 2.5)).toEqual({ ammo: 20, max: 23 });
+  });
+
   it('버스트 내역은 지금까지 쓴 것만, 시간순, 최근 N개', () => {
     const rows = burstLogAt(timeline.bursts, 2.0);
     expect(rows.map((row) => row.name)).toEqual(['라피', '크라운']);
