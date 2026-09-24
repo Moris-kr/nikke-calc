@@ -176,4 +176,5 @@ export const SD_IDS: Record<string, number> = {
   '람': 822,
   '퀀시': 402,
   '메이든 : 아이스 로즈': 183,
+  '신 : 스위프트 바니': 405,
 };
