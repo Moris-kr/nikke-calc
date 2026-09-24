@@ -1,7 +1,10 @@
 import type { CharacterMeta, CharacterOverrides } from './types';
 import type { StorageLike } from './cache';
 import { t, tName } from './i18n';
-import { calculatePlan, characterCosts, MANUALS, MATERIAL_NAMES, PLANNER_KEY, readPlannerState } from './skill-planner';
+import {
+  calculatePlan, characterCosts, chestPlan, CHEST_EXCHANGE, MANUALS, MATERIAL_NAMES, PLANNER_KEY, readPlannerState,
+  UPGRADE_CHEST, UPGRADE_CHEST_NAME,
+} from './skill-planner';
 import { prependItemIcon } from './item-icons';
 
 interface PlannerOptions {
@@ -170,6 +173,36 @@ export function createSkillPlanner(options: PlannerOptions) {
         }); body.append(row);
       }
       table.append(body); wrap.append(table); result.append(wrap);
+      // 30 DAY 성장 보급 상자 — 부족분을 채우려면 몇 개를 열어 무엇으로 바꿔야 하는지.
+      const chest = chestPlan(total.shortage);
+      const chestBox = el('section', undefined, 'chest-plan');
+      chestBox.dataset.chestPlan = '';
+      const chestHead = el('h3');
+      chestHead.textContent = chest.total > 0
+        ? t('{name} {n}개로 부족분을 채울 수 있습니다', { name: t(UPGRADE_CHEST_NAME), n: chest.total.toLocaleString() })
+        : t('부족한 매뉴얼이 없어 {name}를 쓸 필요가 없습니다', { name: t(UPGRADE_CHEST_NAME) });
+      prependItemIcon(chestHead, UPGRADE_CHEST, 'chest-icon');
+      chestBox.append(chestHead);
+      if (chest.rows.length) {
+        const list = el('ul', undefined, 'chest-plan-list');
+        for (const row of chest.rows) {
+          const item = el('li');
+          item.dataset.chestRow = row.id;
+          item.textContent = t('{item} {per}개로 교환 × {boxes}개 → {gained}개 (부족 {need} · 남음 {surplus})', {
+            item: t(MATERIAL_NAMES[row.id]!), per: row.per, boxes: row.boxes.toLocaleString(),
+            gained: row.gained.toLocaleString(), need: row.shortage.toLocaleString(), surplus: row.surplus.toLocaleString(),
+          });
+          prependItemIcon(item, row.id);
+          list.append(item);
+        }
+        chestBox.append(list);
+      }
+      const rates = el('p', undefined, 'skill-planner-note');
+      rates.textContent = t('상자 1개당 하나를 골라 받습니다: {list}', {
+        list: MANUALS.map((id) => `${t(MATERIAL_NAMES[id]!)} ${CHEST_EXCHANGE[id]}`).join(' · '),
+      });
+      chestBox.append(rates);
+      result.append(chestBox);
       const codes = Object.entries(total.required).filter(([id]) => !(MANUALS as readonly string[]).includes(id));
       if (codes.length) {
         result.append(el('p', '추가로 필요한 코드 매뉴얼 (보유량 차감 전)', 'skill-planner-note'));

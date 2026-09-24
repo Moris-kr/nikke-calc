@@ -176,6 +176,12 @@ h2 { margin: 0; font-size: 24px; letter-spacing: -.035em; }
 .item-icon { display: inline-block; width: 1.45em; height: 1.45em; margin: -.25em .35em -.25em 0; vertical-align: middle;
   object-fit: contain; filter: drop-shadow(0 1px 1px rgba(0,0,0,.5)); }
 [data-material-result] th { white-space: nowrap; }
+.chest-plan { margin-top: 18px; padding: 14px 16px; border: 1px solid rgba(255,191,60,.35); border-radius: 10px; background: rgba(255,191,60,.06); }
+.chest-plan h3 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 15px; }
+.chest-plan .chest-icon { width: 40px; height: 40px; flex: none; }
+.chest-plan-list { display: grid; gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; font-variant-numeric: tabular-nums; }
+.chest-plan-list li { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.chest-plan .skill-planner-note { margin: 10px 0 0; }
 .code-manual-list { display: flex; flex-wrap: wrap; gap: 6px 10px; margin: 8px 0 0; padding: 0; list-style: none; }
 .code-manual-list li { display: inline-flex; align-items: center; padding: 4px 10px 4px 6px; border: 1px solid var(--line);
   border-radius: 999px; background: rgba(3,9,16,.5); font-size: 12.5px; font-weight: 700; }

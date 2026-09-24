@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculatePlan, characterCosts, readPlannerState } from './skill-planner';
+import { calculatePlan, characterCosts, chestPlan, readPlannerState } from './skill-planner';
 
 describe('skill manual planning', () => {
   it('sums all three skills from 1 to 10, sharing the skill manuals', () => {
@@ -29,6 +29,17 @@ describe('skill manual planning', () => {
     expect(() => calculatePlan([row, row], {})).toThrow();
     expect(() => calculatePlan([row], { '7091001': -1 })).toThrow();
     expect(characterCosts('unknown')).toBeUndefined();
+  });
+  it('30 DAY 성장 보급 상자 — 매뉴얼마다 부족분을 교환량으로 나눠 올림하고 더한다', () => {
+    // 상자 1개 = 스킬 I 28 · II 20 · III 8 / 버스트 I 14 · II 10 · III 4 중 하나.
+    const plan = chestPlan({ '7091001': 188, '7091003': 8, '7092003': 1, '7092001': 0 });
+    expect(plan.rows.map((r) => [r.id, r.boxes, r.gained, r.surplus])).toEqual([
+      ['7092003', 1, 4, 3],
+      ['7091001', 7, 196, 8],
+      ['7091003', 1, 8, 0],
+    ]);
+    expect(plan.total).toBe(9);
+    expect(chestPlan({}).total).toBe(0);
   });
   it('restores valid state and discards corrupted local data', () => {
     expect(readPlannerState('{')).toEqual({ rows: [], inventory: {} });

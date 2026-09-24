@@ -12,7 +12,8 @@
 export const MODULE_ITEM = '7080001';
 
 const MANUAL_IDS = new Set(['7091001', '7091002', '7091003', '7092001', '7092002', '7092003']);
-const ITEM_IDS = new Set(['7093001', '7093002', '7093003', '7093004', '7093005', MODULE_ITEM]);
+// 9201010 = 30 DAY 성장 보급 상자(스킬칩 계산기의 상자 환산).
+const ITEM_IDS = new Set(['7093001', '7093002', '7093003', '7093004', '7093005', MODULE_ITEM, '9201010']);
 
 export function itemIconUrl(id: string): string | null {
   if (MANUAL_IDS.has(id)) return `${import.meta.env.BASE_URL}manuals/${id}.png`;

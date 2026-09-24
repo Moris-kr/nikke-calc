@@ -81,3 +81,17 @@ it('결과표의 재료와 코드 매뉴얼 목록에 아이템 아이콘을 붙
     expect(item.querySelector('img')!.getAttribute('src')).toContain(`items/${item.dataset.codeManual}.webp`);
   }
 });
+
+it('부족분을 채우는 30 DAY 성장 보급 상자 개수와 교환을 보여 준다', () => {
+  mount().render(root); click('캐릭터 추가');
+  const chest = root.querySelector<HTMLElement>('[data-chest-plan]')!;
+  expect(chest.querySelector('img[data-item-icon="9201010"]')!.getAttribute('src')).toContain('items/9201010.webp');
+  const rows = [...chest.querySelectorAll<HTMLElement>('[data-chest-row]')];
+  expect(rows.length).toBeGreaterThan(0);
+  // 스킬 매뉴얼 I은 상자 1개에 28개 — 부족분을 28로 나눠 올림한 만큼 연다.
+  const shortage = Number(root.querySelector('[data-material-result="7091001"] .manual-shortage')!.textContent!.replace(/,/g, ''));
+  const skill1 = chest.querySelector('[data-chest-row="7091001"]')!;
+  expect(skill1.textContent).toContain(`28개로 교환 × ${Math.ceil(shortage / 28)}개`);
+  const total = rows.reduce((sum, row) => sum + Number(/× ([\d,]+)개/.exec(row.textContent!)![1]!.replace(/,/g, '')), 0);
+  expect(chest.querySelector('h3')!.textContent).toContain(`${total.toLocaleString()}개로 부족분을 채울 수 있습니다`);
+});

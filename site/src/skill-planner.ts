@@ -44,6 +44,31 @@ export function calculatePlan(rows: PlanRow[], inventory: Costs) {
   return { required, shortage, remaining };
 }
 
+/** 30 DAY 성장 보급 상자(게임 아이템 9201010). 하나를 열 때마다 아래 매뉴얼 중 **한 가지**를 골라 받는다. */
+export const UPGRADE_CHEST = '9201010';
+export const UPGRADE_CHEST_NAME = '30 DAY 성장 보급 상자';
+/** 상자 1개로 받는 개수(유저 제공 2026-09-25). */
+export const CHEST_EXCHANGE: Record<string, number> = {
+  '7091001': 28, '7091002': 20, '7091003': 8,
+  '7092001': 14, '7092002': 10, '7092003': 4,
+};
+
+export interface ChestRow { id: string; shortage: number; per: number; boxes: number; gained: number; surplus: number }
+
+/**
+ * 부족한 매뉴얼을 상자로 채우는 데 드는 개수. 상자 하나는 한 가지만 주므로 매뉴얼마다 따로 올림하고 더한다 —
+ * 한 상자를 둘로 나눌 수 없어 이것이 최소다. 부족이 없는 매뉴얼은 빠진다.
+ */
+export function chestPlan(shortage: Costs): { rows: ChestRow[]; total: number } {
+  const rows = MANUALS.filter((id) => (shortage[id] ?? 0) > 0).map((id): ChestRow => {
+    const per = CHEST_EXCHANGE[id]!;
+    const need = shortage[id]!;
+    const boxes = Math.ceil(need / per);
+    return { id, shortage: need, per, boxes, gained: boxes * per, surplus: boxes * per - need };
+  });
+  return { rows, total: rows.reduce((sum, row) => sum + row.boxes, 0) };
+}
+
 export function readPlannerState(raw: string | null): PlannerState {
   try {
     const state = JSON.parse(raw ?? 'null') as PlannerState;
