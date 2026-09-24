@@ -21,6 +21,7 @@ export interface Notice {
 
 /** 최신이 맨 앞. */
 export const NOTICES: Notice[] = [
+  {id:'2026-09-24-replay-sd-batch34',date:'2026-09-24',title:'전투 결과 재생 — 콜라보 SD 10명 추가',items:[{tag:'개선',text:'유키코, 아이기스, A2, 아스카, 레이, 마리, 미사토, 아스카 : WILLE, 사쿠라 (SR), 레이 (가칭) 전용 SD를 추가했습니다. 이로써 콜라보 니케 전원이 전용 SD를 갖습니다.'}]},
   {id:'2026-09-24-replay-sd-batch33',date:'2026-09-24',title:'전투 결과 재생 — 콜라보 SD 10명 추가',items:[{tag:'개선',text:'이브, 레이븐, 치사토, 타키나, 에이다, 질, 클레어, 릴리, 쿠루미, 퀸(마코토) 전용 SD를 추가했습니다.'}]},
   {id:'2026-09-24-replay-sd-batch32',date:'2026-09-24',title:'전투 결과 재생 — 신 : 스위프트 바니 SD',items:[{tag:'개선',text:'신 : 스위프트 바니 전용 SD를 추가했습니다 — 기계 날개, 롤러 힐, 긴 저격총까지 원본대로 그렸습니다.'}]},
   {id:'2026-09-24-replay-sd-batch31',date:'2026-09-24',title:'전투 결과 재생 — SD 2명 추가',items:[{tag:'개선',text:'퀀시, 메이든 : 아이스 로즈 전용 SD를 추가했습니다.'}]},
