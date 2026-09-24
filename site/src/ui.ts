@@ -3092,9 +3092,21 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
         };
         const renderEditor = () => {
           renderCharacterSettings(editor, cname, settings, deck.characters[cname], (next) => {
+            const fullChargeBefore = deck.characters[cname]?.control?.full_charge !== undefined;
             if (next) deck.characters[cname] = next;
             else delete deck.characters[cname];
+            // 풀차징컨은 사람이 잡은 한 명이다 — 새로 켜면 같은 덱의 다른 니케 것은 끈다.
+            let othersCleared = false;
+            if (!fullChargeBefore && next?.control?.full_charge !== undefined) {
+              for (const [other, overrides] of Object.entries(deck.characters)) {
+                if (other === cname || overrides?.control?.full_charge === undefined) continue;
+                const { full_charge: _drop, ...rest } = overrides.control;
+                deck.characters[other] = { ...overrides, control: rest };
+                othersCleared = true;
+              }
+            }
             saveState();
+            if (othersCleared) queueMicrotask(renderSquad);
             // 개별 설정 안 드롭다운으로 돌파를 바꿔도 초상화의 별이 따라가게 한다.
             renderGrowthStepper();
             // 개별 설정은 편성 카드를 다시 그리지 않는다(설정 판이 스스로 다시 그린다) —

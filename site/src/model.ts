@@ -271,6 +271,13 @@ export function validateRequest(request: SimulationRequest): string[] {
     if (!Array.isArray(w.weapons) || w.weapons.some(weapon => !['AR', 'SMG', 'SG', 'MG', 'SR', 'RL'].includes(weapon))) errors.push('유효 사거리 구간의 무기군을 확인해 주세요.');
   }
 
+  // 풀차징컨은 사람이 잡은 한 명이다(엔진도 같은 규칙으로 막는다).
+  const fullChargers = Object.entries(request.characters ?? {})
+    .filter(([name, c]) => request.squad.includes(name) && c?.control?.full_charge !== undefined);
+  if (fullChargers.length > 1) {
+    errors.push(`풀차징컨은 덱마다 한 명만 켤 수 있습니다 (${fullChargers.map(([name]) => name).join(', ')}).`);
+  }
+
   if (request.rangeModel === 'distance') {
     const inRange = (d: number) => Number.isFinite(d) && d >= DISTANCE_MIN && d <= DISTANCE_MAX;
     if (!inRange(request.distance ?? DISTANCE_REFERENCE)) errors.push(`거리는 ${DISTANCE_MIN}~${DISTANCE_MAX}여야 합니다.`);

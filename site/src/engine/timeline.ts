@@ -660,6 +660,11 @@ export class CharState {
       this._tap_hold = _TAP_MIN_HOLD + this._tap_charge;
       this.tap_fire = true;
     }
+    // 풀차징컨: 직접 조작으로 풀차지 한 발마다 다음 차지를 바로 누른다 — 사격 후 딜레이를 사람이 정한다.
+    const full_charge = get(control, 'full_charge');
+    if (truthy(full_charge) && this.fire_mode === 'charge') {
+      this.post_fire_delay = float(get(full_charge, 'delay', 0.1));
+    }
     // 톡톡이 중 주기적으로 풀차지 한 발을 섞는다.
     this.tap_full_charge_interval = float(get(or(tap, {}), 'full_charge_interval', 0.0));
     // 버충 톡톡이: 풀버스트 **밖에서만** 톡톡이하고, 풀버스트 동안은 평소처럼 풀차지를 든다.
@@ -1709,6 +1714,12 @@ export class CharState {
       if (this._wc_new_session && !was_ready) {
         // 이전 무기의 차지가 진행 중인 채로 모드에 진입했다면 차지를 새로 시작한다.
         this._charge_start_t = t;
+      }
+      // 모드로 바뀌는 동작 — 이만큼 지난 뒤에야 첫 차지를 시작한다(실측, `weapon_delays._weapon_change`).
+      const wc_start_delay = float(_pick('start_delay', [wc_over, wc_eff], 0.0));
+      if (this._wc_new_session && wc_start_delay > 0) {
+        this._charge_phase = 'post_delay';
+        this._post_delay_end_t = t + wc_start_delay;
       }
     } else if (this._wc_new_session) {
       // 연사 무기: 세션 진입 시 1회만 장탄을 채우고 발사 시계를 현재 시각에 맞춘다.
@@ -3201,6 +3212,13 @@ export function _resolve_cameras(squad: Dict[], cfg: Dict): Set<string> {
       `camera_mode는 "single" 또는 "shared"여야 한다: ${_repr(mode)}. context/CONTROL.md §카메라`);
   }
 
+  // 풀차징컨은 사람이 잡고 쏘는 한 명이다 — 덱에 둘을 켤 수 없다.
+  const full_chargers = squad.filter((c) => truthy(get(or(get(c, 'control'), {}), 'full_charge')))
+    .map((c) => item(c, 'name') as string);
+  if (full_chargers.length > 1) {
+    throw ValueError(`풀차징컨은 덱마다 한 명만 켤 수 있다: ${_repr(full_chargers)}`);
+  }
+
   const carriers = _burst_charge_carriers(squad);
   if (carriers.length > 1) {
     throw ValueError(
@@ -3240,8 +3258,10 @@ export function _resolve_cameras(squad: Dict[], cfg: Dict): Set<string> {
   // 게이지 보너스를 따로 받았다(제보 2026-09-23: «톡톡이와 메인 니케 버충 보너스 중복»). 톡톡이가
   // 여럿이면 앞자리 것 하나.
   const slot_order: string[] = [...(or(get(cfg, '_slot_order'), squad.map((c) => item(c, 'name'))) as string[])];
+  // 풀차징컨도 직접 조작이라 톡톡이와 같은 자리에 선다.
   const tapping = new Set(squad
-    .filter((c) => truthy(get(or(get(c, 'control'), {}), 'tap_fire')) && _is_charge_nikke(item(c, 'name')))
+    .filter((c) => (truthy(get(or(get(c, 'control'), {}), 'tap_fire'))
+      || truthy(get(or(get(c, 'control'), {}), 'full_charge'))) && _is_charge_nikke(item(c, 'name')))
     .map((c) => item(c, 'name') as string));
   const first_tapper = slot_order.find((n) => tapping.has(n));
   if (first_tapper !== undefined) {

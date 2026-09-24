@@ -42,6 +42,9 @@ for (const meta of Object.values(OVERLOAD_FIELDS)) {
   _mark_float(meta, 'max');
 }
 
+/** 풀차징컨의 기본 딜레이(초) — 풀차지로 쏜 뒤 다음 차지를 누르기까지. 사용자 지정 기본값(2026-09-24). */
+export const FULL_CHARGE_DELAY_DEFAULT = 0.1;
+
 // ── 데이터에서 뜨는 상수 (파이썬은 import 시점에 파일에서 읽는다) ─────────────────
 
 interface _DataConstants {
@@ -193,7 +196,7 @@ export function _normalize_control(raw: any): Record<string, any> {
   if (!_py_is_dict(raw)) {
     throw ValueError('컨트롤 설정은 객체여야 합니다');
   }
-  const _allowed = new Set(['tap_fire', 'reload', 'cover', 'hold', 'bunny_mode']);
+  const _allowed = new Set(['tap_fire', 'full_charge', 'reload', 'cover', 'hold', 'bunny_mode']);
   const unknown = Object.keys(raw).filter((k) => !_allowed.has(k));
   if (unknown.length) {
     throw ValueError(`지원하지 않는 컨트롤: ${_py_repr(sorted(unknown))}`);
@@ -205,6 +208,22 @@ export function _normalize_control(raw: any): Record<string, any> {
       throw ValueError('바니 모드는 stance 또는 engage여야 합니다');
     }
     result['bunny_mode'] = raw['bunny_mode'];
+  }
+
+  // 풀차징컨 — 직접 조작으로 풀차지 한 발을 쏘고 다음 차지를 바로 시작한다. delay는 쏜 뒤 다음 차지까지(초).
+  // 자동 사격의 사격 후 딜레이(SR·RL 0.38초 실측)를 이 값으로 바꾼다. 톡톡이와 함께 켤 수 없다.
+  const full_charge = get(raw, 'full_charge');
+  if (full_charge != null) {
+    if (!_py_is_dict(full_charge) || Object.keys(full_charge).some((k) => k !== 'delay')) {
+      throw ValueError('풀차징컨은 delay만 지원합니다');
+    }
+    if (get(raw, 'tap_fire') != null) {
+      throw ValueError('풀차징컨과 톡톡이는 함께 켤 수 없습니다');
+    }
+    const normalized_fc: Record<string, any> = {};
+    _set_float(normalized_fc, 'delay', has(full_charge, 'delay')
+      ? _control_number(full_charge['delay'], 'full_charge.delay', 0.0, 3.0) : FULL_CHARGE_DELAY_DEFAULT);
+    result['full_charge'] = normalized_fc;
   }
 
   const tap = get(raw, 'tap_fire');

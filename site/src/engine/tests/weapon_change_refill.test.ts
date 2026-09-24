@@ -28,13 +28,19 @@ describe('WeaponChangeRefillTest', () => {
           function (this: CharState, t: number, bm: any, enemy: any, cfg: any, effect: any) {
             const cs = this;
             const events = original.call(cs, t, bm, enemy, cfg, effect);
-            if (cs.name === name) {
-              if (events.length > 0) shots.push(t);
-              if (bm.get_weapon_change(name) == null) {
-                exits.push([cs.ammo, cs._full_ammo(bm, t), cs.reloading_until, cs._pending_auto_reload]);
-              }
-            }
+            if (cs.name === name && events.length > 0) shots.push(t);
             return events;
+          },
+        );
+        // 모드를 나오는 순간(탄 수로 끝나든 시간으로 끝나든) 탄창을 되돌리는 자리에서 본다.
+        const restore = CharState.prototype._restore_special_magazine;
+        const restoreSpy = vi.spyOn(CharState.prototype, '_restore_special_magazine').mockImplementation(
+          function (this: CharState, t: number, bm: any) {
+            const result = restore.call(this, t, bm);
+            if (this.name === name) {
+              exits.push([this.ammo, this._full_ammo(bm, t, true), this.reloading_until, this._pending_auto_reload]);
+            }
+            return result;
           },
         );
         const chars = build_squad(['리틀 머메이드', '크라운', name, 'test_B3'],
@@ -45,6 +51,7 @@ describe('WeaponChangeRefillTest', () => {
             { def: 31784, code: '', core_px: 0 }, true);
         } finally {
           spy.mockRestore();
+          restoreSpy.mockRestore();
         }
         const bursts = result.log!.burst_log
           .filter((e) => e.caster === name && e.event === 'stage:3 사용')
@@ -57,10 +64,11 @@ describe('WeaponChangeRefillTest', () => {
           expect(pending, sub).toBe(false);
         }
         if (name === '신 : 스위프트 바니') {
+          // 영상 실측(2026-09-24): 전환 0.3초 뒤 첫 차지 → 0.8·1.3…4.8초의 9발.
           for (const start of bursts) {
             const window = shots.filter((t) => start <= t && t <= start + 5.02);
-            expect(window.length, sub).toBe(10);
-            expect(withinDelta(window[window.length - 1]! - start, 5, 1 / 60 + 1e-8), sub).toBe(true);
+            expect(window.length, sub).toBe(9);
+            expect(withinDelta(window[window.length - 1]! - start, 4.8, 1 / 60 + 1e-8), sub).toBe(true);
           }
         }
       }

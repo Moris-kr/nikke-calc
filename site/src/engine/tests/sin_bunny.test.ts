@@ -94,7 +94,8 @@ describe('SinBunnyTest', () => {
       for (const burst of bursts) {
         const window = shots.filter(([t]) => burst.t <= t && t < burst.t + 5);
         expect(window.length, mode).toBeGreaterThan(1);
-        expect(withinDelta(window[0]![0] - burst.t, 0.5, 1 / 30), mode).toBe(true);
+        // 첫 발은 전환 0.3초(영상 실측 start_delay) + 고정 차지 0.5초 뒤다.
+        expect(withinDelta(window[0]![0] - burst.t, 0.8, 1 / 30), mode).toBe(true);
         for (const [, b] of window) {
           expect(truthy(b['charge_time_fixed']), mode).toBe(true);
           expect(b['charge_speed_pct'] == 0, mode).toBe(true);

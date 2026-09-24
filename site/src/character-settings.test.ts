@@ -572,6 +572,28 @@ describe('character settings editor', () => {
     expect(value).not.toHaveProperty('control');
   });
 
+  it('풀차징컨 — 켜면 딜레이 0.1초가 실리고, 딜레이를 고칠 수 있으며, 톡톡이와는 서로 끈다', () => {
+    characterName = '라피';
+    render();
+    setToggle('[data-custom-toggle]', true);
+    setToggle('[data-control-mode="manual"]', true);
+    setToggle('[data-control="full_charge"]', true);
+    expect(value?.control?.full_charge).toEqual({ delay: 0.1 });
+    const delay = root.querySelector<HTMLInputElement>('[data-full-charge-delay]')!;
+    expect(delay.disabled).toBe(false);
+    delay.value = '0.25';
+    delay.dispatchEvent(new Event('input'));
+    expect(value?.control?.full_charge).toEqual({ delay: 0.25 });
+    // 톡톡이를 켜면 풀차징컨이 꺼진다.
+    setToggle('[data-control="tap_fire"]', true);
+    expect(value?.control?.tap_fire).toBeDefined();
+    expect(value?.control).not.toHaveProperty('full_charge');
+    // 풀차징컨을 다시 켜면 톡톡이가 꺼지고 딜레이는 기본값부터 다시 시작한다.
+    setToggle('[data-control="full_charge"]', true);
+    expect(value?.control).not.toHaveProperty('tap_fire');
+    expect(value?.control?.full_charge).toEqual({ delay: 0.1 });
+  });
+
   it('톡톡이에 «버충 구간만» 정책이 있다 — 고르면 policy가 실리고, 발수를 고쳐도 남는다', () => {
     characterName = '라피';
     render();

@@ -27,6 +27,11 @@ export type BurstGaugeMode = 'new' | 'legacy';
 
 export interface CharacterControl {
   bunny_mode?: 'stance' | 'engage';
+  /**
+   * 풀차징컨 — 직접 조작으로 풀차지 한 발을 쏘고 다음 차지를 누르기까지의 딜레이(초). 자동 사격의 사격 후
+   * 딜레이(SR·RL 0.38초)를 이 값으로 바꾼다. 톡톡이와 함께 켤 수 없고 덱마다 한 명만 켠다.
+   */
+  full_charge?: { delay: number };
   tap_fire?: {
     rate: number;
     release?: number;

@@ -26,6 +26,8 @@ import type {
 // 참고: 엔진의 캐릭터별 «추천 자동» 컨트롤은 `data/char_defaults.json`에서 3.6을 쓰고
 // CONTROL.md는 실질 범위를 3.0~4.2로 적는다. 여기는 직접 켤 때의 출발값이라 별개다.
 const TAP_FIRE_DEFAULT = 4.4;
+// 풀차징컨을 켤 때 채워지는 딜레이(초). 유저 지정 기본값 — 엔진 `FULL_CHARGE_DELAY_DEFAULT`와 같다.
+const FULL_CHARGE_DELAY_DEFAULT = 0.1;
 const TAP_FIRE_HARD_LIMIT = 4.5;
 const WEAPON_MODE_SWAP_DEFAULT = 6;
 
@@ -153,6 +155,7 @@ function summaryText(name: string, catalog: SettingsCatalog, value?: CharacterOv
  */
 export const CONTROL_NAMES: Record<string, string> = {
   tap_fire: '톡톡이',
+  full_charge: '풀차징컨',
   hold: '홀드 컨트롤',
   reload: '재장전 컨트롤',
   cover: '버스트 엄폐 컨트롤',
@@ -1362,6 +1365,8 @@ export function renderCharacterSettings(
     const nextControl: CharacterControl = { ...(next.control ?? {}) };
     if (entry === undefined) delete nextControl[key];
     else Object.assign(nextControl, { [key]: entry });
+    // 톡톡이와 풀차징컨은 한 손으로 동시에 할 수 없다 — 톡톡이를 켜면 풀차징컨을 끈다.
+    if (key === 'tap_fire' && entry !== undefined) delete nextControl.full_charge;
     next.control = nextControl;
     commit(next);
   };
@@ -1486,6 +1491,46 @@ export function renderCharacterSettings(
     });
     tapFullAfter.append(tapFullBox, document.createTextNode('재장전 후 풀차지 1발'));
     tapLabel.append(tapFullAfter);
+    // 풀차징컨 — 직접 잡고 풀차지로 쏘는 조작. 자동 사격은 쏜 뒤 0.38초쯤 멈췄다 다음 차지를 드는데,
+    // 사람이 바로 누르면 그 틈이 줄어든다. 그 틈(딜레이)을 사람마다 정한다. 톡톡이와는 함께 쓸 수 없고,
+    // 덱에서 한 명만 켠다(켜면 같은 덱의 다른 니케는 꺼진다).
+    const fullLabel = document.createElement('label');
+    fullLabel.className = 'inline-check control-toggle';
+    const fullBox = document.createElement('input');
+    fullBox.type = 'checkbox';
+    fullBox.dataset.control = 'full_charge';
+    fullBox.checked = displayedControl.full_charge !== undefined;
+    fullBox.disabled = isAutomatic;
+    const fullDelay = document.createElement('input');
+    fullDelay.type = 'number';
+    fullDelay.dataset.fullChargeDelay = '';
+    fullDelay.step = '0.01';
+    fullDelay.min = '0';
+    fullDelay.max = '3';
+    fullDelay.value = String(displayedControl.full_charge?.delay ?? FULL_CHARGE_DELAY_DEFAULT);
+    fullDelay.disabled = isAutomatic || displayedControl.full_charge === undefined;
+    fullBox.addEventListener('change', () => {
+      const next = cloneOverrides(current);
+      const control: CharacterControl = { ...(next.control ?? {}) };
+      if (fullBox.checked) {
+        control.full_charge = { delay: Number(fullDelay.value) || FULL_CHARGE_DELAY_DEFAULT };
+        delete control.tap_fire;
+      } else {
+        delete control.full_charge;
+      }
+      next.control = control;
+      commit(next);
+    });
+    fullDelay.addEventListener('input', () => {
+      const delay = Number(fullDelay.value);
+      if (!Number.isFinite(delay) || delay < 0 || delay > 3) return;
+      const next = cloneOverrides(current);
+      next.control = { ...(next.control ?? {}), full_charge: { delay } };
+      emitNumericChange(next);
+    });
+    fullLabel.title = '직접 조작으로 풀차지 한 발을 쏘고 다음 차지를 누르기까지의 딜레이입니다. 자동 사격은 약 0.38초입니다. 덱에서 한 명만 켤 수 있습니다';
+    fullLabel.append(fullBox, document.createTextNode('풀차징컨'), makeInputUnit(fullDelay, '초'));
+    controlGrid.append(fullLabel);
     if (name !== '길티 : 마이티 바니' && name !== '신 : 스위프트 바니') {
     const holdLabel = addControlToggle('hold', '홀드 컨트롤', {
       policy: 'own_full_burst', lead: 0.5,
