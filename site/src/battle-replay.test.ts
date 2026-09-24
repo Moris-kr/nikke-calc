@@ -170,10 +170,11 @@ describe('시각 → 상태', () => {
   it('캐릭터별 SD가 있으면 그걸, 없으면 회색 자리표시자', () => {
     expect(spriteFor('라피 : 레드 후드', 'shoot')).not.toBe(DEFAULT_SD.shoot);
     expect(spriteFor('라피 : 레드 후드', 'reload')).not.toBe(DEFAULT_SD.reload);
-    expect(spriteFor('라피', 'reload')).toBe(DEFAULT_SD.reload);
-    SD_SPRITES['라피'] = { shoot: 'a.webp', reload: 'b.webp' };
-    expect(spriteFor('라피', 'reload')).toBe('b.webp');
-    delete SD_SPRITES['라피'];
+    // SD가 없는 니케(목록에 없는 이름)는 회색 자리표시자다. 전용 SD가 생기면 그걸 쓴다.
+    expect(spriteFor('SD 없는 니케', 'reload')).toBe(DEFAULT_SD.reload);
+    SD_SPRITES['SD 없는 니케'] = { shoot: 'a.webp', reload: 'b.webp' };
+    expect(spriteFor('SD 없는 니케', 'reload')).toBe('b.webp');
+    delete SD_SPRITES['SD 없는 니케'];
   });
 });
 
@@ -232,7 +233,7 @@ describe('재생 창', () => {
     scrub.value = '1.2';
     scrub.dispatchEvent(new Event('input'));
     expect(slot.classList.contains('is-reload')).toBe(true);
-    expect(slot.querySelector('img')!.getAttribute('src')).toBe(DEFAULT_SD.reload);
+    expect(slot.querySelector('img')!.getAttribute('src')).toBe(spriteFor('라피', 'reload'));
 
     // 풀버스트 구간 — 배너와 FULL.
     scrub.value = '2.2';
