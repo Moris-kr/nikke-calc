@@ -1139,7 +1139,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <label><span>싱크로 레벨</span><div class="input-unit"><input id="synchro-level" type="number" min="1" max="${SYNCHRO_MAX}" step="1" value="${DEFAULT_SYNCHRO_LEVEL}" title="${t('싱크로 디바이스 소대에 넣은 니케는 전원이 이 레벨이 됩니다. 계정 육성 상태라 전투 조건 공유 코드에는 담기지 않습니다. {n}레벨까지는 실측값이고, 그 위는 같은 성장 곡선을 이어 붙여 계산합니다', { n: SYNCHRO_MEASURED_MAX })}" /><em>Lv</em></div></label>
             <label class="toggle-field"><input id="has-core" type="checkbox" /><span class="toggle"></span><span>코어 있음</span></label>
             <label><span>샷건 계산 방식</span><select id="shotgun-model"><option value="spatial-v1" selected>탄착군·보스 크기 (개선)</option><option value="spatial-convergence-v1">탄착군 + 무기 수렴 (실험)</option><option value="legacy">기존 방식 · 고정 명중률</option></select></label>
-            <label><span>보스 판정 직경</span><div class="input-unit"><input id="shotgun-target-diameter" type="number" min="1" max="2000" step="1" value="360" disabled /><em>모형 px</em></div></label>
+            <label><span>보스 판정 직경</span><div class="input-unit"><input id="shotgun-target-diameter" type="number" min="1" max="2000" step="1" value="360" disabled /><em>모형 px</em></div><small class="core-chance" data-boss-diameter-now title="신식 적정거리에서는 보스 판정 직경도 코어처럼 30 ÷ 거리 배로 바뀝니다. 입력값은 거리 30(중거리)에서의 크기입니다"></small></label>
             <label><span>보스 크기 · 샷건 명중</span><select id="boss-size"><option value="large">큼 · 펠릿 100%</option><option value="medium">보통 · 펠릿 90%</option><option value="small">작음 · 펠릿 80%</option><option value="custom">커스텀</option></select></label>
             <label><span>샷건 펠릿 명중 확률</span><div class="input-unit"><input id="shotgun-hit-rate" type="number" min="0" max="100" step="0.1" value="100" disabled /><em>%</em></div></label>
             <label data-core-size><span>코어 직경</span><div class="input-unit"><input id="core-px" type="number" min="0" max="1000" step="1" value="52" disabled /><em>px</em></div><small class="core-chance" data-core-chance title="이 코어 직경에서 무기군별 평타가 코어에 맞을 확률입니다(명중률 0 기준). AR·SMG는 명중률 버프를 받으면 더 오르고, SR·RL은 언제나 코어에 맞는다고 봅니다"></small></label>
@@ -3392,7 +3392,18 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       button.classList.toggle('is-on', Number(button.dataset.distancePreset) === d);
     }
     refreshCoreChance();
+    refreshBossDiameterNow();
   };
+  // 보스 판정 직경 바로 아래 — 신식이면 지금 거리에서 실제로 쓰이는 직경(입력은 거리 30 기준).
+  const refreshBossDiameterNow = (): void => {
+    const out = element<HTMLElement>(root, '[data-boss-diameter-now]');
+    const base = Number(element<HTMLInputElement>(root, '#shotgun-target-diameter').value);
+    const d = Number(distanceInput.value);
+    out.textContent = readRangeModel() === 'distance' && base > 0 && d > 0
+      ? t('거리 {d}에서 {px}', { d, px: Math.round(base * distanceScale(settings.distance, d)) })
+      : '';
+  };
+  element<HTMLInputElement>(root, '#shotgun-target-diameter').addEventListener('input', refreshBossDiameterNow);
   for (const input of rangeModelInputs) {
     input.addEventListener('change', () => {
       refreshRangeModel();
@@ -5480,6 +5491,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     if (size !== 'custom') input.value = String(({ large: 100, medium: 90, small: 80 } as Record<string, number>)[size]);
     if (size !== 'custom') element<HTMLInputElement>(root, '#shotgun-target-diameter').value = String(({ large: 360, medium: 200, small: 120 } as Record<string, number>)[size]);
     refreshShotgunControls();
+    refreshBossDiameterNow();
   });
   element<HTMLSelectElement>(root, '#shotgun-model').addEventListener('change', refreshShotgunControls);
   refreshShotgunControls();

@@ -1353,12 +1353,15 @@ describe('calculator UI', () => {
     if (!toggle.checked) toggle.click();
     root.querySelector<HTMLButtonElement>('[data-distance-preset="52"]')!.click();
     expect(root.querySelector('[data-distance-now]')!.textContent).toBe('적정거리 MG·SR · 코어·보스 크기 ×0.58');
+    // 보스 판정 직경도 지금 거리에서 쓰이는 값을 보인다(360 × 30/52 ≈ 208).
+    expect(root.querySelector('[data-boss-diameter-now]')!.textContent).toBe('거리 52에서 208');
     // 원거리에서는 코어가 작게 보인다(52 × 30/52 = 30px) — MG는 예열 후 탄착군으로 잰다.
     expect(root.querySelector('[data-core-chance]')!.textContent).toBe('코어 명중 (거리 52 · 코어 30px) MG 5% · AR 9% · SMG 5%');
     expect(JSON.parse(localStorage.getItem('nikke-state-v1')!).battle).toMatchObject({ rangeModel: 'distance', distance: 52 });
 
     // 구식으로 바꾸면 무기군 체크가 돌아온다.
     mode('legacy').click();
+    expect(root.querySelector('[data-boss-diameter-now]')!.textContent).toBe('');
     expect(root.querySelector<HTMLElement>('[data-optimal-range]')!.hidden).toBe(false);
     expect(root.querySelector<HTMLElement>('[data-range-distance]')!.hidden).toBe(true);
     expect(root.querySelector('[data-core-chance]')!.textContent).toBe('코어 명중 MG 100% · AR 38% · SMG 15%');

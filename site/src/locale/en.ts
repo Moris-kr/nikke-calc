@@ -1521,6 +1521,8 @@ export const EN: Record<string, string> = {
   '적정거리 없음': 'no optimal range',
   '풀차징컨': 'Full-charge control',
   '직접 조작으로 풀차지 한 발을 쏘고 다음 차지를 누르기까지의 딜레이입니다. 자동 사격은 약 0.38초입니다. 덱에서 한 명만 켤 수 있습니다': 'Delay between firing a full-charge shot by hand and starting the next charge. Auto fire is about 0.38 s. Only one per deck.',
+  '거리 {d}에서 {px}': '{px} at distance {d}',
+  '신식 적정거리에서는 보스 판정 직경도 코어처럼 30 ÷ 거리 배로 바뀝니다. 입력값은 거리 30(중거리)에서의 크기입니다': 'With the distance-based optimal range, the boss hitbox diameter also scales by 30 ÷ distance, like the core. The input is the size at distance 30 (mid).',
   '코어 명중': 'Core hit',
   '이 코어 직경에서 무기군별 평타가 코어에 맞을 확률입니다(명중률 0 기준). AR·SMG는 명중률 버프를 받으면 더 오르고, SR·RL은 언제나 코어에 맞는다고 봅니다': 'Chance that normal attacks of each weapon type hit the core at this diameter (0 accuracy). AR·SMG rise with accuracy buffs; SR·RL are always treated as core hits',
   '코어 {n}px': 'core {n}px',
