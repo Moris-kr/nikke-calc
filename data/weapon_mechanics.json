@@ -61,6 +61,52 @@
    "acc_slope": 0
   }
  },
+ "accuracy_distance": {
+  "_comment": "신식(거리) 적정거리 모드의 탄착군 직경. 단위는 위 accuracy와 같다(AR 명중 0% = 76). 인게임 스크린샷 실측(유저 제공 2026-09-24, 같은 보스·거리): 화면 px × 1.767(= AR 76 ÷ 화면 43px). AR 명중 23.62%는 화면 34px로 위 식(−21.4%)과 맞는다. SMG는 명중 23.62%에서도 원이 55px 그대로라 기울기 0. MG는 예열 전 cold_diameter(화면 143px)에서 예열 완료 시 base_diameter(화면 54px)로 줄어든다. SG·SR·RL은 새로 잰 값이 없어 accuracy와 같다. 구식 모드는 이 표를 쓰지 않는다.",
+  "AR": {
+   "base_diameter": 76,
+   "acc_slope": 0.69
+  },
+  "SMG": {
+   "base_diameter": 97,
+   "acc_slope": 0
+  },
+  "SG": {
+   "base_diameter": 240,
+   "acc_slope": 2.18
+  },
+  "MG": {
+   "base_diameter": 95,
+   "acc_slope": 0,
+   "cold_diameter": 253
+  },
+  "SR": {
+   "base_diameter": 10,
+   "acc_slope": 0
+  },
+  "RL": {
+   "base_diameter": 10,
+   "acc_slope": 0
+  }
+ },
+ "distance": {
+  "_comment": "신식 적정거리의 거리 모형. 거리 d(0~100)에서 ranges[무기군] = [가까운 끝, 먼 끝] 안에 드는 무기군이 적정거리다(양 끝 포함). 출처: arca.live/b/nikketgv/146865071 (nikke.gg 팀 빌딩 가이드 인용). 런처는 적정거리가 없다. 보이는 크기(코어·보스 판정 직경)는 reference ÷ d배 — 전투 조건의 코어 직경은 d = reference(중거리)에서의 크기다. 인게임 스크린샷 실측(유저 제공 2026-09-24): 보스 양팔 포드 간격 화면 265px(SMG·SG 적정) : 194px(AR·SMG 적정) : 112px(MG·SR 적정) = 1.37 : 1 : 0.58 → d = 22 : 30 : 52로 세 장 모두 위 표의 적정 구간 안에 든다. presets는 그 세 거리다.",
+  "reference": 30,
+  "min": 5,
+  "max": 100,
+  "ranges": {
+   "SG": [0, 25],
+   "SMG": [15, 35],
+   "AR": [25, 45],
+   "MG": [35, 55],
+   "SR": [45, 100]
+  },
+  "presets": {
+   "near": 22,
+   "mid": 30,
+   "far": 52
+  }
+ },
  "weapon_type_defaults": {
   "AR": {
    "type": "auto",

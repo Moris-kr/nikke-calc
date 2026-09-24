@@ -30,6 +30,7 @@ import {
 import type { StorageLike } from './cache';
 import { confirmTwice } from './confirm-twice';
 import { t } from './i18n';
+import { distanceScale, distanceWeapons } from './distance';
 import { formatDamage, formatDps, requestForDeck } from './model';
 import { decodeBattleCode, encodeBattleCode } from './share-code';
 import { mountSharePanel, type SharePanel } from './share-panel';
@@ -38,6 +39,8 @@ import type { ShareServer } from './share-server';
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 export interface BossMakerDeps {
+  /** 계산기 화면을 뗄 때 끊기는 신호 — 창(window)·문서에 건 리스너를 함께 뗀다. */
+  signal?: AbortSignal;
   settings: SettingsCatalog;
   catalog: CharacterMeta[];
   simulate: (request: SimulationRequest) => Promise<SimulationResult>;
@@ -491,7 +494,15 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     picker.title = `저장본 ${library.designs.length}개`;
   }
 
-  const accuracy = deps.settings.accuracy;
+  /** 탄착군 표 — 신식 적정거리면 새로 잰 표를 쓴다(엔진과 같은 선택). */
+  const accuracyTable = () => (deps.currentBattle().rangeModel === 'distance'
+    ? deps.settings.accuracyDistance ?? deps.settings.accuracy : deps.settings.accuracy);
+  /** 신식 적정거리면 거리만큼 보스(그림)가 커지거나 작아진다 — 엔진도 그림을 그 배율로 키운다. */
+  const drawingScale = (): number => {
+    const battle = deps.currentBattle();
+    return battle.rangeModel === 'distance'
+      ? distanceScale(deps.settings.distance, battle.distance ?? deps.settings.distance?.reference ?? 30) : 1;
+  };
   /** 지금 화면에 그릴 니케. 감춘 사람은 무대에서도 타임라인에서도 빠진다. */
   const shownSquad = (): string[] =>
     deps.currentSquad().filter((name) => name && !hidden.has(name));
@@ -508,7 +519,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
 
   /** 이 니케의 탄착군 반지름. 손으로 적어 둔 지름이 있으면 그것이 먼저다. */
   const spreadOf = (name: string): number =>
-    spreadRadius(accuracy, weaponOf(name), 0, design.spread?.[name]);
+    spreadRadius(accuracyTable(), weaponOf(name), 0, design.spread?.[name]);
   const weaponOf = (name: string) => deps.settings.characters[name]?.weaponType ?? 'AR';
   const allItems = (): BossShape[] => [...design.shapes, ...design.parts];
   const findItem = (id: string | null): BossShape | undefined =>
@@ -844,7 +855,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
     const first = pileHits.checked
       ? 0 : Math.max(0, last - Math.round(TRAIL_SECONDS / bucket));
     const squad = shownSquad();
-    const modelN = accuracy?.modelN ?? 2.55;
+    const modelN = accuracyTable()?.modelN ?? 2.55;
 
     // 점은 **칸이 바뀔 때만** 달라진다. 재생은 초당 60번 다시 그리는데 칸은 0.1초마다
     // 넘어가므로, 같은 칸이면 지난번에 만든 묶음을 그대로 다시 붙인다
@@ -1227,7 +1238,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       chance.textContent = squad.length === 0
         ? '편성이 비어 있어 코어 적중률을 낼 수 없습니다.'
         : squad.map((name) =>
-          `${name} ${Math.round(coreHitChance(accuracy, weaponOf(name), core.d) * 100)}%`).join(' · ');
+          `${name} ${Math.round(coreHitChance(accuracyTable(), weaponOf(name), core.d * drawingScale()) * 100)}%`).join(' · ');
       inspector.append(el('p', 'bm-note-head', '코어 적중률 (명중률 0 기준)'), chance);
       inspector.append(deleteRow('코어 지우기', () => { design.core = null; }));
       return;
@@ -1506,7 +1517,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       normalDamage: normalDamageByBucket(),
       aimOf,
       spreadOf,
-      modelN: accuracy?.modelN ?? 2.55,
+      modelN: accuracyTable()?.modelN ?? 2.55,
     });
     return breakCache;
   }
@@ -1668,7 +1679,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
           if (value > 0) next[name] = value; else delete next[name];
           design.spread = next;
         }, 'px');
-        const base = Math.round(spreadRadius(accuracy, weaponOf(name), 0) * 2);
+        const base = Math.round(spreadRadius(accuracyTable(), weaponOf(name), 0) * 2);
         row.append(el('em', 'bm-cover', current > 0 ? `기본 ${base}` : `기본값 ${base}`));
         spreads.append(row);
       }
@@ -1803,7 +1814,11 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
       if (drawing && pierce && pierce.total > 1) {
         parts.push(`관통 ${pierce.total}중(몸통 ${pierce.shapes}·파츠 ${pierce.parts} · ${round(cursor)}초 조준 기준)`);
       }
-      const actualRange = request.optimalRangeWeapons ?? [];
+      // 신식은 거리가 적정거리를 정한다 — 도형의 적정거리 대신 그 거리의 무기군을 적는다.
+      const distanceMode = request.rangeModel === 'distance';
+      const actualRange = distanceMode
+        ? distanceWeapons(deps.settings.distance, request.distance ?? 30) : request.optimalRangeWeapons ?? [];
+      if (distanceMode) parts.push(`거리 ${request.distance ?? 30}`);
       parts.push(actualRange.length > 0 ? `적정 ${actualRange.join('·')}` : '적정거리 없음');
       // 파츠 파괴 시각은 «이 덱의 딜»에서 나오므로 **한 번 돌린 뒤에야** 알 수 있다.
       // 처음 돌릴 때는 넘길 값이 없었다는 사실을 숨기지 않고 적는다.
@@ -3017,7 +3032,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
   });
 
   const onResize = () => { narrow.hidden = window.innerWidth >= MIN_WIDTH; };
-  window.addEventListener('resize', onResize);
+  window.addEventListener('resize', onResize, { signal: deps.signal });
 
   function open() {
     host.hidden = false;
@@ -3035,7 +3050,7 @@ export function mountBossMaker(host: HTMLElement, deps: BossMakerDeps): BossMake
 
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && !host.hidden && !editingBattle && !event.defaultPrevented) close();
-  });
+  }, { signal: deps.signal });
 
   return { open, close };
 }

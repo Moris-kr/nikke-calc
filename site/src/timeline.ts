@@ -49,6 +49,8 @@ export interface TimelineSeries {
   defenseRateWindows: Array<{ from: number; to: number; rate: number }>;
   coreWindows: Array<{ from: number; to: number }>;
   optimalRangeWindows: Array<{ from: number; to: number; weapons: string[] }>;
+  /** 신식 적정거리의 거리 구간. 청록 밴드로 깐다. */
+  distanceWindows: Array<{ from: number; to: number; distance: number }>;
   /** 족자 — 평타가 빗나가는 구간. 타임라인에 붉은 밴드로 깐다. */
   immuneWindows: Array<{ from: number; to: number }>;
   /** 속저 — 우월 코드만 통과하는 구간. 푸른 밴드로 깐다. */
@@ -137,6 +139,7 @@ export function buildSeries(
     defenseRateWindows?: Array<{ from: number; to: number; rate: number }>;
     coreWindows?: Array<{ from: number; to: number }>;
     optimalRangeWindows?: Array<{ from: number; to: number; weapons: string[] }>;
+    distanceWindows?: Array<{ from: number; to: number; distance: number }>;
     immuneWindows?: Array<{ from: number; to: number }>;
     elementWindows?: Array<{ from: number; to: number; code: string }>;
   } = {},
@@ -164,6 +167,7 @@ export function buildSeries(
     defenseRateWindows: phases.defenseRateWindows ?? [],
     coreWindows: phases.coreWindows ?? [],
     optimalRangeWindows: phases.optimalRangeWindows ?? [],
+    distanceWindows: phases.distanceWindows ?? [],
     immuneWindows: phases.immuneWindows ?? [],
     elementWindows: phases.elementWindows ?? [],
     // 이 덱에 없는 사람이 건 버프는 색을 줄 수 없으니 뺀다(옛 결과에는 목록 자체가 없다).
@@ -525,6 +529,9 @@ class TimelineChart {
     }
     for (const w of this.series.optimalRangeWindows) {
       band(w.from, w.to, 'rgba(45,212,191,0.12)', `사거리 ${w.weapons.join('/') || '없음'}`);
+    }
+    for (const w of this.series.distanceWindows) {
+      band(w.from, w.to, 'rgba(45,212,191,0.12)', `거리 ${w.distance}`);
     }
     for (const w of this.series.coreWindows) {
       band(w.from, w.to, 'rgba(74,222,128,0.12)', '코어 노출');
@@ -985,6 +992,7 @@ export function createTimelineBlock(
   const series = buildSeries(timeline, squad, entry.result.duration, {
     defenseRateWindows: entry.request.defenseRateWindows,
     optimalRangeWindows: entry.request.optimalRangeWindows,
+    distanceWindows: entry.request.rangeModel === 'distance' ? entry.request.distanceWindows : [],
     coreWindows: entry.request.corePx > 0 ? entry.request.coreWindows : [],
     immuneWindows: entry.request.immuneWindows,
     elementWindows: entry.request.elementWindows,

@@ -14,6 +14,14 @@ const integerInRange = (value: number, min: number, max: number): boolean =>
   Number.isInteger(value) && value >= min && value <= max;
 
 /** 엔진 기본 스펙과 같은 값. 이것과 같으면 요청에 싣지 않는다(캐시 키가 갈리지 않게). */
+/**
+ * 신식 적정거리의 기준 거리(중거리 — 코어 직경 입력이 이 거리의 크기다)와 입력 범위.
+ * 정본은 `data/weapon_mechanics.json`의 `distance`(reference·min·max) — 엔진이 같은 값으로 다시 검증한다.
+ */
+export const DISTANCE_REFERENCE = 30;
+export const DISTANCE_MIN = 5;
+export const DISTANCE_MAX = 100;
+
 export const DEFAULT_SYNCHRO_LEVEL = 400;
 
 /**
@@ -65,12 +73,20 @@ export function normalizeRequest(request: SimulationRequest): SimulationRequest 
     hasParts: Boolean(request.hasParts),
     seed: Math.trunc(request.seed),
     // 고른 순서가 달라도 같은 설정이다 — 정렬해 캐시 키가 갈리지 않게 한다.
-    ...(request.optimalRangeWeapons?.length
+    // 신식은 거리가 적정거리를 정하니 구식 두 값을 싣지 않는다(캐시 키도 갈리지 않게).
+    ...(request.rangeModel !== 'distance' && request.optimalRangeWeapons?.length
       ? { optimalRangeWeapons: [...request.optimalRangeWeapons].sort() } : {}),
+    // 구식은 이 셋을 싣지 않는다 — 신식이 생기기 전의 요청·캐시 키와 똑같게.
+    ...(request.rangeModel === 'distance' ? {
+      rangeModel: 'distance' as const,
+      distance: request.distance ?? DISTANCE_REFERENCE,
+      ...(request.distanceWindows?.length ? { distanceWindows:
+        [...request.distanceWindows].sort((a, b) => a.from - b.from || a.to - b.to || a.distance - b.distance) } : {}),
+    } : {}),
     // 보스 페이즈는 시작 시각순으로 세운다 — 넣은 순서가 달라도 같은 설정이다.
     ...(request.defenseRateWindows?.length ? { defenseRateWindows:
       [...request.defenseRateWindows].sort((a, b) => a.from - b.from || a.to - b.to || a.rate - b.rate) } : {}),
-    ...(request.optimalRangeWindows?.length ? { optimalRangeWindows: request.optimalRangeWindows.map(w => ({ ...w, weapons: [...new Set(w.weapons)].sort() })).sort((a, b) => a.from - b.from || a.to - b.to || a.weapons.join(',').localeCompare(b.weapons.join(','))) } : {}),
+    ...(request.rangeModel !== 'distance' && request.optimalRangeWindows?.length ? { optimalRangeWindows: request.optimalRangeWindows.map(w => ({ ...w, weapons: [...new Set(w.weapons)].sort() })).sort((a, b) => a.from - b.from || a.to - b.to || a.weapons.join(',').localeCompare(b.weapons.join(','))) } : {}),
     ...(request.coreWindows?.length ? { coreWindows:
       [...request.coreWindows].sort((a, b) => a.from - b.from || a.to - b.to) } : {}),
     ...(request.immuneWindows?.length ? { immuneWindows:
@@ -236,6 +252,7 @@ export function validateRequest(request: SimulationRequest): string[] {
   const windows: Array<[{ from: number; to: number }, string]> = [
     ...(request.defenseRateWindows ?? []).map((w) => [w, '바디 방어율'] as [typeof w, string]),
     ...(request.optimalRangeWindows ?? []).map((w) => [w, '유효 사거리'] as [typeof w, string]),
+    ...(request.distanceWindows ?? []).map((w) => [w, '거리'] as [typeof w, string]),
     ...(request.coreWindows ?? []).map((w) => [w, '코어 노출'] as [typeof w, string]),
     ...(request.immuneWindows ?? []).map((w) => [w, '족자'] as [typeof w, string]),
     ...(request.elementWindows ?? []).map((w) => [w, '속저'] as [typeof w, string]),
@@ -252,6 +269,13 @@ export function validateRequest(request: SimulationRequest): string[] {
   if ((request.optimalRangeWindows?.length ?? 0) > 100) errors.push('유효 사거리 구간은 최대 100개까지 지정할 수 있습니다.');
   for (const w of request.optimalRangeWindows ?? []) {
     if (!Array.isArray(w.weapons) || w.weapons.some(weapon => !['AR', 'SMG', 'SG', 'MG', 'SR', 'RL'].includes(weapon))) errors.push('유효 사거리 구간의 무기군을 확인해 주세요.');
+  }
+
+  if (request.rangeModel === 'distance') {
+    const inRange = (d: number) => Number.isFinite(d) && d >= DISTANCE_MIN && d <= DISTANCE_MAX;
+    if (!inRange(request.distance ?? DISTANCE_REFERENCE)) errors.push(`거리는 ${DISTANCE_MIN}~${DISTANCE_MAX}여야 합니다.`);
+    if ((request.distanceWindows?.length ?? 0) > 100) errors.push('거리 구간은 최대 100개까지 지정할 수 있습니다.');
+    if ((request.distanceWindows ?? []).some((w) => !inRange(w.distance))) errors.push(`거리 구간의 거리는 ${DISTANCE_MIN}~${DISTANCE_MAX}여야 합니다.`);
   }
 
   if ((request.defenseRateWindows?.length ?? 0) > 100) errors.push('바디 방어율 구간은 최대 100개까지 지정할 수 있습니다.');
@@ -329,6 +353,11 @@ export function requestForDeck(
     optimalRangeWeapons: battle.optimalRangeWeapons,
     coreWindows: battle.coreWindows,
     optimalRangeWindows: battle.optimalRangeWindows,
+    ...(battle.rangeModel === 'distance' ? {
+      rangeModel: 'distance' as const,
+      distance: battle.distance ?? DISTANCE_REFERENCE,
+      distanceWindows: battle.distanceWindows ?? [],
+    } : {}),
     defenseRateWindows: battle.defenseRateWindows,
     immuneWindows: battle.immuneWindows,
     elementWindows: battle.elementWindows,
@@ -368,6 +397,9 @@ export function resetEnemy(battle: BattleSettings): BattleSettings {
     corePerDeck: {},
     optimalRangeWeapons: [],
     optimalRangeWindows: [],
+    // 거리는 보스마다 다르다 — 방식(신식·구식)은 두고 값만 기준 거리로 되돌린다.
+    distance: DISTANCE_REFERENCE,
+    distanceWindows: [],
     shotgunSizeWindows: [],
     coreWindows: [],
     defenseRateWindows: [],

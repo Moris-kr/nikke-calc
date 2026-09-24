@@ -25,6 +25,7 @@ import './battle-replay.css';
 import { formatDamage } from './model';
 import { statText } from './stat-names';
 import { t } from './i18n';
+import { distanceAt, distanceScale, distanceWeapons, type DistanceTable } from './distance';
 import type {
   BattleTimeline, BuffTrack, BurstCast, ChargeRecord, DeckResultEntry, ShotTrack, SimulationRequest, SimulationResult,
   StateTrack,
@@ -251,6 +252,10 @@ export interface BossPatterns {
   defenseRate: number | null;
   /** 적정거리 무기군. 없으면 null. */
   optimal: string[] | null;
+  /** 신식 적정거리의 그 시각 거리 d. 구식이면 null. */
+  distance: number | null;
+  /** 보이는 크기 배율(코어·보스). 구식이면 1. */
+  scale: number;
   /** 샷건 표적 크기(시간별 조건). 없으면 null. */
   shotgunDiameter: number | null;
   /** 마지막 파츠 파괴로부터 흐른 시간(초). 파괴 주기가 없거나 아직이면 null. */
@@ -261,7 +266,7 @@ const within = <T extends { from: number; to: number }>(windows: T[] | undefined
   (windows ?? []).find((window) => time >= window.from && time < window.to);
 
 /** 그 시각에 켜져 있는 보스 패턴. 전투 조건(요청)에서 바로 읽는다. */
-export function patternsAt(request: SimulationRequest, time: number): BossPatterns {
+export function patternsAt(request: SimulationRequest, time: number, table?: DistanceTable): BossPatterns {
   const element = within(request.elementWindows, time);
   const defense = within(request.defenseRateWindows, time);
   const optimal = within(request.optimalRangeWindows, time);
@@ -270,12 +275,17 @@ export function patternsAt(request: SimulationRequest, time: number): BossPatter
   const core = request.corePx > 0 ? (coreWindows.length === 0 || Boolean(within(coreWindows, time))) : null;
   const interval = request.partBreakInterval ?? 0;
   const breaks = interval > 0 ? Math.floor(time / interval) : 0;
+  // 신식은 거리 하나가 적정거리 무기군과 보이는 크기를 정한다 — 유효 사거리 구간은 쓰지 않는다.
+  const distance = distanceAt(request, time, table);
+  const byDistance = distance !== null ? distanceWeapons(table, distance) : null;
   return {
     immune: Boolean(within(request.immuneWindows, time)),
     element: element ? element.code : null,
     core,
     defenseRate: defense ? defense.rate : null,
-    optimal: optimal ? optimal.weapons : null,
+    optimal: byDistance ?? (optimal ? optimal.weapons : null),
+    distance,
+    scale: distance !== null ? distanceScale(table, distance) : 1,
     shotgunDiameter: size ? size.diameter : null,
     partBreakAge: breaks > 0 ? time - breaks * interval : null,
   };
@@ -295,6 +305,8 @@ function hash(a: number, b: number): number {
 
 export interface ReplayDeps {
   imageOf: (name: string) => string | undefined;
+  /** 신식 적정거리 표(설정). 없으면 거리에 따른 크기 변화를 그리지 않는다. */
+  distance?: DistanceTable;
 }
 
 const cache = new WeakMap<DeckResultEntry, SimulationResult>();
@@ -625,14 +637,16 @@ export function openBattleReplay(
         if (age < 0) continue;
         const alpha = Math.max(0, 1 - age / SPARK_SECONDS);
         // 족자 중 평타는 빗나간다 — 회색으로 흩어진다. 스킬은 그대로 맞는다.
-        const immune = patternsAt(entry.request, i * shots.bucket).immune;
+        const bucketPat = patternsAt(entry.request, i * shots.bucket, deps.distance);
+        const immune = bucketPat.immune;
         // 칸마다 최대 6발. k는 필터 전 순서(코어 → 평타 → 스킬)라 필터를 바꿔도 탄흔 자리가 그대로다.
         let drawn = 0;
         for (let k = 0; k < normal + skill && drawn < 6; k += 1) {
           const kind: ImpactKind = k >= normal ? 'skill' : k < core ? 'core' : 'normal';
           if (!shownKinds.has(kind)) continue;
           const angle = hash(slot * 131 + k, i) * Math.PI * 2;
-          const dist = Math.sqrt(hash(i, slot * 17 + k + 5)) * radius * 0.92;
+          // 신식은 거리만큼 보스가 커지거나 작아진다 — 탄흔도 그 보스 위에 떨어진다.
+          const dist = Math.sqrt(hash(i, slot * 17 + k + 5)) * radius * bucketPat.scale * 0.92;
           const x = cx + Math.cos(angle) * dist;
           const y = cy + Math.sin(angle) * dist;
           // 사선 — 쏜 직후 아주 잠깐만.
@@ -756,7 +770,8 @@ export function openBattleReplay(
     });
 
     // 보스 패턴 — 족자(사라짐)·속성 저지·코어 노출·방어력·적정거리·샷건 표적·파츠 파괴
-    const pat = patternsAt(entry.request, cursor);
+    const pat = patternsAt(entry.request, cursor, deps.distance);
+    stage.style.setProperty('--dist', pat.scale.toFixed(3));
     stage.classList.toggle('is-immune', pat.immune);
     vanish.hidden = !pat.immune;
     hitbox.classList.toggle('is-immune', pat.immune);
@@ -779,7 +794,11 @@ export function openBattleReplay(
     }
     if (pat.core === true && !pat.immune && (entry.request.coreWindows?.length ?? 0) > 0) badge(t('코어 노출'), 'core');
     if (pat.defenseRate !== null) badge(t('방어력 {rate}%', { rate: pat.defenseRate }), 'defense');
-    if (pat.optimal) badge(t('적정거리 · {weapons}', { weapons: pat.optimal.join('·') }), 'optimal');
+    if (pat.distance !== null) {
+      // 신식 — 거리·적정 무기군·그 거리에서 보이는 코어 크기를 한 줄로.
+      const core = entry.request.corePx > 0 ? ` · ${t('코어 ⌀{px}', { px: Math.round(entry.request.corePx * pat.scale * 10) / 10 })}` : '';
+      badge(`${t('거리 {d}', { d: pat.distance })} · ${pat.optimal?.length ? t('적정 {list}', { list: pat.optimal.join('·') }) : t('적정거리 없음')}${core}`, 'distance');
+    } else if (pat.optimal) badge(t('적정거리 · {weapons}', { weapons: pat.optimal.join('·') }), 'optimal');
     if (pat.shotgunDiameter !== null) badge(t('샷건 표적 ⌀{d}', { d: pat.shotgunDiameter }), 'shotgun');
     if (pat.partBreakAge !== null && pat.partBreakAge < 1.4) badge(t('파츠 파괴!'), 'parts');
 

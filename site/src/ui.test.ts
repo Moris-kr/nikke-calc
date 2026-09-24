@@ -9,7 +9,7 @@ import { ANNOUNCEMENTS, COUNTDOWNS, countdownToShow } from './announcement';
 import fictionalCharacter from './fixtures/fictional-character.json';
 import { customToMeta, customToSettings } from './custom-nikke';
 import { LATEST_NOTICE_ID } from './notices';
-import { mountCalculator, type CalculatorClientLike } from './ui';
+import { mountCalculator as mountCalculatorOnce, type CalculatorClientLike } from './ui';
 import { decodeBattleCode, encodeBattleCode, encodeShareCode } from './share-code';
 import './styles.css';
 import type {
@@ -202,6 +202,22 @@ function clearCharacterSlot(root: HTMLElement, index: number): void {
   const card = root.querySelectorAll<HTMLElement>('[data-slot-card]')[index]!;
   card.querySelector<HTMLButtonElement>('.slot-clear')!.click();
 }
+
+/**
+ * 테스트마다 붙인 계산기를 끝에 떼어 낸다. 떼지 않으면 window에 건 리스너·타이머가 화면 통째를 붙잡아
+ * 테스트마다 수십 MB씩 쌓이고, 이 파일 하나가 힙 한도(4GB)를 넘겨 워커가 죽는다.
+ */
+const mounted: Array<() => void> = [];
+const mountCalculator = (...args: Parameters<typeof mountCalculatorOnce>): ReturnType<typeof mountCalculatorOnce> => {
+  const dispose = mountCalculatorOnce(...args);
+  mounted.push(dispose);
+  return dispose;
+};
+afterEach(() => {
+  for (const dispose of mounted.splice(0)) {
+    try { dispose(); } catch { /* 테스트가 이미 뗐다 */ }
+  }
+});
 
 describe('calculator UI', () => {
   let root: HTMLElement;
@@ -1309,6 +1325,78 @@ describe('calculator UI', () => {
     expect(root.querySelector<HTMLInputElement>('#core-px')!.value).toBe('70');
   });
 
+  it('신식 적정거리 — 처음 쓰는 사람은 거리로 계산하고, 방식이 없는 옛 저장본은 구식으로 읽는다', () => {
+    const distanceSettings = {
+      ...settings,
+      accuracy: { modelN: 2.55, weapons: {
+        MG: { baseDiameter: 10, accSlope: 0 }, AR: { baseDiameter: 76, accSlope: 0.69 },
+        SMG: { baseDiameter: 110, accSlope: 1 },
+      } },
+      accuracyDistance: { modelN: 2.55, weapons: {
+        MG: { baseDiameter: 95, accSlope: 0, coldDiameter: 253 }, AR: { baseDiameter: 76, accSlope: 0.69 },
+        SMG: { baseDiameter: 97, accSlope: 0 },
+      } },
+      distance: {
+        reference: 30, min: 5, max: 100, presets: { near: 22, mid: 30, far: 52 },
+        ranges: { SG: [0, 25], SMG: [15, 35], AR: [25, 45], MG: [35, 55], SR: [45, 100] } as Record<string, [number, number]>,
+      },
+    };
+    const deps = { catalog, settings: distanceSettings, version: 'v1', client: new FakeClient(), storage: localStorage };
+    const unmount = mountCalculator(root, deps);
+    const mode = (value: string) => root.querySelector<HTMLInputElement>(`[data-range-model][value="${value}"]`)!;
+    expect(mode('distance').checked).toBe(true);
+    expect(root.querySelector<HTMLElement>('[data-optimal-range]')!.hidden).toBe(true);
+    expect(root.querySelector<HTMLElement>('[data-range-distance]')!.hidden).toBe(false);
+    expect(root.querySelector<HTMLElement>('[data-phase-add="range"]')!.hidden).toBe(true);
+
+    const toggle = root.querySelector<HTMLInputElement>('#has-core')!;
+    if (!toggle.checked) toggle.click();
+    root.querySelector<HTMLButtonElement>('[data-distance-preset="52"]')!.click();
+    expect(root.querySelector('[data-distance-now]')!.textContent).toBe('적정거리 MG·SR · 코어·보스 크기 ×0.58');
+    // 원거리에서는 코어가 작게 보인다(52 × 30/52 = 30px) — MG는 예열 후 탄착군으로 잰다.
+    expect(root.querySelector('[data-core-chance]')!.textContent).toBe('코어 명중 (거리 52 · 코어 30px) MG 5% · AR 9% · SMG 5%');
+    expect(JSON.parse(localStorage.getItem('nikke-state-v1')!).battle).toMatchObject({ rangeModel: 'distance', distance: 52 });
+
+    // 구식으로 바꾸면 무기군 체크가 돌아온다.
+    mode('legacy').click();
+    expect(root.querySelector<HTMLElement>('[data-optimal-range]')!.hidden).toBe(false);
+    expect(root.querySelector<HTMLElement>('[data-range-distance]')!.hidden).toBe(true);
+    expect(root.querySelector('[data-core-chance]')!.textContent).toBe('코어 명중 MG 100% · AR 38% · SMG 15%');
+
+    // 방식이 없는 옛 저장본은 구식이다 — 저장해 둔 결과가 바뀌면 안 된다.
+    mode('distance').click();
+    unmount();
+    root.replaceChildren();
+    const saved = JSON.parse(localStorage.getItem('nikke-state-v1')!);
+    delete saved.battle.rangeModel;
+    localStorage.setItem('nikke-state-v1', JSON.stringify(saved));
+    mountCalculator(root, deps);
+    expect(mode('legacy').checked).toBe(true);
+  });
+
+  it('코어 직경을 고치면 바로 아래 무기군별 코어 명중률이 바뀐다', () => {
+    const accuracy = { modelN: 2.55, weapons: {
+      MG: { baseDiameter: 10, accSlope: 0 }, AR: { baseDiameter: 76, accSlope: 0.69 },
+      SMG: { baseDiameter: 110, accSlope: 1 },
+    } };
+    mountCalculator(root, { catalog, settings: { ...settings, accuracy }, version: 'v1', client: new FakeClient(), storage: localStorage });
+    const toggle = root.querySelector<HTMLInputElement>('#has-core')!;
+    const core = root.querySelector<HTMLInputElement>('#core-px')!;
+    const label = root.querySelector<HTMLElement>('[data-core-chance]')!;
+    // 처음 쓰는 사람은 신식(거리)이다 — 구식 탄착군 표를 보려고 구식으로 바꾼다.
+    root.querySelector<HTMLInputElement>('[data-range-model][value="legacy"]')!.click();
+    if (toggle.checked) toggle.click();
+    expect(label.textContent).toBe('');
+
+    toggle.click();
+    core.value = '52';
+    core.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(label.textContent).toBe('코어 명중 MG 100% · AR 38% · SMG 15%');
+    core.value = '8';
+    core.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(label.textContent).toBe('코어 명중 MG 57% · AR 0% · SMG 0%');
+  });
+
   it('안내 띠 아래에 초읽기가 hh:mm:ss로 돈다', () => {
     const target = Date.parse(seedCountdown().target);
     // 남은 시간이 정확히 1시간 2분 3초인 순간으로 시계를 맞춘다.
@@ -1652,6 +1740,8 @@ describe('calculator UI', () => {
   it('유효 사거리 시간과 무기군을 저장하고 복원한다', () => {
     const deps = { catalog, settings, version: 'v1', client: new FakeClient(), storage: localStorage };
     const dispose = mountCalculator(root, deps);
+    // 유효 사거리 구간은 구식 적정거리의 것이다(처음 쓰는 사람은 신식).
+    root.querySelector<HTMLInputElement>('[data-range-model][value="legacy"]')!.click();
     root.querySelector<HTMLButtonElement>('[data-phase-add="range"]')!.click();
     const row = root.querySelector('[data-phase-row="range:0"]')!;
     const inputs = row.querySelectorAll<HTMLInputElement>('input[type="number"]');
@@ -1880,6 +1970,8 @@ describe('calculator UI', () => {
   it('sends the optimal-range weapon types and restores them on reload', async () => {
     const client = new FakeClient();
     mountCalculator(root, { catalog, settings, version: 'v1', client, storage: localStorage });
+    // 무기군 직접 선택은 구식 적정거리다(처음 쓰는 사람은 신식).
+    root.querySelector<HTMLInputElement>('[data-range-model][value="legacy"]')!.click();
 
     // 기본은 아무 무기군도 적정거리가 아니다 — 요청에서 아예 빠진다.
     // 런처는 인게임에 적정 사거리가 없어 칸 자체가 없다.

@@ -137,6 +137,25 @@ describe('시각 → 상태', () => {
     // 코어가 없는 판이면 코어는 null, 구간 없이 코어가 있으면 늘 노출.
     expect(patternsAt({ ...request, corePx: 0 }, 2).core).toBeNull();
     expect(patternsAt({ ...request, coreWindows: [] }, 20).core).toBe(true);
+    // 구식은 거리가 없고 크기도 그대로다.
+    expect(patternsAt(request, 2)).toMatchObject({ distance: null, scale: 1 });
+  });
+
+  it('신식 적정거리 — 거리(구간)가 적정 무기군과 보이는 크기를 정한다', () => {
+    const table = {
+      reference: 30, min: 5, max: 100, presets: { near: 22, mid: 30, far: 52 },
+      ranges: { SG: [0, 25], SMG: [15, 35], AR: [25, 45], MG: [35, 55], SR: [45, 100] } as Record<string, [number, number]>,
+    };
+    const request: SimulationRequest = {
+      squad: ['라피'], duration: 30, enemyDef: 0, enemyCode: '', corePx: 50, hasParts: false, seed: 1,
+      rangeModel: 'distance', distance: 30, distanceWindows: [{ from: 10, to: 20, distance: 52 }],
+      // 신식에서는 유효 사거리 구간을 보지 않는다.
+      optimalRangeWindows: [{ from: 0, to: 30, weapons: ['RL'] }],
+    };
+    expect(patternsAt(request, 5, table)).toMatchObject({ distance: 30, optimal: ['SMG', 'AR'], scale: 1 });
+    const far = patternsAt(request, 15, table);
+    expect(far).toMatchObject({ distance: 52, optimal: ['MG', 'SR'] });
+    expect(far.scale).toBeCloseTo(30 / 52);
   });
 
   it('이름표에 올린 니케는 전부 사격·재장전 그림 두 장을 갖는다', () => {

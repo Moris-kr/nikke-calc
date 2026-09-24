@@ -20,6 +20,9 @@ import {
   normalize_burst_sequence,
   normalize_optimal_range,
   normalize_optimal_range_windows,
+  normalize_distance,
+  normalize_distance_windows,
+  normalize_range_model,
   normalize_synchro_level,
   _mark_float,
   _py_float,
@@ -834,6 +837,10 @@ export function run_request(raw: string | Record<string, any>, include_effective
     ),
     // 보스 페이즈 — 족자(딜 차단)와 속저(우월 코드만 통과).
     optimal_range_windows: normalize_optimal_range_windows(get(payload, 'optimalRangeWindows')),
+    // 신식(distance)이면 거리가 적정거리 무기군·코어/보스 크기·탄착군 표를 정하고 위 두 값은 쓰지 않는다.
+    range_model: normalize_range_model(get(payload, 'rangeModel')),
+    distance: normalize_distance(get(payload, 'distance')),
+    distance_windows: normalize_distance_windows(get(payload, 'distanceWindows')),
     immune_windows: normalize_immune_windows(get(payload, 'immuneWindows')),
     element_windows: normalize_element_windows(get(payload, 'elementWindows')),
   };
@@ -871,7 +878,7 @@ export function run_request(raw: string | Record<string, any>, include_effective
     charBreakdown: _build_breakdown(result, names),
     previewNote: char_spec.preview_note(names),
     deviations: char_spec.format_deviations(squad) + (
-      names.includes('마스트 : 로망틱 메이드')
+      names.includes('마스트 : 로망틱 메이드') && enemy['range_model'] !== 'distance'
         ? '\n계산 한계: 마스트 : 로망틱 메이드의 취기 명중률 감소는 중첩되지만, '
           + 'MG 탄착군은 현재 10px 고정 가정입니다. 예열·취기에 따른 탄착군 변화는 '
           + '실측 계수가 없어 반영되지 않으며, 10px 이상 코어의 크기 차이는 결과에 나타나지 않습니다.'

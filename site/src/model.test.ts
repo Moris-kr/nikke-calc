@@ -22,6 +22,27 @@ const valid: SimulationRequest = {
   seed: 42,
 };
 
+it('신식 적정거리는 거리 값을 싣고, 구식 요청은 예전 모양(캐시 키) 그대로다', () => {
+  const legacy = normalizeRequest({ ...valid, optimalRangeWeapons: ['AR'], distance: 40, distanceWindows: [{ from: 0, to: 5, distance: 22 }] });
+  expect(legacy).not.toHaveProperty('rangeModel');
+  expect(legacy).not.toHaveProperty('distance');
+  expect(legacy).not.toHaveProperty('distanceWindows');
+  expect(cacheKey(legacy, 'v')).toBe(cacheKey({ ...valid, optimalRangeWeapons: ['AR'] }, 'v'));
+  const distance = normalizeRequest({ ...valid, rangeModel: 'distance', optimalRangeWeapons: ['AR'],
+    distanceWindows: [{ from: 5, to: 9, distance: 52 }, { from: 0, to: 5, distance: 22 }] });
+  expect(distance).toMatchObject({ rangeModel: 'distance', distance: 30 });
+  expect(distance.distanceWindows!.map((w) => w.from)).toEqual([0, 5]);
+  // 신식은 구식 적정거리 값을 싣지 않는다 — 엔진이 쓰지 않는 값으로 캐시가 갈리지 않게.
+  expect(distance).not.toHaveProperty('optimalRangeWeapons');
+  expect(validateRequest({ ...valid, rangeModel: 'distance', distance: 4 })).toContain('거리는 5~100여야 합니다.');
+  expect(validateRequest({ ...valid, rangeModel: 'distance', distanceWindows: [{ from: 0, to: 5, distance: 200 }] }))
+    .toContain('거리 구간의 거리는 5~100여야 합니다.');
+  expect(validateRequest({ ...valid, rangeModel: 'distance', distance: 52 })).toEqual([]);
+  expect(requestForDeck({ id: 1, squad: ['리타'], characters: {} }, { ...battle, rangeModel: 'distance', distance: 52 }))
+    .toMatchObject({ rangeModel: 'distance', distance: 52 });
+  expect(requestForDeck({ id: 1, squad: ['리타'], characters: {} }, battle)).not.toHaveProperty('rangeModel');
+});
+
 it('validates and separates first burst times in calculation caches', () => {
   expect(normalizeRequest(valid).firstBurstTime).toBe(0);
   expect(cacheKey({ ...valid, firstBurstTime: 0 }, 'v')).not.toBe(cacheKey({ ...valid, firstBurstTime: 5 }, 'v'));
@@ -311,11 +332,16 @@ describe('multi-deck model', () => {
       elementWindows: [{ from: 30, to: 40, code: '작열' }],
       optimalRangeWeapons: ['AR'],
       optimalRangeWindows: [{ from: 0, to: 40, weapons: ['SR'] }],
+      rangeModel: 'distance',
+      distance: 52,
+      distanceWindows: [{ from: 0, to: 40, distance: 22 }],
     })).toEqual({
       ...battle,
       duration: 60,
       seed: 99,
       bossSize: 'large', shotgunHitRate: 1,
+      // 방식(신식)은 두고 거리만 기준 거리로 되돌린다.
+      rangeModel: 'distance', distance: 30, distanceWindows: [],
       corePerDeck: {}, optimalRangeWeapons: [], optimalRangeWindows: [], shotgunSizeWindows: [], coreWindows: [], defenseRateWindows: [], immuneWindows: [], elementWindows: [],
     });
   });

@@ -309,6 +309,9 @@ export const DEFAULT_ENEMY: Dict = {
   has_parts: false, // 파괴 가능 파츠 보유 보스
   optimal_range_weapons: [], // 적정거리 적용 무기군 목록
   optimal_range_windows: [], // [from, to) 무기군 합집합
+  range_model: 'legacy', // 적정거리 방식 — legacy(무기군 직접) / distance(거리 d가 적정거리·코어 크기·탄착군 표를 정한다)
+  distance: 30, // 신식 기준 거리 d
+  distance_windows: [], // 신식 [from, to) 거리 d. 겹치면 앞 구간
   immune_windows: [], // 족자
   element_windows: [], // 속저
   // 관통 사격이 꿰뚫는 몸통·파츠 수. 기본은 몸통 하나.
@@ -326,11 +329,52 @@ export function _pick(key: string, sources: Array<Dict | null | undefined>, dflt
   return dflt;
 }
 
+/** 신식(거리) 적정거리인가 — 적 설정의 `range_model`. */
+export function _distance_mode(enemy: Dict | null | undefined): boolean {
+  return get(or(enemy, {}), 'range_model') === 'distance';
+}
+
+/** 신식 거리 모형(`weapon_mechanics.json`의 `distance`). */
+function _DISTANCE(): Dict {
+  return get(_MECHANICS(), 'distance', {});
+}
+
+/** 거리 d에서 적정거리인 무기군 — 무기군별 [가까운 끝, 먼 끝] 안(양 끝 포함). 런처는 표에 없어 늘 빠진다. */
+export function distance_weapons(d: number): string[] {
+  const ranges: Dict = get(_DISTANCE(), 'ranges', {});
+  return Object.keys(ranges).filter((w) => !w.startsWith('_') && ranges[w][0] <= d && d <= ranges[w][1]);
+}
+
+/** 거리 d에서 보이는 크기(코어·보스 판정 직경) 배율 — 기준 거리 ÷ d. 코어 직경 입력은 기준 거리의 크기다. */
+export function distance_scale(d: number): number {
+  return float(get(_DISTANCE(), 'reference', 30)) / d;
+}
+
+/**
+ * 탄착군 직경 D. 구식은 `accuracy` 표 그대로(D = 기본 − 기울기 × 명중%).
+ * 신식은 `accuracy_distance` 표를 쓰고, 예열 무기(MG)는 예열 진행도 warm(0~1)에 따라
+ * `cold_diameter`에서 기본 직경으로 줄어든다. 신식에서 명중률 100% 이상(무기 변경 모드의 «핀포인트» 선언,
+ * weapon_delays.json)은 SR·RL과 같은 10px로 좁힌다 — 기울기 0인 SMG가 그 선언을 흘려보내지 않게.
+ */
+export function _spread_diameter(weapon_type: string, accuracy_pct: number,
+  enemy: Dict | null = null, warm = 1.0): number {
+  if (!_distance_mode(enemy)) {
+    const spec = get(_ACCURACY_DATA(), weapon_type, {});
+    return _pymax(get(spec, 'base_diameter', 10) - get(spec, 'acc_slope', 0) * accuracy_pct, 1.0);
+  }
+  const spec = get(get(_MECHANICS(), 'accuracy_distance', {}), weapon_type, {});
+  const hot = float(get(spec, 'base_diameter', 10));
+  const cold = get(spec, 'cold_diameter');
+  const base = cold == null ? hot : float(cold) + (hot - float(cold)) * _pymin(1.0, _pymax(0.0, warm));
+  const D = _pymax(base - get(spec, 'acc_slope', 0) * accuracy_pct, 1.0);
+  return accuracy_pct >= 100 ? _pymin(D, 10.0) : D;
+}
+
 // py: calculator/timeline.py:207
-export function _core_hit_prob(weapon_type: string, accuracy_pct: number, core_px: number): number {
+export function _core_hit_prob(weapon_type: string, accuracy_pct: number, core_px: number,
+  enemy: Dict | null = null, warm = 1.0): number {
   // 명중률·코어 크기로부터 코어히트 확률 반환 (power 모델 P = min(1, (r_c/R)^n)).
-  const spec = get(_ACCURACY_DATA(), weapon_type, {});
-  const D = _pymax(get(spec, 'base_diameter', 10) - get(spec, 'acc_slope', 0) * accuracy_pct, 1.0);
+  const D = _spread_diameter(weapon_type, accuracy_pct, enemy, warm);
   const R = D / 2.0;
   const r_c = core_px / 2.0;
   return _pymin(1.0, (r_c / R) ** _MODEL_N());
@@ -829,6 +873,14 @@ export class CharState {
   }
 
   // py: calculator/timeline.py:657
+  /** 예열 진행도 0~1 — 신식 MG 탄착군이 예열 전 직경에서 예열 후 직경으로 줄어드는 비율. 예열 없는 무기는 1. */
+  _warm_frac(): number {
+    if (this.fire_mode !== 'auto_warmup' || !(this.warmup_bullets > 0)) {
+      return 1.0;
+    }
+    return _pymin(this.warmup_shots, this.warmup_bullets) / this.warmup_bullets;
+  }
+
   _cool_warmup(t: number, bm: BM): void {
     // MG 예열은 식는 속도가 있다.
     if (this.warmup_shots <= 0.0) {
@@ -912,6 +964,8 @@ export class CharState {
         or(this.accuracy_weapon, this.weapon_type),
         _pymax(get(buffs, 'accuracy_pct', 0.0), this.accuracy_floor_pct),
         get(enemy, 'core_px', 50),
+        enemy,
+        this._warm_frac(),
       );
     } else {
       P_core = 0.0;
@@ -1255,9 +1309,8 @@ export class CharState {
     if (or(this.accuracy_weapon, this.weapon_type) !== 'SG') {
       return [1.0, core_probability];
     }
-    const spec = get(_ACCURACY_DATA(), or(this.accuracy_weapon, this.weapon_type), {});
     const accuracy = _pymax(get(buffs, 'accuracy_pct', 0), this.accuracy_floor_pct);
-    let radius = _pymax(1, get(spec, 'base_diameter', 10) - get(spec, 'acc_slope', 0) * accuracy) / 2;
+    let radius = _spread_diameter(or(this.accuracy_weapon, this.weapon_type), accuracy, enemy) / 2;
     const _model = get(enemy, 'shotgun_model');
     if ((_model === 'spatial-v1' || _model === 'spatial-convergence-v1') && !this._in_weapon_change) {
       const spread = this._spread_spec;
@@ -1336,6 +1389,8 @@ export class CharState {
         or(this.accuracy_weapon, this.weapon_type),
         _pymax(get(buffs, 'accuracy_pct', 0.0), this.accuracy_floor_pct),
         get(enemy, 'core_px', 50),
+        enemy,
+        this._warm_frac(),
       );
     } else {
       P_core = 0.0;
@@ -3226,9 +3281,24 @@ export function simulate(
   const optimal_range_weapons = item(enm, 'optimal_range_weapons');
   const optimal_range_windows: Dict[] = normalize_optimal_range_windows(get(enm, 'optimal_range_windows', null));
 
+  // 신식 적정거리 — 거리 d(구간이 있으면 그 구간의 d)가 적정거리 무기군과 코어·보스 크기 배율을 정한다.
+  const distance_mode = _distance_mode(enm);
+  const base_distance = float(get(enm, 'distance', 30));
+  const distance_windows: Dict[] = or(get(enm, 'distance_windows'), []);
+
   // py: calculator/timeline.py:2962
   function _update_optimal_range(t: number): void {
     const frame_t = round(t, 9);
+    if (distance_mode) {
+      const w = distance_windows.find((v) => v['from'] <= frame_t && frame_t < v['to']);
+      const d = w ? float(w['distance']) : base_distance;
+      if (d !== enm['distance_now']) {
+        enm['distance_now'] = d;
+        enm['distance_scale'] = distance_scale(d);
+        enm['optimal_range_weapons'] = distance_weapons(d);
+      }
+      return;
+    }
     const active = optimal_range_windows.filter((w) => w['from'] <= frame_t && frame_t < w['to']);
     if (truthy(active)) {
       const _s = new Set<string>();
@@ -3247,7 +3317,7 @@ export function simulate(
     const frame_t = round(t, 9);
     enm['core_px'] = (!truthy(core_windows) || core_windows.some(
       ([lo, hi]) => lo <= frame_t && frame_t < hi,
-    )) ? core_px : 0;
+    )) ? (distance_mode ? core_px * enm['distance_scale'] : core_px) : 0;
   }
 
   _update_core_exposure(0.0);

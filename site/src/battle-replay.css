@@ -15,12 +15,12 @@
 
 /* 적과 피격 범위 — 피격 범위의 자리·크기는 코드의 HIT(y 0.37, 반지름 0.085 × 무대 폭)와 같다 */
 /* 피격(--hit 0~1, 코드가 칸마다 정한다) — 살짝 밝아지고 붉게 번지며, translate로 조금 떨린다(흔들림 transform과 따로 논다). */
-.br-enemy { --hit: 0; position: absolute; left: 50%; top: 40%; width: 27%; transform: translate(-50%, -52%);
+.br-enemy { --hit: 0; position: absolute; left: 50%; top: 40%; width: calc(27% * var(--dist, 1)); transform: translate(-50%, -52%);
   filter: drop-shadow(0 1.2cqw 1.2cqw rgba(0,0,0,.45)) brightness(calc(1 + var(--hit) * .18))
     drop-shadow(0 0 calc(var(--hit) * .9cqw) rgba(255,90,60,calc(var(--hit) * .4)));
   animation: br-bob 3.2s ease-in-out infinite; pointer-events: none; }
 @keyframes br-bob { 50% { transform: translate(-50%, -55%); } }
-.br-hitbox { position: absolute; left: 50%; top: 37%; width: 17cqw; aspect-ratio: 1; transform: translate(-50%, -50%);
+.br-hitbox { position: absolute; left: 50%; top: 37%; width: calc(17cqw * var(--dist, 1)); aspect-ratio: 1; transform: translate(-50%, -50%);
   border: max(3px, .34cqw) dashed #ff4b4b; border-radius: 50%;
   background: radial-gradient(circle, rgba(255,60,60,.06) 0 62%, rgba(255,60,60,.2) 100%);
   box-shadow: 0 0 0 max(1.5px, .16cqw) rgba(20,0,0,.6), inset 0 0 0 max(1.5px, .16cqw) rgba(20,0,0,.45);
@@ -134,7 +134,7 @@
 
 /* ── 보스 패턴 ─────────────────────────────────────────────────────────── */
 /* 적을 누르는 자리 — 그림과 피격 범위를 덮는 투명 단추 */
-.br-enemy-hit { position: absolute; left: 50%; top: 37%; width: 24%; aspect-ratio: 1; transform: translate(-50%, -52%);
+.br-enemy-hit { position: absolute; left: 50%; top: 37%; width: calc(24% * var(--dist, 1)); aspect-ratio: 1; transform: translate(-50%, -52%);
   border: 0; border-radius: 50%; background: none; cursor: pointer; }
 .br-enemy-hit:focus-visible { outline: 2px solid #65d8e2; outline-offset: 2px; }
 .br-enemy-hit.is-open { box-shadow: 0 0 0 max(2px, .2cqw) rgba(101,216,226,.7); }
@@ -157,7 +157,7 @@
 .br-hitbox[data-element="전격"] { --shield: #c86bff; }
 .br-hitbox[data-element="철갑"] { --shield: #ffc23c; }
 /* 코어 노출 */
-.br-core { position: absolute; left: 50%; top: 37%; width: 3.2cqw; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%;
+.br-core { position: absolute; left: 50%; top: 37%; width: calc(3.2cqw * var(--dist, 1)); aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%;
   border: max(2px, .22cqw) solid #ffd061; box-shadow: 0 0 1.4cqw rgba(255,208,97,.9), inset 0 0 .8cqw rgba(255,208,97,.6);
   pointer-events: none; animation: br-core 1s ease-in-out infinite; }
 .br-core[hidden] { display: none; }
@@ -172,6 +172,8 @@
 .br-pattern.is-immune { color: #d3dbe2; box-shadow: inset 0 0 0 1px rgba(211,219,226,.5); }
 .br-pattern.is-element { color: #bfe3ff; box-shadow: inset 0 0 0 1px rgba(127,200,255,.6); }
 .br-pattern.is-core { color: #ffe2a0; box-shadow: inset 0 0 0 1px rgba(255,208,97,.6); }
+/* 신식 적정거리 — 거리(--dist = 기준 거리 ÷ 거리)만큼 보스·피격 범위·코어가 커지거나 작아진다 */
+.br-pattern.is-distance { color: #bff5ef; box-shadow: inset 0 0 0 1px rgba(101,216,226,.6); }
 .br-pattern.is-parts { color: #fff; background: rgba(160,40,20,.85); animation: br-banner .4s ease-out; }
 /* 적 위 — 걸린 버프·디버프 */
 .br-enemy-buffs { position: absolute; left: 50%; top: 12.5%; transform: translateX(-50%); display: flex; flex-wrap: wrap; justify-content: center;

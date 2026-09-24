@@ -1,6 +1,7 @@
 import type { BattleShare } from './share-code';
 import type { BurstAssignment, CharacterControl } from './types';
 import { t } from './i18n';
+import { DISTANCE_REFERENCE } from './model';
 
 // 설정 공유 서버(`worker-share/`)와 이야기하는 쪽. 서버가 아는 것은 공유 코드 문자열과
 // 사람이 붙인 이름뿐이고, 그 코드가 무슨 뜻인지 — 몇 초짜리 전투인지, 누가 편성됐는지 —
@@ -519,10 +520,14 @@ export function summarizeBattle(battle: BattleShare): string {
   parts.push(battle.enemyCode ? t('적 {code}', { code: t(battle.enemyCode) }) : t('무속성'));
   parts.push(battle.coreEnabled ? t('코어 {n}px', { n: battle.corePx }) : t('코어 없음'));
   if (battle.hasParts) parts.push(t('파츠'));
-  if (battle.optimalRangeWeapons.length > 0) {
+  if (battle.rangeModel === 'distance') {
+    // 신식 — 거리가 적정거리를 정한다. 구식 두 값은 쓰이지 않으니 적지 않는다.
+    parts.push(t('거리 {d}', { d: battle.distance ?? DISTANCE_REFERENCE }));
+    if (battle.distanceWindows?.length) parts.push(t('거리 구간 {n}', { n: battle.distanceWindows.length }));
+  } else if (battle.optimalRangeWeapons.length > 0) {
     parts.push(t('적정 {list}', { list: battle.optimalRangeWeapons.join('·') }));
   }
-  if (battle.optimalRangeWindows?.length) {
+  if (battle.rangeModel !== 'distance' && battle.optimalRangeWindows?.length) {
     const windows=battle.optimalRangeWindows.map(window=>`${window.from}~${window.to}${t('초')} ${window.weapons.length?window.weapons.join('·'):t('없음')}`).join(' / ');
     parts.push(`${t('유효 사거리')} ${windows} (${t('구간 밖')}: ${battle.optimalRangeWeapons.join('·')||t('없음')})`);
   }

@@ -1,4 +1,5 @@
 import type { BattleSettings, DeckState, ElementWindow, PhaseWindow } from './types';
+import { DISTANCE_MAX, DISTANCE_MIN, DISTANCE_REFERENCE } from './model';
 
 // 조합 공유 코드 — **누가 편성됐는지(캐릭터 이름)만** 한 줄 텍스트로 주고받는다.
 // 오버로드·공격력·돌파·스킬·큐브·소장품·컨트롤 같은 개인 스펙과 전투 조건은
@@ -325,6 +326,10 @@ export function encodeBattleCode(
   put('hp', battle.hasParts ? 1 : 0, 0);
   put('s', Math.trunc(battle.seed), d.seed);
   put('or', [...(battle.optimalRangeWeapons ?? [])].sort(), []);
+  // 신식 적정거리 — 방식은 신식일 때만 실린다. 없으면 구식이라, 신식이 생기기 전의 코드는 그대로 구식으로 읽힌다.
+  put('dm', battle.rangeModel === 'distance' ? 1 : 0, 0);
+  put('dt', battle.distance ?? DISTANCE_REFERENCE, DISTANCE_REFERENCE);
+  put('dx', (battle.distanceWindows ?? []).map((w) => [toTenth(w.from), toTenth(w.to), w.distance]), []);
   put('rm', battle.rngMode === 'random' ? 1 : 0, 0);
   put('ib', battle.immuneBlocksBurst ? 1 : 0, 1);
   put('br', toTenth(battle.burstRegenTime), toTenth(d.burstRegenTime));
@@ -416,6 +421,16 @@ export function decodeBattleCode(code: string): BattleShare {
       ? (raw.or as unknown[]).filter((w): w is string => typeof w === 'string')
       : [],
     normalHitCoeff: coeff,
+    // 실린 것만 되살린다 — 신식이 생기기 전의 코드는 예전과 똑같은 모양으로 읽힌다.
+    ...(raw.dm ? { rangeModel: 'distance' as const } : {}),
+    ...(raw.dt !== undefined ? { distance: num(raw.dt, DISTANCE_MIN, DISTANCE_MAX, DISTANCE_REFERENCE) } : {}),
+    ...(Array.isArray(raw.dx) ? { distanceWindows: raw.dx.slice(0, 100).flatMap((item: unknown) => {
+      if (!Array.isArray(item)) return [];
+      const window = windowsOf([item], false)[0];
+      const distance = item[2];
+      return window && typeof distance === 'number' && distance >= DISTANCE_MIN && distance <= DISTANCE_MAX
+        ? [{ ...window, distance }] : [];
+    }) } : {}),
     defenseRateWindows: Array.isArray(raw.dw) ? raw.dw.slice(0, 100).flatMap((item: unknown) => {
       if (!Array.isArray(item)) return [];
       const window = windowsOf([item], false)[0];

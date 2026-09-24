@@ -193,6 +193,17 @@ describe('applyShareToDecks', () => {
 
 
 describe('전투 조건 공유 코드 (NK3)', () => {
+  it('신식 적정거리(방식·거리·거리 구간)를 싣고, 옛 코드는 구식으로 읽는다', () => {
+    const distanceWindows = [{ from: 0, to: 60, distance: 22 }, { from: 60, to: 120, distance: 52 }];
+    expect(decodeBattleCode(encodeBattleCode({ ...base, rangeModel: 'distance', distance: 45, distanceWindows }, COEFF)))
+      .toMatchObject({ rangeModel: 'distance', distance: 45, distanceWindows });
+    const old = decodeBattleCode(encodeBattleCode(base, COEFF));
+    expect(old.rangeModel).toBeUndefined();
+    expect(old.distanceWindows).toBeUndefined();
+    // 거리 밖의 값은 버린다.
+    expect(decodeBattleCode(encodeBattleCode({ ...base, rangeModel: 'distance', distanceWindows: [{ from: 0, to: 5, distance: 500 }, { from: 5, to: 9, distance: 52 }] }, COEFF)).distanceWindows)
+      .toEqual([{ from: 5, to: 9, distance: 52 }]);
+  });
   it('round trips size windows', () => {
     const shotgunSizeWindows = [{ from: 3, to: 6, diameter: 120 }];
     expect(decodeBattleCode(encodeBattleCode({ ...base, shotgunSizeWindows }, COEFF)).shotgunSizeWindows).toEqual(shotgunSizeWindows);

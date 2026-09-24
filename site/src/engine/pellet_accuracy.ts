@@ -200,10 +200,12 @@ export function scene_at(
   }
   const geometry = get(enemy, 'shotgun_geometry');
   const model = get(enemy, 'shotgun_model');
+  // 신식 적정거리는 거리 d만큼 보스가 커지거나 작아진다(코어는 core_px에 이미 반영돼 있다).
+  const dscale = get(enemy, 'range_model') === 'distance' ? float(get(enemy, 'distance_scale', 1)) : 1;
   if (geometry == null && (model === 'spatial-v1' || model === 'spatial-convergence-v1')) {
     // Same coordinate units as the existing core/boss canvas, not a claim
     // that raw CDN scale values are physical screen pixels.
-    const diameter = float(size != null ? size : get(enemy, 'shotgun_target_diameter', 360));
+    const diameter = float(size != null ? size : get(enemy, 'shotgun_target_diameter', 360)) * dscale;
     const core_d = float(get(enemy, 'core_px', 0));
     return [[['circle', 0, 0, diameter, diameter, 0]], [0, 0], radius,
       core_d > 0 ? [0, 0, core_d / 2] : null];
@@ -233,13 +235,13 @@ export function scene_at(
   if (truthy(override) && override > 0) {
     radius = override / 2;
   }
-  if (size != null) {
+  if (size != null || dscale !== 1) {
     // Scale the drawn target around its center; keep the pellet spread fixed.
     const c1 = get(geometry, 'center');
     const cx = (truthy(c1) ? c1 : aim)['x'];
     const c2 = get(geometry, 'center');
     const cy = (truthy(c2) ? c2 : aim)['y'];
-    const scale = size / float(get(enemy, 'shotgun_target_diameter', 360));
+    const scale = (size != null ? size / float(get(enemy, 'shotgun_target_diameter', 360)) : 1) * dscale;
     shapes = shapes.map(([k, x, y, w, h, r]): Shape =>
       [k, cx + (x - cx) * scale, cy + (y - cy) * scale, w * scale, h * scale, r]);
     aim = { x: cx + (aim['x'] - cx) * scale, y: cy + (aim['y'] - cy) * scale };

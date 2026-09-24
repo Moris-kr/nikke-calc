@@ -157,6 +157,11 @@ export interface SimulationRequest {
   // 보스 페이즈 — 족자(평타 빗나감)와 속저(우월 코드만 통과).
   coreWindows?: PhaseWindow[];
   optimalRangeWindows?: OptimalRangeWindow[];
+  /** 적정거리 방식. 안 주면 구식(legacy). 신식이면 위 두 적정거리 값 대신 거리 d를 쓴다. */
+  rangeModel?: RangeModel;
+  /** 신식 기준 거리 d. 코어 직경은 중거리(30)에서의 크기이고 d에 반비례해 커지거나 작아진다. */
+  distance?: number;
+  distanceWindows?: DistanceWindow[];
   defenseRateWindows?: DefenseRateWindow[];
   immuneWindows?: PhaseWindow[];
   elementWindows?: ElementWindow[];
@@ -252,6 +257,10 @@ export interface ShotTrack {
 /** 보스 페이즈 구간. `[from, to)` 반개구간이다. */
 export interface PhaseWindow { from: number; to: number }
 export interface OptimalRangeWindow extends PhaseWindow { weapons: string[] }
+/** 신식 적정거리의 거리 구간 — 그 구간 동안 보스까지의 거리 d. */
+export interface DistanceWindow extends PhaseWindow { distance: number }
+/** 적정거리 방식. legacy = 무기군을 직접 켠다(구식), distance = 거리 d가 적정거리·코어 크기를 정한다(신식). */
+export type RangeModel = 'legacy' | 'distance';
 export interface DefenseRateWindow extends PhaseWindow { rate: number }
 /** 속저 — 그 구간 동안 이 코드에 **우월한** 캐릭터의 딜만 들어간다. */
 export interface ElementWindow extends PhaseWindow { code: ElementCode }
@@ -282,6 +291,10 @@ export interface BattleSettings {
   /** Empty or absent means continuously exposed while core is enabled. */
   coreWindows?: PhaseWindow[];
   optimalRangeWindows?: OptimalRangeWindow[];
+  /** 적정거리 방식. 옛 저장값·공유 코드에는 없고, 없으면 구식이다. */
+  rangeModel?: RangeModel;
+  distance?: number;
+  distanceWindows?: DistanceWindow[];
   defenseRateWindows?: DefenseRateWindow[];
   immuneWindows: PhaseWindow[];
   /** 속저 — 그 구간 동안 우월 코드만 통과한다. */
@@ -576,6 +589,17 @@ export interface SettingsCatalog {
   accuracy?: {
     modelN: number;
     weapons: Record<string, { baseDiameter: number; accSlope: number }>;
+  };
+  /** 신식 적정거리 탄착군 표. MG는 예열 전 직경(coldDiameter)도 있다. 옛 설정에는 없을 수 있다. */
+  accuracyDistance?: {
+    modelN: number;
+    weapons: Record<string, { baseDiameter: number; accSlope: number; coldDiameter?: number }>;
+  };
+  /** 신식 거리 모형 — 무기군별 적정거리 [가까운 끝, 먼 끝], 기준 거리(코어 직경 입력의 거리), 프리셋. */
+  distance?: {
+    reference: number; min: number; max: number;
+    ranges: Record<string, [number, number]>;
+    presets: Record<string, number>;
   };
   consoleClasses: string[];
   consoleCompanies: string[];

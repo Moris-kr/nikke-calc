@@ -769,6 +769,8 @@ input:where([type="checkbox"], [type="radio"]) {
 
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 10px; }
 .field-grid label { display: grid; gap: 7px; color: #91a2b2; font-size: 11px; font-weight: 700; }
+.core-chance { margin-top: -3px; color: var(--muted); font-size: 10px; font-weight: 600; }
+.core-chance:empty { display: none; }
 .input-unit { position: relative; }
 .input-unit input { padding-right: 42px; }
 .input-unit em { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); font-style: normal; font-size: 11px; }
@@ -804,6 +806,19 @@ input:where([type="checkbox"], [type="radio"]) {
 .range-option:has(input:checked) { border-color: var(--amber); background: rgba(255,191,60,.12); color: var(--ink); }
 .range-option:has(input:focus-visible) { outline: 3px solid rgba(69,214,208,.65); outline-offset: 2px; }
 .range-field .field-note { margin: 10px 0 0; }
+.range-options[hidden], .range-distance[hidden], .range-field .field-note[hidden] { display: none; }
+.range-model { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.range-model label { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid rgba(146,176,201,.24); border-radius: 999px; color: var(--muted); font-size: 11px; font-weight: 800; cursor: pointer; }
+.range-model label:has(input:checked) { border-color: var(--amber); background: rgba(255,191,60,.12); color: var(--ink); }
+.range-model input { width: 14px; height: 14px; min-height: 14px; margin: 0; accent-color: var(--amber); cursor: pointer; }
+.range-distance { display: grid; gap: 8px; }
+.distance-field { display: grid; gap: 7px; max-width: 220px; color: #91a2b2; font-size: 11px; font-weight: 700; }
+.distance-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.distance-preset { padding: 5px 10px; border: 1px solid rgba(146,176,201,.24); border-radius: 999px; background: none; color: var(--muted); font: 700 11px ui-monospace, monospace; cursor: pointer; }
+.distance-preset:hover { border-color: rgba(69,214,208,.45); }
+.distance-preset.is-on { border-color: var(--amber); background: rgba(255,191,60,.12); color: var(--ink); }
+.distance-now { margin: 0; color: var(--ink); font-size: 11px; font-weight: 700; }
+.distance-now:empty { display: none; }
 
 .console-editor { margin-top: 16px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: rgba(7,15,25,.4); }
 .console-editor h3 { margin: 0 0 10px; font-size: 12px; color: var(--ink); }

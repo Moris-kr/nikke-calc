@@ -175,6 +175,33 @@ export function exportSettings(): string {
         accSlope: F(pget(pget(accuracy, weapon, {}), 'acc_slope', 0)),
       }])),
     },
+    // 신식 적정거리 — 거리 d에 따라 적정거리 무기군·코어 크기가 바뀌고, 탄착군은 따로 잰 표를 쓴다.
+    // 화면(코어 명중률 표시·거리 선택·재생)이 엔진과 같은 값을 보게 그대로 내려보낸다
+    // (정본: `data/weapon_mechanics.json`의 `accuracy_distance`·`distance`).
+    accuracyDistance: {
+      modelN: F(pget(accuracy, '_model_n', 2.55)),
+      weapons: Object.fromEntries(WEAPON_TYPES.map((weapon) => {
+        const spec = pget(pget(mechanics, 'accuracy_distance', {}), weapon, {});
+        const cold = pget(spec, 'cold_diameter', null);
+        return [weapon, {
+          baseDiameter: F(pget(spec, 'base_diameter', 10)),
+          accSlope: F(pget(spec, 'acc_slope', 0)),
+          ...(cold == null ? {} : { coldDiameter: F(cold) }),
+        }];
+      })),
+    },
+    distance: (() => {
+      const table = pget(mechanics, 'distance', {});
+      return {
+        reference: F(pget(table, 'reference', 30)),
+        min: F(pget(table, 'min', 5)),
+        max: F(pget(table, 'max', 100)),
+        ranges: Object.fromEntries(Object.entries(pget(table, 'ranges', {}) as Record<string, number[]>)
+          .filter(([weapon]) => !weapon.startsWith('_')).map(([weapon, [lo, hi]]) => [weapon, [F(lo!), F(hi!)]])),
+        presets: Object.fromEntries(Object.entries(pget(table, 'presets', {}) as Record<string, number>)
+          .filter(([name]) => !name.startsWith('_')).map(([name, d]) => [name, F(d)])),
+      };
+    })(),
     consoleClasses: [...CONSOLE_CLASSES],
     consoleCompanies: [...CONSOLE_COMPANIES],
     overloadFields: OVERLOAD_FIELDS,

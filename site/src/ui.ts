@@ -76,6 +76,8 @@ import { lang, LANG_KEY, LANGS, t, tName, watchLocalize } from './i18n';
 import { startPresence } from './presence';
 import { mountUnionRaid, type UnionHandle } from './union-raid';
 import { mountBossMaker, type BossMakerHandle } from './boss-maker-view';
+import { coreHitChance } from './boss-maker';
+import { DISTANCE_PRESET_LABEL, distanceScale, distanceWeapons } from './distance';
 import { mountOverloadLab } from './overload-lab';
 import { lockCardForRaid, lockTapRateForRaid, mountRaid, openidFromProfileUrl, RAID_LOCK_NOTE, type RaidHandle } from './raid';
 import { openGrowthEfficiency } from './growth-efficiency-ui';
@@ -119,7 +121,9 @@ import type {
   BattleSettings,
   BuffTargetRow,
   CombatPowerRequest,
+  DistanceWindow,
   ElementWindow,
+  RangeModel,
   PhaseWindow,
   RngMode,
   CharacterMeta,
@@ -185,6 +189,8 @@ const ELEMENT_ICON: Record<string, string> = {
 
 /** 코드 다섯. 인게임 표기 순서 그대로 — 필터 아이콘이 이 순서로 선다. */
 const ELEMENT_CODES = Object.keys(ELEMENT_ICON);
+/** 코어 직경 아래 코어 명중률을 보이는 무기군. SR·RL은 탄착군이 코어보다 작아 늘 100%라 뺀다. */
+const CORE_CHANCE_WEAPONS = ['MG', 'AR', 'SMG'];
 
 const createElementIcon = (elementCode: string, className: string): HTMLElement | null => {
   const slug = ELEMENT_ICON[elementCode];
@@ -435,6 +441,11 @@ const SHARE_API = (import.meta.env.VITE_SHARE_API ?? '').trim().replace(/\/+$/, 
 
 export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies): () => void {
   const { settings, version, client, storage, reload } = deps;
+  // 화면을 뗄 때 문서(document)에 건 리스너를 한꺼번에 뗀다. 안 떼면 그 리스너가 화면 통째를 붙잡아,
+  // 여러 번 붙였다 떼는 곳(시험)에서 붙일 때마다 수십 MB씩 쌓인다.
+  const lifetime = new AbortController();
+  const onDocument = <K extends keyof DocumentEventMap>(type: K, listener: (event: DocumentEventMap[K]) => void,
+    capture = false): void => document.addEventListener(type, listener, { capture, signal: lifetime.signal });
   // 다른 말로 보는 사람은 **그 말의 이름으로 찾는다**. 화면에 뜨는 이름은 `i18n`의
   // 훑기가 바꾸므로, 여기서 손대는 것은 «찾는 열쇠»뿐이다 — 번역된 이름을 별칭에
   // 얹어 「Rapi」로도, 「라피」로도 걸리게 한다.
@@ -1131,14 +1142,24 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <label><span>보스 판정 직경</span><div class="input-unit"><input id="shotgun-target-diameter" type="number" min="1" max="2000" step="1" value="360" disabled /><em>모형 px</em></div></label>
             <label><span>보스 크기 · 샷건 명중</span><select id="boss-size"><option value="large">큼 · 펠릿 100%</option><option value="medium">보통 · 펠릿 90%</option><option value="small">작음 · 펠릿 80%</option><option value="custom">커스텀</option></select></label>
             <label><span>샷건 펠릿 명중 확률</span><div class="input-unit"><input id="shotgun-hit-rate" type="number" min="0" max="100" step="0.1" value="100" disabled /><em>%</em></div></label>
-            <label data-core-size><span>코어 직경</span><div class="input-unit"><input id="core-px" type="number" min="0" max="1000" step="1" value="52" disabled /><em>px</em></div></label>
+            <label data-core-size><span>코어 직경</span><div class="input-unit"><input id="core-px" type="number" min="0" max="1000" step="1" value="52" disabled /><em>px</em></div><small class="core-chance" data-core-chance title="이 코어 직경에서 무기군별 평타가 코어에 맞을 확률입니다(명중률 0 기준). AR·SMG는 명중률 버프를 받으면 더 오르고, SR·RL은 언제나 코어에 맞는다고 봅니다"></small></label>
             <label class="toggle-field"><input id="has-parts" type="checkbox" /><span class="toggle"></span><span>파괴 가능 파츠</span></label>
           </div>
           <p class="field-note" id="shotgun-model-note">개선 모드는 명중 버프와 보스 판정 크기로 몸통·코어·빗나감을 함께 계산합니다. 크기와 펠릿 분포는 모형 가정이며 인게임 실측 확정값이 아닙니다. 보스메이커에서는 직경 대신 그린 도형을 사용합니다. 언제든 기존 방식으로 되돌릴 수 있습니다.</p>
           <fieldset class="range-field">
             <legend>적정거리</legend>
+            <div class="range-model" role="radiogroup" aria-label="적정거리 방식">
+              <label><input type="radio" name="range-model" value="distance" data-range-model checked /><span>거리로 계산 (신식)</span></label>
+              <label><input type="radio" name="range-model" value="legacy" data-range-model /><span>무기군 직접 선택 (구식)</span></label>
+            </div>
+            <div class="range-distance" data-range-distance>
+              <label class="distance-field"><span>보스까지 거리</span><div class="input-unit"><input id="distance" type="number" min="5" max="100" step="1" value="30" /></div></label>
+              <div class="distance-presets" data-distance-presets></div>
+              <p class="distance-now" data-distance-now></p>
+            </div>
             <div class="range-options" data-optimal-range></div>
-            <p class="field-note">고른 무기군의 <b>일반 공격</b>에만 대미지 보너스 +30%가 붙습니다 — 스킬 대미지에는 붙지 않습니다. 적과의 거리에 달린 조건이라 무기군 단위로 켭니다.</p>
+            <p class="field-note" data-range-note-legacy hidden>고른 무기군의 <b>일반 공격</b>에만 대미지 보너스 +30%가 붙습니다 — 스킬 대미지에는 붙지 않습니다. 적과의 거리에 달린 조건이라 무기군 단위로 켭니다.</p>
+            <p class="field-note" data-range-note-distance>거리에 따라 적정거리 무기군이 정해지고(SG 0~25 · SMG 15~35 · AR 25~45 · MG 35~55 · SR 45~100, 런처는 없음), 그 무기군의 <b>일반 공격</b>에만 +30%가 붙습니다. 가까울수록 코어·보스가 크게 보입니다 — 코어 직경은 <b>거리 30(중거리)</b>에서의 크기이고 30 ÷ 거리 배로 바뀝니다. 탄착군은 인게임 스크린샷으로 잰 값을 씁니다(SMG는 명중률 영향 없음, MG는 예열될수록 좁아짐). 시간대별 거리는 고급 설정의 거리 구간에서 정합니다. 출처: <a href="https://arca.live/b/nikketgv/146865071" target="_blank" rel="noopener noreferrer">적정거리 정리글</a>·유저 실측.</p>
           </fieldset>
 
           <!-- 고급 설정 — 자주 손대지 않는 값과 보스 페이즈를 한자리에 접어 둔다. -->
@@ -1190,6 +1211,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
                 <button type="button" class="phase-add" data-phase-add="defense">+리버렐리오 바디 방어율 구간</button>
                 <button type="button" class="phase-add" data-phase-add="size">+보스 크기 구간</button>
                 <button type="button" class="phase-add" data-phase-add="range">+유효 사거리 구간</button>
+                <button type="button" class="phase-add" data-phase-add="distance">+거리 구간</button>
                 <button type="button" class="phase-add" data-phase-add="core">+코어 노출 구간</button>
                 <button type="button" class="phase-add" data-phase-add="immune">족자 추가 <b>+</b></button>
                 <button type="button" class="phase-add" data-phase-add="element">속저 추가 <b>+</b></button>
@@ -1197,7 +1219,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
               <div class="phase-list" data-phase-list></div>
               <p class="field-note">보스 크기 구간은 시작 포함·종료 제외입니다. 구간 밖은 기본 크기로 돌아가며, 겹치는 구간은 사용할 수 없습니다. 탄착군 방식에 적용되며 보스메이커 도형은 기본 직경 대비 비율로 확대·축소합니다.</p>
               <p class="field-note">바디 방어율은 <a href="https://arca.live/b/nikketgv/183364010" target="_blank" rel="noopener noreferrer">유저 실험</a> 기반 가정입니다. 기본 60%는 일반 최종 대미지를 40%로 줄이며 방어 무시 대미지는 통과합니다. 방어 무시 대미지 증가 버프만으로 일반 공격이 방어 무시로 바뀌지 않습니다. 받는 대미지 효과와 독립 적용하며 방어력 감소와의 상호작용은 미검증입니다. 겹친 구간은 가장 높은 방어율만 적용됩니다.</p>
-              <p class="field-note">유효 사거리 구간 안에서는 체크한 무기군에 적정거리 보너스를 적용합니다. 모두 해제하면 해당 구간은 보너스가 없으며, 구간 밖은 기본 적정거리 설정을 따릅니다. 겹치는 구간은 선택한 무기군을 합칩니다.</p>
+              <p class="field-note" data-distance-phase-note>거리 구간 안에서는 그 거리로 적정거리 무기군과 코어·보스 크기를 다시 정합니다. 구간 밖은 기본 거리를 따르고, 겹치면 먼저 시작한 구간이 이깁니다.</p>
+              <p class="field-note" data-range-phase-note>유효 사거리 구간 안에서는 체크한 무기군에 적정거리 보너스를 적용합니다. 모두 해제하면 해당 구간은 보너스가 없으며, 구간 밖은 기본 적정거리 설정을 따릅니다. 겹치는 구간은 선택한 무기군을 합칩니다.</p>
               <p class="field-note">코어 노출 구간이 없으면 코어가 항상 노출됩니다. 구간을 추가하면 해당 시간에만 노출되며, 코어를 끄면 모든 구간에서 비활성화됩니다.</p>
               <p class="field-note"><b>족자</b>는 평타만 빗나갑니다. 지속 대미지·스킬 대미지와 평타로 발동한 후속 공격은 계속 들어갑니다. <b>속저</b>는 고른 속성에 <b>우월한</b> 캐릭터의 딜만 통과시킵니다 — 풍압으로 두면 작열 캐릭터만 들어갑니다. 인게임처럼 <b>우월 코드 버프</b>로 우월해진 캐릭터도 통과합니다(라피 : 레드 후드 «부착형 유탄» 등).</p>
             </fieldset>
@@ -1634,7 +1657,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   // 곳과 뗀 곳의 공통 조상(뒷판)이라 창이 통째로 닫혀 버렸다. 누르기 **시작한 자리**를
   // 함께 보고, 안에서 시작했으면 닫지 않는다.
   let pressStartedOutsideCard = true;
-  document.addEventListener('pointerdown', (event) => {
+  onDocument('pointerdown', (event) => {
     pressStartedOutsideCard = !(event.target as HTMLElement | null)?.closest('.custom-card');
   }, true);
   /** 이 click이 «뒷판을 눌러 닫으려는» 것인가. */
@@ -1647,6 +1670,31 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const timelineBody = element<HTMLElement>(root, '[data-timeline-body]');
   const coreToggle = element<HTMLInputElement>(root, '#has-core');
   const corePxInput = element<HTMLInputElement>(root, '#core-px');
+  const coreChanceLabel = element<HTMLElement>(root, '[data-core-chance]');
+  // 적정거리 방식 — 신식(거리)이면 거리가 적정거리 무기군·코어 크기를 정하고 탄착군도 새로 잰 표를 쓴다.
+  const rangeModelInputs = [...root.querySelectorAll<HTMLInputElement>('[data-range-model]')];
+  const distanceInput = element<HTMLInputElement>(root, '#distance');
+  const readRangeModel = (): RangeModel =>
+    rangeModelInputs.find((input) => input.checked)?.value === 'legacy' ? 'legacy' : 'distance';
+  // 코어 직경 바로 아래 무기군별 코어 명중률 — 엔진과 같은 탄착군 표로 낸다(명중률 0 기준).
+  // 신식은 지금 거리에서 보이는 코어 크기로 잰다(MG는 예열 후 탄착군).
+  const refreshCoreChance = (): void => {
+    const px = Number(corePxInput.value);
+    if (!(coreToggle.checked && px > 0)) {
+      coreChanceLabel.textContent = '';
+      return;
+    }
+    const distanceMode = readRangeModel() === 'distance';
+    const d = Number(distanceInput.value);
+    const core = distanceMode ? px * distanceScale(settings.distance, d) : px;
+    const table = distanceMode ? settings.accuracyDistance ?? settings.accuracy : settings.accuracy;
+    const head = distanceMode
+      ? t('코어 명중 (거리 {d} · 코어 {px}px)', { d, px: Math.round(core * 10) / 10 })
+      : t('코어 명중');
+    coreChanceLabel.textContent = `${head} ${CORE_CHANCE_WEAPONS.map((weapon) =>
+      `${weapon} ${Math.round(coreHitChance(table, weapon, core) * 100)}%`).join(' · ')}`;
+  };
+  corePxInput.addEventListener('input', refreshCoreChance);
   const rosterInput = element<HTMLInputElement>(root, '#roster-csv');
   const rosterNote = element<HTMLElement>(root, '[data-roster-note]');
 
@@ -2323,7 +2371,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   guideModal.addEventListener('click', (event) => {
     if (hitBackdrop(event, guideModal)) guideModal.hidden = true;
   });
-  document.addEventListener('keydown', (event) => {
+  onDocument('keydown', (event) => {
     if (event.key === 'Escape' && !guideModal.hidden) guideModal.hidden = true;
   });
 
@@ -3293,6 +3341,56 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   };
   renderOptimalRange();
 
+  // ── 신식 적정거리(거리) ─────────────────────────────────────────────────
+  // 거리 하나가 적정거리 무기군과 코어·보스 크기를 함께 정한다. 표는 설정(엔진과 같은 데이터)에서 온다.
+  const distancePresetButtons: HTMLButtonElement[] = [];
+  for (const [name, d] of Object.entries(settings.distance?.presets ?? {})) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'distance-preset';
+    button.dataset.distancePreset = String(d);
+    button.textContent = `${t(DISTANCE_PRESET_LABEL[name] ?? name)} ${d}`;
+    button.addEventListener('click', () => {
+      distanceInput.value = String(d);
+      refreshRangeModel();
+      saveState();
+      refreshBattleSummary();
+    });
+    distancePresetButtons.push(button);
+  }
+  element<HTMLElement>(root, '[data-distance-presets]').append(...distancePresetButtons);
+  const refreshRangeModel = (): void => {
+    const distanceMode = readRangeModel() === 'distance';
+    const d = Number(distanceInput.value);
+    element<HTMLElement>(root, '[data-range-distance]').hidden = !distanceMode;
+    element<HTMLElement>(root, '[data-optimal-range]').hidden = distanceMode;
+    element<HTMLElement>(root, '[data-range-note-legacy]').hidden = distanceMode;
+    element<HTMLElement>(root, '[data-range-note-distance]').hidden = !distanceMode;
+    element<HTMLElement>(root, '[data-phase-add="range"]').hidden = distanceMode;
+    element<HTMLElement>(root, '[data-phase-add="distance"]').hidden = !distanceMode;
+    element<HTMLElement>(root, '[data-range-phase-note]').hidden = distanceMode;
+    element<HTMLElement>(root, '[data-distance-phase-note]').hidden = !distanceMode;
+    element<HTMLElement>(root, '[data-distance-now]').textContent = distanceMode
+      ? t('적정거리 {weapons} · 코어·보스 크기 ×{scale}', {
+        weapons: distanceWeapons(settings.distance, d).join('·') || t('없음'),
+        scale: distanceScale(settings.distance, d).toFixed(2),
+      })
+      : '';
+    for (const button of distancePresetButtons) {
+      button.classList.toggle('is-on', Number(button.dataset.distancePreset) === d);
+    }
+    refreshCoreChance();
+  };
+  for (const input of rangeModelInputs) {
+    input.addEventListener('change', () => {
+      refreshRangeModel();
+      renderPhases();
+    });
+  }
+  distanceInput.addEventListener('input', refreshRangeModel);
+  // 저장본이 없으면(처음 쓰는 사람) writeBattle을 안 거치니 여기서 한 번 맞춰 둔다 — 기본은 신식이다.
+  refreshRangeModel();
+
   // ── 평타 계수 ───────────────────────────────────────────────────────────
   // 시뮬은 쏜 탄이 전부 맞는다고 보지만 인게임은 탄퍼짐으로 빗나간다. 무기군마다
   // 퍼짐이 다르므로 무기군 단위로 받고, 기본값은 설정(데이터)에서 내려온다.
@@ -3341,6 +3439,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   let shotgunSizeWindows: Array<PhaseWindow & { diameter: number }> = [];
   let coreWindows: PhaseWindow[] = [];
   let optimalRangeWindows: Array<PhaseWindow & { weapons: string[] }> = [];
+  let distanceWindows: DistanceWindow[] = [];
   let immuneWindows: PhaseWindow[] = [];
   let elementWindows: ElementWindow[] = [];
 
@@ -3359,14 +3458,15 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       return input;
     };
 
-    const row = (kind: 'size' | 'range' | 'defense' | 'core' | 'immune' | 'element', index: number, from: number, to: number) => {
+    const row = (kind: 'size' | 'range' | 'distance' | 'defense' | 'core' | 'immune' | 'element', index: number, from: number, to: number) => {
       const box = document.createElement('div');
       box.className = `phase-row is-${kind}`;
       box.dataset.phaseRow = `${kind}:${index}`;
-      box.append(createText('span', kind === 'size' ? '보스 크기' : kind === 'range' ? '유효 사거리' : kind === 'defense' ? '바디 방어율' : kind === 'core' ? '코어 노출' : kind === 'immune' ? '족자' : '속저', 'phase-tag'));
+      box.append(createText('span', kind === 'size' ? '보스 크기' : kind === 'range' ? '유효 사거리' : kind === 'distance' ? '거리' : kind === 'defense' ? '바디 방어율' : kind === 'core' ? '코어 노출' : kind === 'immune' ? '족자' : '속저', 'phase-tag'));
       box.append(numberField(from, (v) => {
         if (kind === 'size') shotgunSizeWindows[index]!.from = v;
         else if (kind === 'range') optimalRangeWindows[index]!.from = v;
+        else if (kind === 'distance') distanceWindows[index]!.from = v;
         else if (kind === 'defense') defenseRateWindows[index]!.from = v;
         else if (kind === 'core') coreWindows[index]!.from = v;
         else if (kind === 'immune') immuneWindows[index]!.from = v;
@@ -3377,6 +3477,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       box.append(numberField(to, (v) => {
         if (kind === 'size') shotgunSizeWindows[index]!.to = v;
         else if (kind === 'range') optimalRangeWindows[index]!.to = v;
+        else if (kind === 'distance') distanceWindows[index]!.to = v;
         else if (kind === 'defense') defenseRateWindows[index]!.to = v;
         else if (kind === 'core') coreWindows[index]!.to = v;
         else if (kind === 'immune') immuneWindows[index]!.to = v;
@@ -3413,7 +3514,19 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
       list.append(box);
     });
 
-    optimalRangeWindows.forEach((w, index) => {
+    // 적정거리 구간은 지금 방식의 것만 그린다 — 다른 방식의 구간은 지우지 않고 들고 있다가 되돌리면 다시 보인다.
+    const distanceMode = readRangeModel() === 'distance';
+    if (distanceMode) distanceWindows.forEach((w, index) => {
+      const box = row('distance', index, w.from, w.to);
+      const d = numberField(w.distance, (v) => { w.distance = v; saveState(); });
+      d.min = String(settings.distance?.min ?? 5); d.max = String(settings.distance?.max ?? 100); d.step = '1';
+      d.ariaLabel = `거리 구간 ${index + 1} 거리`;
+      const drop = document.createElement('button'); drop.type = 'button'; drop.className = 'phase-drop'; drop.textContent = '✕'; drop.ariaLabel = `거리 구간 ${index + 1} 삭제`;
+      drop.dataset.phaseDrop = `distance:${index}`;
+      drop.addEventListener('click', () => { distanceWindows.splice(index, 1); saveState(); renderPhases(); });
+      box.append(createText('span', '거리', 'phase-sep'), d, drop); list.append(box);
+    });
+    if (!distanceMode) optimalRangeWindows.forEach((w, index) => {
       const box = row('range', index, w.from, w.to);
       for (const weapon of settings.optimalRangeWeapons ?? ['AR', 'SMG', 'SG', 'MG', 'SR']) {
         const label = document.createElement('label');
@@ -3493,14 +3606,15 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     });
   };
 
-  for (const kind of ['size', 'range', 'defense', 'core', 'immune', 'element'] as const) {
+  for (const kind of ['size', 'range', 'distance', 'defense', 'core', 'immune', 'element'] as const) {
     element<HTMLButtonElement>(root, `[data-phase-add="${kind}"]`).addEventListener('click', () => {
       // 마지막 구간 뒤를 기본값으로 잡아, 겹치지 않는 구간을 이어 붙이기 쉽게 한다.
-      const all = kind === 'size' ? shotgunSizeWindows : kind === 'range' ? optimalRangeWindows : kind === 'defense' ? defenseRateWindows : kind === 'core' ? coreWindows : [...immuneWindows, ...elementWindows];
+      const all = kind === 'size' ? shotgunSizeWindows : kind === 'range' ? optimalRangeWindows : kind === 'distance' ? distanceWindows : kind === 'defense' ? defenseRateWindows : kind === 'core' ? coreWindows : [...immuneWindows, ...elementWindows];
       const start = all.length > 0 ? Math.max(...all.map((w) => w.to)) : 0;
       const from = Math.min(start, 178);
       if (kind === 'size') shotgunSizeWindows.push({ from, to: Math.min(from + 2, 180), diameter: Number(element<HTMLInputElement>(root, '#shotgun-target-diameter').value) });
       else if (kind === 'range') optimalRangeWindows.push({ from, to: Math.min(from + 2, 180), weapons: readOptimalRange() });
+      else if (kind === 'distance') distanceWindows.push({ from, to: Math.min(from + 2, 180), distance: Number(distanceInput.value) });
       else if (kind === 'defense') defenseRateWindows.push({ from, to: Math.min(from + 2, 180), rate: 60 });
       else if (kind === 'core') coreWindows.push({ from, to: Math.min(from + 2, 180) });
       else if (kind === 'immune') immuneWindows.push({ from, to: Math.min(from + 2, 180) });
@@ -3705,6 +3819,9 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     // 그대로 실어 실행 시 검증 메시지로 알린다.
     defenseRateWindows: defenseRateWindows.map((w) => ({ ...w })),
     optimalRangeWindows: optimalRangeWindows.map(w => ({ ...w, weapons: [...w.weapons] })),
+    rangeModel: readRangeModel(),
+    distance: Number(distanceInput.value),
+    distanceWindows: distanceWindows.map((w) => ({ ...w })),
     shotgunSizeWindows: shotgunSizeWindows.map(w => ({ ...w })),
     coreWindows: coreWindows.map((w) => ({ ...w })),
     immuneWindows: immuneWindows.map((w) => ({ ...w })),
@@ -3761,16 +3878,22 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     element<HTMLInputElement>(root, '#shotgun-hit-rate').disabled = battle.bossSize !== 'custom';
     refreshShotgunControls();
     corePxInput.disabled = !battle.coreEnabled;
+    refreshCoreChance();
     element<HTMLInputElement>(root, '#has-parts').checked = battle.hasParts;
     element<HTMLInputElement>(root, '#seed').value = String(battle.seed);
     writeOptimalRange(battle.optimalRangeWeapons ?? []);
     defenseRateWindows = (battle.defenseRateWindows ?? []).map((w) => ({ ...w }));
     optimalRangeWindows = (battle.optimalRangeWindows ?? []).map(w => ({ ...w, weapons: [...w.weapons] }));
+    // 방식이 없는 저장본·공유 코드는 신식이 생기기 전의 것이다 — 구식으로 읽어 결과가 바뀌지 않게 한다.
+    for (const input of rangeModelInputs) input.checked = input.value === (battle.rangeModel ?? 'legacy');
+    distanceInput.value = String(battle.distance ?? settings.distance?.reference ?? 30);
+    distanceWindows = (battle.distanceWindows ?? []).map((w) => ({ ...w }));
     shotgunSizeWindows = (battle.shotgunSizeWindows ?? []).map(w => ({ ...w }));
     coreWindows = (battle.coreWindows ?? []).map((w) => ({ ...w }));
     immuneWindows = (battle.immuneWindows ?? []).map((w) => ({ ...w }));
     elementWindows = (battle.elementWindows ?? []).map((w) => ({ ...w }));
     renderPhases();
+    refreshRangeModel();
     element<HTMLSelectElement>(root, '#rng-mode').value = battle.rngMode ?? 'expected';
     element<HTMLInputElement>(root, '#immune-blocks-burst').checked = Boolean(battle.immuneBlocksBurst);
     // 없는 저장본은 신 방식이다 — 이 항목이 생기기 전의 조건은 전부 그렇게 읽는다.
@@ -3916,7 +4039,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   battleModal.addEventListener('click', (event) => {
     if (hitBackdrop(event, battleModal)) setBattleOpen(false);
   });
-  document.addEventListener('keydown', (event) => {
+  onDocument('keydown', (event) => {
     if (event.key === 'Escape' && !battleModal.hidden) { event.preventDefault(); setBattleOpen(false); }
   });
   /**
@@ -4784,6 +4907,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
           const image = catalogByName.get(name)?.image;
           return image ? `${import.meta.env.BASE_URL}${image}` : undefined;
         },
+        distance: settings.distance,
       }));
       section.append(replayButton);
       if (entry.request.squad.some(name => catalogByName.get(name)?.weaponType === 'SG') || Object.keys(entry.result.shotgunStats ?? {}).length) {
@@ -5204,7 +5328,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   });
 
   // 키보드는 창이 열려 있을 때만 가져간다. 조합키가 눌린 입력은 브라우저 것이다.
-  document.addEventListener('keydown', (event) => {
+  onDocument('keydown', (event) => {
     if (burstModal.hidden) return;
     if (event.ctrlKey || event.metaKey || event.altKey) return;
     if (event.key === 'Escape') { closeBurstOrder(); return; }
@@ -5335,6 +5459,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   });
   coreToggle.addEventListener('change', () => {
     corePxInput.disabled = !coreToggle.checked;
+    refreshCoreChance();
   });
   element<HTMLSelectElement>(root, '#boss-size').addEventListener('change', () => {
     const size = element<HTMLSelectElement>(root, '#boss-size').value;
@@ -5629,7 +5754,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     if (!hit || hit.closest(KEEP_OPEN)) return;
     setPickerOpen(false);
   }, true);
-  document.addEventListener('keydown', (event) => {
+  onDocument('keydown', (event) => {
     if (event.key !== 'Escape' || !pickerOpen) return;
     // 창이 열려 있으면 그쪽이 먼저다 — 판은 그다음 Esc에 접힌다.
     if (root.querySelector('.custom-modal:not([hidden])')) return;
@@ -5856,13 +5981,13 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   // 목록 위에 얹히는 판이라 드롭다운과 같은 규칙을 따른다 — 바깥을 누르거나
   // Esc면 닫힌다. 판 안과 판을 여는 줄(«필터 지우기» 포함)은 바깥이 아니다.
   const pickerBar = element<HTMLElement>(root, '.picker-bar');
-  document.addEventListener('pointerdown', (event) => {
+  onDocument('pointerdown', (event) => {
     if (filterPanel.hidden) return;
     const target = event.target as Node | null;
     if (target && (filterPanel.contains(target) || pickerBar.contains(target))) return;
     setFilterPanel(false);
   });
-  document.addEventListener('keydown', (event) => {
+  onDocument('keydown', (event) => {
     if (event.key === 'Escape' && !filterPanel.hidden) setFilterPanel(false);
   });
   filterReset.addEventListener('click', () => {
@@ -7511,6 +7636,7 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   const bossMaker: BossMakerHandle = mountBossMaker(
     element<HTMLElement>(root, '[data-boss-maker]'),
     {
+      signal: lifetime.signal,
       settings,
       catalog: [...catalogByName.values()],
       simulate: (request) => client.simulate(request),
@@ -8538,5 +8664,5 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     }
   });
 
-  return () => { window.removeEventListener('popstate', restoreViewUrl); window.removeEventListener('hashchange', restoreViewUrl); stopCountdown(); stopLocalize(); client.dispose(); browserMcp.disconnect(); window.removeEventListener('pagehide', disconnectMcp); };
+  return () => { lifetime.abort(); window.removeEventListener('popstate', restoreViewUrl); window.removeEventListener('hashchange', restoreViewUrl); stopCountdown(); stopLocalize(); client.dispose(); browserMcp.disconnect(); window.removeEventListener('pagehide', disconnectMcp); };
 }

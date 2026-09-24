@@ -630,6 +630,62 @@ export function normalize_optimal_range_windows(raw: any): Array<Record<string, 
   return out;
 }
 
+/** 신식 적정거리의 거리 모형(`weapon_mechanics.json`의 `distance`). */
+export function distance_table(): Record<string, any> {
+  return get(data().weapon_mechanics, 'distance', {});
+}
+
+/** 적정거리 방식 — legacy(무기군을 직접 켠다) / distance(거리가 적정거리·코어 크기를 정한다). 안 주면 legacy. */
+export function normalize_range_model(raw: any): string {
+  if (raw == null) {
+    return 'legacy';
+  }
+  if (raw !== 'legacy' && raw !== 'distance') {
+    throw ValueError('적정거리 방식은 legacy 또는 distance여야 한다');
+  }
+  return raw;
+}
+
+/** 거리 d. 안 주면 기준 거리(중거리). */
+export function normalize_distance(raw: any): number {
+  const table = distance_table();
+  if (raw == null) {
+    return py_float(get(table, 'reference', 30));
+  }
+  const lo = py_float(get(table, 'min', 5));
+  const hi = py_float(get(table, 'max', 100));
+  if (typeof raw !== 'number' || !isfinite(raw) || !(lo <= raw && raw <= hi)) {
+    throw ValueError(`거리는 ${_py_fmt_g(lo)}~${_py_fmt_g(hi)} 사이 숫자여야 한다`);
+  }
+  return raw;
+}
+
+/** 거리 구간 — [{from, to, distance}]. 겹치면 앞 구간이 이긴다(적정거리 구간과 달리 합칠 수 없는 값이다). */
+export function normalize_distance_windows(raw: any): Array<Record<string, any>> {
+  if (raw == null) {
+    return [];
+  }
+  if (!Array.isArray(raw) || raw.length > 100) {
+    throw ValueError('거리 설정은 최대 100개 구간의 배열이어야 한다');
+  }
+  const out: Array<Record<string, any>> = [];
+  for (const it of raw) {
+    if (!_py_is_dict(it) || !_same_key_set(it, ['from', 'to', 'distance'])) {
+      throw ValueError('거리 구간은 from·to·distance 객체여야 한다');
+    }
+    if (['from', 'to'].some((key) => typeof it[key] === 'boolean')) {
+      throw ValueError('거리 구간에는 숫자가 필요하다');
+    }
+    const [start, end] = _window(it, '거리');
+    const row: Record<string, any> = {};
+    _set_float(row, 'from', start);
+    _set_float(row, 'to', end);
+    row['distance'] = normalize_distance(it['distance']);
+    out.push(row);
+  }
+  return out;
+}
+
 // py: calculator/customization.py:587
 export function normalize_immune_windows(raw: any): number[][] {
   if (raw == null) {
