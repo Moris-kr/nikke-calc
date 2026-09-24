@@ -2906,6 +2906,14 @@ img[src*="/temporary-characters/"][src$="-card.png"] { object-fit: contain; obje
 .raid-board-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
 .raid-board-head h4 { margin: 0; font-size: 13px; letter-spacing: .02em; }
 .raid-board-head span { color: var(--muted); font-size: 12px; }
+/* 랭킹 접기 — 새로고침과 같은 작은 단추. 글자 앞 화살표가 지금 상태를 한 번 더 말한다(▴ 펼침 · ▾ 접힘).
+   접힌 동안에는 테두리를 밝혀 «아래에 표가 숨어 있다»를 알린다. */
+.raid-fold { min-height: 24px; padding: 0 8px; font-size: 11px; }
+.raid-fold::before { content: "▴"; margin-right: 5px; font-size: 9px; }
+.raid-fold[aria-expanded="false"] { border-color: rgba(69,214,208,.45); color: #cfeceb; }
+.raid-fold[aria-expanded="false"]::before { content: "▾"; }
+.raid-fold-hint { margin: 0; padding: 8px 12px; border: 1px dashed var(--line); border-radius: 10px; background: rgba(5,11,19,.4);
+  color: var(--muted); font: 700 12px/1.4 ui-monospace, monospace; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .raid-decks { display: grid; gap: 6px; }
 .raid-deck-line { display: grid; grid-template-columns: 44px 1fr auto auto auto; gap: 10px; align-items: center; padding: 7px 12px; min-width: 0;
   border: 1px solid var(--line); border-radius: 8px; background: rgba(5,11,19,.4); }
@@ -3009,7 +3017,7 @@ img[src*="/temporary-characters/"][src$="-card.png"] { object-fit: contain; obje
 .raid-detail { display: grid; grid-template-columns: 1fr auto; gap: 12px 20px; padding: 14px 16px 14px 60px; }
 .raid-actions { display: grid; gap: 6px; align-content: start; }
 .raid-ghost { min-height: 32px; padding: 0 12px; border: 1px solid var(--line); border-radius: 7px; background: transparent; color: #cfe0ea;
-  font: 700 12px/1 inherit; font-family: inherit; cursor: pointer; white-space: nowrap; }
+  font-weight: 700; font-size: 12px; line-height: 1; font-family: inherit; cursor: pointer; white-space: nowrap; }
 .raid-ghost:hover { border-color: rgba(69,214,208,.45); color: var(--ink); }
 .raid-ghost.is-danger:hover { border-color: var(--danger, #ff7787); color: #ffd7de; }
 .raid-verify-out { color: var(--cyan); font: 700 11px/1.4 ui-monospace, monospace; }

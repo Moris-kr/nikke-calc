@@ -641,6 +641,69 @@ describe('계산기 레이드 (BETA)', () => {
     expect(pane.querySelector('[data-raid-row="e0"]')).not.toBeNull();
   });
 
+  it('랭킹을 접으면 머리만 남고, 다시 그려도·다시 열어도 접힌 채다 — «내 순위로»는 먼저 편다', async () => {
+    seedDecks();
+    // e0을 내 기록으로 삼는다 — 그래야 «내 순위로»가 선다.
+    localStorage.setItem('nikke-raid-mine-v1', JSON.stringify({ r1: 'e0' }));
+    const server = fakeServer();
+    await mount(server);
+    await openRaidTab();
+    let pane = root.querySelector<HTMLElement>('[data-raid-pane]')!;
+    const fold = () => pane.querySelector<HTMLButtonElement>('[data-raid-fold]')!;
+    const body = () => pane.querySelector<HTMLElement>('[data-raid-board]')!;
+    const hint = () => pane.querySelector<HTMLElement>('[data-raid-fold-hint]')!;
+    // 기본은 펼침.
+    expect(fold().textContent).toBe('랭킹 접기');
+    expect(fold().getAttribute('aria-expanded')).toBe('true');
+    expect(body().hidden).toBe(false);
+    expect(hint().hidden).toBe(true);
+
+    fold().click();
+    expect(fold().textContent).toBe('랭킹 펼치기');
+    expect(fold().getAttribute('aria-expanded')).toBe('false');
+    expect(body().hidden).toBe(true);
+    // 머리는 그대로 — 제목·새로고침·내 순위·참가 수. 표 자리에는 1위와 내 기록 한 줄.
+    const head = pane.querySelector<HTMLElement>('.raid-board-head')!;
+    expect(head.querySelector('h4')!.textContent).toBe('랭킹');
+    expect(head.querySelector('[data-raid-refresh]')).not.toBeNull();
+    expect(head.querySelector('[data-raid-to-mine]')).not.toBeNull();
+    expect(head.textContent).toContain('참가 1명');
+    expect(hint().hidden).toBe(false);
+    expect(hint().textContent).toBe('1위 9.00억 · 내 기록 9.00억');
+    expect(localStorage.getItem('nikke-raid-board-folded-v1')).toBe('1');
+
+    // 새로고침으로 판을 새로 그려도 접힌 채다.
+    pane.querySelector<HTMLButtonElement>('[data-raid-refresh]')!.click();
+    await flush();
+    expect(body().hidden).toBe(true);
+    expect(fold().getAttribute('aria-expanded')).toBe('false');
+
+    // 다시 열어도(새로 마운트) 접힌 채다 — 브라우저에 남겨 둔다.
+    root = document.createElement('main');
+    document.body.replaceChildren(root);
+    await mount(server);
+    await openRaidTab();
+    pane = root.querySelector<HTMLElement>('[data-raid-pane]')!;
+    expect(body().hidden).toBe(true);
+    expect(fold().textContent).toBe('랭킹 펼치기');
+
+    // «내 순위로»는 먼저 펴고 그 줄로 가서 밝힌다.
+    const original = Element.prototype.scrollIntoView;
+    const scrolled: string[] = [];
+    Element.prototype.scrollIntoView = function () { scrolled.push((this as HTMLElement).dataset.raidRow ?? ''); };
+    try {
+      pane.querySelector<HTMLButtonElement>('[data-raid-to-mine]')!.click();
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+    expect(body().hidden).toBe(false);
+    expect(fold().getAttribute('aria-expanded')).toBe('true');
+    expect(hint().hidden).toBe(true);
+    expect(scrolled).toEqual(['e0']);
+    expect(pane.querySelector('[data-raid-row="e0"]')!.classList.contains('is-flash')).toBe(true);
+    expect(localStorage.getItem('nikke-raid-board-folded-v1')).toBe('0');
+  });
+
   it('어드민이 지난 레이드의 기록을 이 조건으로 재계산해 옮긴다 — 동일인이 이미 있으면 건너뛴다', async () => {
     seedDecks();
     const server = fakeServer();

@@ -1773,4 +1773,8 @@ export const EN: Record<string, string> = {
   "준비되는 대로 재생합니다. 스페이스로 멈추고, SD 캐릭터나 보스를 누르면 그 순간 걸린 버프가 보입니다.": "Plays as soon as it is ready. Space pauses; click an SD character or the boss to see its buffs at that moment.",
   '메인': 'Main',
   '3번 자리는 메인 자리입니다. 여기 있는 차지 무기(SR·RL) 니케가 풀차지 공격의 버스트 게이지 보너스를 받습니다. 버충 톡톡이나 컨트롤을 켠 차지 무기 니케가 있으면 그 니케가 메인이 됩니다.': 'Slot 3 is the main slot. A charge-weapon (SR/RL) NIKKE here gets the burst-gauge bonus on full-charge shots. If a charge-weapon NIKKE has burst-charge tapping or controls turned on, that NIKKE becomes the main instead.',
+  '랭킹 접기': 'Collapse ranking',
+  '랭킹 펼치기': 'Expand ranking',
+  '1위 {top}': '#1 {top}',
+  '1위 {top} · 내 기록 {m}': '#1 {top} · my record {m}',
 };

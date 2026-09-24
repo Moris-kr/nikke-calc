@@ -424,6 +424,8 @@ const el = <K extends keyof HTMLElementTagNameMap>(
 const NAME_KEY = 'nikke-raid-name-v1';
 /** 내가 올린 기록의 자리(레이드별 eid). 목록에서 «내 줄»을 찾는 유일한 열쇠다. */
 const MINE_KEY = 'nikke-raid-mine-v1';
+/** 랭킹판을 접어 두었나('1'). 보는 사람 한 명의 편의라 브라우저에만 남긴다. 기본은 펼침. */
+const FOLD_KEY = 'nikke-raid-board-folded-v1';
 
 export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
   let raids: RaidSummary[] = [];
@@ -454,6 +456,16 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
   };
   let displayName = '';
   try { displayName = localStorage.getItem(NAME_KEY) ?? ''; } catch { displayName = ''; }
+  /**
+   * 랭킹판 접힘. render()가 판을 통째로 다시 세우므로 DOM이 아니라 여기에 들고 있어야
+   * 새로고침·계산 뒤에도 접힌 채로 남는다.
+   */
+  let boardFolded = false;
+  try { boardFolded = localStorage.getItem(FOLD_KEY) === '1'; } catch { boardFolded = false; }
+  const setBoardFolded = (folded: boolean) => {
+    boardFolded = folded;
+    try { localStorage.setItem(FOLD_KEY, folded ? '1' : '0'); } catch { /* 무시 */ }
+  };
 
   const say = (text: string, ok = false) => { message = text; messageOk = ok; render(); };
   const selected = (): RaidSummary | null => raids.find((raid) => raid.id === selectedId) ?? null;
@@ -1390,14 +1402,42 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
     reload.disabled = loading;
     reload.addEventListener('click', () => { void refresh(); });
     head.append(reload);
-    // 내 순위로 — 참가자가 수십 명이면 내 줄을 찾아 내려가야 한다. 눌러서 그 줄로 가고 잠깐 밝힌다.
     const mineNow = myRecord();
+
+    // 접기 — 참가자가 늘면 랭킹이 화면을 길게 민다. 접어도 머리(제목·새로고침·내 순위·참가 수)는
+    // 남기고, 표 자리에는 1위와 내 기록 한 줄만 둔다. 누를 때마다 판을 다시 그리지 않고 제자리에서
+    // 숨긴다 — 다시 그리면 단추의 포커스와 펼쳐 둔 줄이 날아간다.
+    const boardBody = renderBoard();
+    const fold = el('button', 'raid-ghost raid-fold');
+    fold.type = 'button';
+    fold.dataset.raidFold = '';
+    const hint = el('p', 'raid-fold-hint');
+    hint.dataset.raidFoldHint = '';
+    const top = board?.entries[0];
+    if (top) {
+      hint.textContent = mineNow
+        ? t('1위 {top} · 내 기록 {m}', { top: raidDamageText(top.total), m: raidDamageText(mineNow.total) })
+        : t('1위 {top}', { top: raidDamageText(top.total) });
+    }
+    const applyFold = () => {
+      fold.textContent = boardFolded ? t('랭킹 펼치기') : t('랭킹 접기');
+      fold.setAttribute('aria-expanded', String(!boardFolded));
+      boardBody.hidden = boardFolded;
+      hint.hidden = !boardFolded || !top;
+    };
+    fold.addEventListener('click', () => { setBoardFolded(!boardFolded); applyFold(); });
+    applyFold();
+    head.append(fold);
+
+    // 내 순위로 — 참가자가 수십 명이면 내 줄을 찾아 내려가야 한다. 눌러서 그 줄로 가고 잠깐 밝힌다.
     if (mineNow) {
       const rank = (board?.entries ?? []).findIndex((entry) => entry.eid === mineNow.eid) + 1;
       const toMine = el('button', 'raid-ghost raid-to-mine', t('내 순위({rank}위)로', { rank }));
       toMine.type = 'button';
       toMine.dataset.raidToMine = '';
       toMine.addEventListener('click', () => {
+        // 접혀 있으면 먼저 편다 — 숨은 줄로는 스크롤해 갈 수 없다.
+        if (boardFolded) { setBoardFolded(false); applyFold(); }
         const row = host.querySelector<HTMLElement>(`[data-raid-row="${mineNow.eid}"]`);
         if (!row) return;
         row.scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -1408,7 +1448,7 @@ export function mountRaid(host: HTMLElement, deps: RaidDeps): RaidHandle {
       head.append(toMine);
     }
     head.append(el('span', '', t('참가 {n}명 · 다른 참가자는 익명입니다 · 줄을 누르면 덱이 펼쳐집니다', { n: board?.entries.length ?? 0 })));
-    boardSection.append(head, renderBoard());
+    boardSection.append(head, hint, boardBody);
     host.append(boardSection);
   }
 
