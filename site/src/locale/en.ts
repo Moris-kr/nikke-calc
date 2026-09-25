@@ -1540,6 +1540,7 @@ export const EN: Record<string, string> = {
   '지금 편성': 'current squad',
   '중지했습니다.': 'Stopped.',
   '계산 준비 중…': 'Preparing…',
+  '이 큐브로 적용': 'Apply these cubes',
   '코어 명중': 'Core hit',
   '이 코어 직경에서 무기군별 평타가 코어에 맞을 확률입니다(명중률 0 기준). AR·SMG는 명중률 버프를 받으면 더 오르고, SR·RL은 언제나 코어에 맞는다고 봅니다': 'Chance that normal attacks of each weapon type hit the core at this diameter (0 accuracy). AR·SMG rise with accuracy buffs; SR·RL are always treated as core hits',
   '코어 {n}px': 'core {n}px',

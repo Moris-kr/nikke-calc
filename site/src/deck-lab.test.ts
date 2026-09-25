@@ -114,23 +114,30 @@ describe('덱 실험실 창', () => {
   };
   const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-  it('최적큐브 찾기는 창을 먼저 열고, 계산 시작을 눌러야 돌린 뒤 끼운다', async () => {
+  it('최적큐브 찾기는 창을 먼저 열고, 계산한 뒤 적용을 눌러야 끼운다', async () => {
     const deck = deckOf(['A', 'B', '', '', '']);
+    deck.characters.A = { growthStage: 2 };
     const { root, applied, lab } = mount(deck);
     lab.openCubeFinder();
     const modal = root.querySelector<HTMLElement>('[data-cube-finder-modal]')!;
     expect(modal.hidden).toBe(false);
     expect(modal.textContent).toContain('1번 자리 니케에 큐브를 하나씩');
-    expect(applied).toHaveLength(0);
     modal.querySelector<HTMLButtonElement>('[data-cube-finder-start]')!.click();
-    for (let i = 0; i < 20 && !applied.length; i += 1) await settle();
-    expect(applied).toHaveLength(1);
-    expect(deck.characters.A?.cube?.name).toBe('어설트');
-    expect(deck.characters.B?.cube?.name).toBe('베어');
+    for (let i = 0; i < 20 && !modal.querySelector('[data-cube-finder-summary]'); i += 1) await settle();
     expect(modal.querySelector('[data-cube-finder-summary]')?.textContent).toContain('+');
-    // 되돌리기
+    // 계산만으로는 덱이 바뀌지 않는다.
+    expect(applied).toHaveLength(0);
+    expect(deck.characters.A?.cube).toBeUndefined();
+    // 결과를 보는 사이 만진 다른 설정은 적용해도 지워지지 않는다.
+    deck.characters.A = { growthStage: 5 };
+    modal.querySelector<HTMLButtonElement>('[data-cube-finder-apply]')!.click();
+    expect(applied).toHaveLength(1);
+    expect(deck.characters.A).toEqual({ growthStage: 5, cube: { name: '어설트', level: 15 } });
+    expect(deck.characters.B?.cube?.name).toBe('베어');
+    // 되돌리기 — 원래 큐브(여기서는 기본 큐브)로.
     modal.querySelector<HTMLButtonElement>('[data-cube-finder-undo]')!.click();
-    expect(deck.characters).toEqual({});
+    expect(deck.characters.A).toEqual({ growthStage: 5 });
+    expect(deck.characters.B?.cube).toBeUndefined();
     lab.dispose();
     root.remove();
   });

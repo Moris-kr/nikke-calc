@@ -120,8 +120,9 @@ export function mountDeckLab(root: HTMLElement, deps: DeckLabDeps): DeckLabHandl
     for (const line of [
       t('지금 덱 그대로 덱 총딜을 한 번 잽니다.'),
       t('1번 자리 니케에 큐브를 하나씩 끼워 보며 덱 총딜을 잽니다. 다른 니케의 큐브는 그대로 둡니다.'),
-      t('덱 총딜이 가장 높은 큐브를 끼웁니다. 지금 큐브보다 높을 때만 바꿉니다.'),
+      t('덱 총딜이 가장 높은 큐브를 고릅니다. 지금 큐브보다 높을 때만 바꿉니다.'),
       t('그 큐브를 낀 채로 2번 → 5번 자리까지 같은 일을 차례로 반복합니다.'),
+      t('계산이 끝나면 결과를 보고 「이 큐브로 적용」을 눌러야 덱에 끼워집니다.'),
     ]) steps.append(el('li', '', line));
     how.append(steps);
     const notes = el('ul', 'deck-lab-notes');
@@ -195,8 +196,7 @@ export function mountDeckLab(root: HTMLElement, deps: DeckLabDeps): DeckLabHandl
         },
       });
       if (cubeStop) return;
-      const blocked = deps.applyDeck(result.deck);
-      renderCubeResult(result, original, blocked, status, output);
+      renderCubeResult(result, original, status, output);
     } catch (error) {
       if (error instanceof LabStopped || cubeStop) status.textContent = t('중지했습니다.');
       else status.textContent = t('계산에 실패했습니다: {msg}', { msg: error instanceof Error ? error.message : String(error) });
@@ -206,11 +206,30 @@ export function mountDeckLab(root: HTMLElement, deps: DeckLabDeps): DeckLabHandl
     }
   }
 
-  function renderCubeResult(result: CubeSearchResult, original: DeckState, blocked: string | null,
+  /**
+   * 고른 큐브만 지금 덱에 끼운 사본. 계산한 덱을 통째로 덮지 않는다 — 결과를 보는 사이
+   * 다른 설정(오버로드 등)을 만졌으면 그것까지 계산 전 값으로 돌아가 버린다.
+   * `cube`가 없으면 개별 설정에서 큐브 칸을 빼 기본 큐브로 돌린다.
+   */
+  function withCubes(live: DeckState, picks: Array<{ name: string; cube?: CubeSelection }>): DeckState {
+    const next = structuredClone(live);
+    for (const { name, cube: pick } of picks) {
+      const own = next.characters[name] ?? baseOverrides(name);
+      if (pick) next.characters[name] = { ...own, cube: { ...pick } };
+      else {
+        const { cube: _drop, ...rest } = own;
+        next.characters[name] = rest;
+      }
+    }
+    return next;
+  }
+
+  function renderCubeResult(result: CubeSearchResult, original: DeckState,
     status: HTMLElement, output: HTMLElement): void {
-    status.textContent = blocked
-      ? t('계산은 끝났지만 적용하지 못했습니다: {msg}', { msg: blocked })
-      : t('끝났습니다. 고른 큐브를 덱에 끼웠습니다.');
+    const changed = result.steps.filter((step) => step.changed);
+    status.textContent = changed.length
+      ? t('끝났습니다. 결과를 확인하고 「이 큐브로 적용」을 눌러야 덱에 끼워집니다.')
+      : t('끝났습니다. 지금 큐브가 이미 가장 높아 바꿀 것이 없습니다.');
     const summary = el('p', 'deck-lab-summary');
     summary.dataset.cubeFinderSummary = '';
     summary.append(el('b', '', t('덱 총딜 {from} → {to}', { from: formatDamage(result.baseTotal), to: formatDamage(result.finalTotal) })),
@@ -244,19 +263,46 @@ export function mountDeckLab(root: HTMLElement, deps: DeckLabDeps): DeckLabHandl
       list.append(item);
     }
     output.append(list);
-    if (!blocked && result.steps.some((step) => step.changed)) {
-      const actions = el('div', 'deck-copy-actions');
-      const undo = el('button', 'deck-copy-cancel', t('원래 큐브로 되돌리기'));
-      undo.type = 'button';
-      undo.dataset.cubeFinderUndo = '';
-      undo.addEventListener('click', () => {
-        const back = deps.applyDeck(original);
-        status.textContent = back ? t('되돌리지 못했습니다: {msg}', { msg: back }) : t('원래 큐브로 되돌렸습니다.');
-        undo.disabled = !back;
-      });
-      actions.append(undo);
-      output.append(actions);
-    }
+    if (!changed.length) return;
+    const actions = el('div', 'deck-copy-actions');
+    const apply = el('button', 'deck-copy-apply', t('이 큐브로 적용'));
+    apply.type = 'button';
+    apply.dataset.cubeFinderApply = '';
+    const undo = el('button', 'deck-copy-cancel', t('원래 큐브로 되돌리기'));
+    undo.type = 'button';
+    undo.dataset.cubeFinderUndo = '';
+    undo.hidden = true;
+    /** 계산한 편성 그대로인가. 자리가 바뀌었으면 자리별 결과가 뜻을 잃는다. */
+    const sameSquad = (): boolean => deps.activeDeck().squad.join('|') === original.squad.join('|');
+    apply.addEventListener('click', () => {
+      if (!sameSquad()) {
+        status.textContent = t('계산한 뒤 편성이 바뀌어 적용하지 않았습니다. 다시 계산해 주세요.');
+        return;
+      }
+      const blocked = deps.applyDeck(withCubes(deps.activeDeck(), changed.map((step) => ({ name: step.name, cube: step.after }))));
+      if (blocked) { status.textContent = t('적용하지 못했습니다: {msg}', { msg: blocked }); return; }
+      status.textContent = t('고른 큐브를 {deck}에 끼웠습니다.', { deck: deps.deckLabel() });
+      apply.hidden = true;
+      undo.hidden = false;
+      undo.focus();
+    });
+    undo.addEventListener('click', () => {
+      if (!sameSquad()) {
+        status.textContent = t('편성이 바뀌어 되돌리지 않았습니다.');
+        return;
+      }
+      const blocked = deps.applyDeck(withCubes(deps.activeDeck(), changed.map((step) => ({
+        name: step.name, ...(step.before ? { cube: step.before } : {}),
+      }))));
+      if (blocked) { status.textContent = t('되돌리지 못했습니다: {msg}', { msg: blocked }); return; }
+      status.textContent = t('원래 큐브로 되돌렸습니다.');
+      undo.hidden = true;
+      apply.hidden = false;
+      apply.focus();
+    });
+    actions.append(apply, undo);
+    // 요약 바로 밑 — 자리별 목록 아래에 두면 스크롤해야 보인다.
+    output.insertBefore(actions, list);
   }
 
   // ── 니케 경우의 수 ─────────────────────────────────────────────────────

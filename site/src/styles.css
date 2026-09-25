@@ -1767,6 +1767,7 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
 .deck-lab-count.is-over { color: var(--danger); }
 .deck-lab-status { min-height: 1.4em; margin: 10px 0 0; color: var(--cyan); font-size: 12px; font-variant-numeric: tabular-nums; }
 .deck-lab-output { margin-top: 6px; }
+.deck-lab-output > .deck-copy-actions { margin: 4px 0 10px; }
 .deck-lab-summary { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; margin: 8px 0; font-size: 14px; }
 .deck-lab-muted { color: var(--muted); }
 .deck-lab-output .is-up { color: var(--cyan); font-weight: 700; }
