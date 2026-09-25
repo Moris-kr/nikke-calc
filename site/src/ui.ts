@@ -79,6 +79,7 @@ import { mountBossMaker, type BossMakerHandle } from './boss-maker-view';
 import { coreHitChance } from './boss-maker';
 import { DISTANCE_PRESET_LABEL, distanceScale, distanceWeapons } from './distance';
 import { mountOverloadLab } from './overload-lab';
+import { mountDeckLab } from './deck-lab-ui';
 import { lockCardForRaid, lockTapRateForRaid, mountRaid, openidFromProfileUrl, RAID_LOCK_NOTE, type RaidHandle } from './raid';
 import { openGrowthEfficiency } from './growth-efficiency-ui';
 import { EXTERNAL_LINKS, hostOf } from './external-links';
@@ -969,6 +970,8 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
             <button type="button" class="burst-order-open" data-burst-order-open title="사이클마다 1버·2버·3버를 누가 쓸지 직접 정합니다. 정한 만큼만 따르고 그 뒤는 평소 순서로 돌아갑니다"><span class="burst-order-mark" aria-hidden="true">1·2·3</span><span>버스트 순서</span><b class="burst-order-badge" data-burst-order-badge hidden></b></button>
             <button type="button" class="burst-order-open" data-abbrev-open title="각 니케의 앞글자를 이어 적어 한 번에 편성합니다 (예: 리센홍모라)"><span class="burst-order-mark" aria-hidden="true">가나다</span><span>이름으로 편성입력</span></button>
             <button type="button" class="burst-order-open" data-quick-decks-open>빠른덱편성</button>
+            <button type="button" class="burst-order-open" data-cube-finder-open title="자리마다 큐브를 하나씩 끼워 보고 덱 총딜이 가장 높은 큐브를 1번부터 차례로 끼웁니다. 누르면 방식을 읽고 시작합니다"><span class="burst-order-mark" aria-hidden="true">큐브</span><span>최적큐브 찾기</span></button>
+            <button type="button" class="burst-order-open" data-nikke-cases-open title="자리마다 바꿔 넣어 볼 니케를 골라, 가능한 편성을 모두 계산해 덱 총딜 순으로 보여 줍니다"><span class="burst-order-mark" aria-hidden="true">A/B</span><span>니케 경우의 수</span></button>
             <span class="deck-moves" data-deck-moves hidden></span>
             <button type="button" class="deck-restore" data-deck-restore hidden title="이 덱 전원의 육성을 불러온 값으로 되돌립니다. 컨트롤·버스트 운용은 그대로 둡니다">덱 육성 되돌리기</button>
             <button type="button" class="deck-restore" data-deck-restore-all hidden title="전체 덱 전원의 육성을 불러온 값으로 되돌립니다. 컨트롤·버스트 운용은 그대로 둡니다">전체 덱 육성 되돌리기</button>
@@ -7886,6 +7889,60 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   // ── 오버효율 (BETA) ─────────────────────────────────────────────────────
   // 옵션 두 벌을 같은 자리에 놓고 견주는 판. 편성도 조건도 계산기 쪽 것을 빌려 쓰므로
   // 여기서는 **한 판을 돌리는 길**과 **그 니케에 이미 잡혀 있는 설정**만 건네준다.
+  // ── 덱 실험실 — 최적큐브 찾기 · 니케 경우의 수 ──────────────────────────
+  // 판을 여러 번 돌리는 두 창. 전투 조건은 지금 화면 값, 난수만 기대값으로 고정한다.
+  // 결과 캐시(30칸)는 쓰지 않는다 — 수십 판이 사람이 본 결과를 밀어낸다.
+  const deckLab = mountDeckLab(root, {
+    settings,
+    catalog: [...catalogByName.values()],
+    activeDeck,
+    deckLabel: () => deckLabelFull(activeDeck()),
+    run: async (deck) => {
+      await prepared;
+      const custom = customPayload();
+      const request = requestForDeck(deck, { ...readBattle(), rngMode: 'expected' },
+        Object.keys(custom).length > 0 ? custom : undefined, { stateTrack: false });
+      const errors = validateRequest(request);
+      if (errors.length > 0) throw new Error(errors[0]);
+      return client.simulate(request);
+    },
+    overridesFor: (name) => (carryOverSettings ? settingsFromOtherDeck(name) : undefined)
+      ?? (roster[name] ? cloneOverride(roster[name]!) : undefined),
+    knownCubeLevels: () => {
+      const levels: Record<string, number> = {};
+      const note = (cube?: { name: string; level: number }) => {
+        if (!cube || cube.name === NO_CUBE || !(cube.level > 0)) return;
+        levels[cube.name] = Math.max(levels[cube.name] ?? 0, cube.level);
+      };
+      for (const value of Object.values(roster)) note(value?.cube);
+      for (const deck of decks) for (const value of Object.values(deck.characters)) note(value?.cube);
+      return levels;
+    },
+    applyDeck: (next) => {
+      const deck = activeDeck();
+      if (raidMode) {
+        for (const name of next.squad) {
+          const takenIn = name ? raidDeckOf(name, deck.id) : null;
+          if (takenIn !== null) return `${name}은(는) 덱 ${takenIn}에 이미 있습니다 — 계산기 레이드에서는 한 니케는 한 덱에만 설 수 있습니다.`;
+        }
+      }
+      deck.squad = [...next.squad];
+      deck.characters = structuredClone(next.characters);
+      showErrors([]);
+      saveState();
+      renderDeckTabs();
+      renderSquad();
+      renderRosterGrid();
+      return null;
+    },
+    imageOf: (name) => {
+      const image = catalogByName.get(name)?.image;
+      return image ? `${import.meta.env.BASE_URL}${image}` : undefined;
+    },
+  });
+  element<HTMLButtonElement>(root, '[data-cube-finder-open]').addEventListener('click', () => deckLab.openCubeFinder());
+  element<HTMLButtonElement>(root, '[data-nikke-cases-open]').addEventListener('click', () => deckLab.openNikkeCases());
+
   mountOverloadLab(element<HTMLElement>(root, '[data-overload-lab]'), {
     catalog: [...catalogByName.values()],
     settings,
@@ -8688,5 +8745,5 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     }
   });
 
-  return () => { lifetime.abort(); window.removeEventListener('popstate', restoreViewUrl); window.removeEventListener('hashchange', restoreViewUrl); stopCountdown(); stopLocalize(); client.dispose(); browserMcp.disconnect(); window.removeEventListener('pagehide', disconnectMcp); };
+  return () => { lifetime.abort(); deckLab.dispose(); window.removeEventListener('popstate', restoreViewUrl); window.removeEventListener('hashchange', restoreViewUrl); stopCountdown(); stopLocalize(); client.dispose(); browserMcp.disconnect(); window.removeEventListener('pagehide', disconnectMcp); };
 }

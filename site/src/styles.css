@@ -1753,6 +1753,57 @@ button.roster-cell.is-taken { opacity: .35; cursor: not-allowed; }
   background: rgba(255,191,60,.22); color: var(--amber); font-size: 10px; font-weight: 800; }
 .burst-order-badge[hidden] { display: none; }
 
+/* ── 덱 실험실 — 최적큐브 찾기 · 니케 경우의 수 ──────────────────────────
+   창을 먼저 열고 방식을 읽힌 뒤 돌린다. 결과는 창 안에 남는다. */
+.custom-card.deck-lab-card { width: min(720px, 100%); }
+.deck-lab-how { margin-top: 4px; }
+.deck-lab-steps, .deck-lab-notes { margin: 10px 0 0; padding-left: 20px; font-size: 12.5px; line-height: 1.65; }
+.deck-lab-steps li::marker { color: var(--cyan); font-weight: 800; }
+.deck-lab-notes { color: var(--muted); font-size: 11.5px; }
+.deck-lab-option { display: flex; align-items: center; gap: 10px; margin-top: 14px; font-size: 12.5px; font-weight: 700; }
+.deck-lab-option > span { flex: none; }
+.deck-lab-option select { min-width: 0; max-width: 100%; }
+.deck-lab-count { margin: 14px 0 0; font-size: 12.5px; font-weight: 700; color: var(--ink); }
+.deck-lab-count.is-over { color: var(--danger); }
+.deck-lab-status { min-height: 1.4em; margin: 10px 0 0; color: var(--cyan); font-size: 12px; font-variant-numeric: tabular-nums; }
+.deck-lab-output { margin-top: 6px; }
+.deck-lab-summary { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; margin: 8px 0; font-size: 14px; }
+.deck-lab-muted { color: var(--muted); }
+.deck-lab-output .is-up { color: var(--cyan); font-weight: 700; }
+.deck-lab-output .is-down { color: var(--danger); }
+.deck-lab-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.deck-lab-cubes, .deck-lab-cases { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.deck-lab-cubes > li, .deck-lab-cases > li { padding: 9px 12px; border: 1px solid var(--line); border-radius: 9px; background: rgba(255,255,255,.02); }
+.deck-lab-cubes > li.is-changed { border-color: rgba(69,214,208,.4); background: rgba(69,214,208,.06); }
+.deck-lab-cube-head, .deck-lab-case-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; font-size: 12.5px; }
+.deck-lab-cube-head > :last-child, .deck-lab-case-head > .deck-lab-num { margin-left: auto; }
+.deck-lab-trials { margin-top: 6px; font-size: 11.5px; }
+.deck-lab-trials summary { cursor: pointer; color: var(--muted); }
+.deck-lab-trials ol { display: grid; gap: 2px; margin: 6px 0 0; padding-left: 20px; }
+.deck-lab-trials li { display: flex; justify-content: space-between; gap: 10px; }
+.deck-lab-slots { display: grid; gap: 8px; margin-top: 14px; }
+.deck-lab-slot { padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; }
+.deck-lab-slot-head { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; }
+.deck-lab-slot-head b { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 5px; background: rgba(69,214,208,.18); color: var(--cyan); font-size: 11px; }
+.deck-lab-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.deck-lab-chips:empty { display: none; }
+.deck-lab-chip { padding: 3px 9px; border: 1px solid rgba(255,191,60,.45); border-radius: 999px; background: rgba(255,191,60,.1); color: var(--amber); font-size: 11.5px; font-weight: 700; cursor: pointer; }
+.deck-lab-chip:hover { border-color: var(--amber); }
+.deck-lab-search { width: 100%; margin-top: 6px; padding: 6px 9px; font-size: 12px; }
+.deck-lab-hits { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+.deck-lab-hits:empty { display: none; }
+.deck-lab-hit { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px 3px 3px; border: 1px solid var(--line); border-radius: 7px; background: rgba(255,255,255,.03); color: var(--ink); font-size: 11.5px; cursor: pointer; }
+.deck-lab-hit:hover, .deck-lab-hit:focus-visible { border-color: var(--cyan); }
+.deck-lab-hit img { width: 22px; height: 22px; border-radius: 4px; object-fit: cover; object-position: top; }
+.deck-lab-hits .deck-lab-muted { font-size: 11.5px; }
+.deck-lab-cases { margin-top: 8px; }
+.deck-lab-cases > li.is-current { border-color: rgba(255,191,60,.4); }
+.deck-lab-rank { min-width: 22px; color: var(--cyan); font-variant-numeric: tabular-nums; }
+.deck-lab-case-squad { display: flex; flex-wrap: wrap; gap: 3px 8px; min-width: 0; }
+.deck-lab-case-squad .is-swapped { color: var(--amber); font-weight: 800; }
+.deck-lab-apply { padding: 3px 9px; border: 1px solid rgba(69,214,208,.35); border-radius: 6px; background: rgba(69,214,208,.1); color: var(--cyan); font-size: 11px; font-weight: 700; cursor: pointer; }
+.deck-lab-apply:hover { border-color: var(--cyan); }
+
 .burst-order-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 14px 0 4px; }
 .burst-cycles { display: inline-flex; align-items: center; gap: 6px; color: var(--muted);
   font-size: 11.5px; font-weight: 700; }
