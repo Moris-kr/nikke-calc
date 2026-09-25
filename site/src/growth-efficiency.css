@@ -19,3 +19,4 @@
 .growth-external textarea{display:block;width:100%;box-sizing:border-box;margin:12px 0;background:#0b1422;color:#d9e5f3;border:1px solid #435775;border-radius:8px;padding:12px;font-size:12px}.growth-external button{margin:4px}
 
 .growth-dialog .growth-easy-calculate{background:#14645c;color:#f0fffc;border:1px solid #58d9bf;box-shadow:0 0 0 1px #58d9bf22}.growth-dialog .growth-easy-calculate:hover:not(:disabled){background:#197f71}
+.growth-skill-priority article{padding:14px 0;border-top:1px solid #435375}.growth-skill-priority article p{margin:6px 0}.growth-skill-priority .item-icon{width:1.3em;height:1.3em}

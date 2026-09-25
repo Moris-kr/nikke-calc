@@ -1528,6 +1528,8 @@ export const EN: Record<string, string> = {
   '부족한 매뉴얼이 없어 {name}를 쓸 필요가 없습니다': 'No manuals are short — no {name} needed',
   '{item} {per}개로 교환 × {boxes}개 → {gained}개 (부족 {need} · 남음 {surplus})': '{item} ×{per} per chest × {boxes} → {gained} (short {need} · left over {surplus})',
   '상자 1개당 하나를 골라 받습니다: {list}': 'Each chest gives one choice: {list}',
+  '전체 덱 스킬칩 가성비 우선순위': 'Skill chip value priority · all decks',
+  '스킬 레벨만 목표로 올렸을 때의 덱 총딜 증가를 매뉴얼 III 환산 개수로 나눈 순서입니다. 스킬·버스트 매뉴얼 I·II는 가치가 낮아 비용에서 뺐고, 버스트 매뉴얼 III 1개는 30 DAY 성장 보급 상자 교환비(스킬 III 8개 : 버스트 III 4개)에 맞춰 스킬 매뉴얼 III 2개로 셉니다. 코드 매뉴얼은 비용에 넣지 않습니다. 같은 니케도 덱·목표가 다르면 따로 표시하며, 후보별 증가량을 합산하면 안 됩니다.': 'Order of deck damage gain from raising only skill levels to the target, divided by the Manual III count. Skill/Burst Manual I·II are excluded as low value, and one Burst Manual III counts as two Skill Manual III per the 30-Day Upgrade Supply Chest rate (Skill III 8 : Burst III 4). Code manuals are not counted. The same Nikke is listed separately per deck/target; do not add candidate gains together.',
   '코어 명중': 'Core hit',
   '이 코어 직경에서 무기군별 평타가 코어에 맞을 확률입니다(명중률 0 기준). AR·SMG는 명중률 버프를 받으면 더 오르고, SR·RL은 언제나 코어에 맞는다고 봅니다': 'Chance that normal attacks of each weapon type hit the core at this diameter (0 accuracy). AR·SMG rise with accuracy buffs; SR·RL are always treated as core hits',
   '코어 {n}px': 'core {n}px',

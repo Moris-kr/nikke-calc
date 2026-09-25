@@ -1,6 +1,6 @@
 import {inlineCodeIcon,bossElementHint} from './element-inline';
 import {prependItemIcon,MODULE_ITEM} from './item-icons';
-import {growthSkillPlan,skillMaterialLines,skillTotalLines,rankModuleResults,growthReportHtml} from './growth-report';
+import {growthSkillPlan,skillMaterialLines,skillTotalLines,rankModuleResults,growthReportHtml,skillManualIIIUnits,SKILL_III} from './growth-report';
 import growthReportCss from './growth-efficiency.css?inline';
 import {registerGrowthMcp} from './growth-mcp';
 import {loadGrowthTarget,saveGrowthTarget,clearGrowthTarget,loadGrowthExcluded,saveGrowthExcluded} from './growth-target-storage';
@@ -108,6 +108,8 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
   dialog.append(header, intro, quickStart, performance, costLabel, currencyLabel, allLevelLabel, easyCalculate, eightLines, excludeNonElement, resetAll, resetIncluded, editor, footer, output); overlay.append(dialog); document.body.append(overlay);
   let closed = false, busy = false, pairs: Pair[] = [];
   let unregister=()=>{};let calculationError='';let moduleResults:Record<string,unknown>[]=[];
+  // 전체 덱 스킬칩 가성비 — 보고서 이미지에 옮겨 적을 줄(순위순).
+  let skillReport:string[]=[];
   let closePreview: (() => void) | null = null;
   const targets: GrowthTargets[] = [];
   const lockMasks:Record<string,Record<string,number>>[]=[];
@@ -325,7 +327,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
   });
   const calculateGrowth = async () => {
     if (busy) return;
-    calculationError='';moduleResults=[];
+    calculationError='';moduleResults=[];skillReport=[];
     try {
       if (acknowledgments.some(check=>check.closest<HTMLElement>('.growth-character')?.dataset.excluded !== 'true' && !check.checked)) throw new Error('부위 정보가 없는 니케의 목표 옵션을 설정하고 확인란을 체크해 주세요.');
       const requests = snapshot.decks.map((entry,i)=>maximumRequest(entry.request,targets[i]!,steps,{useTargetLevels:true,originals:originals[i]!,growthStages:growthStages[i]!,excluded:excluded[i]!,equipment:equipment[i]!,extras:extras[i]!}));
@@ -463,6 +465,40 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
         }
         output.prepend(costSection);
       }
+      // 전체 덱 스킬칩 가성비 — 스킬 레벨만 목표로 올린 덱 딜 증가를 매뉴얼 III 환산 개수로 나눈 순서(모듈 가성비 위).
+      const skillJobs=pairs.flatMap(pair=>growthSkillPlan(pair.before.request,pair.after.request,pair.excluded,deps.settings)
+        .filter(row=>row.target.some((lv,i)=>lv>row.current[i]!)).map(row=>({pair,row})));
+      if(skillJobs.length){
+        const skillSection=node('section','','growth-result growth-skill-priority');skillSection.append(node('h3','전체 덱 스킬칩 가성비 우선순위'));
+        skillSection.append(node('p','스킬 레벨만 목표로 올렸을 때의 덱 총딜 증가를 매뉴얼 III 환산 개수로 나눈 순서입니다. 스킬·버스트 매뉴얼 I·II는 가치가 낮아 비용에서 뺐고, 버스트 매뉴얼 III 1개는 30 DAY 성장 보급 상자 교환비(스킬 III 8개 : 버스트 III 4개)에 맞춰 스킬 매뉴얼 III 2개로 셉니다. 코드 매뉴얼은 비용에 넣지 않습니다. 같은 니케도 덱·목표가 다르면 따로 표시하며, 후보별 증가량을 합산하면 안 됩니다.','growth-note'));
+        const skillRows:{element:HTMLElement;efficiency:number;line:string}[]=[];
+        completed=0;totalRuns=skillJobs.length;
+        for(const {pair,row} of skillJobs){
+          if(closed)return;
+          const article=node('article');article.append(node('h4',`${deps.deckName(pair.before.deckId)} · ${row.name}`));
+          try{
+            const {skill3,burst3,units}=skillManualIIIUnits(row);
+            const request=structuredClone(pair.before.request);request.characters??={};
+            request.characters[row.name]={...request.characters[row.name],skillLevels:{'1':row.target[0]!,'2':row.target[1]!,'3':row.target[2]!}};
+            const isolated=await run(request,`${deps.deckName(pair.before.deckId)} · ${row.name} 스킬만 육성`);
+            if(closed)return;
+            if(!Number.isFinite(isolated.squadTotal))throw new Error('스킬 비교 대미지가 올바르지 않습니다.');
+            const gain=isolated.squadTotal-pair.before.result.squadTotal;
+            // 매뉴얼 III이 들지 않는 목표(I·II만)는 이 기준으로 비용이 0이다 — 딜이 오르면 맨 앞에 둔다.
+            const efficiency=units>0?gain/units:gain>0?Infinity:0;
+            const perUnit=units>0?`매뉴얼 III 1개당 덱 딜 ${efficiency>=0?'+':''}${formatDamage(efficiency)}`:gain>0?'매뉴얼 III 없이 가능':'매뉴얼 III 불필요';
+            const head=node('strong',`스킬 ${row.current.join('/')} → ${row.target.join('/')} · ${perUnit}`);article.append(head);
+            const costLine=node('p',`스킬 매뉴얼 III ${skill3.toLocaleString('ko-KR')}개 · 버스트 매뉴얼 III ${burst3.toLocaleString('ko-KR')}개 → 환산 ${units.toLocaleString('ko-KR')}개 (30 DAY 성장 보급 상자 ${(units/8).toFixed(1)}개)`);
+            prependItemIcon(costLine,SKILL_III);article.append(costLine);
+            article.append(node('p',`스킬만 육성: 덱 ${percent(pair.before.result.squadTotal,isolated.squadTotal)} · ${gain>=0?'+':''}${formatDamage(gain)}`));
+            skillRows.push({element:article,efficiency,line:`${deps.deckName(pair.before.deckId)} · ${row.name} · ${perUnit} · 환산 ${units.toLocaleString('ko-KR')}개 · 덱 ${gain>=0?'+':''}${formatDamage(gain)} (${percent(pair.before.result.squadTotal,isolated.squadTotal)})`});
+          }catch(error){article.append(node('p',`분석 제외: ${error instanceof Error?error.message:String(error)}`,'growth-note'));skillRows.push({element:article,efficiency:-Infinity,line:`${deps.deckName(pair.before.deckId)} · ${row.name} · 분석 제외`});}
+        }
+        skillRows.sort((a,b)=>b.efficiency-a.efficiency);
+        for(const r of skillRows)skillSection.append(r.element);
+        skillReport=skillRows.map((r,i)=>`${Number.isFinite(r.efficiency)||r.efficiency===Infinity?`${i+1}.`:'—'} ${r.line}`);
+        output.prepend(skillSection);
+      }
       const global=node('section','','growth-result growth-global-priority');global.append(node('h3','전체 덱 육성 우선순위'));
       global.append(node('p','현재 육성에서 한 니케만 목표 육성했을 때의 덱 총딜 증가량 순입니다. 버프 효과를 포함하며, 후보별 증가량을 합산하면 안 됩니다. 같은 니케도 덱·목표가 다르면 따로 표시합니다. 재료 비용은 미반영입니다.','growth-note'));
       if(snapshot.decks.some(entry=>entry.request.rngMode!=='expected'))global.append(node('p','단일 시드 결과가 포함됩니다. 안정적인 비교에는 expected RNG를 권장합니다.','growth-note'));
@@ -510,7 +546,7 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
       const moduleLines=rankModuleResults(moduleResults).flatMap((row,index)=>{const pair=pairs.find(p=>p.before.deckId===row.deckId);const lines=pair?.moduleReport.find(lines=>lines[0]?.startsWith(`${row.name} ·`))??[];return lines.map((line,i)=>i===0?`${row.error||Number(row.total)<=0?'—':`${index+1}.`} ${deps.deckName(Number(row.deckId))} · ${line}`:line);});
       const skillLines=skillTotalLines(pairs.flatMap(p=>growthSkillPlan(p.before.request,p.after.request,p.excluded,deps.settings)));
       const unified=globalRows(); const unifiedHeight=unified.length?90+unified.length*29:0;
-      canvas.height=Math.ceil(112+unifiedHeight+(moduleLines.length?100+moduleLines.length*25:0)+80+skillLines.length*25+sections.reduce((sum,s)=>sum+100+s.height+s.pair.before.request.squad.filter(Boolean).length*48+30+Math.max(1,s.pair.reportGaps.length)*23+35+(s.pair.priority.length ? 65+s.pair.priority.length*48 : 0),0))*2;
+      canvas.height=Math.ceil(112+unifiedHeight+(skillReport.length?100+skillReport.length*25:0)+(moduleLines.length?100+moduleLines.length*25:0)+80+skillLines.length*25+sections.reduce((sum,s)=>sum+100+s.height+s.pair.before.request.squad.filter(Boolean).length*48+30+Math.max(1,s.pair.reportGaps.length)*23+35+(s.pair.priority.length ? 65+s.pair.priority.length*48 : 0),0))*2;
       if(canvas.height>32000) throw new Error('보고서가 너무 깁니다. 덱 수를 줄여 주세요.');
       const ctx=canvas.getContext('2d'); if(!ctx) throw new Error('이미지 생성이 지원되지 않습니다.');
       ctx.fillStyle='#080e19'; ctx.fillRect(0,0,canvas.width,canvas.height);
@@ -523,6 +559,11 @@ export function openGrowthEfficiency(batch: BatchResult, deps: Deps): void {
         write('전체 덱 육성 우선순위 · 단독 육성 시 덱 총딜 증가량 순',28,y+22,22,'#ad9cff');
         write('후보별 독립 비교 · 증가량 합산 불가 · 같은 니케도 덱별 구분 · 비용 미반영',28,y+49,14,'#a2b2c9');y+=78;
         unified.forEach((row,index)=>{write(`${index+1}. ${deps.deckName(row.deckId)} · ${row.name} · 덱 ${row.gain>=0?'+':''}${formatDamage(row.gain)} (${percent(row.before,row.after)})${row.gain<=0?' · 육성 보류':''}`,28,y,16);y+=29;});y+=12;
+      }
+      if(skillReport.length){
+        write('전체 덱 스킬칩 가성비 우선순위 · 매뉴얼 III 환산 1개당 덱 딜 증가량 순',28,y+22,22,'#8be0d4');
+        write('스킬 레벨만 비교 · 매뉴얼 I·II 제외 · 버스트 III 1개 = 스킬 III 2개(30 DAY 상자 교환비) · 코드 매뉴얼 미반영',28,y+49,14,'#a2b2c9');y+=78;
+        for(const line of skillReport){write(line,28,y,16);y+=25;}y+=22;
       }
       if(moduleLines.length){
         write('전체 덱 모듈 가성비 우선순위 · 모듈 1개당 덱 딜 증가량 순',28,y+22,22,'#8be0d4');

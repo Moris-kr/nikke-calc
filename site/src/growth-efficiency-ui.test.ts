@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { growthLabel, openGrowthEfficiency, openGrowthReportPreview } from './growth-efficiency-ui';
+import { skillManualIIIUnits } from './growth-report';
 import type { BatchResult, SettingsCatalog, SimulationRequest, SimulationResult } from './types';
 const steps = Array.from({length:15},(_,i)=>i+1);
 const settingsTemplate = {overloadSteps:{atk:steps,ammo:steps},overloadFields:{atk:{label:'공격력'},ammo:{label:'장탄'}},characters:{A:{overload:{atk:2}}}} as unknown as SettingsCatalog;
@@ -184,6 +185,37 @@ describe('growth efficiency dialog',()=>{
   expect(simulate.mock.calls[1]![0].characters.A).toMatchObject({skillLevels:{'1':10,'2':9,'3':8},collection:{stage:'SR15',favorite:0},equipLevels:{머리:3}});
   expect(simulate.mock.calls[0]![0]).toEqual(request);
  });
+});
+
+it('전체 덱 스킬칩 가성비 — 스킬만 목표로 올린 딜 증가를 매뉴얼 III 환산 개수로 나눠 모듈 가성비 위에 보인다',async()=>{
+  const name='신 : 스위프트 바니';
+  const configured=structuredClone(settings);
+  configured.characters={[name]:{overload:{atk:2},skillLevels:{'1':4,'2':5,'3':6}}} as unknown as SettingsCatalog['characters'];
+  const req={...structuredClone(request),squad:[name],characters:{[name]:{overload:{atk:2},skillLevels:{'1':4,'2':5,'3':6}}}} as unknown as SimulationRequest;
+  const b={total:100,decks:[{deckId:1,request:req,result:{squadTotal:100,charTotals:{[name]:100}}}]} as unknown as BatchResult;
+  // 현재 100 → 목표 육성 150 → 스킬만 올린 판 130.
+  const simulate=vi.fn().mockImplementation(async(r:SimulationRequest)=>{
+    const lv=r.characters?.[name]?.skillLevels;
+    const n=lv?.['1']===10&&!r.characters?.[name]?.equipLevels?.머리?(JSON.stringify(r.characters?.[name]?.overload)===JSON.stringify({atk:2})?130:150):100;
+    return {squadTotal:n,charTotals:{[name]:n}} as unknown as SimulationResult;
+  });
+  openGrowthEfficiency(b,{settings:configured,catalog:new Map(),deckName:()=> '덱 1',current:()=>({overloadLines:{머리:[{option:'atk',level:2}]},skillLevels:{'1':4,'2':5,'3':6}}),simulate});
+  const select=(label:string,value:string)=>{const el=document.querySelector<HTMLSelectElement>(`select[aria-label="덱 1 ${name} ${label}"]`)!;el.value=value;el.dispatchEvent(new Event('change'));};
+  select('목표 스킬1','10');select('목표 스킬2','10');select('목표 버스트','10');
+  document.querySelector<HTMLButtonElement>('.growth-primary')!.click();
+  await vi.waitFor(()=>expect(document.querySelector('.growth-skill-priority')).not.toBeNull(),{timeout:5000});
+  const section=document.querySelector<HTMLElement>('.growth-skill-priority')!;
+  expect(section.querySelector('h3')!.textContent).toBe('전체 덱 스킬칩 가성비 우선순위');
+  const units=skillManualIIIUnits({name,current:[4,5,6],target:[10,10,10]});
+  expect(units.units).toBe(units.skill3+2*units.burst3);
+  expect(section.textContent).toContain(`덱 1 · ${name}`);
+  expect(section.textContent).toContain(`환산 ${units.units.toLocaleString('ko-KR')}개`);
+  // 스킬만 올린 판은 현재 판에서 스킬 레벨만 바꾼 요청이다.
+  const skillOnly=simulate.mock.calls.map(c=>c[0] as SimulationRequest).find(r=>JSON.stringify(r.characters?.[name]?.overload)===JSON.stringify({atk:2})&&r.characters?.[name]?.skillLevels?.['1']===10)!;
+  expect(skillOnly.characters![name]!.skillLevels).toEqual({'1':10,'2':10,'3':10});
+  // 모듈 가성비 섹션이 있으면 스킬칩 섹션이 그 위다.
+  const cost=document.querySelector('.growth-cost-results');
+  if(cost) expect(section.compareDocumentPosition(cost)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 
 it('keeps browser calculation but exposes no external engine exchange',()=>{

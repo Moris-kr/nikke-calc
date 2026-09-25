@@ -1,4 +1,18 @@
-import { calculatePlan, MATERIAL_NAMES, type PlanRow } from './skill-planner';
+import { calculatePlan, CHEST_EXCHANGE, MATERIAL_NAMES, type PlanRow } from './skill-planner';
+
+/** 스킬칩 가성비의 비용 — 매뉴얼 III만 센다(I·II는 가치가 낮다, 유저 지정 2026-09-25). */
+export const SKILL_III = '7091003';
+export const BURST_III = '7092003';
+/** 버스트 매뉴얼 III 1개 = 스킬 매뉴얼 III 몇 개인가 — 30 DAY 성장 보급 상자 교환비(8 : 4)에서. */
+export const BURST_III_IN_SKILL_III = CHEST_EXCHANGE[SKILL_III]! / CHEST_EXCHANGE[BURST_III]!;
+
+/** 한 니케의 스킬 목표에 드는 매뉴얼 III과 스킬 매뉴얼 III 환산 개수. */
+export function skillManualIIIUnits(row: PlanRow): { skill3: number; burst3: number; units: number } {
+  const required = calculatePlan([row], {}).required;
+  const skill3 = required[SKILL_III] ?? 0;
+  const burst3 = required[BURST_III] ?? 0;
+  return { skill3, burst3, units: skill3 + burst3 * BURST_III_IN_SKILL_III };
+}
 import type { SimulationRequest, SettingsCatalog } from './types';
 
 export function growthSkillPlan(before: SimulationRequest, after: SimulationRequest, excluded: string[], settings: SettingsCatalog): PlanRow[] {

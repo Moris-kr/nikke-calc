@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import {describe,it,expect} from 'vitest';
 import {growthReportHtml,mergeSkillPlans,rankModuleResults,skillMaterialLines,skillTotalLines} from './growth-report';
+import { BURST_III_IN_SKILL_III, skillManualIIIUnits } from './growth-report';
 import {calculatePlan,MATERIAL_NAMES} from './skill-planner';
 describe('growth result exports',()=>{
  it('exports all collapsed results as offline readable HTML without action buttons',()=>{
@@ -21,4 +22,16 @@ describe('growth result exports',()=>{
   const rows=[{deckId:1,name:'A',total:10,damagePerModule:2},{deckId:2,name:'B',total:30,damagePerModule:9},{deckId:1,name:'C',total:0,damagePerModule:0},{deckId:3,name:'D',error:'missing'}];
   expect(rankModuleResults(rows).map(row=>row.name)).toEqual(['B','A','C','D']);expect(rows[0]?.name).toBe('A');
  });
+});
+
+describe('스킬칩 가성비 비용 — 매뉴얼 III만', () => {
+  it('스킬 매뉴얼 III + 버스트 매뉴얼 III × 2(30 DAY 상자 교환비 8 : 4)로 환산한다', () => {
+    expect(BURST_III_IN_SKILL_III).toBe(2);
+    const row = { name: '신 : 스위프트 바니', current: [1, 1, 1], target: [10, 10, 10] };
+    const units = skillManualIIIUnits(row);
+    expect(units.skill3).toBe(630);
+    expect(units.units).toBe(units.skill3 + units.burst3 * 2);
+    // 매뉴얼 I·II만 드는 구간은 비용이 0이다.
+    expect(skillManualIIIUnits({ ...row, current: [1, 1, 1], target: [2, 1, 1] }).units).toBe(0);
+  });
 });
