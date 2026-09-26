@@ -339,6 +339,15 @@ const collectionAllRequested = new Set<string>();
  */
 const overloadSims = new Map<string, SimState>();
 
+/**
+ * 「최적옵작」 창을 여는 자리. 판을 돌리려면 덱과 계산 스레드가 있어야 해서 계산기(ui.ts)가
+ * 채운다 — 비어 있으면(이 모듈만 따로 그리는 곳) 단추를 내지 않는다.
+ */
+let overloadOptimizer: ((name: string, value: CharacterOverrides) => void) | null = null;
+export function setOverloadOptimizer(open: ((name: string, value: CharacterOverrides) => void) | null): void {
+  overloadOptimizer = open;
+}
+
 export function renderCharacterSettings(
   container: HTMLElement,
   name: string,
@@ -897,6 +906,16 @@ export function renderCharacterSettings(
       commit(cloneOverrides(current));
     });
     heading.append(simButton);
+    if (overloadOptimizer) {
+      const best = document.createElement('button');
+      best.type = 'button';
+      best.className = 'ol-roll ol-guide ol-best';
+      best.dataset.overloadBest = '';
+      best.textContent = '최적옵작';
+      best.title = '이 덱에서 총딜이 가장 높게 나오는 오버로드 12줄 조합을 계산합니다. 누르면 방식과 계산 횟수를 먼저 보여 줍니다';
+      best.addEventListener('click', () => overloadOptimizer?.(name, cloneOverrides(current)));
+      heading.append(best);
+    }
     // 안 키운 서포터를 재 볼 때 열두 줄을 손으로 넣는 것이 가장 지겨운 일이다.
     // 정확한 스펙이 필요한 자리가 아니라 «대충 이런 장비» 하나가 필요한 자리다.
     const roll = document.createElement('button');

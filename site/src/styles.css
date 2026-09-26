@@ -2620,6 +2620,26 @@ body.bm-open { overflow: hidden; }
 /* 오버로드작 시뮬레이션 — 옵작 가이드와 같은 색, 켜지면 테두리로 안다. */
 .ol-roll.ol-sim { margin-left: 4px; }
 .ol-roll.ol-sim.is-on { box-shadow: 0 0 0 2px #ede9fe, 0 0 14px rgba(167,139,250,.45); }
+.ol-roll.ol-guide.ol-best { margin-left: 4px; background: #fcd34d; color: #3a2600; border-color: #fde68a; box-shadow: 0 0 12px rgba(252,211,77,.3); }
+.ol-roll.ol-guide.ol-best:hover { background: #fde68a; color: #2a1c00; }
+
+/* 최적옵작 창 — 캐릭터 설정 창 위에 뜬다. */
+.custom-modal.ob-modal { z-index: 80; }
+.custom-card.ob-card { width: min(680px, 100%); }
+.ob-options { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-top: 14px; }
+.ob-check { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; }
+.ob-check select { min-width: 0; }
+.ob-check > span { white-space: nowrap; }
+.ob-more { margin-top: 4px; padding-left: 0; list-style: none; }
+.ob-progress { display: block; width: 100%; height: 8px; margin-top: 12px; accent-color: var(--cyan); }
+.ob-progress[hidden] { display: none; }
+.ob-best { margin-top: 8px; padding: 12px 14px; border: 1px solid rgba(69,214,208,.4); border-radius: 10px; background: rgba(69,214,208,.06); }
+.ob-best h3 { margin: 0; color: var(--cyan); font-size: 12.5px; }
+.ob-best-label { margin: 6px 0 0; font-size: 15px; font-weight: 800; }
+.ob-layout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 14px; margin: 8px 0 0; padding: 0; list-style: none; font-size: 12px; }
+.ob-layout li { display: flex; gap: 8px; min-width: 0; }
+.ob-layout b { flex: none; min-width: 28px; color: var(--muted); }
+.ob-rank-head { margin: 16px 0 6px; font-size: 12.5px; }
 .ol-sim-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 8px; border: 1px solid rgba(196,181,253,.45); border-radius: 8px; background: rgba(167,139,250,.1); }
 .ol-sim-spent { flex: 1 1 auto; color: #ddd6fe; font: 800 10.5px/1.3 ui-monospace, monospace; font-variant-numeric: tabular-nums; }
 .ol-sim-reset { padding: 3px 8px; border: 1px solid rgba(196,181,253,.5); border-radius: 999px; background: transparent; color: #ddd6fe; font: 700 10px/1.2 inherit; font-family: inherit; cursor: pointer; }

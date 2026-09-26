@@ -75,6 +75,10 @@ export function exportSettings(): string {
     for (const [key, value] of Object.entries(char['skill_levels'] as Record<string, any>)) skillLevels[key] = int(value);
     const overload: Record<string, PyFloat> = {};
     for (const key of Object.keys(OVERLOAD_FIELDS)) overload[key] = F(pget(equip, key, 0.0));
+    // 무기 변경으로 드는 무기 — 차지 무기(SR·RL)로 바꾸는 니케를 최적옵작이 알아보게 한다.
+    const weaponChanges = [...new Set(((skills[name] || []) as any[])
+      .filter((effect) => effect && effect['type'] === 'weapon_change' && effect['weapon_type'])
+      .map((effect) => String(effect['weapon_type'])))].sort();
     characters.set(name, {
       weaponType: meta['weapon_type'],
       recommendedControl: truthy(char['control']) ? char['control'] : {},
@@ -89,6 +93,7 @@ export function exportSettings(): string {
       growthOptions: growth_options(name, meta),
       overload,
       cube: char['cube'],
+      ...(weaponChanges.length ? { weaponChanges } : {}),
       // 기본 스펙은 소장품 SR15이고, 애장품이 있는 캐릭터는 3단계로 본다
       // (`src/engine/spec.ts` §기본 육성 스펙). 실제 보유는 유저가 고른다.
       collection: {

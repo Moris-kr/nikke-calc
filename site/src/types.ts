@@ -570,6 +570,8 @@ export interface CharacterSettingsDefaults {
   skillLevelsLocked: boolean;
   overload: Record<string, number>;
   cube: CubeSelection;
+  /** 무기 변경으로 드는 무기 종류(`SR`·`RL`…). 없으면 무기 변경이 없다. 최적옵작이 차지 무기를 가를 때 쓴다. */
+  weaponChanges?: string[];
 }
 
 export interface SettingsCatalog {

@@ -7,7 +7,7 @@ import {
 import { ResultCache, type StorageLike, type StorageSource } from './cache';
 import { applyBackup, backupFileName, buildBackup, readBackup } from './backup';
 import { isCancelled } from './worker-client';
-import { renderCharacterSettings, withParticle, NO_CUBE, type CharPanelKind } from './character-settings';
+import { renderCharacterSettings, setOverloadOptimizer, withParticle, NO_CUBE, type CharPanelKind } from './character-settings';
 import {
   BLABLA_SERVERS,
   areaToOverrides,
@@ -80,6 +80,7 @@ import { coreHitChance } from './boss-maker';
 import { DISTANCE_PRESET_LABEL, distanceScale, distanceWeapons } from './distance';
 import { mountOverloadLab } from './overload-lab';
 import { mountDeckLab } from './deck-lab-ui';
+import { openOverloadOptimizer } from './overload-optimizer-ui';
 import { lockCardForRaid, lockTapRateForRaid, mountRaid, openidFromProfileUrl, RAID_LOCK_NOTE, type RaidHandle } from './raid';
 import { openGrowthEfficiency } from './growth-efficiency-ui';
 import { EXTERNAL_LINKS, hostOf } from './external-links';
@@ -7892,20 +7893,21 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   // ── 덱 실험실 — 최적큐브 찾기 · 니케 경우의 수 ──────────────────────────
   // 판을 여러 번 돌리는 두 창. 전투 조건은 지금 화면 값, 난수만 기대값으로 고정한다.
   // 결과 캐시(30칸)는 쓰지 않는다 — 수십 판이 사람이 본 결과를 밀어낸다.
+  const labRun = async (deck: DeckState) => {
+    await prepared;
+    const custom = customPayload();
+    const request = requestForDeck(deck, { ...readBattle(), rngMode: 'expected' },
+      Object.keys(custom).length > 0 ? custom : undefined, { stateTrack: false });
+    const errors = validateRequest(request);
+    if (errors.length > 0) throw new Error(errors[0]);
+    return client.simulate(request);
+  };
   const deckLab = mountDeckLab(root, {
     settings,
     catalog: [...catalogByName.values()],
     activeDeck,
     deckLabel: () => deckLabelFull(activeDeck()),
-    run: async (deck) => {
-      await prepared;
-      const custom = customPayload();
-      const request = requestForDeck(deck, { ...readBattle(), rngMode: 'expected' },
-        Object.keys(custom).length > 0 ? custom : undefined, { stateTrack: false });
-      const errors = validateRequest(request);
-      if (errors.length > 0) throw new Error(errors[0]);
-      return client.simulate(request);
-    },
+    run: labRun,
     overridesFor: (name) => (carryOverSettings ? settingsFromOtherDeck(name) : undefined)
       ?? (roster[name] ? cloneOverride(roster[name]!) : undefined),
     knownCubeLevels: () => {
@@ -7942,6 +7944,26 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
   });
   element<HTMLButtonElement>(root, '[data-cube-finder-open]').addEventListener('click', () => deckLab.openCubeFinder());
   element<HTMLButtonElement>(root, '[data-nikke-cases-open]').addEventListener('click', () => deckLab.openNikkeCases());
+  // 최적옵작 — 캐릭터 설정의 오버로드 머리줄에서 연다. 지금 보고 있는 덱으로 잰다.
+  let closeOverloadOptimizer: (() => void) | null = null;
+  setOverloadOptimizer((name, value) => {
+    const deck = activeDeck();
+    if (!deck.squad.includes(name)) return;
+    const snapshot = structuredClone(deck);
+    // 설정 판이 들고 있는 값이 최신이다(방금 고친 줄까지).
+    snapshot.characters[name] = structuredClone(value);
+    closeOverloadOptimizer = openOverloadOptimizer({
+      settings,
+      run: labRun,
+      parallel: () => (parallelOn ? parallelCount : 1),
+    }, {
+      deck: snapshot,
+      deckLabel: deckLabelFull(deck),
+      name,
+      weaponType: catalogByName.get(name)?.weaponType ?? settings.characters[name]?.weaponType,
+      weaponChanges: settings.characters[name]?.weaponChanges ?? [],
+    });
+  });
 
   mountOverloadLab(element<HTMLElement>(root, '[data-overload-lab]'), {
     catalog: [...catalogByName.values()],
@@ -8745,5 +8767,5 @@ export function mountCalculator(root: HTMLElement, deps: CalculatorDependencies)
     }
   });
 
-  return () => { lifetime.abort(); deckLab.dispose(); window.removeEventListener('popstate', restoreViewUrl); window.removeEventListener('hashchange', restoreViewUrl); stopCountdown(); stopLocalize(); client.dispose(); browserMcp.disconnect(); window.removeEventListener('pagehide', disconnectMcp); };
+  return () => { lifetime.abort(); deckLab.dispose(); setOverloadOptimizer(null); closeOverloadOptimizer?.(); window.removeEventListener('popstate', restoreViewUrl); window.removeEventListener('hashchange', restoreViewUrl); stopCountdown(); stopLocalize(); client.dispose(); browserMcp.disconnect(); window.removeEventListener('pagehide', disconnectMcp); };
 }
