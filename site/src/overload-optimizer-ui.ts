@@ -56,6 +56,15 @@ const pct = (base: number, value: number): string => {
   return `${diff >= 0 ? '+' : ''}${diff.toFixed(2)}%`;
 };
 
+/**
+ * 지금 줄 대비 차이 — 억 단위 딜 차이와 퍼센트를 함께 적는다. 퍼센트만으로는 «그래서 얼마나 오르나»가
+ * 덱마다 달라 감이 안 온다는 피드백(2026-09-27)이 있었다. 억 표기는 말에 맞춘다(`formatDamage`).
+ */
+const vsBase = (base: number, value: number): string => {
+  const diff = value - base;
+  return `${diff >= 0 ? '+' : ''}${formatDamage(diff)} (${pct(base, value)})`;
+};
+
 interface Scored { allocation: Allocation; total: number; own: number }
 
 /** 내부 부위 키는 '팔'이지만 화면 표기는 '장갑'이다(캐릭터 설정과 같게). */
@@ -404,7 +413,7 @@ export function openOverloadOptimizer(deps: OptimizerDeps, context: OptimizerCon
     summary.append(el('p', 'ob-best-label', allocationLabel(best.allocation, labelOf)));
     const totals = el('p', 'deck-lab-summary');
     totals.append(el('b', '', t('덱 총딜 {value}', { value: formatDamage(best.total) })),
-      el('span', best.total >= base.squadTotal ? 'is-up' : 'is-down', ` ${t('지금 줄 대비 {diff}', { diff: pct(base.squadTotal, best.total) })}`),
+      el('span', best.total >= base.squadTotal ? 'is-up' : 'is-down', ` ${t('지금 줄 대비 {diff}', { diff: vsBase(base.squadTotal, best.total) })}`),
       el('span', 'deck-lab-muted', ` · ${t('{name} 딜 {value}', { name: who, value: formatDamage(best.own) })}`));
     summary.append(totals);
     // 부위별로 놓는 한 가지 방법 — 한 부위에 같은 옵션이 두 번 들지 않게 나눈다.
@@ -437,7 +446,7 @@ export function openOverloadOptimizer(deps: OptimizerDeps, context: OptimizerCon
       const value = el('span', 'deck-lab-num');
       value.append(el('b', '', formatDamage(entry.total)));
       // 지금 줄로 잰 덱 총딜 대비 — 1위와의 차이보다 «지금보다 얼마나 오르나»가 판단에 쓰인다.
-      value.append(el('span', entry.total >= base.squadTotal ? 'is-up' : 'is-down', ` ${pct(base.squadTotal, entry.total)}`));
+      value.append(el('span', entry.total >= base.squadTotal ? 'is-up' : 'is-down', ` ${vsBase(base.squadTotal, entry.total)}`));
       line.append(value);
       row.append(line);
       list.append(row);

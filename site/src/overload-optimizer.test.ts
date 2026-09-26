@@ -141,7 +141,8 @@ describe('최적옵작 창', () => {
     // 상위 조합의 퍼센트는 1위가 아니라 지금 줄로 잰 총딜 대비다 — 1위 줄은 요약의 «지금 줄 대비»와 같다.
     const firstPct = modal.querySelector('[data-overload-best-row="1"] .deck-lab-num span')?.textContent?.trim();
     expect(modal.querySelector('.deck-lab-summary')?.textContent).toContain(`지금 줄 대비 ${firstPct}`);
-    expect(firstPct).toMatch(/^\+/);
+    // 억 단위 차이와 퍼센트를 함께 — «+딜 (+퍼센트%)».
+    expect(firstPct).toMatch(/^\+[\d,.]+.* \(\+\d+\.\d{2}%\)$/);
     expect(modal.querySelector('.ob-rank-head')?.textContent).toContain('지금 줄 총딜 대비');
     expect(modal.querySelector('[data-overload-best-status]')?.textContent).toContain('끝났습니다');
   });
