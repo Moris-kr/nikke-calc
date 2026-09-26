@@ -4952,22 +4952,22 @@ export class BuffManager {
       const caster_def = this._effective_def(caster);
       return this.squad_names.filter((n) => this._effective_def(n) < caster_def);
     }
+    // 아래 셋은 원문이 «**기본** 버스트 단계 Step 3»이다 — `state.burst_stages`(지금 유효 단계)가 아니라
+    // 캐릭터의 기본 단계를 본다. 라피 : 레드 후드처럼 1버로 쓰는 동안(`burst_stage_override:1`)에도
+    // 기본 단계는 3이다(유저 피드백 2026-09-26: 1버 레드 후드가 에이다 버프를 못 받던 문제).
     if (ts === 'allies_burst3') {
-      const burst_stages = get(this.state, 'burst_stages', {});
-      return this.squad_names.filter((n) => get(burst_stages, n, null) === '3');
+      return this.squad_names.filter((n) => this._base_burst_stage(n) === '3');
     }
     // "자신을 제외한 기본 버스트 단계 Step3인 페르소나 상태 아군 전체".
     if (ts === 'allies_burst3_persona_excl_self') {
-      const burst_stages = get(this.state, 'burst_stages', {});
       return this.squad_names.filter(
-        (n) => n !== caster && get(burst_stages, n, null) === '3' && this._has_persona_state(n));
+        (n) => n !== caster && this._base_burst_stage(n) === '3' && this._has_persona_state(n));
     }
-    // "직전에 버스트 스킬을 사용한 기본 버스트 단계 Step 3 아군" — burst_casted ∩ B3.
+    // "직전에 버스트 스킬을 사용한 기본 버스트 단계 Step 3 아군" — burst_casted ∩ 기본 B3.
     if (ts === 'allies_burst_casted_burst3') {
       const casted = get(this.state, 'burst_casted', {});
-      const burst_stages = get(this.state, 'burst_stages', {});
       return this.squad_names.filter(
-        (n) => truthy(get(casted, n)) && get(burst_stages, n, null) === '3');
+        (n) => truthy(get(casted, n)) && this._base_burst_stage(n) === '3');
     }
 
     // 적 관련 (타임라인 처리)
@@ -4979,6 +4979,12 @@ export class BuffManager {
 
     // 커버, 발사체 등
     return [];
+  }
+
+  /** 캐릭터의 기본 버스트 단계(데이터 그대로). 1버 대체 같은 지금 유효 단계는 `state.burst_stages`다. */
+  _base_burst_stage(name: string): string | null {
+    const stage = get(get(_NIKKE(), name, {}), 'burst_stage', null);
+    return stage == null ? null : String(stage);
   }
 
   // py: calculator/buff_manager.py:4101
