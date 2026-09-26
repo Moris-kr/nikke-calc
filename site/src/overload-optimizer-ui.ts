@@ -436,14 +436,15 @@ export function openOverloadOptimizer(deps: OptimizerDeps, context: OptimizerCon
       line.append(el('b', 'deck-lab-rank', `${index + 1}`), el('span', 'deck-lab-case-squad', allocationLabel(entry.allocation, labelOf)));
       const value = el('span', 'deck-lab-num');
       value.append(el('b', '', formatDamage(entry.total)));
-      value.append(el('span', index === 0 ? 'is-up' : 'is-down', ` ${index === 0 ? t('최고') : pct(best.total, entry.total)}`));
+      // 지금 줄로 잰 덱 총딜 대비 — 1위와의 차이보다 «지금보다 얼마나 오르나»가 판단에 쓰인다.
+      value.append(el('span', entry.total >= base.squadTotal ? 'is-up' : 'is-down', ` ${pct(base.squadTotal, entry.total)}`));
       line.append(value);
       row.append(line);
       list.append(row);
     }
     output.append(el('h4', 'ob-rank-head', fast
-      ? t('잰 조합 중 상위 {n}개 (1위 대비)', { n: Math.min(TOP_ROWS, ranked.length) })
-      : t('상위 {n}개 조합 (1위 대비)', { n: Math.min(TOP_ROWS, ranked.length) })), list);
+      ? t('잰 조합 중 상위 {n}개 (지금 줄 총딜 대비)', { n: Math.min(TOP_ROWS, ranked.length) })
+      : t('상위 {n}개 조합 (지금 줄 총딜 대비)', { n: Math.min(TOP_ROWS, ranked.length) })), list);
   }
 
   return dismiss;
