@@ -9,8 +9,9 @@ import { formatDamage } from './model';
 import { t, tName } from './i18n';
 import { LabStopped, mapLimit, type LabRun, type LabRunner } from './deck-lab';
 import {
-  allocationLabel, arrangeLines, countFor, durationLabel, enumerateAllocations, freeOptions,
-  isChargeWeapon, PARTS, progressOf, totalsOf, type Allocation, type OptimizerSetup,
+  allocationKey, allocationLabel, arrangeLines, countFor, durationLabel, enumerateAllocations, fastBudget,
+  fastSearch, FAST_BEAM, fastTypical, freeOptions, isChargeWeapon, PARTS, progressOf, seedSetup,
+  totalsOf, type Allocation, type OptimizerSetup,
 } from './overload-optimizer';
 import type { DeckState, SettingsCatalog } from './types';
 
@@ -19,6 +20,8 @@ import type { DeckState, SettingsCatalog } from './types';
  * 든다. 둘 다 풀면 2만 판이 넘어(수십 분) 전수로는 돌리지 않는다.
  */
 export const RUN_LIMIT = 2500;
+/** 조합이 이보다 많으면 처음부터 빠른 탐색을 고른다(전수는 수 분). */
+export const FAST_DEFAULT_OVER = 500;
 /** 줄 레벨 기본값. */
 export const DEFAULT_LINE_LEVEL = 11;
 /** 결과 표에 늘어놓는 조합 수. */
@@ -118,6 +121,18 @@ export function openOverloadOptimizer(deps: OptimizerDeps, context: OptimizerCon
   level.value = String(DEFAULT_LINE_LEVEL);
   levelBox.append(level);
   options.append(levelBox);
+  // 계산 방식 — 고정을 하나라도 풀었을 때만 고른다(둘 다 고정이면 전수가 10초 남짓이다).
+  const modeBox = el('label', 'ob-check');
+  modeBox.append(el('span', '', t('계산 방식')));
+  const mode = el('select');
+  mode.dataset.overloadBestMode = '';
+  const exactOption = el('option', '', t('전수 계산 (정확)'));
+  exactOption.value = 'exact';
+  const fastOption = el('option', '', t('빠른 탐색 (근사)'));
+  fastOption.value = 'fast';
+  mode.append(exactOption, fastOption);
+  modeBox.append(mode);
+  options.append(modeBox);
   card.append(options);
 
   const count = el('p', 'deck-lab-count');
@@ -166,16 +181,37 @@ export function openOverloadOptimizer(deps: OptimizerDeps, context: OptimizerCon
       time: durationLabel((Math.ceil(runs / lanes) * baseline.ms) / 1000), n: lanes,
     });
   };
+  /** 고정을 바꿀 때마다 계산 방식을 알맞게 다시 고른다 — 전수가 너무 길면 빠른 탐색. */
+  const pickMode = () => {
+    const now = setup();
+    const n = countFor(now);
+    const both = now.fixElement && now.fixAtk;
+    modeBox.hidden = both;
+    exactOption.disabled = n > RUN_LIMIT;
+    mode.value = both || n <= FAST_DEFAULT_OVER ? 'exact' : 'fast';
+  };
+  const fastMode = (): boolean => !modeBox.hidden && mode.value === 'fast';
   const paint = () => {
     const now = setup();
     const n = countFor(now);
-    const over = n > RUN_LIMIT;
-    count.textContent = over
-      ? t('조합 {n}개 — {max}개를 넘어 전수 계산하지 않습니다. 우월 코드나 공격력 고정을 켜 주세요.', { n: n.toLocaleString('ko-KR'), max: RUN_LIMIT.toLocaleString('ko-KR') })
-      : `${t('조합 {n}개를 계산합니다 — 남은 {lines}줄을 {m}가지 옵션({list})에서 고릅니다.', {
-        n: n.toLocaleString('ko-KR'), lines: 12 - (now.fixElement ? 4 : 0) - (now.fixAtk ? 4 : 0),
-        m: freeOptions(now).length, list: freeOptions(now).map(labelOf).join(' · '),
-      })} ${estimate(n)}`;
+    const over = n > RUN_LIMIT && !fastMode();
+    const lines = 12 - (now.fixElement ? 4 : 0) - (now.fixAtk ? 4 : 0);
+    const list = freeOptions(now).map(labelOf).join(' · ');
+    if (fastMode()) {
+      const seed = countFor(seedSetup(now));
+      const typical = fastTypical(now);
+      count.textContent = `${t('조합 {n}개 — 빠른 탐색: 1단계로 우월 코드·공격력 4줄 조합 {seed}개를 전부 잰 뒤, 2단계로 지금까지 상위 {beam}개 조합에서 한두 줄씩 다른 옵션({list})으로 옮겨 보며 상위가 더 바뀌지 않을 때까지 찾습니다.', {
+        n: n.toLocaleString('ko-KR'), seed, list, beam: FAST_BEAM,
+      })} ${t('보통 {typ}판 이하 · 최대 {max}판 · {eta}', {
+        typ: typical.toLocaleString('ko-KR'), eta: estimate(typical), max: fastBudget(now).toLocaleString('ko-KR'),
+      })}`;
+    } else {
+      count.textContent = over
+        ? t('조합 {n}개 — {max}개를 넘어 전수 계산하지 않습니다. 빠른 탐색을 쓰거나 고정을 켜 주세요.', { n: n.toLocaleString('ko-KR'), max: RUN_LIMIT.toLocaleString('ko-KR') })
+        : `${t('조합 {n}개를 계산합니다 — 남은 {lines}줄을 {m}가지 옵션({list})에서 고릅니다.', {
+          n: n.toLocaleString('ko-KR'), lines, m: freeOptions(now).length, list,
+        })} ${estimate(n)}`;
+    }
     count.classList.toggle('is-over', over);
     const variant = (fixE: boolean, fixA: boolean) => countFor({ fixElement: fixE, fixAtk: fixA, charge }).toLocaleString('ko-KR');
     more.textContent = t('고정을 풀면 계산이 늘어납니다: 둘 다 고정 {both}개 · 우월 코드만 풀면 {e}개 · 공격력만 풀면 {a}개 · 둘 다 풀면 {none}개', {
@@ -183,8 +219,9 @@ export function openOverloadOptimizer(deps: OptimizerDeps, context: OptimizerCon
     });
     start.disabled = running || over || !baseline;
   };
-  fixElement.addEventListener('change', paint);
-  fixAtk.addEventListener('change', paint);
+  fixElement.addEventListener('change', () => { pickMode(); paint(); });
+  fixAtk.addEventListener('change', () => { pickMode(); paint(); });
+  mode.addEventListener('change', paint);
 
   const dismiss = () => {
     if (closed) return;
@@ -210,6 +247,7 @@ export function openOverloadOptimizer(deps: OptimizerDeps, context: OptimizerCon
     return deck;
   };
 
+  pickMode();
   paint();
   const began = performance.now();
   void deps.run(structuredClone(context.deck)).then((result) => {
@@ -225,15 +263,16 @@ export function openOverloadOptimizer(deps: OptimizerDeps, context: OptimizerCon
   async function runAll(): Promise<void> {
     if (running || !baseline) return;
     const now = setup();
-    const allocations = enumerateAllocations(now);
-    if (allocations.length > RUN_LIMIT) return;
+    const fast = fastMode();
+    const allocations = fast ? [] : enumerateAllocations(now);
+    if (!fast && allocations.length > RUN_LIMIT) return;
     running = true;
     const token = ++runToken;
     stopped = false;
     start.disabled = true;
     stop.hidden = false;
     stop.disabled = false;
-    fixElement.disabled = fixAtk.disabled = level.disabled = true;
+    fixElement.disabled = fixAtk.disabled = level.disabled = mode.disabled = true;
     bar.hidden = false;
     bar.value = 0;
     output.replaceChildren();
@@ -247,6 +286,10 @@ export function openOverloadOptimizer(deps: OptimizerDeps, context: OptimizerCon
         ? t('{p}% · {done}/{total}판', { p: percent, done, total: allocations.length })
         : t('{p}% · {done}/{total}판 · 남은 시간 약 {left}', { p: percent, done, total: allocations.length, left: durationLabel(remainingSec) });
     };
+    if (fast) {
+      await runFast(now, token, t0);
+      return;
+    }
     tick();
     try {
       const scored = await mapLimit(allocations, Math.max(1, deps.parallel()) + 1, async (allocation): Promise<Scored | null> => {
@@ -277,12 +320,78 @@ export function openOverloadOptimizer(deps: OptimizerDeps, context: OptimizerCon
     } finally {
       running = false;
       stop.hidden = true;
-      fixElement.disabled = fixAtk.disabled = level.disabled = false;
+      fixElement.disabled = fixAtk.disabled = level.disabled = mode.disabled = false;
       if (!closed) paint();
     }
   }
 
-  function render(ranked: Scored[]): void {
+  /**
+   * 빠른 탐색. 몇 회차에서 멈출지 미리 알 수 없어 진행 막대는 **지금 단계(회차) 기준**이다 —
+   * 회차마다 잴 조합 수는 그 회차를 시작할 때 정해진다. 남은 시간도 그 단계 몫이다.
+   */
+  async function runFast(now: OptimizerSetup, token: number, t0: number): Promise<void> {
+    const seedCount = countFor(seedSetup(now));
+    const own = new Map<string, number>();
+    let done = 0;
+    let phaseDone = 0;
+    let phaseSize = seedCount;
+    let label = '';
+    const tick = () => {
+      if (token !== runToken || !running) return;
+      const elapsed = performance.now() - t0;
+      const phasePct = phaseSize > 0 ? Math.min(100, Math.floor((phaseDone / phaseSize) * 100)) : 100;
+      bar.value = phasePct;
+      // 한 판에 드는 시간은 지금까지 전체 평균으로 잰다 — 회차 첫머리에도 흔들리지 않는다.
+      const perRun = done >= 3 ? elapsed / done : null;
+      status.textContent = perRun == null
+        ? t('{phase} {p}% · {d}/{n}판 · 누적 {done}판', { phase: label, p: phasePct, d: phaseDone, n: phaseSize, done })
+        : t('{phase} {p}% · {d}/{n}판 · 누적 {done}판 · 이 단계 남은 시간 약 {left}', {
+          phase: label, p: phasePct, d: phaseDone, n: phaseSize, done,
+          left: durationLabel(((phaseSize - phaseDone) * perRun) / 1000),
+        });
+    };
+    try {
+      const result = await fastSearch(now, async (batch, phase) => {
+        label = phase.stage === 1 ? t('1단계') : t('2단계 {r}회차', { r: phase.round });
+        phaseDone = 0;
+        phaseSize = batch.length;
+        tick();
+        return mapLimit(batch, Math.max(1, deps.parallel()) + 1, async (allocation) => {
+          try {
+            const run = await deps.run(deckWith(allocation));
+            own.set(allocationKey(allocation), run.charTotals[context.name] ?? 0);
+            return run.squadTotal;
+          } catch (error) {
+            if (error instanceof LabStopped) throw error;
+            return null;
+          } finally {
+            done += 1;
+            phaseDone += 1;
+            if (!closed) tick();
+          }
+        }, () => stopped || closed);
+      });
+      if (closed) return;
+      bar.value = 100;
+      status.textContent = t('끝났습니다 · 빠른 탐색 {n}판 · {time}', { n: done, time: durationLabel((performance.now() - t0) / 1000) });
+      render(result.ranked.map((entry) => ({ ...entry, own: own.get(allocationKey(entry.allocation)) ?? 0 })), {
+        runs: done, rounds: result.rounds, converged: result.converged,
+      });
+    } catch (error) {
+      if (closed) return;
+      runToken += 1;
+      status.textContent = error instanceof LabStopped || stopped
+        ? t('중지했습니다 (누적 {done}판).', { done })
+        : t('계산에 실패했습니다: {msg}', { msg: error instanceof Error ? error.message : String(error) });
+    } finally {
+      running = false;
+      stop.hidden = true;
+      fixElement.disabled = fixAtk.disabled = level.disabled = mode.disabled = false;
+      if (!closed) paint();
+    }
+  }
+
+  function render(ranked: Scored[], fast?: { runs: number; rounds: number; converged: boolean }): void {
     const best = ranked[0];
     if (!best || !baseline) {
       output.append(el('p', 'deck-lab-muted', t('계산된 조합이 없습니다.')));
@@ -309,6 +418,14 @@ export function openOverloadOptimizer(deps: OptimizerDeps, context: OptimizerCon
     summary.append(layout);
     const ties = ranked.filter((entry) => Math.abs(entry.total - best.total) <= Math.abs(best.total) * 1e-7).length;
     if (ties > 1) summary.append(el('p', 'deck-lab-notes', t('덱 총딜이 똑같은 조합이 {n}개 있습니다 — 이 니케에게 효과가 없는 옵션끼리는 무엇을 넣어도 같습니다.', { n: ties })));
+    if (fast) {
+      const note = el('p', 'deck-lab-notes ob-fast-note');
+      note.dataset.overloadBestFast = '';
+      note.textContent = fast.converged
+        ? t('빠른 탐색 결과입니다 — {runs}판을 쟀고, 2단계 {r}회차에서 상위 조합이 더 바뀌지 않아 멈췄습니다. 전수 계산이 아니라 드물게 더 좋은 조합을 놓칠 수 있습니다.', { runs: fast.runs, r: fast.rounds })
+        : t('빠른 탐색 결과입니다 — {runs}판을 쟀고, 회차 상한({r}회차)까지 계속 나아져 거기서 멈췄습니다. 이 조합에서 한 번 더 돌리면 더 나아질 수 있습니다.', { runs: fast.runs, r: fast.rounds });
+      summary.append(note);
+    }
     output.append(summary);
 
     const list = el('ol', 'deck-lab-cases ob-rank');
@@ -324,7 +441,9 @@ export function openOverloadOptimizer(deps: OptimizerDeps, context: OptimizerCon
       row.append(line);
       list.append(row);
     }
-    output.append(el('h4', 'ob-rank-head', t('상위 {n}개 조합 (1위 대비)', { n: Math.min(TOP_ROWS, ranked.length) })), list);
+    output.append(el('h4', 'ob-rank-head', fast
+      ? t('잰 조합 중 상위 {n}개 (1위 대비)', { n: Math.min(TOP_ROWS, ranked.length) })
+      : t('상위 {n}개 조합 (1위 대비)', { n: Math.min(TOP_ROWS, ranked.length) })), list);
   }
 
   return dismiss;

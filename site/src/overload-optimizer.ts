@@ -147,3 +147,114 @@ export function durationLabel(seconds: number): string {
   const rest = s % 60;
   return rest ? `${m}분 ${rest}초` : `${m}분`;
 }
+
+// ── 빠른 탐색 ────────────────────────────────────────────────────────────
+// 고정을 풀면 조합이 수천~2만 개로 늘어 전수로는 수 분~수십 분이 걸린다. 그래서
+//   1단계: 4우·4공 고정 조합(126·35개)을 전부 잰다 — 대부분의 답이 이 안에 있다.
+//   2단계: 지금까지 가장 좋은 조합 **몇 개(빔)** 에서 한 줄 또는 두 줄을 다른 옵션으로 옮긴
+//          이웃을 전부 잰다. 상위 몇 개가 더 바뀌지 않으면 멈춘다.
+// 두 줄 이동을 넣은 까닭은 장탄처럼 **두 줄이 모여야 한 발이 느는** 계단 효과 때문이다 —
+// 한 줄씩만 옮기면 그 계단을 못 넘는다.
+// 1등 하나만 따라가면(빔 1) 크리티컬 확률·대미지처럼 **함께 올려야 값이 나는** 옵션을 놓친다 —
+// 전수 결과와 견준 벤치(2026-09-26, 앨리스·레드 후드 전 조합)에서 빔 1은 3위(−0.03%)에 멈췄고
+// 빔 2~3은 1위를 찾았다. 그래서 상위 3개를 함께 따라간다. 그래도 전수가 아니라 근사다.
+
+/** 빠른 탐색 2단계의 최대 회차. 벤치에서는 3~4회차에서 멈췄다. */
+export const FAST_MAX_ROUNDS = 6;
+/** 2단계에서 함께 따라가는 상위 조합 수(빔 폭). */
+export const FAST_BEAM = 3;
+
+/** 조합을 가리키는 열쇠 — 옵션 순서대로 줄 수를 잇는다. */
+export const allocationKey = (allocation: Allocation): string =>
+  OPTIMIZER_OPTIONS.map((key) => allocation[key] ?? 0).join(',');
+
+/** 빠른 탐색 1단계의 조합 — 우월·공격력 4줄 고정. */
+export const seedSetup = (setup: OptimizerSetup): OptimizerSetup => ({ ...setup, fixElement: true, fixAtk: true });
+
+/** 한 줄 또는 두 줄을 옵션 A에서 B로 옮긴 조합들. 고정된 옵션은 건드리지 않는다. */
+export function neighborsOf(allocation: Allocation, options: string[]): Allocation[] {
+  const out = new Map<string, Allocation>();
+  for (const from of options) {
+    for (const to of options) {
+      if (from === to) continue;
+      for (const move of [1, 2]) {
+        const have = allocation[from] ?? 0;
+        const room = MAX_PER_OPTION - (allocation[to] ?? 0);
+        if (have < move || room < move) continue;
+        const next: Allocation = { ...allocation, [to]: (allocation[to] ?? 0) + move };
+        if (have === move) delete next[from];
+        else next[from] = have - move;
+        out.set(allocationKey(next), next);
+      }
+    }
+  }
+  return [...out.values()];
+}
+
+/** 2단계 한 회차의 최대 이웃 수 — 옵션 쌍마다 한 줄·두 줄. */
+export const maxNeighbors = (optionCount: number): number => 2 * optionCount * (optionCount - 1);
+
+/** 빠른 탐색이 돌 수 있는 최대 판 수(상한 — 이웃이 겹치고 이미 잰 것은 다시 안 재서 실제는 훨씬 적다). */
+export const fastBudget = (setup: OptimizerSetup): number =>
+  Math.min(countFor(setup),
+    countFor(seedSetup(setup)) + FAST_MAX_ROUNDS * FAST_BEAM * maxNeighbors(freeOptions(setup).length));
+
+/**
+ * 빠른 탐색이 보통 도는 판 수(예상 시간용). 1단계 전부 + 이웃 4회차 분량 — 벤치 네 가지(앨리스·레드 후드,
+ * 조합 1,751~23,940개)에서 실제로 돈 판 수(77·263·357·473)는 모두 이 안이었고 전부 전수의 1위를 찾았다.
+ */
+export const fastTypical = (setup: OptimizerSetup): number =>
+  Math.min(fastBudget(setup), countFor(seedSetup(setup)) + 4 * maxNeighbors(freeOptions(setup).length));
+
+export interface FastScore { allocation: Allocation; total: number }
+
+export interface FastSearchResult {
+  /** 잰 조합 전부(딜 높은 순). */
+  ranked: FastScore[];
+  /** 2단계를 몇 회차 돌았나. */
+  rounds: number;
+  /** 더 나아지지 않아 멈췄나(아니면 회차 상한에 닿았다). */
+  converged: boolean;
+}
+
+/**
+ * 빠른 탐색. `evaluate`는 조합 묶음을 받아 덱 총딜(실패는 null)을 같은 순서로 돌려준다 —
+ * 판을 어떻게 돌리고 진행을 어떻게 알리는지는 부르는 쪽 몫이다.
+ */
+export async function fastSearch(
+  setup: OptimizerSetup,
+  evaluate: (allocations: Allocation[], phase: { stage: 1 | 2; round: number }) => Promise<Array<number | null>>,
+  beam = FAST_BEAM,
+): Promise<FastSearchResult> {
+  const scored = new Map<string, FastScore>();
+  /** 계산에 실패한 조합 — 다음 회차에 다시 돌리지 않는다. */
+  const failed = new Set<string>();
+  const measure = async (allocations: Allocation[], phase: { stage: 1 | 2; round: number }) => {
+    const fresh = [...new Map(allocations.map((allocation) => [allocationKey(allocation), allocation])).entries()]
+      .filter(([key]) => !scored.has(key) && !failed.has(key));
+    if (fresh.length === 0) return;
+    const totals = await evaluate(fresh.map(([, allocation]) => allocation), phase);
+    fresh.forEach(([key, allocation], index) => {
+      const total = totals[index];
+      if (total != null && Number.isFinite(total)) scored.set(key, { allocation, total });
+      else failed.add(key);
+    });
+  };
+  const topOf = (): FastScore[] => [...scored.values()].sort((a, b) => b.total - a.total).slice(0, beam);
+  const sameTop = (a: FastScore[], b: FastScore[]) =>
+    a.length === b.length && a.every((entry, index) => allocationKey(entry.allocation) === allocationKey(b[index]!.allocation));
+
+  await measure(enumerateAllocations(seedSetup(setup)), { stage: 1, round: 0 });
+  let top = topOf();
+  const options = freeOptions(setup);
+  let rounds = 0;
+  let converged = false;
+  while (top.length && rounds < FAST_MAX_ROUNDS) {
+    rounds += 1;
+    await measure(top.flatMap((entry) => neighborsOf(entry.allocation, options)), { stage: 2, round: rounds });
+    const next = topOf();
+    if (sameTop(next, top)) { converged = true; break; }
+    top = next;
+  }
+  return { ranked: [...scored.values()].sort((a, b) => b.total - a.total), rounds, converged };
+}
